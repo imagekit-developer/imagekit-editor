@@ -1,0 +1,83 @@
+import {Canvas as FabricCanvas} from "fabric";
+import {DEFAULT_ZOOM_LEVEL} from "../../../utils/constants";
+import {objectModifiedEventHandler} from "../lib/event-handlers/object_modified";
+import {objectMovingEventHandler} from "../lib/event-handlers/object_moving";
+import {objectScalingEventHandler} from "../lib/event-handlers/object_scaling";
+
+export const initializeFabric = ({
+  canvasContainerRef,
+  fabricRef,
+  canvasRef,
+}: {
+  canvasContainerRef: React.MutableRefObject<HTMLDivElement | null>;
+  fabricRef: React.MutableRefObject<FabricCanvas | null>;
+  canvasRef: React.MutableRefObject<HTMLCanvasElement | null>;
+}) => {
+  const canvas = new FabricCanvas(canvasRef.current ?? undefined, {
+    height: canvasContainerRef.current?.clientHeight,
+    width: canvasContainerRef.current?.clientWidth,
+  });
+
+  canvas.guidelines = [];
+
+  // @ts-ignore
+  window.canvas = canvas;
+  canvas.setZoom(DEFAULT_ZOOM_LEVEL);
+
+  canvas.enableRetinaScaling = true;
+
+  canvas.on("object:moving", objectMovingEventHandler);
+  canvas.on("object:scaling", objectScalingEventHandler);
+  canvas.on("object:modified", objectModifiedEventHandler);
+
+  canvas.on("mouse:down", function (opt) {
+    var evt = opt.e;
+    if (evt.altKey === true) {
+      // @ts-expect-error
+      this.isDragging = true;
+      // @ts-expect-error
+      this.selection = false;
+      // @ts-expect-error
+      this.lastPosX = evt.clientX;
+      // @ts-expect-error
+      this.lastPosY = evt.clientY;
+    }
+  });
+
+  canvas.on("mouse:move", function (opt) {
+    // @ts-expect-error
+    if (this.isDragging) {
+      var e = opt.e;
+      // @ts-expect-error
+      var vpt = this.viewportTransform;
+      // @ts-expect-error
+      vpt[4] += e.clientX - this.lastPosX;
+      // @ts-expect-error
+      vpt[5] += e.clientY - this.lastPosY;
+      // @ts-expect-error
+      this.requestRenderAll();
+      // @ts-expect-error
+      this.lastPosX = e.clientX;
+      // @ts-expect-error
+      this.lastPosY = e.clientY;
+    }
+  });
+  canvas.on("mouse:up", function (_opt) {
+    // on mouse up we want to recalculate new interaction
+    // for all objects, so we call setViewportTransform
+    // @ts-expect-error
+    this.setViewportTransform(this.viewportTransform);
+    // @ts-expect-error
+    this.isDragging = false;
+    // @ts-expect-error
+    this.selection = true;
+  });
+
+  fabricRef.current = canvas;
+
+  return canvas;
+};
+
+export * from "./guidelines";
+export * from "./loading";
+export * from "./tools";

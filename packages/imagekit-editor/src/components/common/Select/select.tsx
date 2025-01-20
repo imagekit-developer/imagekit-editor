@@ -1,0 +1,190 @@
+import * as React from "react";
+
+import {FaChevronDown} from "@react-icons/all-files/fa/FaChevronDown";
+
+import {
+  Button,
+  ButtonProps,
+  chakra,
+  forwardRef,
+  Menu,
+  MenuItemOption,
+  MenuItemOptionProps,
+  MenuList,
+  MenuListProps,
+  MenuOptionGroup,
+  MenuProps,
+  omitThemingProps,
+  ThemingProps,
+  useFormControlContext,
+  useMenuButton,
+  useMultiStyleConfig,
+} from "@chakra-ui/react";
+import {cx, dataAttr} from "@chakra-ui/utils";
+import {FieldOption} from "./types";
+
+import {
+  SelectOptions,
+  SelectProvider,
+  SelectStylesProvider,
+  useSelect,
+  useSelectContext,
+  useSelectStyles,
+} from "./select-context";
+
+export interface SelectOption extends Omit<MenuItemOptionProps, "value">, FieldOption {}
+
+export interface SelectProps<Multiple extends boolean = false, Value = Multiple extends true ? string[] : string>
+  extends Omit<MenuProps, "children" | "variant" | "size">,
+    ThemingProps<"IkSelect">,
+    SelectOptions<Multiple, Value> {
+  children: React.ReactNode;
+}
+
+export interface SelectButtonProps extends Omit<ButtonProps, "size" | "variant"> {}
+
+export const SelectButton = forwardRef<SelectButtonProps, "button">((props, ref) => {
+  const {displayValue, renderValue, placeholder, isDisabled: isSelectDisabled} = useSelectContext();
+
+  const context = useFormControlContext();
+
+  const styles = useSelectStyles();
+
+  const {isInvalid, isReadOnly, isDisabled, isFocused, isRequired, id, onBlur, onFocus} = context || {};
+
+  const {rightIcon = <FaChevronDown />, ...rest} = props;
+
+  // @ts-ignore
+  const focusStyles = styles.field?._focusVisible;
+
+  // @ts-ignore
+  const readOnlyStyles = styles.field?._readOnly;
+
+  // @ts-ignore
+  const invalid = styles.field?._invalid;
+
+  const height = styles.field?.h || styles.field?.height;
+
+  const buttonStyles: any = {
+    fontWeight: "normal",
+    textAlign: "left",
+    color: "inherit",
+    _active: {
+      bg: "transparent",
+    },
+    minH: height,
+    _focus: focusStyles,
+    _expanded: focusStyles,
+    _readOnly: readOnlyStyles,
+    _invalid: invalid,
+    minW: 0,
+    ...styles.field,
+    h: "auto",
+    ...props.sx,
+  };
+
+  const buttonProps = useMenuButton(rest, ref);
+
+  // Using a Button, so we can simply use leftIcon and rightIcon
+  return (
+    <Button
+      {...buttonProps}
+      sx={buttonStyles}
+      {...rest}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      isDisabled={isDisabled || isSelectDisabled}
+      data-invalid={dataAttr(isInvalid)}
+      data-read-only={dataAttr(isReadOnly)}
+      data-focus={dataAttr(isFocused)}
+      data-required={dataAttr(isRequired)}
+      rightIcon={rightIcon}
+    >
+      <chakra.span
+        __css={{
+          display: "block",
+          pointerEvents: "none",
+          flex: "1 1 auto",
+          minW: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {renderValue(displayValue) || placeholder}
+      </chakra.span>
+    </Button>
+  );
+});
+
+SelectButton.displayName = "SelectButton";
+
+export const Select = forwardRef((props, ref) => {
+  const {name, children, isDisabled, multiple, ...rest} = props;
+
+  const styles = useMultiStyleConfig("IKSelect", props);
+
+  const menuProps = omitThemingProps(rest);
+
+  const context = useSelect(props);
+
+  const {value, controlProps} = context;
+
+  return (
+    <SelectProvider value={context}>
+      <SelectStylesProvider value={styles}>
+        <Menu {...menuProps} closeOnSelect={!multiple}>
+          <chakra.div className={cx("ik-select")}>
+            {children}
+            <chakra.input
+              {...controlProps}
+              ref={ref}
+              name={name}
+              type="hidden"
+              value={value || ""}
+              className="ik-select__input"
+            />
+          </chakra.div>
+        </Menu>
+      </SelectStylesProvider>
+    </SelectProvider>
+  );
+}) as (<Multiple extends boolean = false>(
+  props: SelectProps<Multiple> & {
+    ref?: React.ForwardedRef<HTMLFormElement>;
+  },
+) => React.ReactElement) & {
+  displayName?: string;
+};
+
+export interface SelectListProps extends MenuListProps {}
+
+export const SelectList: React.FC<SelectListProps> = (props) => {
+  const {defaultValue, value, options, multiple, onChange} = useSelectContext();
+
+  return (
+    <MenuList maxH="100vh" overflowY="auto" {...props}>
+      <MenuOptionGroup
+        defaultValue={(defaultValue || value) as string | string[] | undefined}
+        value={value}
+        onChange={onChange}
+        type={multiple ? "checkbox" : "radio"}
+      >
+        {options
+          ? options.map(({value, label, ...rest}, i) => (
+              <SelectOption key={i} value={value} {...rest}>
+                {label || value}
+              </SelectOption>
+            ))
+          : props.children}
+      </MenuOptionGroup>
+    </MenuList>
+  );
+};
+
+Select.displayName = "Select";
+
+export const SelectOption = forwardRef<MenuItemOptionProps, "button">((props, ref) => {
+  return <MenuItemOption ref={ref} {...props} />;
+});
+SelectOption.id = "MenuItemOption";
+SelectOption.displayName = "SelectOption";
