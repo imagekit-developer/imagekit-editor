@@ -10,6 +10,7 @@ export interface ResetHistoryAction {
 const resetHistory: ActionFn<ResetHistoryAction> = (state, _data) => {
   return {
     ...state,
+    imageUrl: state.originalImageUrl,
     tool: {
       value: undefined,
       options: structuredClone(DEFAULT_TOOLS_STATE),

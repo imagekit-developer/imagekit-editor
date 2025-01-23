@@ -9,8 +9,8 @@ import {
   TPointerEvent,
 } from "fabric";
 import {motion} from "framer-motion";
-import {useCallback, useEffect, useRef} from "react";
-import {SET_ZOOM} from "../../actions";
+import {useCallback, useEffect, useRef, useState} from "react";
+import {SET_CANVAS_SIZE, SET_ZOOM} from "../../actions";
 import {SET_IMAGE_DIMENSIONS} from "../../actions/setImageDimensions";
 import {useEditorContext} from "../../context";
 import {DEFAULT_ZOOM_LEVEL, Tools} from "../../utils/constants";
@@ -31,6 +31,7 @@ const ZOOM_DELTA_TO_SCALE_CONVERT_FACTOR = 0.0004167;
 
 export const Canvas = () => {
   const toolRef = useRef<Tools>();
+  const [isCanvasInitialized, setIsCanvasInitialized] = useState<boolean>(false);
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fabricRef = useRef<FabricCanvas | null>(null);
@@ -43,6 +44,7 @@ export const Canvas = () => {
   const cropOverlayRef = useRef<Rect | null>(null);
 
   const imageDimensionsTextRef = useRef<Group | null>(null);
+  const resizeBackgroundRef = useRef<Rect | null>(null);
 
   const resizeEventHandlerRef = useRef<(e: ModifiedEvent<TPointerEvent>) => void | null>(null);
 
@@ -53,15 +55,18 @@ export const Canvas = () => {
       if (!fabricRef.current) {
         return;
       }
-      isImageLoading.current = true;
-      addLoadingOverlay(fabricRef, imageRef, loadingOverlayRef);
 
-      if (imageRef.current?.getSrc() === _imageUrl) {
-        isImageLoading.current = false;
-        removeLoadingOverlay(fabricRef, loadingOverlayRef);
+      if (isImageLoading.current) {
         return;
       }
 
+      if (imageRef.current?.getSrc() === _imageUrl) {
+        return;
+      }
+
+      addLoadingOverlay(fabricRef, imageRef, loadingOverlayRef);
+
+      isImageLoading.current = true;
       try {
         if (!imageRef.current) {
           const image = await FabricImage.fromURL(
@@ -70,6 +75,7 @@ export const Canvas = () => {
             {
               id: "image",
               lockScalingFlip: true,
+              opacity: 1,
             },
           );
           fabricRef.current?.add(image);
@@ -100,21 +106,35 @@ export const Canvas = () => {
           imageRef.current = image;
         } else {
           await imageRef.current.setSrc(_imageUrl);
+          imageRef.current.set({
+            scaleX: 1,
+            scaleY: 1,
+          });
         }
 
-        fabricRef.current?.centerObject(imageRef.current);
         fabricRef.current?.renderAll();
-
-        const initialZoomLevel = Math.min(
-          ((fabricRef.current?.height ?? 0) - 48) / imageRef.current.width,
-          ((fabricRef.current?.width ?? 0) - 48) / imageRef.current.height,
-        );
 
         if (imageUrl === originalImageUrl) {
           fabricRef.current.originalImageDimensions = {
             width: imageRef.current.width,
             height: imageRef.current.height,
           };
+
+          fabricRef.current.centerObject(imageRef.current);
+
+          const initialZoomLevel = Math.min(
+            ((fabricRef.current?.height ?? 0) - 48) / imageRef.current.width,
+            ((fabricRef.current?.width ?? 0) - 48) / imageRef.current.height,
+          );
+
+          dispatch({
+            type: SET_ZOOM,
+            payload: {
+              value: initialZoomLevel,
+              x: fabricRef.current?.width / 2,
+              y: fabricRef.current?.height / 2,
+            },
+          });
         }
 
         dispatch({
@@ -124,15 +144,6 @@ export const Canvas = () => {
             y: imageRef.current.getY(),
             width: imageRef.current.width,
             height: imageRef.current.height,
-          },
-        });
-
-        dispatch({
-          type: SET_ZOOM,
-          payload: {
-            value: initialZoomLevel,
-            x: (fabricRef.current?.width ?? 0) / 2,
-            y: (fabricRef.current?.height ?? 0) / 2,
           },
         });
       } catch (error) {
@@ -148,10 +159,10 @@ export const Canvas = () => {
   );
 
   useEffect(() => {
-    if (!isImageLoading.current) {
+    if (isCanvasInitialized) {
       loadImage(imageUrl);
     }
-  }, [imageUrl]);
+  }, [imageUrl, isCanvasInitialized]);
 
   useEffect(() => {
     const fabricCanvas = initializeFabric({
@@ -181,7 +192,17 @@ export const Canvas = () => {
       });
     });
 
-    loadImage();
+    if (canvasRef.current?.width && canvasRef.current?.height) {
+      dispatch({
+        type: SET_CANVAS_SIZE,
+        payload: {
+          width: canvasContainerRef.current!.clientWidth,
+          height: canvasContainerRef.current!.clientHeight,
+        },
+      });
+    }
+
+    setIsCanvasInitialized(true);
 
     return () => {
       fabricCanvas.dispose();
@@ -193,9 +214,9 @@ export const Canvas = () => {
       if (zoomLevel.x && zoomLevel.y) {
         fabricRef.current.zoomToPoint(new FabricPoint({x: zoomLevel.x, y: zoomLevel.y}), zoomLevel.value);
 
-        if (zoomLevel.x === canvas.width! / 2 && zoomLevel.y === canvas.height! / 2) {
-          fabricRef.current.centerObject(imageRef.current);
-        }
+        // if (zoomLevel.x === canvas.width! / 2 && zoomLevel.y === canvas.height! / 2) {
+        //   fabricRef.current.centerObject(imageRef.current);
+        // }
       } else {
         fabricRef.current.setZoom(zoomLevel.value);
       }
@@ -226,11 +247,19 @@ export const Canvas = () => {
     }
 
     if (tool.value === Tools.AI_IMAGE_EXTENDER) {
-      initializeAIImageExtender({fabricRef, imageRef, dispatch});
+      initializeAIImageExtender({fabricRef, imageRef});
     }
 
     if (tool.value === Tools.RESIZE) {
-      initializeResize({imageRef, tool, fabricRef, dispatch, resizeEventHandlerRef, imageDimensionsTextRef});
+      initializeResize({
+        imageRef,
+        tool,
+        fabricRef,
+        dispatch,
+        resizeEventHandlerRef,
+        imageDimensionsTextRef,
+        resizeBackgroundRef,
+      });
     }
 
     fabricRef.current.renderAll();
@@ -286,15 +315,7 @@ export const Canvas = () => {
         }}
       >
         <canvas ref={canvasRef} />
-        <CanvasResize
-          canvasContainerRef={canvasContainerRef}
-          fabricRef={fabricRef}
-          imageRef={imageRef}
-          loadingOverlayRef={loadingOverlayRef}
-          cropRef={cropRef}
-          dispatch={dispatch}
-          cropOverlayRef={cropOverlayRef}
-        />
+        <CanvasResize canvasContainerRef={canvasContainerRef} fabricRef={fabricRef} />
       </Box>
     </>
   );

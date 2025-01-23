@@ -16,6 +16,7 @@ export const initializeFabric = ({
   const canvas = new FabricCanvas(canvasRef.current ?? undefined, {
     height: canvasContainerRef.current?.clientHeight,
     width: canvasContainerRef.current?.clientWidth,
+    skipOffscreen: false,
   });
 
   canvas.guidelines = [];
@@ -23,6 +24,30 @@ export const initializeFabric = ({
   // @ts-ignore
   window.canvas = canvas;
   canvas.setZoom(DEFAULT_ZOOM_LEVEL);
+
+  // This is a debug element
+  // canvas.add(
+  //   new Line([0, 0, canvas.width, 0], {
+  //     stroke: "red",
+  //     selectable: false,
+  //     evented: false,
+  //   }),
+  //   new Line([0, canvas.height, canvas.width, canvas.height], {
+  //     stroke: "red",
+  //     selectable: false,
+  //     evented: false,
+  //   }),
+  //   new Line([canvas.width, 0, canvas.width, canvas.height], {
+  //     stroke: "red",
+  //     selectable: false,
+  //     evented: false,
+  //   }),
+  //   new Line([0, 0, 0, canvas.height], {
+  //     stroke: "red",
+  //     selectable: false,
+  //     evented: false,
+  //   }),
+  // );
 
   canvas.enableRetinaScaling = true;
 

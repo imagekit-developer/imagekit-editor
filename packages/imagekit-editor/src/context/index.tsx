@@ -1,3 +1,4 @@
+import {useWhyDidYouUpdate} from "@chakra-ui/react";
 import ImageKit from "imagekit-javascript";
 import React, {PropsWithChildren, Reducer, useEffect, useMemo, useReducer} from "react";
 import actions, {Action, GENERATE_IMAGEKIT_URL, RESET_HISTORY, SET_IMAGE_URL, SET_ORIGINAL_IMAGE_URL} from "../actions";
@@ -30,12 +31,11 @@ export const EditorProvider = (props: PropsWithChildren<Props>) => {
     }
   }, [originalImageUrl]);
 
-  const [state, dispatch] = useReducer<Reducer<EditorContextType, Action>, EditorContextInitialState>(
+  const [state, _dispatch] = useReducer<Reducer<EditorContextType, Action>, EditorContextInitialState>(
     (state, action) => (actions[action.type] ? actions[action.type](state, action) : state),
     {
       client: ikClient,
       imageName,
-      isImageLoading: false,
       imageUrl: originalImageUrl,
       originalImageUrl,
       canvas: {
@@ -61,6 +61,16 @@ export const EditorProvider = (props: PropsWithChildren<Props>) => {
       };
     },
   );
+
+  const dispatch = useMemo<React.Dispatch<Action>>(
+    () => (action) => {
+      console.log(`Dispatching action: ${action.type}`);
+      _dispatch(action);
+    },
+    [_dispatch],
+  );
+
+  useWhyDidYouUpdate("EditorProviderState", state);
 
   useEffect(() => {
     dispatch({

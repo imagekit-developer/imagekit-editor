@@ -9,12 +9,12 @@ function App() {
   useEffect(() => {
     setEditorProps({
       // imageUrl: "https://ik.imagekit.io/n8ym6wilmq/river__Imiu4UZd.png",
-      imageUrl: "https://ik.imagekit.io/n8ym6wilmq/car.jpg",
+      imageUrl: "https://ik.imagekit.io/pwliscd3n/car.jpg",
       // imageUrl: "https://ik.imagekit.io/n8ym6wilmq/low-res-demo.jpg?updatedAt=1736923795562",
       // imageUrl: "https://ik.imagekit.io/n8ym6wilmq/table.png",
       ikClientOptions: {
         publicKey: "public_K0hLzl8KvshMKkSvKsEGxMSf5SI=",
-        urlEndpoint: "https://ik.imagekit.io/n8ym6wilmq",
+        urlEndpoint: "https://ik.imagekit.io/pwliscd3n",
       },
       onClose: () => setOpen(false),
       exportActions: [

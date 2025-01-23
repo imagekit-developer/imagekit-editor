@@ -30,7 +30,7 @@ export const SolidColorSubMenu = () => {
         type: SET_BACKGROUND_OPTIONS,
         payload: {
           solidColor: value === "transparent" ? undefined : value,
-          aiBackground: undefined,
+          aiPrompt: undefined,
         },
       });
     },

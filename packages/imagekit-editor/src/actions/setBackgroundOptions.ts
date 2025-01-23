@@ -8,7 +8,7 @@ export interface SetBackgroundOptionsAction {
   payload: {
     removeBackground?: boolean;
     solidColor?: string;
-    aiBackground?: boolean;
+    aiPrompt?: string;
     shadow?: {
       enabled?: boolean;
       azimuth?: number;

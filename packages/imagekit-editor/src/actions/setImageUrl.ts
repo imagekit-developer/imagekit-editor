@@ -11,7 +11,6 @@ const setImageUrlAction: ActionFn<SetImageUrlAction> = (state, data) => {
   return {
     ...state,
     imageUrl: data.payload,
-    isImageLoading: true,
   };
 };
 

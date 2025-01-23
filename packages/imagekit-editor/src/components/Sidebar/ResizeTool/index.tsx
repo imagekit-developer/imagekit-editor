@@ -202,6 +202,8 @@ export const ResizeTool = () => {
                       type: SET_RESIZE_OPTIONS,
                       payload: {
                         maintainAspectRatio: e.target.checked,
+                        scale: undefined,
+                        backgroundColor: undefined,
                       },
                     });
                   }}

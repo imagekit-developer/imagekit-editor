@@ -1,5 +1,5 @@
 import {Canvas as FabricCanvas, FabricImage, Rect} from "fabric";
-import {SET_CROP, SET_ZOOM} from "../../../../actions";
+import {SET_CROP} from "../../../../actions";
 import {useEditorContext} from "../../../../context";
 import {CropMode, Tools} from "../../../../utils/constants";
 
@@ -49,21 +49,6 @@ export const initializeCrop = ({
   if (!cropRef.current) {
     loadImage(originalImageUrl).then(() => {
       if (!imageRef.current || !fabricRef.current) return;
-
-      const initialZoomLevel = Math.min(
-        ((fabricRef.current?.height ?? 0) - 48) / imageRef.current.width,
-        ((fabricRef.current?.width ?? 0) - 48) / imageRef.current.height,
-      );
-
-      dispatch({
-        type: SET_ZOOM,
-        payload: {
-          value: initialZoomLevel,
-          x: (fabricRef.current?.width ?? 0) / 2,
-          y: (fabricRef.current?.height ?? 0) / 2,
-          isAbsoluteZoom: true,
-        },
-      });
 
       cropRef.current = new Rect({
         id: "crop",
@@ -203,8 +188,6 @@ export const handleCropmodeChange = ({fabricRef, imageRef, tool, cropRef}: Handl
       mtr: false,
     });
   }
-
-  console.log({width, height, x, y});
 
   cropRef.current.set({
     width,

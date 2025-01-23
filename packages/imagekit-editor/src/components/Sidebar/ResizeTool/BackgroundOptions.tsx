@@ -1,4 +1,7 @@
 import {Flex, FormControl, FormLabel, Grid, GridItem, Heading, Input, useRadioGroup} from "@chakra-ui/react";
+import {SET_RESIZE_OPTIONS} from "../../../actions";
+import {useEditorContext} from "../../../context";
+import {Tools} from "../../../utils/constants";
 import {SwatchButton} from "../../common/SwatchButton";
 
 const colors = [
@@ -15,8 +18,19 @@ const colors = [
 ];
 
 export const BackgroundOptions = () => {
+  const [{tool}, dispatch] = useEditorContext();
+  const resizeOptions = tool.options[Tools.RESIZE];
+
   const {getRadioProps, value, setValue} = useRadioGroup({
-    defaultValue: "transparent",
+    value: resizeOptions.backgroundColor,
+    onChange: (value) => {
+      dispatch({
+        type: SET_RESIZE_OPTIONS,
+        payload: {
+          backgroundColor: value,
+        },
+      });
+    },
   });
 
   return (

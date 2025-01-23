@@ -1,6 +1,6 @@
 {
   "name": "imagekit-editor",
-  "version": "1.0.0",
+  "version": "0.0.5",
   "description": "AI Image Editor powered by ImageKit",
   "main": "build/dist/cjs/index.js",
   "module": "build/dist/esm/index.js",

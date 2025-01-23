@@ -1,7 +1,7 @@
 import {Transformation} from "imagekit-javascript/dist/src/interfaces/Transformation";
 import {ActionFn} from "../context";
 import {EditorContextType} from "../interfaces/EditorContext";
-import {Tools} from "../utils/constants";
+import {ScaleMode, Tools} from "../utils/constants";
 
 export const GENERATE_IMAGEKIT_URL = "GENERATE_IMAGEKIT_URL";
 
@@ -25,6 +25,13 @@ const convertToolStateToTransformation = (
         "e-removedotbg": "-",
         bg: background,
       });
+
+      if (options[Tools.BACKGROUND].aiPrompt) {
+        transformations.push({
+          "e-removedotbg": "-",
+          "e-changebg-prompt": `${options[Tools.BACKGROUND].aiPrompt}`,
+        });
+      }
 
       if (options[Tools.BACKGROUND].shadow?.enabled) {
         transformations.push({
@@ -54,18 +61,43 @@ const convertToolStateToTransformation = (
   }
 
   if (options[Tools.RESIZE]) {
+    let transformation: (typeof transformations)[0] = {};
+
     if (options[Tools.RESIZE].percentage) {
-      transformations.push({
+      transformation = {
         w: `cw_mul_${options[Tools.RESIZE].percentage}`,
         h: `ch_mul_${options[Tools.RESIZE].percentage}`,
-      });
+      };
     }
     if (options[Tools.RESIZE].width && options[Tools.RESIZE].height) {
-      transformations.push({
+      transformation = {
         h: String(options[Tools.RESIZE].height),
         w: String(options[Tools.RESIZE].width),
-      });
+      };
+
+      if (options[Tools.RESIZE].scale) {
+        switch (options[Tools.RESIZE].scale) {
+          case ScaleMode.FILL_SCREEN:
+            break;
+          case ScaleMode.FIT_SCREEN:
+            transformation.cropMode = "pad_resize";
+            break;
+          case ScaleMode.STRETCH:
+            transformation.crop = "force";
+            break;
+          case ScaleMode.CUSTOM:
+            break;
+        }
+      }
+
+      if (options[Tools.RESIZE].backgroundColor === "transparent") {
+        transformation.format = "png";
+      } else if (options[Tools.RESIZE].backgroundColor) {
+        transformation.bg = options[Tools.RESIZE].backgroundColor.replace("#", "");
+      }
     }
+
+    transformations.push(transformation);
   }
 
   if (options[Tools.ADJUST]) {

@@ -2,8 +2,8 @@ import {
   BasicTransformEvent,
   Canvas as FabricCanvas,
   FabricImage,
-  Line as FabricLine,
   FabricObject,
+  Line as FabricLine,
   TPointerEvent,
 } from "fabric";
 import {SNAPPING_DISTANCE} from "../../../../utils/constants";

@@ -57,7 +57,7 @@ export const Toolbar = () => {
           Tools.BACKGROUND,
           // Tools.AI_EDITOR,
           Tools.AI_IMAGE_EXTENDER,
-          // Tools.AI_RETOUCH,
+          Tools.AI_RETOUCH,
           Tools.AI_UPSCALER,
         ].map((t) => {
           const radio = getRadioProps({value: t});

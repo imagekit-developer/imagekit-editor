@@ -22,7 +22,6 @@ export interface EditorContextType {
   client: ImageKit;
   imageUrl: string;
   imageName: string;
-  isImageLoading?: boolean;
   originalImageUrl: string;
   canvas: {
     scale: number;

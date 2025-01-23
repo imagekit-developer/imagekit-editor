@@ -1,4 +1,4 @@
-import {Canvas as FabricCanvas, FabricImage, Rect} from "fabric";
+import {Canvas as FabricCanvas, Point as FabricPoint} from "fabric";
 import {useEffect} from "react";
 import {SET_CANVAS_SIZE} from "../../actions";
 import {useEditorContext} from "../../context";
@@ -8,53 +8,42 @@ import useResizeObserver from "../../hooks/useResizeObserver";
 interface Props {
   canvasContainerRef: React.MutableRefObject<HTMLDivElement | null>;
   fabricRef: React.MutableRefObject<FabricCanvas | null>;
-  imageRef: React.MutableRefObject<FabricImage | null>;
-  loadingOverlayRef: React.MutableRefObject<Rect | null>;
-  cropRef: React.MutableRefObject<Rect | null>;
-  cropOverlayRef: React.MutableRefObject<Rect | null>;
-  dispatch: ReturnType<typeof useEditorContext>[1];
 }
 
-export const CanvasResize = ({
-  fabricRef,
-  imageRef,
-  loadingOverlayRef,
-  cropRef,
-  cropOverlayRef,
-  dispatch,
-  canvasContainerRef,
-}: Props) => {
+export const CanvasResize = ({fabricRef, canvasContainerRef}: Props) => {
   const [observeResize] = useResizeObserver();
+
+  const [{}, dispatch] = useEditorContext();
 
   const setCanvasSize = useDebouncedCallback(
     ({width: containerWidth, height: containerHeight}: {width: number; height: number}) => {
       if (fabricRef.current) {
-        const diff = containerWidth - fabricRef.current.width;
-        fabricRef.current.setDimensions({
-          width: containerWidth,
-          height: containerHeight,
+        const oldCenter = new FabricPoint({
+          x: fabricRef.current.width / 2,
+          y: fabricRef.current.height / 2,
         });
 
-        fabricRef.current.viewportTransform[4] += diff / 4;
-
+        fabricRef.current.setWidth(containerWidth);
+        fabricRef.current.setHeight(containerHeight);
         fabricRef.current.calcOffset();
+
+        const newCenter = new FabricPoint({
+          x: containerWidth / 2,
+          y: containerHeight / 2,
+        });
+
+        const oldCenterCoords = oldCenter.transform(fabricRef.current.viewportTransform);
+
+        const diff = newCenter.subtract(oldCenterCoords);
+
+        fabricRef.current.viewportTransform[4] += diff.x;
+        fabricRef.current.viewportTransform[5] += diff.y;
+
         fabricRef.current.renderAll();
 
-        if (imageRef.current) {
-          fabricRef.current.centerObject(imageRef.current);
-        }
-
-        if (cropRef.current) {
-          fabricRef.current.centerObject(cropRef.current);
-        }
-
-        if (cropOverlayRef.current) {
-          fabricRef.current.centerObject(cropOverlayRef.current);
-        }
-
-        if (loadingOverlayRef.current) {
-          fabricRef.current.centerObject(loadingOverlayRef.current);
-        }
+        fabricRef.current.getObjects().forEach((object) => {
+          object.setCoords();
+        });
 
         dispatch({
           type: SET_CANVAS_SIZE,
@@ -65,7 +54,7 @@ export const CanvasResize = ({
         });
       }
     },
-    5,
+    10,
   );
 
   useEffect(() => {

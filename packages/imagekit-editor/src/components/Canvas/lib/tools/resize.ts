@@ -10,6 +10,7 @@ interface InitResizeProps {
   dispatch: ReturnType<typeof useEditorContext>[1];
   resizeEventHandlerRef: React.MutableRefObject<((e: ModifiedEvent<TPointerEvent>) => void) | null>;
   imageDimensionsTextRef: React.MutableRefObject<Group | null>;
+  resizeBackgroundRef: React.MutableRefObject<Rect | null>;
 }
 
 export const initializeResize = ({
@@ -19,6 +20,7 @@ export const initializeResize = ({
   dispatch,
   resizeEventHandlerRef,
   imageDimensionsTextRef,
+  resizeBackgroundRef,
 }: InitResizeProps) => {
   if (!imageRef.current || !fabricRef.current) return;
 
@@ -51,7 +53,21 @@ export const initializeResize = ({
     selectable: false,
   });
 
+  resizeBackgroundRef.current = new Rect({
+    width: fabricRef.current.originalImageDimensions?.width,
+    height: fabricRef.current.originalImageDimensions?.height,
+    left: imageRef.current.left,
+    top: imageRef.current.top,
+    fill: "transparent",
+    evented: false,
+    selectable: false,
+    hasControls: false,
+  });
+
   fabricRef.current.add(imageDimensionsTextRef.current);
+
+  fabricRef.current.add(resizeBackgroundRef.current);
+  fabricRef.current.centerObject(resizeBackgroundRef.current);
 
   fabricRef.current.setActiveObject(imageRef.current);
   let width = imageRef.current.width;

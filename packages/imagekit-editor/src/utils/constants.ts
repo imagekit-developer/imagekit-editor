@@ -22,7 +22,7 @@ import {IKCustomScale} from "../icons/IKCustomScale";
 
 export const DEFAULT_ZOOM_LEVEL = 1;
 
-export const SNAPPING_DISTANCE = 100;
+export const SNAPPING_DISTANCE = 10;
 
 export enum Tools {
   CROP = "crop",

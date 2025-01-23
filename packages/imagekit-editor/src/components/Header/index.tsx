@@ -1,6 +1,7 @@
 import {Button, Flex, Heading, Icon, IconButton, Menu, MenuButton, MenuItem, MenuList, Spacer} from "@chakra-ui/react";
 import {IoIosArrowDown} from "@react-icons/all-files/io/IoIosArrowDown";
 import {IoIosArrowRoundBack} from "@react-icons/all-files/io/IoIosArrowRoundBack";
+import {RESET_HISTORY} from "../../actions";
 import {useEditorContext} from "../../context";
 
 interface HeaderProps {
@@ -46,7 +47,7 @@ const ExportActions = ({exportActions}: {exportActions: HeaderProps["exportActio
 export const Header = (props: HeaderProps) => {
   const {onClose, exportActions} = props;
 
-  const [{imageName}] = useEditorContext();
+  const [{imageName}, dispatch] = useEditorContext();
 
   return (
     <Flex
@@ -74,7 +75,16 @@ export const Header = (props: HeaderProps) => {
         {imageName}
       </Heading>
       <Spacer />
-      <Button colorScheme="blue" variant="outline" size="sm" isDisabled>
+      <Button
+        colorScheme="blue"
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          dispatch({
+            type: RESET_HISTORY,
+          });
+        }}
+      >
         Reset to default
       </Button>
       <ExportActions exportActions={exportActions} />
