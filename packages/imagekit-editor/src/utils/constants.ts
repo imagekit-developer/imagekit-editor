@@ -1,7 +1,8 @@
 import {IconType} from "@react-icons/all-files";
-import {CiCircleQuestion} from "@react-icons/all-files/ci/CiCircleQuestion";
 import {HiOutlineAdjustmentsHorizontal} from "@react-icons/all-files/hi2/HiOutlineAdjustmentsHorizontal";
+import {LuImageUpscale} from "@react-icons/all-files/lu/LuImageUpscale";
 import {MdCropRotate} from "@react-icons/all-files/md/MdCropRotate";
+import {MdOutlineCompare} from "@react-icons/all-files/md/MdOutlineCompare";
 import {PiArrowsOut} from "@react-icons/all-files/pi/PiArrowsOut";
 import {PiResizeBold} from "@react-icons/all-files/pi/PiResizeBold";
 import {TbArrowBarBoth} from "@react-icons/all-files/tb/TbArrowBarBoth";
@@ -42,8 +43,8 @@ export const ToolIcons: Record<Tools, IconType> = {
   [Tools.BACKGROUND]: TbBackground,
   // [Tools.AI_EDITOR]: PiPaintBrush,
   [Tools.AI_IMAGE_EXTENDER]: PiArrowsOut,
-  [Tools.AI_RETOUCH]: CiCircleQuestion,
-  [Tools.AI_UPSCALER]: CiCircleQuestion,
+  [Tools.AI_RETOUCH]: MdOutlineCompare,
+  [Tools.AI_UPSCALER]: LuImageUpscale,
 };
 
 export const ToolHeadings: Record<Tools, string> = {

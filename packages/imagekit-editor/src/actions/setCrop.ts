@@ -28,6 +28,8 @@ const setCrop: ActionFn<SetCropAction> = (state, {payload}) => {
     rotation: oldCrop.rotation,
   };
 
+  console.log({newCrop});
+
   return {
     ...state,
     tool: {

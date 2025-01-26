@@ -17,6 +17,7 @@ import {DEFAULT_ZOOM_LEVEL, Tools} from "../../utils/constants";
 import {CanvasResize} from "./CanvasResize";
 import {
   addLoadingOverlay,
+  fetchImageUntilAvailable,
   handleCropmodeChange,
   handleResizeChange,
   handleToolStateClear,
@@ -26,6 +27,7 @@ import {
   initializeResize,
   removeLoadingOverlay,
 } from "./lib";
+import {initializeAIRetouch} from "./lib/tools/ai-retouch";
 
 const ZOOM_DELTA_TO_SCALE_CONVERT_FACTOR = 0.0004167;
 
@@ -38,7 +40,7 @@ export const Canvas = () => {
 
   const imageRef = useRef<FabricImage | null>(null);
   const isImageLoading = useRef<boolean>(false);
-  const loadingOverlayRef = useRef<Rect | null>(null);
+  const loadingOverlayRef = useRef<Group | null>(null);
 
   const cropRef = useRef<Rect | null>(null);
   const cropOverlayRef = useRef<Rect | null>(null);
@@ -60,17 +62,17 @@ export const Canvas = () => {
         return;
       }
 
-      if (imageRef.current?.getSrc() === _imageUrl) {
-        return;
-      }
-
       addLoadingOverlay(fabricRef, imageRef, loadingOverlayRef);
 
       isImageLoading.current = true;
+
+      const blob = await fetchImageUntilAvailable(_imageUrl, 3000);
+      const objectUrl = URL.createObjectURL(blob);
+
       try {
         if (!imageRef.current) {
           const image = await FabricImage.fromURL(
-            _imageUrl,
+            objectUrl,
             {},
             {
               id: "image",
@@ -105,7 +107,7 @@ export const Canvas = () => {
 
           imageRef.current = image;
         } else {
-          await imageRef.current.setSrc(_imageUrl);
+          await imageRef.current.setSrc(objectUrl);
           imageRef.current.set({
             scaleX: 1,
             scaleY: 1,
@@ -123,8 +125,8 @@ export const Canvas = () => {
           fabricRef.current.centerObject(imageRef.current);
 
           const initialZoomLevel = Math.min(
-            ((fabricRef.current?.height ?? 0) - 48) / imageRef.current.width,
-            ((fabricRef.current?.width ?? 0) - 48) / imageRef.current.height,
+            ((fabricRef.current?.height ?? 0) - 48) / imageRef.current.height,
+            ((fabricRef.current?.width ?? 0) - 48) / imageRef.current.width,
           );
 
           dispatch({
@@ -259,6 +261,13 @@ export const Canvas = () => {
         resizeEventHandlerRef,
         imageDimensionsTextRef,
         resizeBackgroundRef,
+      });
+    }
+
+    if (tool.value === Tools.AI_RETOUCH) {
+      initializeAIRetouch({
+        fabricRef,
+        imageRef,
       });
     }
 

@@ -106,3 +106,24 @@ export const initializeFabric = ({
 export * from "./guidelines";
 export * from "./loading";
 export * from "./tools";
+
+export async function fetchImageUntilAvailable(imageUrl: string, pollInterval: number = 3000): Promise<Blob> {
+  let attempt = 0;
+  while (attempt < 10) {
+    const response = await fetch(imageUrl);
+    const contentType = response.headers.get("content-type") || "";
+
+    if (contentType.startsWith("image/")) {
+      const blob = await response.blob();
+      return blob;
+    }
+
+    // Otherwise, the server is still returning HTML or something else.
+    // Wait pollInterval ms, then try again
+    await new Promise((resolve) => setTimeout(resolve, pollInterval));
+
+    attempt++;
+  }
+
+  throw new Error("Failed to fetch image after 10 attempts");
+}

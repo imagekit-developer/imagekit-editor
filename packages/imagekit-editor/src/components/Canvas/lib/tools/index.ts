@@ -26,7 +26,7 @@ export const handleToolStateClear = ({
   if (!fabricRef.current || !imageRef.current) return;
 
   if (tool.value !== Tools.CROP) {
-    loadImage(imageUrl);
+    typeof cropRef.current?.didCrop === "boolean" && !cropRef.current?.didCrop && loadImage(imageUrl);
     cropRef.current && fabricRef.current.remove(cropRef.current);
     cropOverlayRef.current && fabricRef.current.remove(cropOverlayRef.current);
     cropRef.current = null;
@@ -61,6 +61,11 @@ export const handleToolStateClear = ({
       hasControls: false,
       evented: false,
       selectable: false,
+    });
+
+    imageRef.current.set({
+      scaleX: 1,
+      scaleY: 1,
     });
   }
 };

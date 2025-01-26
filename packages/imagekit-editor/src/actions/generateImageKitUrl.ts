@@ -129,6 +129,12 @@ const convertToolStateToTransformation = (
     });
   }
 
+  if (options[Tools.AI_RETOUCH] && options[Tools.AI_RETOUCH].enabled) {
+    transformations.push({
+      "e-retouch": "-",
+    });
+  }
+
   // console.log("Converting tool state to transformation", options, transformations);
 
   return transformations;

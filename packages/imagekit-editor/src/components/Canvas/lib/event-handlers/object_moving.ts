@@ -25,6 +25,8 @@ export const handleCropboxMoving = (canvas: FabricCanvas, obj: FabricObject) => 
 
   if (!image) return;
 
+  obj.didCrop = true;
+
   const canvasWidth = canvas.width;
   const canvasHeight = canvas.height;
 

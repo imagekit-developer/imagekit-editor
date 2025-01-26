@@ -3112,9 +3112,9 @@
     prop-types "^15.7.2"
     tslib "^2.1.0"
 
-"@react-icons/all-files@./react-icons-all-files-5.3.0.tgz":
-  version "5.3.0"
-  resolved "./react-icons-all-files-5.3.0.tgz#3241737c13090f3fe01ff58deb5265d5c4d2f40c"
+"@react-icons/all-files@https://github.com/react-icons/react-icons/releases/download/v5.4.0/react-icons-all-files-5.4.0.tgz":
+  version "5.4.0"
+  resolved "https://github.com/react-icons/react-icons/releases/download/v5.4.0/react-icons-all-files-5.4.0.tgz#15fe6f06c85f0274f187f499ca8cd5c9abc8ce7d"
 
 "@rollup/plugin-babel@^5.2.0":
   version "5.3.1"

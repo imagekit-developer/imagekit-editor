@@ -9,7 +9,7 @@ function App() {
   useEffect(() => {
     setEditorProps({
       // imageUrl: "https://ik.imagekit.io/n8ym6wilmq/river__Imiu4UZd.png",
-      imageUrl: "https://ik.imagekit.io/pwliscd3n/car.jpg",
+      imageUrl: "https://ik.imagekit.io/pwliscd3n/BMW%20M2.jpg?updatedAt=1737658402674",
       // imageUrl: "https://ik.imagekit.io/n8ym6wilmq/low-res-demo.jpg?updatedAt=1736923795562",
       // imageUrl: "https://ik.imagekit.io/n8ym6wilmq/table.png",
       ikClientOptions: {

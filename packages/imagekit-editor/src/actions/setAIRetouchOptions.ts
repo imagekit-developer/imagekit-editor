@@ -5,7 +5,9 @@ export const SET_AI_RETOUCH_OPTIONS = "SET_AI_RETOUCH_OPTIONS";
 
 export interface SetAIRetouchOptionsAction {
   type: typeof SET_AI_RETOUCH_OPTIONS;
-  payload: {};
+  payload: {
+    enabled?: boolean;
+  };
 }
 
 const setAIRetouchOptions: ActionFn<SetAIRetouchOptionsAction> = (state, {payload}) => {

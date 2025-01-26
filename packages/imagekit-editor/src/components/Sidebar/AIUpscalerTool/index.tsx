@@ -38,7 +38,7 @@ export const AIUpscalerTool = () => {
             <Heading as={FormLabel} size="sm" fontWeight="medium" htmlFor="grayscale" margin="0">
               Set Upscaling Factor
               <InfoButton
-                label="Remove Background Documentation"
+                label="AI Upscaler Documentation"
                 url="https://imagekit.io/docs/ai-transformations#upscale-e-upscale"
               />
             </Heading>
@@ -52,7 +52,7 @@ export const AIUpscalerTool = () => {
             <Flex justifyContent={"space-between"} alignItems={"center"}>
               <Radio
                 isDisabled={
-                  imageResolution > inputImageResolutionLimit || imageResolution * 1.5 < outputImageResolutionLimit
+                  imageResolution > inputImageResolutionLimit || imageResolution * 1.5 > outputImageResolutionLimit
                 }
                 value="1.5"
               >
@@ -60,7 +60,7 @@ export const AIUpscalerTool = () => {
               </Radio>
               <Radio
                 isDisabled={
-                  imageResolution > inputImageResolutionLimit || imageResolution * 2 < outputImageResolutionLimit
+                  imageResolution > inputImageResolutionLimit || imageResolution * 2 > outputImageResolutionLimit
                 }
                 value="2"
               >
@@ -68,7 +68,7 @@ export const AIUpscalerTool = () => {
               </Radio>
               <Radio
                 isDisabled={
-                  imageResolution > inputImageResolutionLimit || imageResolution * 3 < outputImageResolutionLimit
+                  imageResolution > inputImageResolutionLimit || imageResolution * 3 > outputImageResolutionLimit
                 }
                 value="3"
               >
@@ -76,7 +76,7 @@ export const AIUpscalerTool = () => {
               </Radio>
               <Radio
                 isDisabled={
-                  imageResolution > inputImageResolutionLimit || imageResolution * 4 < outputImageResolutionLimit
+                  imageResolution > inputImageResolutionLimit || imageResolution * 4 > outputImageResolutionLimit
                 }
                 value="4"
               >

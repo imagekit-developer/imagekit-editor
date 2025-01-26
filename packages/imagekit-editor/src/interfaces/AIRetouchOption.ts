@@ -1,1 +1,3 @@
-export interface AIRetouchOption {}
+export interface AIRetouchOption {
+  enabled?: boolean;
+}

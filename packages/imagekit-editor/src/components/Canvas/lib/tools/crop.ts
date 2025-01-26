@@ -92,14 +92,14 @@ export const initializeCrop = ({
       fabricRef.current.add(cropOverlayRef.current);
       fabricRef.current.add(cropRef.current);
 
-      fabricRef.current.centerObject(imageRef.current);
-      fabricRef.current.centerObject(cropRef.current);
       cropRef.current.on("modified", (e) => {
         const width = Math.round(e.target.width * e.target.scaleX);
         const height = Math.round(e.target.height * e.target.scaleY);
 
         const x = Math.round(e.target.left - imageRef.current!.left);
         const y = Math.round(e.target.top - imageRef.current!.top);
+
+        console.log({width, height, x, y});
 
         dispatch({
           type: SET_CROP,
@@ -113,6 +113,7 @@ export const initializeCrop = ({
       });
 
       cropRef.current.setCoords();
+      cropRef.current.didCrop = false;
     });
   }
 };
