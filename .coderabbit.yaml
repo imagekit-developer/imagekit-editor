@@ -2,14 +2,15 @@
 language: "en-US"
 early_access: false
 reviews:
-  profile: "assertive"
+  profile: "chill"
   request_changes_workflow: false
   high_level_summary: true
   poem: true
   review_status: true
   collapse_walkthrough: false
   path_filters:
-    - "!examples/*"
+    - "!examples/**"
+    - "packages/imagekit-editor/src/**"
   auto_review:
     enabled: true
     drafts: false
