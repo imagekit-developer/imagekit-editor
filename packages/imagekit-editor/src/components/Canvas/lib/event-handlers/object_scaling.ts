@@ -16,20 +16,15 @@ export const objectScalingEventHandler = (
     const cropWidth = crop.width * crop.scaleX;
     const cropHeight = crop.height * crop.scaleY;
 
-    if (crop.left < image.left) {
+    let left = crop.left;
+    let top = crop.top;
+
+    if (left < image.left) {
       crop.set({left: image.left});
     }
 
-    if (crop.top < image.top) {
+    if (top < image.top) {
       crop.set({top: image.top});
-    }
-
-    if (crop.left + cropWidth > image.left + image.width * image.scaleX) {
-      crop.set({left: image.left + image.width * image.scaleX - cropWidth});
-    }
-
-    if (crop.top + cropHeight > image.top + image.height * image.scaleY) {
-      crop.set({top: image.top + image.height * image.scaleY - cropHeight});
     }
 
     if (crop.scaleX * crop.width >= image.width * image.scaleX) {
@@ -54,4 +49,6 @@ export const objectScalingEventHandler = (
 
     canvas.centerObject(image);
   }
+
+  canvas.renderAll();
 };

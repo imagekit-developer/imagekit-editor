@@ -14,15 +14,69 @@ import {
   useRadioGroup,
 } from "@chakra-ui/react";
 import {IoIosArrowDown} from "@react-icons/all-files/io/IoIosArrowDown";
+import {useHotkeys} from "react-hotkeys-hook";
 import {REDO, SET_TOOL, SET_ZOOM, UNDO} from "../../actions";
 import {useEditorContext} from "../../context";
 import {IKRedo} from "../../icons/IKRedo";
 import {IKUndo} from "../../icons/IKUndo";
-import {ToolHeadings, ToolIcons, Tools} from "../../utils/constants";
+import {DEFAULT_ZOOM_LEVEL, ToolHeadings, ToolIcons, Tools} from "../../utils/constants";
 import {ToolbarButton} from "../common/ToolbarButton";
 
 export const Toolbar = () => {
   const [{zoomLevel, tool, history}, dispatch] = useEditorContext();
+
+  useHotkeys(
+    "meta+equal",
+    () => {
+      dispatch({
+        type: SET_ZOOM,
+        payload: {
+          value:
+            zoomLevel.defaultValues[
+              Math.min(zoomLevel.defaultValues.length - 1, zoomLevel.defaultValues.indexOf(zoomLevel.value) + 1)
+            ],
+          isAbsoluteZoom: true,
+        },
+      });
+    },
+    {
+      preventDefault: true,
+    },
+    [zoomLevel.value],
+  );
+
+  useHotkeys(
+    "meta+minus",
+    () => {
+      dispatch({
+        type: SET_ZOOM,
+        payload: {
+          value: zoomLevel.defaultValues[Math.max(0, zoomLevel.defaultValues.indexOf(zoomLevel.value) - 1)],
+          isAbsoluteZoom: true,
+        },
+      });
+    },
+    {
+      preventDefault: true,
+    },
+    [zoomLevel.value],
+  );
+
+  useHotkeys(
+    "meta+0",
+    () => {
+      dispatch({
+        type: SET_ZOOM,
+        payload: {
+          value: DEFAULT_ZOOM_LEVEL,
+          isAbsoluteZoom: true,
+        },
+      });
+    },
+    {
+      preventDefault: true,
+    },
+  );
 
   const {getRadioProps} = useRadioGroup({
     defaultValue: "NO_TOOL",

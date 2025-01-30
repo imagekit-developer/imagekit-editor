@@ -1,4 +1,4 @@
-import {Box} from "@chakra-ui/react";
+import {Box, useToast} from "@chakra-ui/react";
 import {
   Canvas as FabricCanvas,
   FabricImage,
@@ -32,8 +32,9 @@ import {initializeAIRetouch} from "./lib/tools/ai-retouch";
 const ZOOM_DELTA_TO_SCALE_CONVERT_FACTOR = 0.0004167;
 
 export const Canvas = () => {
-  const toolRef = useRef<Tools>();
   const [isCanvasInitialized, setIsCanvasInitialized] = useState<boolean>(false);
+
+  const toolRef = useRef<Tools>();
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fabricRef = useRef<FabricCanvas | null>(null);
@@ -52,6 +53,8 @@ export const Canvas = () => {
 
   const [{zoomLevel, tool, canvas, imageUrl, originalImageUrl}, dispatch] = useEditorContext();
 
+  const toast = useToast();
+
   const loadImage = useCallback(
     async (_imageUrl: string = imageUrl) => {
       if (!fabricRef.current) {
@@ -66,10 +69,10 @@ export const Canvas = () => {
 
       isImageLoading.current = true;
 
-      const blob = await fetchImageUntilAvailable(_imageUrl, 3000);
-      const objectUrl = URL.createObjectURL(blob);
-
       try {
+        const blob = await fetchImageUntilAvailable(_imageUrl, 3000);
+        const objectUrl = URL.createObjectURL(blob);
+
         if (!imageRef.current) {
           const image = await FabricImage.fromURL(
             objectUrl,
@@ -149,7 +152,16 @@ export const Canvas = () => {
           },
         });
       } catch (error) {
-        console.log(error);
+        toast({
+          position: "top-right",
+          title: "There was a problem in applying tranformation to the image",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+          description: (error as Error).message,
+        });
+
+        console.log("error while applying tool", toolRef.current);
       }
 
       isImageLoading.current = false;

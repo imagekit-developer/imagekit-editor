@@ -60,7 +60,7 @@ export const initializeCrop = ({
         left: x,
         top: y,
         globalCompositeOperation: "overlay",
-
+        objectCaching: false,
         lockScalingFlip: true,
       });
 

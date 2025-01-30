@@ -16,6 +16,7 @@ export const objectMovingEventHandler = (
 ) => {
   const canvas = e.target.canvas!;
   if (e.target.id === "crop") {
+    console.log("crop moving");
     handleCropboxMoving(canvas, e.target);
   }
 };

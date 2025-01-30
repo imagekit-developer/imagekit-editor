@@ -109,9 +109,18 @@ export * from "./tools";
 
 export async function fetchImageUntilAvailable(imageUrl: string, pollInterval: number = 3000): Promise<Blob> {
   let attempt = 0;
-  while (attempt < 10) {
+  while (attempt < 40) {
     const response = await fetch(imageUrl);
     const contentType = response.headers.get("content-type") || "";
+    const isError = response.status >= 400 || response.headers.get("ik-error");
+
+    if (isError) {
+      let errorMessage = response.headers.get("ik-error");
+      if (!errorMessage) {
+        errorMessage = "Failed to fetch image";
+      }
+      throw new Error(errorMessage);
+    }
 
     if (contentType.startsWith("image/")) {
       const blob = await response.blob();
@@ -125,5 +134,5 @@ export async function fetchImageUntilAvailable(imageUrl: string, pollInterval: n
     attempt++;
   }
 
-  throw new Error("Failed to fetch image after 10 attempts");
+  throw new Error("Failed to fetch image after 40 attempts");
 }
