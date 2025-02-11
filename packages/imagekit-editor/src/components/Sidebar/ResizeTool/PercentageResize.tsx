@@ -45,13 +45,18 @@ export const PercentageResize = () => {
           type="number"
           name="percentage"
           flex="1"
+          min={1}
+          max={100}
+          step={1}
+          aria-label="Resize percentage"
           value={(resizeOptions.percentage ?? 1) * 100}
           onChange={(e) => {
+            const value = Math.min(100, Math.max(1, Number(e.target.value)));
             dispatch({
               type: SET_RESIZE_OPTIONS,
               payload: {
                 mode: ResizeMode.PERCENTAGE,
-                percentage: Number(e.target.value) / 100,
+                percentage: value / 100,
                 width: undefined,
                 height: undefined,
               },

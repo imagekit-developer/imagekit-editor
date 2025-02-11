@@ -5,7 +5,7 @@ export function useCallbackRef<T extends (...args: any[]) => any>(callback: T | 
 
   useEffect(() => {
     callbackRef.current = callback;
-  });
+  }, [callback]);
 
   return useMemo(() => ((...args) => callbackRef.current?.(...args)) as T, []);
 }

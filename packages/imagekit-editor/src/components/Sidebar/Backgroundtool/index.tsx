@@ -49,7 +49,7 @@ export const Backgroundtool = () => {
       <Flex direction="column" gap="6">
         <FormControl>
           <Flex justifyContent={"space-between"} alignItems={"center"}>
-            <Heading as={FormLabel} size="sm" fontWeight="medium" htmlFor="grayscale" margin="0">
+            <Heading as={FormLabel} size="sm" fontWeight="medium" htmlFor="remove-background" margin="0">
               Remove Background
               <InfoButton
                 label="Remove Background Documentation"
@@ -57,7 +57,7 @@ export const Backgroundtool = () => {
               />
             </Heading>
             <Switch
-              id="grayscale"
+              name="remove-background"
               isChecked={backgroundConfig.removeBackground}
               onChange={(value) => {
                 dispatch({
@@ -74,7 +74,7 @@ export const Backgroundtool = () => {
           <>
             <Divider />
             <Flex justifyContent={"space-between"} alignItems={"center"}>
-              <Heading as={FormLabel} size="sm" fontWeight="medium" htmlFor="grayscale" margin="0">
+              <Heading as={FormLabel} size="sm" fontWeight="medium" htmlFor="change-background" margin="0">
                 Change Background
               </Heading>
             </Flex>
@@ -123,7 +123,7 @@ export const Backgroundtool = () => {
             <Divider />
             <FormControl>
               <Flex justifyContent={"space-between"} alignItems={"center"}>
-                <Heading as={FormLabel} size="sm" fontWeight="medium" htmlFor="grayscale" margin="0">
+                <Heading as={FormLabel} size="sm" fontWeight="medium" htmlFor="shadow" margin="0">
                   Object Shadow
                   <InfoButton
                     label="Object Shadow Documentation"
@@ -132,6 +132,7 @@ export const Backgroundtool = () => {
                 </Heading>
                 <Switch
                   id="shadow"
+                  name="shadow"
                   isChecked={backgroundConfig.shadow?.enabled}
                   onChange={(value) => {
                     dispatch({
@@ -149,11 +150,12 @@ export const Backgroundtool = () => {
             {backgroundConfig.shadow?.enabled ? (
               <>
                 <FormControl>
-                  <Heading as={FormLabel} size="xs" fontSize="small" fontWeight="medium" htmlFor="grayscale" margin="0">
+                  <Heading as={FormLabel} size="xs" fontSize="small" fontWeight="medium" htmlFor="azimuth" margin="0">
                     Azimuth
                   </Heading>
                   <Flex gap="4">
                     <Slider
+                      name="azimuth"
                       flex="4"
                       value={backgroundConfig.shadow?.azimuth}
                       min={0}
@@ -177,7 +179,7 @@ export const Backgroundtool = () => {
                     </Slider>
                     <Input
                       type="number"
-                      name="percentage"
+                      name="azimuth"
                       flex="1"
                       min={0}
                       max={360}
@@ -197,11 +199,12 @@ export const Backgroundtool = () => {
                   </Flex>
                 </FormControl>
                 <FormControl>
-                  <Heading as={FormLabel} size="xs" fontSize="small" fontWeight="medium" htmlFor="grayscale" margin="0">
+                  <Heading as={FormLabel} size="xs" fontSize="small" fontWeight="medium" htmlFor="elevation" margin="0">
                     Elevation
                   </Heading>
                   <Flex gap="4">
                     <Slider
+                      name="elevation"
                       flex="4"
                       min={0}
                       max={360}
@@ -224,7 +227,7 @@ export const Backgroundtool = () => {
                     </Slider>
                     <Input
                       type="number"
-                      name="percentage"
+                      name="elevation"
                       flex="1"
                       min={0}
                       max={360}
@@ -244,11 +247,19 @@ export const Backgroundtool = () => {
                   </Flex>
                 </FormControl>
                 <FormControl>
-                  <Heading as={FormLabel} size="xs" fontSize="small" fontWeight="medium" htmlFor="grayscale" margin="0">
+                  <Heading
+                    as={FormLabel}
+                    size="xs"
+                    fontSize="small"
+                    fontWeight="medium"
+                    htmlFor="saturation"
+                    margin="0"
+                  >
                     Saturation
                   </Heading>
                   <Flex gap="4">
                     <Slider
+                      name="saturation"
                       flex="4"
                       min={0}
                       max={100}
@@ -271,7 +282,7 @@ export const Backgroundtool = () => {
                     </Slider>
                     <Input
                       type="number"
-                      name="percentage"
+                      name="saturation"
                       flex="1"
                       min={0}
                       max={100}

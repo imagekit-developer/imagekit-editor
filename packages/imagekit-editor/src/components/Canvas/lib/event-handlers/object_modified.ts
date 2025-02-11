@@ -2,8 +2,13 @@ import {FabricImage, FabricObject, ModifiedEvent, TPointerEvent} from "fabric";
 import {clearGuidelines} from "../guidelines";
 
 export const objectModifiedEventHandler = (e: ModifiedEvent<TPointerEvent>) => {
-  const canvas = e.target.canvas!;
-  if (e.target.id === "crop" && e.action === "scale") {
+  const target = e.target;
+  if (!target) return;
+
+  const canvas = target.canvas;
+  if (!canvas) return;
+
+  if (target.id === "crop" && e.action === "scale") {
     const crop = e.target as FabricObject;
     const image = canvas.getObjects("image")[0] as FabricImage;
 

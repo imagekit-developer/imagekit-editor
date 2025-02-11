@@ -153,6 +153,7 @@ export const DEFAULT_TOOLS_STATE = Object.freeze({
   [Tools.RESIZE]: {
     mode: ResizeMode.CUSTOM_SIZE,
     maintainAspectRatio: true,
+    scale: ScaleMode.FILL_SCREEN,
   },
   [Tools.CROP]: {
     mode: CropMode.FREEFORM,

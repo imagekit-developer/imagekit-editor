@@ -22,7 +22,7 @@ const ExportActions = ({exportActions}: {exportActions: HeaderProps["exportActio
   if (exportActions.length === 1) {
     const [exportAction] = exportActions;
     return (
-      <Button colorScheme="blue" variant="solid" size="sm">
+      <Button colorScheme="blue" variant="solid" size="sm" onClick={() => exportAction.onClick(imageUrl)}>
         {exportAction.label}
       </Button>
     );

@@ -109,30 +109,23 @@ export * from "./tools";
 
 export async function fetchImageUntilAvailable(imageUrl: string, pollInterval: number = 3000): Promise<Blob> {
   let attempt = 0;
-  while (attempt < 40) {
-    const response = await fetch(imageUrl);
-    const contentType = response.headers.get("content-type") || "";
-    const isError = response.status >= 400 || response.headers.get("ik-error");
-
-    if (isError) {
-      let errorMessage = response.headers.get("ik-error");
-      if (!errorMessage) {
-        errorMessage = "Failed to fetch image";
+  const MAX_ATTEMPTS = 40;
+  while (attempt < MAX_ATTEMPTS) {
+    try {
+      const response = await fetch(imageUrl);
+      const contentType = response.headers.get("content-type") || "";
+      const isError = response.status >= 400 || response.headers.get("ik-error");
+      if (isError) {
+        throw new Error(response.headers.get("ik-error") || `HTTP ${response.status}: Failed to fetch image`);
       }
-      throw new Error(errorMessage);
+      if (contentType.startsWith("image/")) {
+        return await response.blob();
+      }
+    } catch (error) {
+      if (attempt === MAX_ATTEMPTS - 1) throw error;
     }
-
-    if (contentType.startsWith("image/")) {
-      const blob = await response.blob();
-      return blob;
-    }
-
-    // Otherwise, the server is still returning HTML or something else.
-    // Wait pollInterval ms, then try again
     await new Promise((resolve) => setTimeout(resolve, pollInterval));
-
     attempt++;
   }
-
-  throw new Error("Failed to fetch image after 40 attempts");
+  throw new Error(`Failed to fetch image after ${MAX_ATTEMPTS} attempts`);
 }

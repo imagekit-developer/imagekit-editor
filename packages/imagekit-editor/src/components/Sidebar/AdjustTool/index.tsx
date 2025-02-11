@@ -35,6 +35,7 @@ export const AdjustTool = () => {
             </Heading>
             <Switch
               id="grayscale"
+              name="grayscale"
               isChecked={adjustConfig.grayscale}
               onChange={(value) => {
                 dispatch({

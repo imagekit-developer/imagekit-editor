@@ -9,6 +9,8 @@ export interface SetRotationAction {
 }
 
 const setRotation: ActionFn<SetRotationAction> = (state, {payload}) => {
+  const normalizedRotation = ((payload % 360) + 360) % 360;
+
   return {
     ...state,
     tool: {
@@ -17,7 +19,7 @@ const setRotation: ActionFn<SetRotationAction> = (state, {payload}) => {
         ...state.tool.options,
         [Tools.CROP]: {
           ...state.tool.options[Tools.CROP],
-          rotation: payload,
+          rotation: normalizedRotation,
         },
       },
     },

@@ -7,6 +7,9 @@ export interface RedoAction {
 }
 
 const redo: ActionFn<RedoAction> = (state, _data) => {
+  if (!state.history.stack.length) {
+    return state;
+  }
   const newHead = Math.min(state.history.head + 1, state.history.stack.length - 1);
 
   return {

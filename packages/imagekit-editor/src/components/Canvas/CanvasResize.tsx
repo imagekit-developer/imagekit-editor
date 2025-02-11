@@ -11,9 +11,9 @@ interface Props {
 }
 
 export const CanvasResize = ({fabricRef, canvasContainerRef}: Props) => {
-  const [observeResize] = useResizeObserver();
+  const [observeResize, unobserveElement] = useResizeObserver();
 
-  const [{}, dispatch] = useEditorContext();
+  const [, dispatch] = useEditorContext();
 
   const setCanvasSize = useDebouncedCallback(
     ({width: containerWidth, height: containerHeight}: {width: number; height: number}) => {
@@ -61,6 +61,11 @@ export const CanvasResize = ({fabricRef, canvasContainerRef}: Props) => {
     if (canvasContainerRef.current) {
       observeResize(canvasContainerRef.current, setCanvasSize);
     }
+    return () => {
+      if (canvasContainerRef.current) {
+        unobserveElement(canvasContainerRef.current, setCanvasSize);
+      }
+    };
   }, []);
 
   return <></>;

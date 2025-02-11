@@ -12,21 +12,23 @@ export const handleToolStateClear = ({
   resizeEventHandlerRef,
   imageDimensionsTextRef,
   cropOverlayRef,
+  resizeBackgroundRef,
 }: {
   fabricRef: React.MutableRefObject<FabricCanvas | null>;
   imageRef: React.MutableRefObject<FabricImage | null>;
   loadImage: (imageUrl: string) => void;
   imageUrl: string;
   tool: ReturnType<typeof useEditorContext>[0]["tool"];
-  resizeEventHandlerRef: React.MutableRefObject<((e: ModifiedEvent<TPointerEvent>) => void) | null>;
+  resizeEventHandlerRef: React.MutableRefObject<((e: ModifiedEvent<TPointerEvent>) => void) | undefined>;
   cropRef: React.MutableRefObject<Rect | null>;
   cropOverlayRef: React.MutableRefObject<Rect | null>;
   imageDimensionsTextRef: React.MutableRefObject<Group | null>;
+  resizeBackgroundRef: React.MutableRefObject<Rect | null>;
 }) => {
   if (!fabricRef.current || !imageRef.current) return;
 
   if (tool.value !== Tools.CROP) {
-    typeof cropRef.current?.didCrop === "boolean" && !cropRef.current?.didCrop && loadImage(imageUrl);
+    cropRef.current?.didCrop === false && loadImage(imageUrl);
     cropRef.current && fabricRef.current.remove(cropRef.current);
     cropOverlayRef.current && fabricRef.current.remove(cropOverlayRef.current);
     cropRef.current = null;
@@ -34,8 +36,11 @@ export const handleToolStateClear = ({
   }
 
   if (tool.value !== Tools.RESIZE) {
+    resizeBackgroundRef.current && fabricRef.current.remove(resizeBackgroundRef.current);
+    resizeBackgroundRef.current = null;
+
     resizeEventHandlerRef.current && imageRef.current.off("modified", resizeEventHandlerRef.current);
-    resizeEventHandlerRef.current = null;
+    resizeEventHandlerRef.current = undefined;
 
     imageDimensionsTextRef.current && fabricRef.current.remove(imageDimensionsTextRef.current);
     imageDimensionsTextRef.current = null;
@@ -71,5 +76,6 @@ export const handleToolStateClear = ({
 };
 
 export * from "./ai-image-extender";
+export * from "./ai-retouch";
 export * from "./crop";
 export * from "./resize";

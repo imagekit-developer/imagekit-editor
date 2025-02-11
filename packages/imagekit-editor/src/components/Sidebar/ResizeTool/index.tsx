@@ -1,7 +1,7 @@
-import {Checkbox, Divider, Flex, FormControl, FormLabel, Heading, Input, MenuDivider} from "@chakra-ui/react";
+import {Checkbox, Divider, Flex, FormControl, FormLabel, Heading, Input} from "@chakra-ui/react";
 import {SET_RESIZE_OPTIONS} from "../../../actions";
 import {useEditorContext} from "../../../context";
-import {ResizeMode, Tools} from "../../../utils/constants";
+import {ResizeMode, ScaleMode, Tools} from "../../../utils/constants";
 import {Select, SelectButton, SelectList, SelectOption} from "../../common/Select";
 import {BackgroundOptions} from "./BackgroundOptions";
 import {PercentageResize} from "./PercentageResize";
@@ -72,14 +72,14 @@ export const ResizeTool = () => {
             <SelectList zIndex={1000}>
               <SelectOption value={ResizeMode.CUSTOM_SIZE}>Custom size</SelectOption>
               <SelectOption value={ResizeMode.PERCENTAGE}>Percentage</SelectOption>
-              <MenuDivider />
+              {/* <MenuDivider />
               <SelectOption value={ResizeMode.INSTAGRAM}>Instagram</SelectOption>
               <SelectOption value={ResizeMode.FACEBOOK}>Facebook</SelectOption>
               <SelectOption value={ResizeMode.LINKEDIN}>LinkedIn</SelectOption>
               <SelectOption value={ResizeMode.TWITTER}>X (Twitter)</SelectOption>
               <SelectOption value={ResizeMode.YOUTUBE}>YouTube</SelectOption>
               <SelectOption value={ResizeMode.PINTEREST}>Pinterest</SelectOption>
-              <SelectOption value={ResizeMode.SNAPCHAT}>Snapchat</SelectOption>
+              <SelectOption value={ResizeMode.SNAPCHAT}>Snapchat</SelectOption> */}
             </SelectList>
           </Select>
           {resizeOptions.mode === ResizeMode.CUSTOM_SIZE ? (
@@ -202,7 +202,7 @@ export const ResizeTool = () => {
                       type: SET_RESIZE_OPTIONS,
                       payload: {
                         maintainAspectRatio: e.target.checked,
-                        scale: undefined,
+                        scale: ScaleMode.FILL_SCREEN,
                         backgroundColor: undefined,
                       },
                     });

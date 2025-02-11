@@ -13,7 +13,7 @@ export const AIRetouchTool = () => {
       <Flex direction="column" gap="6">
         <FormControl>
           <Flex justifyContent={"space-between"} alignItems={"center"}>
-            <Heading as={FormLabel} size="sm" fontWeight="medium" htmlFor="grayscale" margin="0">
+            <Heading as={FormLabel} size="sm" fontWeight="medium" htmlFor="ai-retouch" margin="0">
               Retouch Image
               <InfoButton
                 label="Retouch Image Documentation"
@@ -21,7 +21,7 @@ export const AIRetouchTool = () => {
               />
             </Heading>
             <Switch
-              id="grayscale"
+              id="ai-retouch"
               isChecked={aiRetouchConfig.enabled}
               onChange={(value) => {
                 dispatch({

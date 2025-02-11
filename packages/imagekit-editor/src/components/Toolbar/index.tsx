@@ -179,7 +179,7 @@ export const Toolbar = () => {
             <MenuItem
               disabled={zoomLevel.defaultValues.indexOf(zoomLevel.value) === 0}
               onClick={() => {
-                const nearestZoom = zoomLevel.defaultValues.reverse().find((z) => z < zoomLevel.value);
+                const nearestZoom = [...zoomLevel.defaultValues].reverse().find((z) => z < zoomLevel.value);
 
                 if (nearestZoom) {
                   dispatch({
@@ -190,8 +190,6 @@ export const Toolbar = () => {
                     },
                   });
                 }
-
-                zoomLevel.defaultValues.reverse();
               }}
               command="⌘-"
             >
@@ -200,6 +198,7 @@ export const Toolbar = () => {
             <MenuDivider />
             {zoomLevel.defaultValues.map((z) => (
               <MenuItem
+                key={`zoom-${z}`}
                 onClick={() => {
                   dispatch({type: SET_ZOOM, payload: {value: z, isAbsoluteZoom: true}});
                 }}

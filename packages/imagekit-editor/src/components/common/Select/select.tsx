@@ -54,14 +54,9 @@ export const SelectButton = forwardRef<SelectButtonProps, "button">((props, ref)
 
   const {rightIcon = <FaChevronDown />, ...rest} = props;
 
-  // @ts-ignore
-  const focusStyles = styles.field?._focusVisible;
-
-  // @ts-ignore
-  const readOnlyStyles = styles.field?._readOnly;
-
-  // @ts-ignore
-  const invalid = styles.field?._invalid;
+  const focusStyles = (styles.field as Record<string, unknown>)?._focusVisible;
+  const readOnlyStyles = (styles.field as Record<string, unknown>)?._readOnly;
+  const invalid = (styles.field as Record<string, unknown>)?._invalid;
 
   const height = styles.field?.h || styles.field?.height;
 

@@ -12,21 +12,17 @@ export interface SetCanvasSizeAction {
 }
 
 const setCanvasSize: ActionFn<SetCanvasSizeAction> = (state, {payload}) => {
+  if (payload.height <= 0 || payload.width <= 0) {
+    throw new Error("Canvas dimensions must be positive numbers");
+  }
   if (state.canvas.height === payload.height && state.canvas.width === payload.width) {
     return state;
   }
-
-  const {initialHeight = payload.height, initialWidth = payload.width} = state.canvas;
-
-  let scale = 1;
 
   const newOptions = {
     ...state.canvas,
     height: payload.height,
     width: payload.width,
-    initialHeight,
-    initialWidth,
-    scale,
   };
 
   if (isEqual(state.canvas, newOptions)) {
@@ -38,9 +34,6 @@ const setCanvasSize: ActionFn<SetCanvasSizeAction> = (state, {payload}) => {
     canvas: {
       ...state.canvas,
       height: payload.height,
-      initialHeight,
-      initialWidth,
-      scale,
       width: payload.width,
     },
   };

@@ -23,6 +23,9 @@ const setResizeOptions: ActionFn<SetResizeOptions> = (state, {payload}) => {
   };
 
   if (newOptions.mode === ResizeMode.PERCENTAGE && payload.width && payload.height) {
+    if (!state.imageDimensions?.width) {
+      throw new Error("Image dimensions are required for percentage calculations");
+    }
     const percentage = Math.round((payload.width / state.imageDimensions?.width!) * 100) / 100;
     newOptions.percentage = percentage;
     newOptions.width = undefined;

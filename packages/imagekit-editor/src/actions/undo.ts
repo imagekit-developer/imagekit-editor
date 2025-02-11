@@ -7,6 +7,9 @@ export interface UndoAction {
 }
 
 const undo: ActionFn<UndoAction> = (state, _data) => {
+  if (!state.history.stack.length) {
+    return state;
+  }
   const newHead = Math.max(0, state.history.head - 1);
 
   return {
@@ -19,7 +22,6 @@ const undo: ActionFn<UndoAction> = (state, _data) => {
       ...state.history,
       head: newHead,
     },
-    imageStatus: "loading",
   };
 };
 

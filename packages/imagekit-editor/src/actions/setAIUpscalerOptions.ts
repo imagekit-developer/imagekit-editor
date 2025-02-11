@@ -35,9 +35,11 @@ const setAIUpscalerOptions: ActionFn<SetAIUpscalerOptionsAction> = (state, {payl
     };
   }
 
+  const factor = Math.min(Math.max(Number(newOptions.upscalingFactor) || 1, 1), 4);
+
   newOptions.scaledImageDimensions = {
-    width: Math.ceil(Number(newOptions.upscalingFactor) * (newOptions.originalImageDimensions?.width ?? 0)),
-    height: Math.ceil(Number(newOptions.upscalingFactor) * (newOptions.originalImageDimensions?.height ?? 0)),
+    width: Math.ceil(factor * (newOptions.originalImageDimensions?.width ?? 0)),
+    height: Math.ceil(factor * (newOptions.originalImageDimensions?.height ?? 0)),
   };
 
   return {

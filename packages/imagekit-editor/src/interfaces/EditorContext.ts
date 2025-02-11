@@ -24,11 +24,8 @@ export interface EditorContextType {
   imageName: string;
   originalImageUrl: string;
   canvas: {
-    scale: number;
-    width?: number;
-    height?: number;
-    initialWidth?: number;
-    initialHeight?: number;
+    width: number;
+    height: number;
   };
   zoomLevel: {
     defaultValues: number[];

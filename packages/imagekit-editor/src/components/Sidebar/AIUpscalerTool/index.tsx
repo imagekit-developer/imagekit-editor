@@ -9,6 +9,7 @@ import {
   RadioGroup,
   Text,
 } from "@chakra-ui/react";
+import {useMemo} from "react";
 import {SET_AI_UPSCALER_OPTIONS} from "../../../actions";
 import {useEditorContext} from "../../../context";
 import {Tools} from "../../../utils/constants";
@@ -26,16 +27,24 @@ export const AIUpscalerTool = () => {
   const [{tool, imageDimensions}, dispatch] = useEditorContext();
   const aiUpscalerConfig = tool.options[Tools.AI_UPSCALER];
 
-  const imageResolution =
-    (aiUpscalerConfig.originalImageDimensions?.width ?? imageDimensions?.width ?? 0) *
-    (aiUpscalerConfig.originalImageDimensions?.height ?? imageDimensions?.height ?? 0);
+  const width = useMemo(
+    () => aiUpscalerConfig.originalImageDimensions?.width ?? imageDimensions?.width ?? 0,
+    [aiUpscalerConfig.originalImageDimensions?.width, imageDimensions?.width],
+  );
+
+  const height = useMemo(
+    () => aiUpscalerConfig.originalImageDimensions?.height ?? imageDimensions?.height ?? 0,
+    [aiUpscalerConfig.originalImageDimensions?.height, imageDimensions?.height],
+  );
+
+  const imageResolution = useMemo(() => width * height, [width, height]);
 
   return (
     <>
       <Flex direction="column" gap="6">
         <FormControl as={Flex} direction="column" gap="3">
           <Flex justifyContent={"space-between"} alignItems={"center"}>
-            <Heading as={FormLabel} size="sm" fontWeight="medium" htmlFor="grayscale" margin="0">
+            <Heading as={FormLabel} size="sm" fontWeight="medium" htmlFor="upscaling-factor" margin="0">
               Set Upscaling Factor
               <InfoButton
                 label="AI Upscaler Documentation"
@@ -44,6 +53,7 @@ export const AIUpscalerTool = () => {
             </Heading>
           </Flex>
           <RadioGroup
+            name="upscaling-factor"
             value={aiUpscalerConfig.upscalingFactor}
             onChange={(e) => {
               dispatch({type: SET_AI_UPSCALER_OPTIONS, payload: {upscalingFactor: e}});
@@ -88,7 +98,7 @@ export const AIUpscalerTool = () => {
         </FormControl>
         <Divider />
         <FormControl as={Flex} direction="column" gap="2">
-          <Heading as={FormLabel} size="sm" fontWeight="medium" htmlFor="grayscale" margin="0">
+          <Heading as={FormLabel} size="sm" fontWeight="medium" margin="0">
             Original Resolution
           </Heading>
           <Text>
@@ -99,7 +109,7 @@ export const AIUpscalerTool = () => {
         </FormControl>
         <Divider />
         <FormControl as={Flex} direction="column" gap="2">
-          <Heading as={FormLabel} size="sm" fontWeight="medium" htmlFor="grayscale" margin="0">
+          <Heading as={FormLabel} size="sm" fontWeight="medium" margin="0">
             Upscaled Resolution
           </Heading>
           <Text>

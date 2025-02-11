@@ -39,8 +39,9 @@ export const objectScalingEventHandler = (
   if (e.target.id === "image") {
     const image = e.target as FabricObject;
 
-    if (image.scaleX * image.width >= canvas.originalImageDimensions?.width!) {
-      image.set({scaleX: canvas.originalImageDimensions?.width! / image.width});
+    const originalWidth = canvas.originalImageDimensions?.width;
+    if (typeof originalWidth === "number" && image.scaleX * image.width >= originalWidth) {
+      image.set({scaleX: originalWidth / image.width});
     }
 
     if (image.scaleY * image.height >= canvas.originalImageDimensions?.height!) {

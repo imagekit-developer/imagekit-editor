@@ -22,12 +22,12 @@ import {
   handleResizeChange,
   handleToolStateClear,
   initializeAIImageExtender,
+  initializeAIRetouch,
   initializeCrop,
   initializeFabric,
   initializeResize,
   removeLoadingOverlay,
 } from "./lib";
-import {initializeAIRetouch} from "./lib/tools/ai-retouch";
 
 const ZOOM_DELTA_TO_SCALE_CONVERT_FACTOR = 0.0004167;
 
@@ -49,7 +49,7 @@ export const Canvas = () => {
   const imageDimensionsTextRef = useRef<Group | null>(null);
   const resizeBackgroundRef = useRef<Rect | null>(null);
 
-  const resizeEventHandlerRef = useRef<(e: ModifiedEvent<TPointerEvent>) => void | null>(null);
+  const resizeEventHandlerRef = useRef<((e: ModifiedEvent<TPointerEvent>) => void) | undefined>(undefined);
 
   const [{zoomLevel, tool, canvas, imageUrl, originalImageUrl}, dispatch] = useEditorContext();
 
@@ -85,6 +85,7 @@ export const Canvas = () => {
           );
           fabricRef.current?.add(image);
 
+          // Hide image's own scaling controls. We'll handle via background rectangle.
           image.setControlsVisibility({
             mt: false,
             mb: false,
@@ -154,7 +155,7 @@ export const Canvas = () => {
       } catch (error) {
         toast({
           position: "top-right",
-          title: "There was a problem in applying tranformation to the image",
+          title: "There was a problem in applying transformation to the image",
           status: "error",
           duration: 3000,
           isClosable: true,
@@ -190,9 +191,6 @@ export const Canvas = () => {
         return;
       }
 
-      // if (toolRef.current && [Tools.AI_IMAGE_EXTENDER].includes(toolRef.current)) {
-      //   return;
-      // }
       const delta = event.e.deltaY;
       let zoom = fabricRef.current?.getZoom() || DEFAULT_ZOOM_LEVEL;
 
@@ -227,10 +225,6 @@ export const Canvas = () => {
     if (fabricRef.current && imageRef.current) {
       if (zoomLevel.x && zoomLevel.y) {
         fabricRef.current.zoomToPoint(new FabricPoint({x: zoomLevel.x, y: zoomLevel.y}), zoomLevel.value);
-
-        // if (zoomLevel.x === canvas.width! / 2 && zoomLevel.y === canvas.height! / 2) {
-        //   fabricRef.current.centerObject(imageRef.current);
-        // }
       } else {
         fabricRef.current.setZoom(zoomLevel.value);
       }
@@ -248,6 +242,7 @@ export const Canvas = () => {
       cropOverlayRef,
       imageDimensionsTextRef,
       resizeEventHandlerRef,
+      resizeBackgroundRef,
     });
   }, [tool.value]);
 
@@ -293,13 +288,13 @@ export const Canvas = () => {
       tool.value !== Tools.CROP ||
       !cropRef.current ||
       !cropOverlayRef.current
-    )
+    ) {
       return;
+    }
     handleCropmodeChange({
       fabricRef,
       imageRef,
       cropRef,
-      // cropOverlayRef,
       tool,
     });
 
@@ -314,10 +309,19 @@ export const Canvas = () => {
       imageRef,
       tool,
       imageDimensionsTextRef,
+      resizeBackgroundRef,
+      resizeEventHandlerRef,
+      dispatch,
     });
 
     fabricRef.current.renderAll();
-  }, [tool.options[Tools.RESIZE]]);
+  }, [
+    zoomLevel.value,
+    tool.options[Tools.RESIZE].width,
+    tool.options[Tools.RESIZE].height,
+    tool.options[Tools.RESIZE].scale,
+    tool.options[Tools.RESIZE].maintainAspectRatio,
+  ]);
 
   return (
     <>
