@@ -13,5 +13,5 @@ psd
 thumb
 sketch
 
-packages/imagekit-editor/build/dist/*
-packages/imagekit-editor/build/*.tgz
+packages/imagekit-editor/dist/*
+packages/imagekit-editor/*.tgz

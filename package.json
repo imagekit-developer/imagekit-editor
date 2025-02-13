@@ -18,7 +18,11 @@
     ]
   },
   "scripts": {
-    "start": "lerna run start --parallel"
+    "start": "lerna run start --parallel",
+    "version": "yarn workspace imagekit-editor version --new-version $npm_package_version",
+    "build": "yarn workspace imagekit-editor version && yarn workspace imagekit-editor-dev build",
+    "package": "yarn workspace imagekit-editor version && yarn build && yarn workspace imagekit-editor pack",
+    "release": "yarn workspace imagekit-editor version && yarn build && yarn workspace imagekit-editor pack && yarn workspace imagekit-editor publish"
   },
   "devDependencies": {
     "@types/react": "^18.3.9",

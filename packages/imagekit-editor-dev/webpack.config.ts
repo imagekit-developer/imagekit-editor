@@ -25,7 +25,7 @@ const config = (env, {mode}): Array<WebpackDevServerConfiguration | Configuratio
         },
       },
       output: {
-        path: path.join(__dirname, "build", "dist", "cjs"),
+        path: path.join(__dirname, "../imagekit-editor", "dist", "cjs"),
         filename: "index.js",
         library: "ImageKitEditor",
         libraryTarget: "umd",
@@ -84,7 +84,7 @@ const config = (env, {mode}): Array<WebpackDevServerConfiguration | Configuratio
         },
       },
       output: {
-        path: path.join(__dirname, "build", "dist", "module"),
+        path: path.join(__dirname, "../imagekit-editor", "dist", "module"),
         filename: "index.js",
         library: "ImageKitEditor",
         libraryTarget: "umd",
