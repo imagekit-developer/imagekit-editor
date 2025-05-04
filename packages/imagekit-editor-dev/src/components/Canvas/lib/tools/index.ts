@@ -13,6 +13,7 @@ export const handleToolStateClear = ({
   imageDimensionsTextRef,
   cropOverlayRef,
   resizeBackgroundRef,
+  aiImageExtenderRef,
 }: {
   fabricRef: React.MutableRefObject<FabricCanvas | null>;
   imageRef: React.MutableRefObject<FabricImage | null>;
@@ -24,6 +25,7 @@ export const handleToolStateClear = ({
   cropOverlayRef: React.MutableRefObject<Rect | null>;
   imageDimensionsTextRef: React.MutableRefObject<Group | null>;
   resizeBackgroundRef: React.MutableRefObject<Rect | null>;
+  aiImageExtenderRef: React.MutableRefObject<Rect | null>;
 }) => {
   if (!fabricRef.current || !imageRef.current) return;
 
@@ -72,6 +74,11 @@ export const handleToolStateClear = ({
       scaleX: 1,
       scaleY: 1,
     });
+  }
+
+  if (tool.value !== Tools.AI_IMAGE_EXTENDER) {
+    aiImageExtenderRef.current && fabricRef.current.remove(aiImageExtenderRef.current);
+    aiImageExtenderRef.current = null;
   }
 };
 

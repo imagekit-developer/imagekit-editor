@@ -145,6 +145,8 @@ export const initializeResize = ({
   // Center the rect
   canvas.centerObject(resizeBackgroundRef.current);
 
+  canvas.sendObjectToBack(resizeBackgroundRef.current);
+
   // If maintainAspectRatio is true, disable non-corner controls
   if (tool.options[Tools.RESIZE].maintainAspectRatio) {
     resizeBackgroundRef.current.setControlsVisibility({
@@ -235,6 +237,8 @@ export const handleResizeChange = ({
 }: HandleResizeProps) => {
   if (!imageRef.current || !fabricRef.current || !resizeBackgroundRef.current) return;
 
+  fabricRef.current.sendObjectToBack(resizeBackgroundRef.current);
+
   resizeEventHandlerRef.current && resizeBackgroundRef.current.off("modified", resizeEventHandlerRef.current);
 
   if (tool.options[Tools.RESIZE].maintainAspectRatio) {
@@ -282,6 +286,7 @@ export const handleResizeChange = ({
   const newH = tool.options[Tools.RESIZE].height || bgRect.height;
 
   bgRect.set({width: newW, height: newH});
+  bgRect.set({fill: tool.options[Tools.RESIZE].backgroundColor ?? "transparent"});
   bgRect.setCoords();
 
   applyScaleMode(

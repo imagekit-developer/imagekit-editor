@@ -49,6 +49,8 @@ export const Canvas = () => {
   const imageDimensionsTextRef = useRef<Group | null>(null);
   const resizeBackgroundRef = useRef<Rect | null>(null);
 
+  const aiImageExtenderRef = useRef<Rect | null>(null);
+
   const resizeEventHandlerRef = useRef<((e: ModifiedEvent<TPointerEvent>) => void) | undefined>(undefined);
 
   const [{zoomLevel, tool, canvas, imageUrl, originalImageUrl}, dispatch] = useEditorContext();
@@ -243,6 +245,7 @@ export const Canvas = () => {
       imageDimensionsTextRef,
       resizeEventHandlerRef,
       resizeBackgroundRef,
+      aiImageExtenderRef,
     });
   }, [tool.value]);
 
@@ -256,7 +259,7 @@ export const Canvas = () => {
     }
 
     if (tool.value === Tools.AI_IMAGE_EXTENDER) {
-      initializeAIImageExtender({fabricRef, imageRef});
+      initializeAIImageExtender({fabricRef, imageRef, aiImageExtenderRef, tool});
     }
 
     if (tool.value === Tools.RESIZE) {
@@ -317,10 +320,13 @@ export const Canvas = () => {
     fabricRef.current.renderAll();
   }, [
     zoomLevel.value,
-    tool.options[Tools.RESIZE].width,
+    tool.options[Tools.RESIZE].mode,
     tool.options[Tools.RESIZE].height,
-    tool.options[Tools.RESIZE].scale,
+    tool.options[Tools.RESIZE].width,
+    tool.options[Tools.RESIZE].percentage,
     tool.options[Tools.RESIZE].maintainAspectRatio,
+    tool.options[Tools.RESIZE].scale,
+    tool.options[Tools.RESIZE].backgroundColor,
   ]);
 
   return (

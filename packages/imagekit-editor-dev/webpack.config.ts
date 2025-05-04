@@ -6,6 +6,10 @@ import {Configuration as WebpackDevServerConfiguration} from "webpack-dev-server
 const config = (env, {mode}): Array<WebpackDevServerConfiguration | Configuration> => {
   return [
     {
+      cache: {
+        type: "filesystem",
+        allowCollectingMemory: true,
+      },
       entry: "./src/index.tsx",
       watch: mode === "development",
       externals: {
@@ -65,6 +69,10 @@ const config = (env, {mode}): Array<WebpackDevServerConfiguration | Configuratio
       },
     },
     {
+      cache: {
+        type: "filesystem",
+        allowCollectingMemory: true,
+      },
       entry: "./src/index.tsx",
       watch: mode === "development",
       externals: {

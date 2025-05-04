@@ -21,6 +21,8 @@ export const initializeFabric = ({
 
   canvas.guidelines = [];
 
+  canvas.preserveObjectStacking = true;
+
   // @ts-ignore
   window.canvas = canvas;
   canvas.setZoom(DEFAULT_ZOOM_LEVEL);
