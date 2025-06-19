@@ -1,4 +1,4 @@
-import ImageKitEditor, { type ImageKitEditorProps } from "imagekit-editor";
+import ImageKitEditor, { type ImageKitEditorProps } from "@imagekit/editor";
 import React, { useEffect } from "react";
 import ReactDOM from "react-dom";
 
