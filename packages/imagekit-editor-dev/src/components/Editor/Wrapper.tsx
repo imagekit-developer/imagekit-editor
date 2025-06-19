@@ -1,8 +1,5 @@
-import {ChakraProvider} from "@chakra-ui/react";
-import ImageKit from "imagekit-javascript";
-import {ImageKitOptions} from "imagekit-javascript/dist/src/interfaces";
-import React, {useMemo} from "react";
-import {FontsFaces, theme} from "../../theme";
+import type { ImageKitOptions } from "imagekit-javascript/dist/src/interfaces";
+import React from "react";
 
 export interface ImageKitEditorProps {
   ikClientOptions: ImageKitOptions;
@@ -16,21 +13,11 @@ export interface ImageKitEditorProps {
 }
 
 export default (props: ImageKitEditorProps) => {
-  const {portalContainerRef, onClose, imageUrl, ikClientOptions, exportActions} = props;
+  const { imageUrl } = props;
 
   if (!imageUrl) {
     throw new Error("`imageUrl` is required for the image that will be edited");
   }
 
-  const ikClient = useMemo(() => {
-    return new ImageKit(ikClientOptions);
-  }, [ikClientOptions]);
-
-  return (
-    <React.StrictMode>
-      <ChakraProvider theme={theme}>
-        <FontsFaces />
-      </ChakraProvider>
-    </React.StrictMode>
-  );
+  return <React.StrictMode></React.StrictMode>;
 };

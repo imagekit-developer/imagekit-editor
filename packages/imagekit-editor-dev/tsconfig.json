@@ -15,9 +15,7 @@
     "noImplicitReturns": true,
     "noImplicitThis": true,
     "noImplicitAny": true,
-    "strictNullChecks": true,
-    "typeRoots": ["node_modules/@types", "./src/types"],
-    "types": ["@emotion/react/types/css-prop"]
+    "strictNullChecks": true
   },
   "include": ["src/**/*.ts*"],
   "exclude": ["node_modules", "lib"]

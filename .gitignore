@@ -15,3 +15,6 @@ sketch
 
 packages/imagekit-editor/dist/*
 packages/imagekit-editor/*.tgz
+.turbo
+.yarn
+builds

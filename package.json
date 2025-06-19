@@ -1,5 +1,5 @@
 {
-  "name": "@imagekit/editor",
+  "name": "imagekit-editor",
   "private": true,
   "description": "AI Image Editor powered by ImageKit",
   "keywords": [],
@@ -8,26 +8,21 @@
     "email": "developer@imagekit.io",
     "url": "https://imagekit.io"
   },
-  "workspaces": {
-    "packages": [
-      "examples/*",
-      "packages/*"
-    ],
-    "nohoist": [
-      "examples/**/*"
-    ]
-  },
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
   "scripts": {
-    "start": "lerna run start --parallel",
-    "version": "yarn workspace imagekit-editor version --new-version $npm_package_version",
-    "build": "yarn workspace imagekit-editor version && yarn workspace imagekit-editor-dev build",
-    "package": "yarn workspace imagekit-editor version && yarn build && yarn workspace imagekit-editor pack",
-    "release": "yarn workspace imagekit-editor version && yarn build && yarn workspace imagekit-editor pack && yarn workspace imagekit-editor publish"
+    "dev": "turbo run dev",
+    "start": "turbo run start",
+    "build": "turbo run build",
+    "version": "yarn workspace @imagekit/editor version",
+    "package": "yarn build && yarn workspace @imagekit/editor pack --out ../../builds/%s-%v.tgz",
+    "release": "yarn build && yarn workspace @imagekit/editor pack --out ../../builds/%s-%v.tgz && yarn workspace @imagekit/editor publish"
   },
   "devDependencies": {
-    "@types/react": "^18.3.9",
-    "@types/react-dom": "^18.3.0",
-    "lerna": "^8.1.8",
-    "prettier": "^3.3.3"
-  }
+    "@biomejs/biome": "2.0.0",
+    "turbo": "^2.0.1"
+  },
+  "packageManager": "yarn@4.9.2"
 }
