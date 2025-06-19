@@ -34,7 +34,7 @@ export default defineConfig({
     // Enable minification
     minify: "terser",
     // Generate TypeScript type declarations
-    emptyOutDir: true,
+    emptyOutDir: false,
   },
   resolve: {
     extensions: [".ts", ".tsx", ".js", ".jsx", ".json"],
