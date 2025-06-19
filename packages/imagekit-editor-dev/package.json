@@ -35,7 +35,10 @@
   },
   "dependencies": {
     "@react-icons/all-files": "https://github.com/react-icons/react-icons/releases/download/v5.4.0/react-icons-all-files-5.4.0.tgz",
-    "imagekit-javascript": "^3.0.2"
+    "framer-motion": "^12.18.1",
+    "imagekit-javascript": "^3.0.2",
+    "radix-ui": "^1.4.2",
+    "styled-components": "^6.1.19"
   },
   "license": "MIT"
 }
