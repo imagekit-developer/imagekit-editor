@@ -4,7 +4,8 @@
   "editor.formatOnSave": true,
   "editor.formatOnSaveMode": "file",
   "editor.codeActionsOnSave": {
-    "source.addMissingImports.ts": "always"
+    "source.organizeImports.biome": "explicit",
+    "source.fixAll.biome": "explicit"
   },
   "typescript.tsdk": "node_modules/typescript/lib",
   "editor.defaultFormatter": "biomejs.biome",

@@ -1,10 +1,10 @@
-import ImageKitEditor, { type ImageKitEditorProps } from "@imagekit/editor";
-import React, { useEffect } from "react";
-import ReactDOM from "react-dom";
+import ImageKitEditor, { type ImageKitEditorProps } from "@imagekit/editor"
+import React, { useEffect } from "react"
+import ReactDOM from "react-dom"
 
 function App() {
-  const [open, setOpen] = React.useState(true);
-  const [editorProps, setEditorProps] = React.useState<ImageKitEditorProps>();
+  const [open, setOpen] = React.useState(true)
+  const [editorProps, setEditorProps] = React.useState<ImageKitEditorProps>()
 
   useEffect(() => {
     setEditorProps({
@@ -22,28 +22,28 @@ function App() {
         {
           label: "Download",
           onClick: (url: string) => {
-            console.log("Download", url);
+            console.log("Download", url)
           },
         },
         {
           label: "Save as new file",
           onClick: (url: string) => {
-            console.log("Save as new file", url);
+            console.log("Save as new file", url)
           },
         },
         {
           label: "Save as new version",
           onClick: (url: string) => {
-            console.log("Save as new version", url);
+            console.log("Save as new version", url)
           },
         },
       ],
-    });
-  }, []);
+    })
+  }, [])
 
   const toggle = () => {
-    setOpen((prev) => !prev);
-  };
+    setOpen((prev) => !prev)
+  }
 
   return (
     <>
@@ -52,13 +52,13 @@ function App() {
       </button>
       {open && editorProps && <ImageKitEditor {...editorProps} />}
     </>
-  );
+  )
 }
 
-const root = document.getElementById("root");
+const root = document.getElementById("root")
 ReactDOM.render(
   <React.StrictMode>
     <App />
   </React.StrictMode>,
   root,
-);
+)

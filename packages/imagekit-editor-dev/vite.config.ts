@@ -1,7 +1,7 @@
-import * as path from "node:path";
-import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
-import dts from "vite-plugin-dts";
+import * as path from "node:path"
+import react from "@vitejs/plugin-react"
+import { defineConfig } from "vite"
+import dts from "vite-plugin-dts"
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -17,7 +17,7 @@ export default defineConfig({
     lib: {
       entry: path.resolve(__dirname, "src/index.tsx"),
       name: "ImageKitEditor",
-      formats: ["es", "umd", "cjs"],
+      formats: ["es", "cjs"],
       fileName: (format) => `index.${format}.js`,
     },
     outDir: path.join(__dirname, "../imagekit-editor/dist"),
@@ -57,4 +57,4 @@ export default defineConfig({
     "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV),
   },
   clearScreen: false,
-});
+})
