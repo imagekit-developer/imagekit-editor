@@ -514,7 +514,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@imagekit/editor@npm:*, @imagekit/editor@workspace:packages/imagekit-editor":
+"@imagekit/editor@npm:0.0.1, @imagekit/editor@workspace:packages/imagekit-editor":
   version: 0.0.0-use.local
   resolution: "@imagekit/editor@workspace:packages/imagekit-editor"
   peerDependencies:
@@ -2438,7 +2438,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "react-example@workspace:examples/react-example"
   dependencies:
-    "@imagekit/editor": "npm:*"
+    "@imagekit/editor": "npm:0.0.1"
     "@types/node": "npm:^20.11.24"
     "@types/react": "npm:^17.0.2"
     "@types/react-dom": "npm:^17.0.2"
