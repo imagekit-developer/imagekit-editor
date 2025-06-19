@@ -1,8 +1,6 @@
 import {Button, Flex, Heading, Icon, IconButton, Menu, MenuButton, MenuItem, MenuList, Spacer} from "@chakra-ui/react";
 import {IoIosArrowDown} from "@react-icons/all-files/io/IoIosArrowDown";
 import {IoIosArrowRoundBack} from "@react-icons/all-files/io/IoIosArrowRoundBack";
-import {RESET_HISTORY} from "../../actions";
-import {useEditorContext} from "../../context";
 
 interface HeaderProps {
   onClose(): void;
@@ -13,8 +11,6 @@ interface HeaderProps {
 }
 
 const ExportActions = ({exportActions}: {exportActions: HeaderProps["exportActions"]}) => {
-  const [{imageUrl}] = useEditorContext();
-
   if (exportActions.length === 0) {
     return null;
   }
@@ -22,7 +18,7 @@ const ExportActions = ({exportActions}: {exportActions: HeaderProps["exportActio
   if (exportActions.length === 1) {
     const [exportAction] = exportActions;
     return (
-      <Button colorScheme="blue" variant="solid" size="sm" onClick={() => exportAction.onClick(imageUrl)}>
+      <Button colorScheme="blue" variant="solid" size="sm" onClick={() => {}}>
         {exportAction.label}
       </Button>
     );
@@ -35,7 +31,7 @@ const ExportActions = ({exportActions}: {exportActions: HeaderProps["exportActio
       </MenuButton>
       <MenuList>
         {exportActions.map(({label, onClick}) => (
-          <MenuItem key={label} onClick={() => onClick(imageUrl)}>
+          <MenuItem key={label} onClick={() => {}}>
             {label}
           </MenuItem>
         ))}
@@ -46,8 +42,6 @@ const ExportActions = ({exportActions}: {exportActions: HeaderProps["exportActio
 
 export const Header = (props: HeaderProps) => {
   const {onClose, exportActions} = props;
-
-  const [{imageName}, dispatch] = useEditorContext();
 
   return (
     <Flex
@@ -72,19 +66,10 @@ export const Header = (props: HeaderProps) => {
         variant="outline"
       ></IconButton>
       <Heading as={"span"} fontWeight="medium" fontSize="md">
-        {imageName}
+        {""}
       </Heading>
       <Spacer />
-      <Button
-        colorScheme="blue"
-        variant="outline"
-        size="sm"
-        onClick={() => {
-          dispatch({
-            type: RESET_HISTORY,
-          });
-        }}
-      >
+      <Button colorScheme="blue" variant="outline" size="sm" onClick={() => {}}>
         Reset to default
       </Button>
       <ExportActions exportActions={exportActions} />

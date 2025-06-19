@@ -2,8 +2,6 @@ import {ChakraProvider} from "@chakra-ui/react";
 import ImageKit from "imagekit-javascript";
 import {ImageKitOptions} from "imagekit-javascript/dist/src/interfaces";
 import React, {useMemo} from "react";
-import Editor from ".";
-import {EditorProvider} from "../../context";
 import {FontsFaces, theme} from "../../theme";
 
 export interface ImageKitEditorProps {
@@ -32,9 +30,6 @@ export default (props: ImageKitEditorProps) => {
     <React.StrictMode>
       <ChakraProvider theme={theme}>
         <FontsFaces />
-        <EditorProvider imageUrl={imageUrl} ikClient={ikClient}>
-          <Editor onClose={onClose} portalContainerRef={portalContainerRef} exportActions={exportActions} />
-        </EditorProvider>
       </ChakraProvider>
     </React.StrictMode>
   );
