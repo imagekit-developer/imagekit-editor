@@ -1,12 +1,4 @@
-import {
-  Box,
-  Button,
-  Flex,
-  Icon,
-  IconButton,
-  Text,
-  VStack,
-} from "@chakra-ui/react"
+import { Box, Button, Icon, IconButton, Text, VStack } from "@chakra-ui/react"
 import { PiX } from "@react-icons/all-files/pi/PiX"
 import { RiImageEditLine } from "@react-icons/all-files/ri/RiImageEditLine"
 import * as React from "react"
@@ -14,6 +6,7 @@ import { transformationSchema } from "../../schema"
 import { useEditorStore } from "../../store"
 import { SidebarBody } from "./sidebar-body"
 import { SidebarHeader } from "./sidebar-header"
+import { SidebarRoot } from "./sidebar-root"
 
 export const TransformationTypeSidebar: React.FC = () => {
   const { transformations, _setSelectedTransformationKey, _setSidebarState } =
@@ -96,14 +89,7 @@ export const TransformationTypeSidebar: React.FC = () => {
   // }
 
   return (
-    <Flex
-      width="72"
-      height="full"
-      direction="column"
-      bg="white"
-      borderRight="1px"
-      borderRightColor="editorBattleshipGrey.100"
-    >
+    <SidebarRoot>
       <SidebarHeader justifyContent="space-between">
         <Text fontSize="xs" fontWeight="normal" mt={0}>
           Add Transformation
@@ -155,6 +141,6 @@ export const TransformationTypeSidebar: React.FC = () => {
           </Box>
         ))}
       </SidebarBody>
-    </Flex>
+    </SidebarRoot>
   )
 }

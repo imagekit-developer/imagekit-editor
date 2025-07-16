@@ -42,9 +42,12 @@ import { z } from "zod/v3"
 import type { TransformationField } from "../../schema"
 import { transformationSchema } from "../../schema"
 import { useEditorStore } from "../../store"
+import AnchorField from "../common/AnchorField"
+import ColorPickerField from "../common/ColorPickerField"
 import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
+import { SidebarRoot } from "./sidebar-root"
 
 export const TransformationConfigSidebar: React.FC = () => {
   const {
@@ -104,8 +107,6 @@ export const TransformationConfigSidebar: React.FC = () => {
     selectedTransformation,
     transformations,
   ])
-
-  console.log(defaultValues)
 
   const {
     register,
@@ -173,23 +174,12 @@ export const TransformationConfigSidebar: React.FC = () => {
     }
   }
 
-  console.log(errors)
-
   if (!selectedTransformation) {
     return null
   }
 
   return (
-    <Flex
-      width="72"
-      height="full"
-      direction="column"
-      bg="white"
-      borderRight="1px"
-      borderRightColor="editorBattleshipGrey.100"
-      position="relative"
-      as="form"
-    >
+    <SidebarRoot>
       <SidebarHeader>
         {!_internalState.transformationToEdit ? (
           <IconButton
@@ -340,6 +330,20 @@ export const TransformationConfigSidebar: React.FC = () => {
                   </Slider>
                 </Box>
               ) : null}
+              {field.fieldType === "color-picker" ? (
+                <ColorPickerField
+                  fieldName={field.name}
+                  value={watch(field.name) as string}
+                  setValue={setValue}
+                />
+              ) : null}
+              {field.fieldType === "anchor" ? (
+                <AnchorField
+                  value={watch(field.name) as string}
+                  positions={field.fieldProps?.positions as string[]}
+                  onChange={(value) => setValue(field.name, value)}
+                />
+              ) : null}
               <FormErrorMessage fontSize="xs">
                 {String(
                   errors[field.name as keyof typeof errors]?.message ?? "",
@@ -392,6 +396,6 @@ export const TransformationConfigSidebar: React.FC = () => {
           </ButtonGroup>
         </HStack>
       </SidebarFooter>
-    </Flex>
+    </SidebarRoot>
   )
 }

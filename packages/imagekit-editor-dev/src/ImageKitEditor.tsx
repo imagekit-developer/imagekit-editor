@@ -1,5 +1,4 @@
-import { ChakraProvider, Portal } from "@chakra-ui/react"
-import { theme as defaultTheme } from "@chakra-ui/theme"
+import { ChakraProvider, theme as defaultTheme, Portal } from "@chakra-ui/react"
 import type { Dict } from "@chakra-ui/utils"
 import merge from "lodash/merge"
 import React, { forwardRef, useImperativeHandle } from "react"

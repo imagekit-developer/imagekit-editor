@@ -1,6 +1,8 @@
 import type { Transformation } from "@imagekit/javascript"
 import { z } from "zod/v3"
+import { SIMPLE_OVERLAY_TEXT_REGEX, safeBtoa } from "../utils"
 import {
+  aspectRatioValidator,
   colorValidator,
   heightValidator,
   widthValidator,
@@ -63,10 +65,9 @@ export const transformationSchema: TransformationSchema[] = [
             background: z
               .union([z.literal("").transform(() => ""), colorValidator])
               .optional(),
-            backgroundBlurIntensity: z.string().optional(),
-            backgroundBlurBrightness: z.string().optional(),
+            backgroundBlurIntensity: z.coerce.string().optional(),
+            backgroundBlurBrightness: z.coerce.string().optional(),
             backgroundGenerativeFill: z.string().optional(),
-            focusType: z.string().optional(),
             focus: z.string().optional(),
           })
           .refine(
@@ -86,7 +87,10 @@ export const transformationSchema: TransformationSchema[] = [
             },
           )
           .superRefine((val, ctx) => {
-            if (val.backgroundType === "blurred" && !val.width && !val.height) {
+            if (
+              val.backgroundType === "blurred" &&
+              (!val.width || !val.height)
+            ) {
               if (!val.width) {
                 ctx.addIssue({
                   code: z.ZodIssueCode.custom,
@@ -98,6 +102,26 @@ export const transformationSchema: TransformationSchema[] = [
                 ctx.addIssue({
                   code: z.ZodIssueCode.custom,
                   message: "Required for blurred background",
+                  path: ["height"],
+                })
+              }
+            }
+
+            if (
+              val.backgroundType === "generative_fill" &&
+              (!val.width || !val.height)
+            ) {
+              if (!val.width) {
+                ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  message: "Required for generative fill background",
+                  path: ["width"],
+                })
+              }
+              if (!val.height) {
+                ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  message: "Required for generative fill background",
                   path: ["height"],
                 })
               }
@@ -139,7 +163,7 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Background Color",
             name: "background",
-            fieldType: "input",
+            fieldType: "color-picker",
             transformationGroup: "background",
             isTransformation: true,
             isVisible: ({ backgroundType }) => backgroundType === "color",
@@ -180,29 +204,20 @@ export const transformationSchema: TransformationSchema[] = [
             label: "Background Generative Fill",
             name: "backgroundGenerativeFill",
             fieldType: "input",
-            transformationKey: "background",
+            helpText: "(Optional) Enter a prompt for generative fill",
             isTransformation: true,
+            transformationGroup: "background",
             isVisible: ({ backgroundType }) =>
               backgroundType === "generative_fill",
           },
           {
             label: "Focus",
             name: "focus",
-            fieldType: "select",
+            fieldType: "anchor",
             isTransformation: true,
             transformationKey: "focus",
             fieldProps: {
-              options: [
-                { label: "Center", value: "center" },
-                { label: "Top Left", value: "top_left" },
-                { label: "Top Right", value: "top_right" },
-                { label: "Bottom Left", value: "bottom_left" },
-                { label: "Bottom Right", value: "bottom_right" },
-                { label: "Top", value: "top" },
-                { label: "Bottom", value: "bottom" },
-                { label: "Left", value: "left" },
-                { label: "Right", value: "right" },
-              ],
+              positions: ["center", "top", "bottom", "left", "right"],
             },
           },
         ],
@@ -215,7 +230,11 @@ export const transformationSchema: TransformationSchema[] = [
           .object({
             width: widthValidator.optional(),
             height: heightValidator.optional(),
+            // TODO: aspectRatio is always required fix it
+            aspectRatio: aspectRatioValidator.optional(),
             focus: z.string().optional(),
+            focusAnchor: z.string().optional(),
+            focusObject: z.string().optional(),
           })
           .refine(
             (val) => {
@@ -232,7 +251,38 @@ export const transformationSchema: TransformationSchema[] = [
               message: "At least one value is required",
               path: [],
             },
-          ),
+          )
+          .superRefine((val, ctx) => {
+            if (val.width && val.height) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Width and height cannot be used together",
+                path: [],
+              })
+            }
+            if (val.width && val.height && val.aspectRatio) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message:
+                  "Width, height and aspect ratio cannot be used together",
+                path: [],
+              })
+            }
+            if (val.focus === "object" && !val.focusObject) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Focus object is required",
+                path: [],
+              })
+            }
+            if (val.focus === "anchor" && !val.focusAnchor) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Focus anchor is required",
+                path: [],
+              })
+            }
+          }),
         transformations: [
           {
             label: "Width",
@@ -253,27 +303,61 @@ export const transformationSchema: TransformationSchema[] = [
               "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
           },
           {
+            label: "Aspect Ratio",
+            name: "aspectRatio",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "aspectRatio",
+            helpText:
+              "Enter the aspect ratio in the format 'width-height' (e.g., 16-9 or 4-3) or an expression string (e.g., iar_add_16_9, etc.)",
+          },
+          {
             label: "Focus",
             name: "focus",
             fieldType: "select",
             isTransformation: true,
-            transformationKey: "focus",
+            transformationGroup: "focus",
+            fieldProps: {
+              options: [
+                { label: "Auto", value: "auto" },
+                { label: "Anchor", value: "anchor" },
+                { label: "Face", value: "face" },
+                { label: "Object", value: "object" },
+              ],
+            },
+          },
+          {
+            label: "Focus Anchor",
+            name: "focusAnchor",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationGroup: "focus",
             fieldProps: {
               options: [
                 { label: "Center", value: "center" },
-                { label: "Top Left", value: "top_left" },
-                { label: "Top Right", value: "top_right" },
-                { label: "Bottom Left", value: "bottom_left" },
-                { label: "Bottom Right", value: "bottom_right" },
                 { label: "Top", value: "top" },
                 { label: "Bottom", value: "bottom" },
                 { label: "Left", value: "left" },
                 { label: "Right", value: "right" },
+                { label: "Top Left", value: "top_left" },
+                { label: "Top Right", value: "top_right" },
+                { label: "Bottom Left", value: "bottom_left" },
+                { label: "Bottom Right", value: "bottom_right" },
               ],
             },
+            isVisible: ({ focus }) => focus === "anchor",
+          },
+          {
+            label: "Focus Object",
+            name: "focusObject",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "focus",
+            isVisible: ({ focus }) => focus === "object",
           },
         ],
       },
+      // TODO: DONE TILL HERE
       {
         key: "resize-forced_crop",
         name: "Forced Crop",
@@ -283,6 +367,8 @@ export const transformationSchema: TransformationSchema[] = [
             width: widthValidator.optional(),
             height: heightValidator.optional(),
             focus: z.string().optional(),
+            focusAnchor: z.string().optional(),
+            focusObject: z.string().optional(),
           })
           .refine(
             (val) => {
@@ -324,20 +410,44 @@ export const transformationSchema: TransformationSchema[] = [
             name: "focus",
             fieldType: "select",
             isTransformation: true,
-            transformationKey: "focus",
+            transformationGroup: "focus",
+            fieldProps: {
+              options: [
+                { label: "Auto", value: "auto" },
+                { label: "Anchor", value: "anchor" },
+                { label: "Face", value: "face" },
+                { label: "Object", value: "object" },
+              ],
+            },
+          },
+          {
+            label: "Focus Anchor",
+            name: "focusAnchor",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationGroup: "focus",
             fieldProps: {
               options: [
                 { label: "Center", value: "center" },
-                { label: "Top Left", value: "top_left" },
-                { label: "Top Right", value: "top_right" },
-                { label: "Bottom Left", value: "bottom_left" },
-                { label: "Bottom Right", value: "bottom_right" },
                 { label: "Top", value: "top" },
                 { label: "Bottom", value: "bottom" },
                 { label: "Left", value: "left" },
                 { label: "Right", value: "right" },
+                { label: "Top Left", value: "top_left" },
+                { label: "Top Right", value: "top_right" },
+                { label: "Bottom Left", value: "bottom_left" },
+                { label: "Bottom Right", value: "bottom_right" },
               ],
             },
+            isVisible: ({ focus }) => focus === "anchor",
+          },
+          {
+            label: "Focus Object",
+            name: "focusObject",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "focus",
+            isVisible: ({ focus }) => focus === "object",
           },
         ],
       },
@@ -349,7 +459,6 @@ export const transformationSchema: TransformationSchema[] = [
           .object({
             width: widthValidator.optional(),
             height: heightValidator.optional(),
-            focus: z.string().optional(),
           })
           .refine(
             (val) => {
@@ -385,26 +494,6 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "height",
             helpText:
               "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
-          },
-          {
-            label: "Focus",
-            name: "focus",
-            fieldType: "select",
-            isTransformation: true,
-            transformationKey: "focus",
-            fieldProps: {
-              options: [
-                { label: "Center", value: "center" },
-                { label: "Top Left", value: "top_left" },
-                { label: "Top Right", value: "top_right" },
-                { label: "Bottom Left", value: "bottom_left" },
-                { label: "Bottom Right", value: "bottom_right" },
-                { label: "Top", value: "top" },
-                { label: "Bottom", value: "bottom" },
-                { label: "Left", value: "left" },
-                { label: "Right", value: "right" },
-              ],
-            },
           },
         ],
       },
@@ -416,7 +505,6 @@ export const transformationSchema: TransformationSchema[] = [
           .object({
             width: widthValidator.optional(),
             height: heightValidator.optional(),
-            focus: z.string().optional(),
           })
           .refine(
             (val) => {
@@ -452,26 +540,6 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "height",
             helpText:
               "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
-          },
-          {
-            label: "Focus",
-            name: "focus",
-            fieldType: "select",
-            isTransformation: true,
-            transformationKey: "focus",
-            fieldProps: {
-              options: [
-                { label: "Center", value: "center" },
-                { label: "Top Left", value: "top_left" },
-                { label: "Top Right", value: "top_right" },
-                { label: "Bottom Left", value: "bottom_left" },
-                { label: "Bottom Right", value: "bottom_right" },
-                { label: "Top", value: "top" },
-                { label: "Bottom", value: "bottom" },
-                { label: "Left", value: "left" },
-                { label: "Right", value: "right" },
-              ],
-            },
           },
         ],
       },
@@ -483,7 +551,6 @@ export const transformationSchema: TransformationSchema[] = [
           .object({
             width: widthValidator.optional(),
             height: heightValidator.optional(),
-            focus: z.string().optional(),
           })
           .refine(
             (val) => {
@@ -519,26 +586,6 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "height",
             helpText:
               "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
-          },
-          {
-            label: "Focus",
-            name: "focus",
-            fieldType: "select",
-            isTransformation: true,
-            transformationKey: "focus",
-            fieldProps: {
-              options: [
-                { label: "Center", value: "center" },
-                { label: "Top Left", value: "top_left" },
-                { label: "Top Right", value: "top_right" },
-                { label: "Bottom Left", value: "bottom_left" },
-                { label: "Bottom Right", value: "bottom_right" },
-                { label: "Top", value: "top" },
-                { label: "Bottom", value: "bottom" },
-                { label: "Left", value: "left" },
-                { label: "Right", value: "right" },
-              ],
-            },
           },
         ],
       },
@@ -559,6 +606,8 @@ export const transformationSchema: TransformationSchema[] = [
             width: widthValidator.optional(),
             height: heightValidator.optional(),
             focus: z.string().optional(),
+            focusAnchor: z.string().optional(),
+            focusObject: z.string().optional(),
           })
           .refine(
             (val) => {
@@ -600,20 +649,44 @@ export const transformationSchema: TransformationSchema[] = [
             name: "focus",
             fieldType: "select",
             isTransformation: true,
-            transformationKey: "focus",
+            transformationGroup: "focus",
+            fieldProps: {
+              options: [
+                { label: "Auto", value: "auto" },
+                { label: "Anchor", value: "anchor" },
+                { label: "Face", value: "face" },
+                { label: "Object", value: "object" },
+              ],
+            },
+          },
+          {
+            label: "Focus Anchor",
+            name: "focusAnchor",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationGroup: "focus",
             fieldProps: {
               options: [
                 { label: "Center", value: "center" },
-                { label: "Top Left", value: "top_left" },
-                { label: "Top Right", value: "top_right" },
-                { label: "Bottom Left", value: "bottom_left" },
-                { label: "Bottom Right", value: "bottom_right" },
                 { label: "Top", value: "top" },
                 { label: "Bottom", value: "bottom" },
                 { label: "Left", value: "left" },
                 { label: "Right", value: "right" },
+                { label: "Top Left", value: "top_left" },
+                { label: "Top Right", value: "top_right" },
+                { label: "Bottom Left", value: "bottom_left" },
+                { label: "Bottom Right", value: "bottom_right" },
               ],
             },
+            isVisible: ({ focus }) => focus === "anchor",
+          },
+          {
+            label: "Focus Object",
+            name: "focusObject",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "focus",
+            isVisible: ({ focus }) => focus === "object",
           },
         ],
       },
@@ -1428,20 +1501,62 @@ export const transformationFormatters: Record<
   ) => void
 > = {
   background: (values, transforms) => {
-    const { backgroundBlurIntensity, backgroundBlurBrightness } = values
+    const {
+      backgroundType,
+      backgroundBlurIntensity,
+      backgroundBlurBrightness,
+    } = values
 
-    if (backgroundBlurIntensity === "auto" && !backgroundBlurBrightness) {
-      transforms.background = "blurred_auto"
-    } else if (backgroundBlurIntensity === "auto" && backgroundBlurBrightness) {
-      transforms.background = `blurred_auto_${backgroundBlurBrightness}`
-    } else if (!Number.isNaN(Number(backgroundBlurIntensity))) {
-      if (backgroundBlurBrightness) {
-        transforms.background = `blurred_${backgroundBlurIntensity}_${backgroundBlurBrightness}`
+    console.log(values)
+
+    if (backgroundType === "color" && values.background) {
+      transforms.background = (values.background as string).replace("#", "")
+    } else if (backgroundType === "blurred") {
+      if (backgroundBlurIntensity === "auto" && !backgroundBlurBrightness) {
+        transforms.background = "blurred_auto"
+      } else if (
+        backgroundBlurIntensity === "auto" &&
+        backgroundBlurBrightness
+      ) {
+        transforms.background = `blurred_auto_${backgroundBlurBrightness}`
+      } else if (!Number.isNaN(Number(backgroundBlurIntensity))) {
+        if (backgroundBlurBrightness) {
+          transforms.background = `blurred_${backgroundBlurIntensity}_${backgroundBlurBrightness}`
+        } else {
+          transforms.background = `blurred_${backgroundBlurIntensity}`
+        }
       } else {
-        transforms.background = `blurred_${backgroundBlurIntensity}`
+        transforms.background = "blurred"
       }
-    } else {
-      transforms.background = "blurred"
+    } else if (backgroundType === "generative_fill") {
+      if (!values.backgroundGenerativeFill) {
+        transforms.background = "genfill"
+      } else {
+        if (
+          SIMPLE_OVERLAY_TEXT_REGEX.test(
+            values.backgroundGenerativeFill as string,
+          )
+        ) {
+          transforms.background = `genfill-prompt-${values.backgroundGenerativeFill}`
+        } else {
+          transforms.background = `genfill-prompte-${encodeURIComponent(safeBtoa(values.backgroundGenerativeFill as string))}`
+        }
+      }
+    }
+  },
+  focus: (values, transforms) => {
+    const { focus, focusAnchor, focusObject } = values
+
+    console.log("focus", focus)
+    console.log("focusAnchor", focusAnchor)
+    console.log("focusObject", focusObject)
+
+    if (focus === "auto" || focus === "face") {
+      transforms.focus = focus
+    } else if (focus === "anchor") {
+      transforms.focus = focusAnchor
+    } else if (focus === "object") {
+      transforms.focus = focusObject
     }
   },
 }

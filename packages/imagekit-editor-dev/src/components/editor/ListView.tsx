@@ -33,7 +33,7 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
               "calc(100vh - 4.125rem - 2*var(--chakra-space-8) - var(--chakra-space-12) - var(--chakra-space-24))"
             }
             maxW={
-              "calc(100vw - var(--chakra-space-72) - 2*var(--chakra-space-8))"
+              "calc(100vw - 2*var(--chakra-space-72) - 2*var(--chakra-space-8))"
             }
             fallback={
               <Center h="full" w="full">

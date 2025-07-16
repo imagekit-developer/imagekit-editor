@@ -6,7 +6,7 @@ const widthNumber = z.coerce.number().min(0, {
 
 const widthExpr = z
   .string()
-  .regex(/^(?:iw|bw|cw)_(?:add|sub|mul|div|mod|pow)_\d+$/, {
+  .regex(/^(?:iw|bw|cw)_(?:add|sub|mul|div|mod|pow)_(\d+\.\d{1,2})?$/, {
     message: "Width string must be a valid expression string",
   })
 
@@ -50,3 +50,24 @@ export const colorValidator = z
   .regex(/^#?[0-9A-Fa-f]{3}(?:[0-9A-Fa-f]{3})?$/, {
     message: "Color must be a valid hex color code",
   })
+
+const aspectRatioValueValidator = z
+  .string()
+  .regex(/^\d+(\.\d{1,2})?-\d+(\.\d{1,2})?$/)
+
+const aspectRatioExpressionValidator = z
+  .string()
+  .regex(/^(?:iar|car)_(?:add|sub|mul|div|mod|pow)_(\d+(\.\d{1,2})?)$/)
+
+export const aspectRatioValidator = z.any().superRefine((val, ctx) => {
+  if (aspectRatioValueValidator.safeParse(val).success) {
+    return
+  }
+  if (aspectRatioExpressionValidator.safeParse(val).success) {
+    return
+  }
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: "Aspect ratio must be a valid value or expression string",
+  })
+})

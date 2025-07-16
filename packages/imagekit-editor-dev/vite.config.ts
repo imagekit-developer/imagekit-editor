@@ -61,18 +61,16 @@ export default defineConfig({
   server: {
     hmr: false,
   },
-  // Dependencies optimization
-  // optimizeDeps: {
-  //   include: [
-  //     "react",
-  //     "react-dom",
-  //     "@emotion/react",
-  //     "@emotion/styled",
-  //     "@chakra-ui/react",
-  //     "framer-motion",
-  //   ],
-  // },
-  // Correctly process environment variables
+  optimizeDeps: {
+    include: [
+      "react",
+      "react-dom",
+      "@emotion/react",
+      "@emotion/styled",
+      "@chakra-ui/react",
+      "framer-motion",
+    ],
+  },
   envPrefix: "IMAGEKIT_",
   define: {
     "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV),

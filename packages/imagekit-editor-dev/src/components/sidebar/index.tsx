@@ -21,6 +21,7 @@ import { useEditorStore } from "../../store"
 import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
+import { SidebarRoot } from "./sidebar-root"
 import { SortableTransformationItem } from "./sortable-transformation-item"
 import { TransformationConfigSidebar } from "./transformation-config-sidebar"
 
@@ -68,14 +69,7 @@ export const Sidebar = () => {
 
   return (
     <>
-      <Flex
-        width="72"
-        direction="column"
-        bg="white"
-        borderRight="1px"
-        borderRightColor="editorBattleshipGrey.100"
-        position="relative"
-      >
+      <SidebarRoot>
         <SidebarHeader>
           <Text fontSize="sm" fontWeight="normal">
             Transformations
@@ -165,7 +159,7 @@ export const Sidebar = () => {
             </HStack>
           </SidebarBody>
         )}
-      </Flex>
+      </SidebarRoot>
 
       {_internalState.sidebarState === "type" && <TransformationTypeSidebar />}
 
