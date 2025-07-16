@@ -304,7 +304,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                       fontSize="xs"
                       size="sm"
                       width="80px"
-                      value={watch(field.name) || ""}
+                      value={(watch(field.name) as string) || ""}
                       defaultValue={field.fieldProps?.defaultValue}
                       onChange={(e) => setValue(field.name, e.target.value)}
                     />
@@ -330,7 +330,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                         ? 0
                         : Number(watch(field.name))
                     }
-                    defaultValue={field.fieldProps?.defaultValue}
+                    defaultValue={field.fieldProps?.defaultValue as number}
                     onChange={(val) => setValue(field.name, val.toString())}
                   >
                     <SliderTrack>

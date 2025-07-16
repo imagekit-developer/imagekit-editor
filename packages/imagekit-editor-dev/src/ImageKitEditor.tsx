@@ -46,7 +46,7 @@ export const ImageKitEditor = forwardRef<ImageKitEditorRef, EditorProps>(
 
     return (
       <React.StrictMode>
-        <ChakraProvider cssVarsRoot="ik-editor" theme={mergedThemes}>
+        <ChakraProvider cssVarsRoot="#ik-editor" theme={mergedThemes} resetCSS>
           <Portal>
             <EditorWrapper>
               <EditorLayout

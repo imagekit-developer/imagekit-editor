@@ -13,6 +13,7 @@ export function EditorWrapper({ children }: EditorWrapperProps) {
       width="100vw"
       top={0}
       left={0}
+      id="ik-editor"
     >
       <Flex
         position="absolute"
