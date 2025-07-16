@@ -6,10 +6,13 @@ import dts from "vite-plugin-dts"
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    react(),
+    react({
+      jsxRuntime: "automatic",
+    }),
     dts({
-      insertTypesEntry: true,
       include: ["src"],
+      tsconfigPath: "tsconfig.json",
+      exclude: ["node_modules", "lib"],
       outDir: "../imagekit-editor/dist/types",
     }),
   ],
@@ -22,17 +25,32 @@ export default defineConfig({
     },
     outDir: path.join(__dirname, "../imagekit-editor/dist"),
     sourcemap: true,
+    commonjsOptions: {
+      strictRequires: "auto",
+    },
     rollupOptions: {
-      external: ["react", "react-dom"],
+      cache: false,
+      external: [
+        "react",
+        "react-dom",
+        "@emotion/react",
+        "@emotion/styled",
+        "@chakra-ui/react",
+        "framer-motion",
+      ],
       output: {
         globals: {
           react: "React",
           "react-dom": "ReactDOM",
+          "@emotion/react": "@emotion/react",
+          "@emotion/styled": "@emotion/styled",
+          "@chakra-ui/react": "@chakra-ui/react",
+          "framer-motion": "framer-motion",
         },
       },
     },
     // Enable minification
-    minify: "terser",
+    minify: false,
     // Generate TypeScript type declarations
     emptyOutDir: false,
   },
@@ -41,16 +59,19 @@ export default defineConfig({
   },
   // Dev server configuration
   server: {
-    hmr: true,
-    watch: {
-      usePolling: false,
-    },
-    port: 5173,
+    hmr: false,
   },
   // Dependencies optimization
-  optimizeDeps: {
-    include: ["react", "react-dom"],
-  },
+  // optimizeDeps: {
+  //   include: [
+  //     "react",
+  //     "react-dom",
+  //     "@emotion/react",
+  //     "@emotion/styled",
+  //     "@chakra-ui/react",
+  //     "framer-motion",
+  //   ],
+  // },
   // Correctly process environment variables
   envPrefix: "IMAGEKIT_",
   define: {

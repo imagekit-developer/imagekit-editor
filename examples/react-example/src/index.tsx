@@ -1,45 +1,33 @@
-import ImageKitEditor, { type ImageKitEditorProps } from "@imagekit/editor"
-import React, { useEffect } from "react"
+import { ImageKitEditor, type ImageKitEditorProps } from "@imagekit/editor"
+import type { ImageKitEditorRef } from "@imagekit/editor/dist/ImageKitEditor"
+import React, { useCallback, useEffect } from "react"
 import ReactDOM from "react-dom"
 
 function App() {
   const [open, setOpen] = React.useState(true)
   const [editorProps, setEditorProps] = React.useState<ImageKitEditorProps>()
+  const ref = React.useRef<ImageKitEditorRef>(null)
+
+  /**
+   * Function moved from EditorLayout component
+   * Adds a random image with timestamp to ensure uniqueness
+   */
+  const handleAddImage = useCallback(() => {
+    const timestamp = Date.now()
+    const randomImage = `https://ik.imagekit.io/v3sxk1svj/placeholder.jpg?updatedAt=${timestamp}`
+    ref.current?.loadImage(randomImage)
+  }, [])
 
   useEffect(() => {
     setEditorProps({
-      // imageUrl: "https://ik.imagekit.io/n8ym6wilmq/river__Imiu4UZd.png",
-      imageUrl:
-        "https://stage-ik.imagekit.io/n8ym6wilmq/image.png?updatedAt=1737527205877",
-      // imageUrl: "https://ik.imagekit.io/n8ym6wilmq/low-res-demo.jpg?updatedAt=1736923795562",
-      // imageUrl: "https://ik.imagekit.io/n8ym6wilmq/table.png",
-      ikClientOptions: {
-        publicKey: "public_K0hLzl8KvshMKkSvKsEGxMSf5SI=",
-        urlEndpoint: "https://ik.imagekit.io/pwliscd3n",
-      },
-      onClose: () => setOpen(false),
-      exportActions: [
-        {
-          label: "Download",
-          onClick: (url: string) => {
-            console.log("Download", url)
-          },
-        },
-        {
-          label: "Save as new file",
-          onClick: (url: string) => {
-            console.log("Save as new file", url)
-          },
-        },
-        {
-          label: "Save as new version",
-          onClick: (url: string) => {
-            console.log("Save as new version", url)
-          },
-        },
+      initialImages: [
+        "https://ik.imagekit.io/v3sxk1svj/white%20BMW%20car%20on%20street.jpg",
+        "https://ik.imagekit.io/v3sxk1svj/Young%20Living%20Patchouili%20bot....jpg",
       ],
+      onAddImage: handleAddImage,
+      onClose: () => setOpen(false),
     })
-  }, [])
+  }, [handleAddImage])
 
   const toggle = () => {
     setOpen((prev) => !prev)
@@ -50,7 +38,7 @@ function App() {
       <button type="button" onClick={() => toggle()}>
         Open ImageKit Editor
       </button>
-      {open && editorProps && <ImageKitEditor {...editorProps} />}
+      {open && editorProps && <ImageKitEditor {...editorProps} ref={ref} />}
     </>
   )
 }

@@ -15,8 +15,9 @@
     "noImplicitReturns": true,
     "noImplicitThis": true,
     "noImplicitAny": true,
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    "skipLibCheck": true
   },
   "include": ["src/**/*.ts*"],
-  "exclude": ["node_modules", "lib"]
+  "exclude": ["node_modules/**"]
 }
