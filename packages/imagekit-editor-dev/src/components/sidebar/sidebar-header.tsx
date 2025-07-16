@@ -15,7 +15,7 @@ export const SidebarHeader = (
       gap="2"
       alignItems="center"
       borderBottom="1px"
-      borderBottomColor="appBattleshipGrey.100"
+      borderBottomColor="editorBattleshipGrey.100"
       {...rest}
     >
       {children}

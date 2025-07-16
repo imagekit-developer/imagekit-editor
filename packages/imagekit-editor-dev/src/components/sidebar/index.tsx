@@ -73,7 +73,7 @@ export const Sidebar = () => {
         direction="column"
         bg="white"
         borderRight="1px"
-        borderRightColor="appBattleshipGrey.100"
+        borderRightColor="editorBattleshipGrey.100"
         position="relative"
       >
         <SidebarHeader>
@@ -155,8 +155,8 @@ export const Sidebar = () => {
             <HStack
               px={4}
               py={2}
-              color="appBlue.400"
-              bg="appBlue.50"
+              color="editorBlue.400"
+              bg="editorBlue.50"
               spacing="3"
             >
               <Box w="3" />

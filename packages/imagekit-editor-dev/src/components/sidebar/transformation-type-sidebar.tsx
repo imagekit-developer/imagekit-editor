@@ -102,7 +102,7 @@ export const TransformationTypeSidebar: React.FC = () => {
       direction="column"
       bg="white"
       borderRight="1px"
-      borderRightColor="appBattleshipGrey.100"
+      borderRightColor="editorBattleshipGrey.100"
     >
       <SidebarHeader justifyContent="space-between">
         <Text fontSize="xs" fontWeight="normal" mt={0}>
@@ -136,7 +136,7 @@ export const TransformationTypeSidebar: React.FC = () => {
                   variant="outline"
                   borderRadius="0"
                   borderWidth="0px 0px 1px 0px"
-                  borderColor="appBattleshipGrey.100"
+                  borderColor="editorBattleshipGrey.100"
                   size="sm"
                   py="4"
                   sx={{

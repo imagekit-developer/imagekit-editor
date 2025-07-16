@@ -60,7 +60,7 @@ export const ActionBar: FC<ActionBarProps> = ({
       h="12"
       bg="white"
       borderBottom="1px"
-      borderColor="appBattleshipGrey.100"
+      borderColor="editorBattleshipGrey.100"
       display="flex"
       justifyContent="space-between"
       alignItems="center"
@@ -81,7 +81,7 @@ export const ActionBar: FC<ActionBarProps> = ({
         <Divider
           orientation="vertical"
           h="4"
-          borderColor="appBattleshipGrey.200"
+          borderColor="editorBattleshipGrey.200"
         />
         {imageDimensions && (
           <Text fontSize="xs" fontWeight="medium">
@@ -116,7 +116,7 @@ export const ActionBar: FC<ActionBarProps> = ({
             <Divider
               orientation="vertical"
               h="4"
-              borderColor="appBattleshipGrey.200"
+              borderColor="editorBattleshipGrey.200"
             />
           </>
         )}

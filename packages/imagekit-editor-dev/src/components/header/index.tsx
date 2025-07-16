@@ -28,7 +28,7 @@ export const Header = ({ onClose }: HeaderProps) => {
       flexDirection="row"
       px="1rem"
       borderBottomWidth="1px"
-      borderBottomColor="appBattleshipGrey.100"
+      borderBottomColor="editorBattleshipGrey.100"
       gap="4"
       flexShrink={0}
     >
@@ -38,7 +38,7 @@ export const Header = ({ onClose }: HeaderProps) => {
       />
       <Text>{headerText}</Text>
       <Spacer />
-      <Divider orientation="vertical" borderColor="appBattleshipGrey.100" />
+      <Divider orientation="vertical" borderColor="editorBattleshipGrey.100" />
       <Button
         leftIcon={<Icon boxSize={"5"} as={PiX} />}
         aria-label="Close Button"

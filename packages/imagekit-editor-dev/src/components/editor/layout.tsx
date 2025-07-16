@@ -22,7 +22,7 @@ export function EditorLayout({ onAddImage, onClose }: Props) {
         <Sidebar />
         <Flex
           flex="1"
-          background="imagekitGray.200"
+          background="editorGray.200"
           flexDirection="column"
           position="relative"
         >

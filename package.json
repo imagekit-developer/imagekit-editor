@@ -17,8 +17,8 @@
     "start": "turbo run start",
     "build": "turbo run build",
     "version": "yarn workspace @imagekit/editor version",
-    "package": "yarn build && yarn workspace @imagekit/editor pack --out ../../builds/%s-%v.tgz",
-    "release": "yarn build && yarn workspace @imagekit/editor pack --out ../../builds/%s-%v.tgz && yarn workspace @imagekit/editor publish",
+    "package": "yarn build && yarn workspace @imagekit/editor pack --out ../../builds/imagekit-editor-%v.tgz",
+    "release": "yarn build && yarn workspace @imagekit/editor pack --out ../../builds/imagekit-editor-%v.tgz && yarn workspace @imagekit/editor publish",
     "prepare": "husky",
     "lint": "biome ci"
   },

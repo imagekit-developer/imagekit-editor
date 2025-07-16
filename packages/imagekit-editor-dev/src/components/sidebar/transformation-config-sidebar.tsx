@@ -186,7 +186,7 @@ export const TransformationConfigSidebar: React.FC = () => {
       direction="column"
       bg="white"
       borderRight="1px"
-      borderRightColor="appBattleshipGrey.100"
+      borderRightColor="editorBattleshipGrey.100"
       position="relative"
       as="form"
     >
@@ -231,7 +231,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                     fontSize="10px"
                     href={selectedTransformation.docsLink}
                     isExternal
-                    color="appBlue.500"
+                    color="editorBlue.500"
                   >
                     Click here to view docs
                   </Link>
@@ -369,7 +369,7 @@ export const TransformationConfigSidebar: React.FC = () => {
             size="sm"
             isAttached
             variant="solid"
-            colorScheme="appBlue"
+            colorScheme="editorBlue"
           >
             <Button type="submit" onClick={handleSubmit(onSubmit())}>
               Apply
@@ -377,7 +377,7 @@ export const TransformationConfigSidebar: React.FC = () => {
             <Menu placement="top-end" closeOnSelect>
               <MenuButton
                 as={Button}
-                colorScheme="appBlue"
+                colorScheme="editorBlue"
                 borderLeft="1px"
                 borderLeftColor="blue.300"
               >
