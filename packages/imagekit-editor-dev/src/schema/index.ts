@@ -1449,9 +1449,15 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Quality",
             name: "quality",
-            fieldType: "input",
+            fieldType: "slider",
             isTransformation: true,
             transformationKey: "quality",
+            fieldProps: {
+              defaultValue: 80,
+              min: 0,
+              max: 100,
+              step: 1,
+            },
           },
         ],
       },
@@ -1483,9 +1489,15 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "DPR",
             name: "dpr",
-            fieldType: "input",
+            fieldType: "slider",
             isTransformation: true,
             transformationKey: "dpr",
+            fieldProps: {
+              defaultValue: 1,
+              min: 0,
+              max: 5,
+              step: 0.1,
+            },
           },
         ],
       },
