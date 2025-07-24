@@ -13,7 +13,7 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
   return (
     <>
       <Flex
-        flex="1"
+        flex="1 0 0"
         padding={8}
         overflow="auto"
         justifyContent="center"
@@ -21,6 +21,7 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
         position="relative"
       >
         <Flex
+          flex="1 0 0"
           direction="column"
           alignItems="center"
           justifyContent="center"

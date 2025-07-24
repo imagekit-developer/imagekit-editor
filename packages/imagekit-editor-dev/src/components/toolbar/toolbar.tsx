@@ -33,6 +33,7 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
       justifyContent="center"
       alignItems="center"
       bg="white"
+      maxW={"calc(100vw - 2*var(--chakra-space-72))"}
     >
       <Flex
         position="sticky"

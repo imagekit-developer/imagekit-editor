@@ -14,6 +14,7 @@ export const SidebarRoot: React.FC<PropsWithChildren<SidebarRootProps>> = ({
       bg="white"
       borderRight="1px"
       borderRightColor="editorBattleshipGrey.100"
+      flexShrink={0}
     >
       {children}
     </Flex>

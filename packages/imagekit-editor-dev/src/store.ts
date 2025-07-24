@@ -22,10 +22,16 @@ export interface Transformation {
 interface InternalState {
   sidebarState: "none" | "type" | "config"
   selectedTransformationKey: string | null
-  transformationToEdit: {
-    transformationId: string
-    position: "inplace" | "above" | "below"
-  } | null
+  transformationToEdit:
+    | {
+        transformationId: string
+        position: "inplace"
+      }
+    | {
+        position: "above" | "below"
+        targetId: string
+      }
+    | null
 }
 
 export interface EditorState {
@@ -34,6 +40,7 @@ export interface EditorState {
   imageList: string[]
   transformations: Transformation[]
   visibleTransformations: Record<string, boolean>
+  showOriginal: boolean
   _internalState: InternalState
 }
 
@@ -49,12 +56,16 @@ export type EditorActions = {
     overId: UniqueIdentifier,
   ) => void
   toggleTransformationVisibility: (id: string) => void
-  addTransformation: (transformation: Omit<Transformation, "id">) => string
+  addTransformation: (
+    transformation: Omit<Transformation, "id">,
+    position?: number,
+  ) => string
   removeTransformation: (id: string) => void
   updateTransformation: (
     id: string,
     updatedTransformation: Omit<Transformation, "id">,
   ) => void
+  setShowOriginal: (showOriginal: boolean) => void
 
   _setSidebarState: (state: "none" | "type" | "config") => void
   _setSelectedTransformationKey: (key: string | null) => void
@@ -83,6 +94,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
     imageList: [],
     transformations: initialTransformations,
     visibleTransformations: initialVisibleTransformations,
+    showOriginal: false,
     _internalState: {
       sidebarState: "none",
       selectedTransformationKey: null,
@@ -90,7 +102,6 @@ const useEditorStore = create<EditorState & EditorActions>()(
     },
 
     initialize: (initialData) => {
-      console.log("initialTransformations", initialTransformations)
       if (initialData?.imageList && initialData.imageList.length > 0) {
         set({
           originalImageList: initialData.imageList,
@@ -187,8 +198,24 @@ const useEditorStore = create<EditorState & EditorActions>()(
       }))
     },
 
-    addTransformation: (transformation) => {
+    addTransformation: (transformation, position) => {
       const id = `transformation-${Date.now()}`
+
+      if (typeof position === "number") {
+        set((state) => {
+          const transformations = [...state.transformations]
+          transformations.splice(position, 0, { ...transformation, id })
+          return {
+            transformations,
+            visibleTransformations: {
+              ...state.visibleTransformations,
+              [id]: true,
+            },
+          }
+        })
+
+        return id
+      }
 
       set((state) => {
         return {
@@ -225,6 +252,12 @@ const useEditorStore = create<EditorState & EditorActions>()(
       }))
     },
 
+    setShowOriginal: (showOriginal) => {
+      set(() => ({
+        showOriginal,
+      }))
+    },
+
     _setSidebarState: (sidebarState) => {
       set((state) => ({
         _internalState: { ...state._internalState, sidebarState },
@@ -240,19 +273,45 @@ const useEditorStore = create<EditorState & EditorActions>()(
       }))
     },
 
-    _setTransformationToEdit: (transformationId, position = "inplace") => {
-      if (!transformationId) {
+    _setTransformationToEdit: (
+      transformationOrTargetId: string,
+      position = "inplace",
+    ) => {
+      if (!transformationOrTargetId) {
         set((state) => ({
           _internalState: {
             ...state._internalState,
             transformationToEdit: null,
           },
         }))
-      } else {
+      } else if (position === "inplace") {
         set((state) => ({
           _internalState: {
             ...state._internalState,
-            transformationToEdit: { transformationId, position },
+            transformationToEdit: {
+              transformationId: transformationOrTargetId,
+              position,
+            },
+          },
+        }))
+      } else if (position === "above") {
+        set((state) => ({
+          _internalState: {
+            ...state._internalState,
+            transformationToEdit: {
+              position,
+              targetId: transformationOrTargetId,
+            },
+          },
+        }))
+      } else if (position === "below") {
+        set((state) => ({
+          _internalState: {
+            ...state._internalState,
+            transformationToEdit: {
+              position,
+              targetId: transformationOrTargetId,
+            },
           },
         }))
       }
@@ -264,11 +323,16 @@ const calculateImageList = (
   imageList: string[],
   transformations: Transformation[],
   visibleTransformations: Record<string, boolean>,
+  showOriginal: boolean,
 ) => {
   let activeImageIndex = 0
   const imgs = imageList.map((img) => {
     if (img === useEditorStore.getState().currentImage) {
       activeImageIndex = imageList.indexOf(img)
+    }
+
+    if (showOriginal) {
+      return img
     }
 
     const IKTransformations = transformations
@@ -290,8 +354,6 @@ const calculateImageList = (
             transformationKey: string
           }
         > = {}
-
-        console.log(t?.transformations)
 
         // Collect all fields that are part of transformation groups
         if (t?.transformations) {
@@ -322,8 +384,6 @@ const calculateImageList = (
             }
           })
         }
-
-        console.log("groupedTransforms", groupedTransforms)
 
         // Process regular (non-grouped) transformations
         const transforms: Record<string, unknown> = Object.fromEntries(
@@ -368,8 +428,6 @@ const calculateImageList = (
           }
         }
 
-        console.log("transforms", transforms)
-
         return {
           ...t?.defaultTransformation,
           ...transforms,
@@ -387,12 +445,30 @@ const calculateImageList = (
 }
 
 useEditorStore.subscribe(
+  (state) => state.showOriginal,
+  (showOriginal) => {
+    const { imgs, activeImageIndex } = calculateImageList(
+      useEditorStore.getState().originalImageList,
+      useEditorStore.getState().transformations,
+      useEditorStore.getState().visibleTransformations,
+      showOriginal,
+    )
+
+    useEditorStore.setState({
+      imageList: imgs,
+      currentImage: imgs[activeImageIndex],
+    })
+  },
+)
+
+useEditorStore.subscribe(
   (state) => state.transformations,
   (transformations) => {
     const { imgs, activeImageIndex } = calculateImageList(
       useEditorStore.getState().originalImageList,
       transformations,
       useEditorStore.getState().visibleTransformations,
+      useEditorStore.getState().showOriginal,
     )
 
     useEditorStore.setState({
@@ -409,6 +485,7 @@ useEditorStore.subscribe(
       useEditorStore.getState().originalImageList,
       useEditorStore.getState().transformations,
       visibleTransformations,
+      useEditorStore.getState().showOriginal,
     )
 
     useEditorStore.setState({
@@ -425,6 +502,7 @@ useEditorStore.subscribe(
       originalImageList,
       useEditorStore.getState().transformations,
       useEditorStore.getState().visibleTransformations,
+      useEditorStore.getState().showOriginal,
     )
 
     useEditorStore.setState({

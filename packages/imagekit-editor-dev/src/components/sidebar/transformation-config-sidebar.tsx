@@ -75,7 +75,11 @@ export const TransformationConfigSidebar: React.FC = () => {
   const defaultValues = useMemo(() => {
     const transformationToEdit = _internalState.transformationToEdit
 
-    if (transformationToEdit && selectedTransformation) {
+    if (
+      transformationToEdit &&
+      selectedTransformation &&
+      transformationToEdit.position === "inplace"
+    ) {
       const currentValues: Record<string, unknown> = {}
 
       const value = transformations.find(
@@ -141,16 +145,35 @@ export const TransformationConfigSidebar: React.FC = () => {
       return
     }
 
-    if (_internalState.transformationToEdit) {
-      updateTransformation(
-        _internalState.transformationToEdit.transformationId,
+    const transformationToEdit = _internalState.transformationToEdit
+
+    if (transformationToEdit && transformationToEdit.position === "inplace") {
+      updateTransformation(transformationToEdit.transformationId, {
+        type: "transformation",
+        name: selectedTransformation.name,
+        key: selectedTransformation.key,
+        value: data,
+      })
+    } else if (
+      transformationToEdit &&
+      (transformationToEdit.position === "above" ||
+        transformationToEdit.position === "below")
+    ) {
+      const index = transformations.findIndex(
+        (transformation) => transformation.id === transformationToEdit.targetId,
+      )
+
+      const transformationId = addTransformation(
         {
           type: "transformation",
           name: selectedTransformation.name,
           key: selectedTransformation.key,
           value: data,
         },
+        index + (transformationToEdit.position === "above" ? 0 : 1),
       )
+
+      _setTransformationToEdit(transformationId, "inplace")
     } else {
       const transformationId = addTransformation({
         type: "transformation",
@@ -283,6 +306,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                   id={field.name}
                   fontSize="xs"
                   size="sm"
+                  isChecked={watch(field.name) === true}
                   {...register(field.name)}
                 />
               ) : null}

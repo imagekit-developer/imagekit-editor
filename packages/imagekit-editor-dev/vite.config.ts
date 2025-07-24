@@ -36,6 +36,7 @@ export default defineConfig({
         "@emotion/react",
         "@emotion/styled",
         "@chakra-ui/react",
+        "@chakra-ui/icons",
         "framer-motion",
       ],
       output: {
@@ -45,6 +46,7 @@ export default defineConfig({
           "@emotion/react": "@emotion/react",
           "@emotion/styled": "@emotion/styled",
           "@chakra-ui/react": "@chakra-ui/react",
+          "@chakra-ui/icons": "@chakra-ui/icons",
           "framer-motion": "framer-motion",
         },
       },
@@ -68,6 +70,7 @@ export default defineConfig({
       "@emotion/react",
       "@emotion/styled",
       "@chakra-ui/react",
+      "@chakra-ui/icons",
       "framer-motion",
     ],
   },

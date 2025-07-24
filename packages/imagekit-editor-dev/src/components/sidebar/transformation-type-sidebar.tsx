@@ -1,4 +1,15 @@
-import { Box, Button, Icon, IconButton, Text, VStack } from "@chakra-ui/react"
+import {
+  Box,
+  Button,
+  Icon,
+  IconButton,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  Text,
+  VStack,
+} from "@chakra-ui/react"
+import { PiMagnifyingGlass } from "@react-icons/all-files/pi/PiMagnifyingGlass"
 import { PiX } from "@react-icons/all-files/pi/PiX"
 import { RiImageEditLine } from "@react-icons/all-files/ri/RiImageEditLine"
 import * as React from "react"
@@ -11,6 +22,7 @@ import { SidebarRoot } from "./sidebar-root"
 export const TransformationTypeSidebar: React.FC = () => {
   const { transformations, _setSelectedTransformationKey, _setSidebarState } =
     useEditorStore()
+  const [searchQuery, setSearchQuery] = React.useState("")
 
   const onClose = () => {
     _setSidebarState("none")
@@ -20,6 +32,21 @@ export const TransformationTypeSidebar: React.FC = () => {
     () => transformations.length > 0,
     [transformations],
   )
+
+  const filteredTransformationSchema = React.useMemo(() => {
+    if (!searchQuery.trim()) {
+      return transformationSchema
+    }
+
+    return transformationSchema
+      .map((category) => ({
+        ...category,
+        items: category.items.filter((item) =>
+          item.name.toLowerCase().includes(searchQuery.toLowerCase()),
+        ),
+      }))
+      .filter((category) => category.items.length > 0)
+  }, [searchQuery])
 
   const handleSelectTransformation = (key: string) => {
     const transformation = transformationSchema
@@ -33,60 +60,6 @@ export const TransformationTypeSidebar: React.FC = () => {
     _setSelectedTransformationKey(key)
     _setSidebarState("config")
   }
-
-  // const handleApplyTransformation = (values: Record<string, unknown>) => {
-  //   const transformation = transformationSchema
-  //     .find(
-  //       (transformation) =>
-  //         transformation.key === selectedTransformation?.split("-")[0],
-  //     )
-  //     ?.items.find((item) => item.key === selectedTransformation)
-
-  //   if (!transformation) {
-  //     return
-  //   }
-
-  //   if (transformationPosition === "inplace" && transformationToEdit) {
-  //     updateTransformation(transformationToEdit, {
-  //       type: "transformation",
-  //       name: transformation.name,
-  //       key: transformation.key,
-  //       value: {
-  //         ...transformation.defaultTransformation,
-  //         ...values,
-  //       },
-  //     })
-  //     return { id: transformationToEdit }
-  //   } else {
-  //     const transformationId = addTransformation({
-  //       type: "transformation",
-  //       name: transformation.name,
-  //       key: transformation.key,
-  //       value: {
-  //         ...transformation.defaultTransformation,
-  //         ...values,
-  //       },
-  //     })
-  //     setTransformationToEdit({
-  //       transformationId,
-  //       position: "inplace",
-  //     })
-
-  //     return { id: transformationId }
-  //   }
-  // }
-
-  // if (selectedTransformation) {
-  //   return (
-  //     <TransformationConfigSidebar
-  //       transformationKey={selectedTransformation}
-  //       onApply={handleApplyTransformation}
-  //       transformationToEdit={
-  //         transformationPosition === "inplace" ? transformationToEdit : null
-  //       }
-  //     />
-  //   )
-  // }
 
   return (
     <SidebarRoot>
@@ -105,10 +78,30 @@ export const TransformationTypeSidebar: React.FC = () => {
         )}
       </SidebarHeader>
       <SidebarBody p="2">
-        {transformationSchema.map((category, index) => (
+        <Box mb={2}>
+          <InputGroup size="sm">
+            <InputLeftElement pointerEvents="none">
+              <Icon as={PiMagnifyingGlass} color="gray.400" />
+            </InputLeftElement>
+            <Input
+              placeholder="Search transformations..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              bg="white"
+              borderRadius="md"
+              borderColor="gray.200"
+              _hover={{ borderColor: "gray.300" }}
+              _focus={{
+                borderColor: "blue.500",
+                boxShadow: "0 0 0 1px #3182ce",
+              }}
+            />
+          </InputGroup>
+        </Box>
+        {filteredTransformationSchema.map((category, index) => (
           <Box
             key={`category-${category.name}`}
-            mb={index === transformationSchema.length - 1 ? 0 : 8}
+            mb={index === filteredTransformationSchema.length - 1 ? 0 : 8}
           >
             <Text color="gray.500" fontSize="sm" m={2}>
               {category.name}

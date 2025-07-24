@@ -9,19 +9,34 @@ import { ListView } from "./ListView"
 interface Props {
   onAddImage?: () => void
   onClose: () => void
+  exportOptions?:
+    | {
+        label: string
+        icon?: React.ReactElement
+        onClick: (images: string[]) => void
+      }
+    | {
+        label: string
+        icon?: React.ReactElement
+        options: Array<{
+          label: string
+          isVisible: boolean | ((images: string[]) => boolean)
+          onClick: (images: string[]) => void
+        }>
+      }
 }
 
-export function EditorLayout({ onAddImage, onClose }: Props) {
+export function EditorLayout({ onAddImage, onClose, exportOptions }: Props) {
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
   const [gridImageSize, setGridImageSize] = useState<number>(220)
 
   return (
     <>
-      <Header onClose={onClose} />
+      <Header onClose={onClose} exportOptions={exportOptions} />
       <Flex flexDirection="row" width="full" flexGrow={1}>
         <Sidebar />
         <Flex
-          flex="1"
+          flex="1 0 0"
           background="editorGray.200"
           flexDirection="column"
           position="relative"

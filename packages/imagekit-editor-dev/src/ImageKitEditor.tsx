@@ -1,4 +1,4 @@
-import { ChakraProvider, theme as defaultTheme, Portal } from "@chakra-ui/react"
+import { ChakraProvider, theme as defaultTheme } from "@chakra-ui/react"
 import type { Dict } from "@chakra-ui/utils"
 import merge from "lodash/merge"
 import React, { forwardRef, useImperativeHandle } from "react"
@@ -16,6 +16,22 @@ interface EditorProps {
   theme?: Dict
   initialImages?: string[]
   onAddImage?: () => void
+  exportOptions?:
+    | {
+        label: string
+        icon?: React.ReactElement
+        onClick: (images: string[]) => void
+      }
+    | {
+        label: string
+        icon?: React.ReactElement
+        options: Array<{
+          label: string
+          isVisible: boolean | ((images: string[]) => boolean)
+          onClick: (images: string[]) => void
+        }>
+      }
+
   onClose: () => void
 }
 
@@ -46,14 +62,13 @@ export const ImageKitEditor = forwardRef<ImageKitEditorRef, EditorProps>(
     return (
       <React.StrictMode>
         <ChakraProvider cssVarsRoot="#ik-editor" theme={mergedThemes} resetCSS>
-          <Portal>
-            <EditorWrapper>
-              <EditorLayout
-                onAddImage={props.onAddImage}
-                onClose={props.onClose}
-              />
-            </EditorWrapper>
-          </Portal>
+          <EditorWrapper>
+            <EditorLayout
+              onAddImage={props.onAddImage}
+              onClose={props.onClose}
+              exportOptions={props.exportOptions}
+            />
+          </EditorWrapper>
         </ChakraProvider>
       </React.StrictMode>
     )

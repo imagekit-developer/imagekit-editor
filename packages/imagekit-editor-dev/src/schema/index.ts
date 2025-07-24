@@ -1519,8 +1519,6 @@ export const transformationFormatters: Record<
       backgroundBlurBrightness,
     } = values
 
-    console.log(values)
-
     if (backgroundType === "color" && values.background) {
       transforms.background = (values.background as string).replace("#", "")
     } else if (backgroundType === "blurred") {
@@ -1558,10 +1556,6 @@ export const transformationFormatters: Record<
   },
   focus: (values, transforms) => {
     const { focus, focusAnchor, focusObject } = values
-
-    console.log("focus", focus)
-    console.log("focusAnchor", focusAnchor)
-    console.log("focusObject", focusObject)
 
     if (focus === "auto" || focus === "face") {
       transforms.focus = focus

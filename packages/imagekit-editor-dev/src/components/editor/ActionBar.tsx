@@ -1,3 +1,4 @@
+import { ExternalLinkIcon } from "@chakra-ui/icons"
 import {
   Box,
   Button,
@@ -6,6 +7,7 @@ import {
   HStack,
   Icon,
   IconButton,
+  Link,
   Slider,
   SliderFilledTrack,
   SliderThumb,
@@ -32,7 +34,7 @@ export const ActionBar: FC<ActionBarProps> = ({
   gridImageSize,
   setGridImageSize,
 }) => {
-  const { currentImage } = useEditorStore()
+  const { currentImage, showOriginal, setShowOriginal } = useEditorStore()
 
   const [imageDimensions, setImageDimensions] = useState<{
     width: number
@@ -72,25 +74,44 @@ export const ActionBar: FC<ActionBarProps> = ({
           fontWeight="medium"
           leftIcon={<Icon boxSize={4} as={PiImageSquare} />}
           onClick={() => {
-            alert("TODO")
+            setShowOriginal(!showOriginal)
           }}
         >
-          Show Original
+          {showOriginal ? "Show Transformed" : "Show Original"}
         </Button>
+
+        {imageDimensions && (
+          <>
+            <Divider
+              orientation="vertical"
+              h="4"
+              borderColor="editorBattleshipGrey.200"
+            />
+
+            <Text fontSize="xs" fontWeight="medium">
+              Dimensions:{" "}
+              <Text as="span" fontWeight="normal">
+                {imageDimensions.width} x {imageDimensions.height}
+              </Text>
+            </Text>
+          </>
+        )}
 
         <Divider
           orientation="vertical"
           h="4"
           borderColor="editorBattleshipGrey.200"
         />
-        {imageDimensions && (
+        <Link href={currentImage || ""} isExternal>
           <Text fontSize="xs" fontWeight="medium">
-            Dimensions:{" "}
-            <Text as="span" fontWeight="normal">
-              {imageDimensions.width} x {imageDimensions.height}
+            <Text as="span" fontWeight="normal" mr="2">
+              {decodeURIComponent(
+                currentImage?.split("/").pop()?.split("?")?.[0] || "",
+              )}
             </Text>
+            <ExternalLinkIcon />
           </Text>
-        )}
+        </Link>
       </HStack>
 
       <HStack spacing={4}>

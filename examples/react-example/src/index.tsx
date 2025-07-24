@@ -1,5 +1,7 @@
+import { Icon } from "@chakra-ui/react"
 import { ImageKitEditor, type ImageKitEditorProps } from "@imagekit/editor"
 import type { ImageKitEditorRef } from "@imagekit/editor/dist/ImageKitEditor"
+import { PiDownload } from "@react-icons/all-files/pi/PiDownload"
 import React, { useCallback, useEffect } from "react"
 import ReactDOM from "react-dom"
 
@@ -26,6 +28,13 @@ function App() {
       ],
       onAddImage: handleAddImage,
       onClose: () => setOpen(false),
+      exportOptions: {
+        label: "Export",
+        icon: <Icon boxSize={"5"} as={PiDownload} />,
+        onClick: (images) => {
+          console.log(images)
+        },
+      },
     })
   }, [handleAddImage])
 

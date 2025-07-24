@@ -119,11 +119,10 @@ export const SortableTransformationItem = ({
           </Text>
           <Box flex={1} />
           {isHover && (
-            <HStack spacing={1}>
+            <HStack spacing={1} color={"initial"}>
               <Box
                 onClick={(e) => {
                   e.stopPropagation()
-                  console.log(transformation.id)
                   toggleTransformationVisibility(transformation.id)
                 }}
               >
@@ -157,9 +156,8 @@ export const SortableTransformationItem = ({
                     icon={<Icon as={PiPlus} />}
                     onClick={(e) => {
                       e.stopPropagation()
-                      const index = transformations.findIndex(
-                        (t) => t.id === transformation.id,
-                      )
+                      _setSidebarState("type")
+                      _setTransformationToEdit(transformation.id, "above")
                     }}
                   >
                     Add transformation above
@@ -168,9 +166,8 @@ export const SortableTransformationItem = ({
                     icon={<Icon as={PiPlus} />}
                     onClick={(e) => {
                       e.stopPropagation()
-                      const index = transformations.findIndex(
-                        (t) => t.id === transformation.id,
-                      )
+                      _setSidebarState("type")
+                      _setTransformationToEdit(transformation.id, "below")
                     }}
                   >
                     Add transformation below
@@ -181,10 +178,7 @@ export const SortableTransformationItem = ({
                       e.stopPropagation()
                       _setSidebarState("config")
                       _setSelectedTransformationKey(transformation.key)
-                      // setTransformationToEdit({
-                      //   transformationId: transformation.id,
-                      //   position: "inplace",
-                      // })
+                      _setTransformationToEdit(transformation.id, "inplace")
                     }}
                   >
                     Edit transformation

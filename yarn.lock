@@ -586,6 +586,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@chakra-ui/icon@npm:1.2.1":
+  version: 1.2.1
+  resolution: "@chakra-ui/icon@npm:1.2.1"
+  dependencies:
+    "@chakra-ui/utils": "npm:1.9.1"
+  peerDependencies:
+    "@chakra-ui/system": ">=1.0.0"
+    react: ">=16.8.6"
+  checksum: 10c0/872155f35aada8ef2ce797d5422850efae5cd1d5c5bf09ae354c131eb772657c19da6a3b4744ff8c5f5076ce3b9b632715bda15c154eb78bba45492bc164f6b1
+  languageName: node
+  linkType: hard
+
 "@chakra-ui/icon@npm:2.0.5":
   version: 2.0.5
   resolution: "@chakra-ui/icon@npm:2.0.5"
@@ -595,6 +607,19 @@ __metadata:
     "@chakra-ui/system": ">=1.0.0"
     react: ">=16.8.6"
   checksum: 10c0/3d18729727a6e2eb2c9829680b955e35078234a6a8c33e991013d65f2125f2234817a854ea8197d457de109be0e59ffbae7eaea04a3cd8169c484f984b6212d8
+  languageName: node
+  linkType: hard
+
+"@chakra-ui/icons@npm:1.1.1":
+  version: 1.1.1
+  resolution: "@chakra-ui/icons@npm:1.1.1"
+  dependencies:
+    "@chakra-ui/icon": "npm:1.2.1"
+    "@types/react": "npm:^17.0.15"
+  peerDependencies:
+    "@chakra-ui/system": ">=1.0.0"
+    react: ">=16.8.6"
+  checksum: 10c0/28483f8773c072022f7188da923f8d46444e61bcf909af26af85755a597440ddeae023f0fa55fd86a19b182c6c40b71c7168ca7907b3b04e7accc64c70dfb833
   languageName: node
   linkType: hard
 
@@ -1165,6 +1190,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@chakra-ui/utils@npm:1.9.1":
+  version: 1.9.1
+  resolution: "@chakra-ui/utils@npm:1.9.1"
+  dependencies:
+    "@types/lodash.mergewith": "npm:4.6.6"
+    css-box-model: "npm:1.2.1"
+    framesync: "npm:5.3.0"
+    lodash.mergewith: "npm:4.6.2"
+  checksum: 10c0/2b2c370a82aad0b5665842393cebb87029cad27e168eb01258ba2b8cace7436b2c137e5f5b6c19ff80b088b9e80bea1650dc68729251876a0e9c8816d3a2fcad
+  languageName: node
+  linkType: hard
+
 "@chakra-ui/visually-hidden@npm:1.1.6":
   version: 1.1.6
   resolution: "@chakra-ui/visually-hidden@npm:1.1.6"
@@ -1581,10 +1618,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@imagekit/editor@npm:0.0.1, @imagekit/editor@workspace:packages/imagekit-editor":
+"@imagekit/editor@npm:0.0.8, @imagekit/editor@workspace:packages/imagekit-editor":
   version: 0.0.0-use.local
   resolution: "@imagekit/editor@workspace:packages/imagekit-editor"
   peerDependencies:
+    "@chakra-ui/icons": 1.1.1
+    "@chakra-ui/react": ~1.8.9
+    "@emotion/react": ^11.14.0
+    "@emotion/styled": ^11.14.1
+    framer-motion: 6.5.1
     react: ^17.0.2
     react-dom: ^17.0.2
   languageName: unknown
@@ -2202,7 +2244,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react@npm:^17.0.2":
+"@types/react@npm:^17.0.15, @types/react@npm:^17.0.2":
   version: 17.0.87
   resolution: "@types/react@npm:17.0.87"
   dependencies:
@@ -3199,6 +3241,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "imagekit-editor-dev@workspace:packages/imagekit-editor-dev"
   dependencies:
+    "@chakra-ui/icons": "npm:1.1.1"
     "@chakra-ui/react": "npm:1.8.9"
     "@dnd-kit/core": "npm:^6.3.1"
     "@dnd-kit/sortable": "npm:^10.0.0"
@@ -4083,7 +4126,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "react-example@workspace:examples/react-example"
   dependencies:
-    "@imagekit/editor": "npm:0.0.1"
+    "@imagekit/editor": "npm:0.0.8"
     "@types/node": "npm:^20.11.24"
     "@types/react": "npm:^17.0.2"
     "@types/react-dom": "npm:^17.0.2"

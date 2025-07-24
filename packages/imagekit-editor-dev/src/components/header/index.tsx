@@ -1,4 +1,15 @@
-import { Button, Divider, Flex, Icon, Spacer, Text } from "@chakra-ui/react"
+import {
+  Button,
+  Divider,
+  Flex,
+  Icon,
+  Menu,
+  MenuButton,
+  MenuItem,
+  MenuList,
+  Spacer,
+  Text,
+} from "@chakra-ui/react"
 import { PiImageSquare } from "@react-icons/all-files/pi/PiImageSquare"
 import { PiImagesSquare } from "@react-icons/all-files/pi/PiImagesSquare"
 import { PiX } from "@react-icons/all-files/pi/PiX"
@@ -7,9 +18,24 @@ import { useEditorStore } from "../../store"
 
 interface HeaderProps {
   onClose: () => void
+  exportOptions?:
+    | {
+        label: string
+        icon?: React.ReactElement
+        onClick: (images: string[]) => void
+      }
+    | {
+        label: string
+        icon?: React.ReactElement
+        options: Array<{
+          label: string
+          isVisible: boolean | ((images: string[]) => boolean)
+          onClick: (images: string[]) => void
+        }>
+      }
 }
 
-export const Header = ({ onClose }: HeaderProps) => {
+export const Header = ({ onClose, exportOptions }: HeaderProps) => {
   const { imageList } = useEditorStore()
 
   const headerText = useMemo(() => {
@@ -38,6 +64,56 @@ export const Header = ({ onClose }: HeaderProps) => {
       />
       <Text>{headerText}</Text>
       <Spacer />
+      {exportOptions && (
+        <>
+          <Divider
+            orientation="vertical"
+            borderColor="editorBattleshipGrey.100"
+          />
+          {"options" in exportOptions ? (
+            <Menu>
+              <MenuButton>
+                <Button
+                  leftIcon={exportOptions.icon}
+                  aria-label={exportOptions.label}
+                  variant="ghost"
+                  fontWeight="normal"
+                  size="sm"
+                >
+                  {exportOptions.label}
+                </Button>
+              </MenuButton>
+              <MenuList>
+                {exportOptions.options
+                  .filter((option) =>
+                    typeof option.isVisible === "boolean"
+                      ? option.isVisible
+                      : option.isVisible(imageList),
+                  )
+                  .map((option) => (
+                    <MenuItem
+                      key={option.label}
+                      onClick={() => option.onClick(imageList)}
+                    >
+                      {option.label}
+                    </MenuItem>
+                  ))}
+              </MenuList>
+            </Menu>
+          ) : (
+            <Button
+              leftIcon={exportOptions.icon}
+              aria-label={exportOptions.label}
+              onClick={() => exportOptions.onClick(imageList)}
+              variant="ghost"
+              fontWeight="normal"
+              size="sm"
+            >
+              {exportOptions.label}
+            </Button>
+          )}
+        </>
+      )}
       <Divider orientation="vertical" borderColor="editorBattleshipGrey.100" />
       <Button
         leftIcon={<Icon boxSize={"5"} as={PiX} />}
