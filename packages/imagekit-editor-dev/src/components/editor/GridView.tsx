@@ -2,6 +2,7 @@ import { Box, Flex, Icon, Image, Text } from "@chakra-ui/react"
 import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
 import type { FC } from "react"
 import { useEditorStore } from "../../store"
+import RetryableImage from "../RetryableImage"
 
 interface GridViewProps {
   imageSize: number
@@ -65,7 +66,7 @@ export const GridView: FC<GridViewProps> = ({ imageSize, onAddImage }) => {
               justifyContent="center"
               bg="white"
             >
-              <Image
+              <RetryableImage
                 src={imageSrc}
                 maxWidth="100%"
                 maxHeight="100%"

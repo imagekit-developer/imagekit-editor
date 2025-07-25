@@ -1,6 +1,7 @@
 import { Center, Flex, Image, Spinner } from "@chakra-ui/react"
 import type { FC } from "react"
 import { useEditorStore } from "../../store"
+import RetryableImage from "../RetryableImage"
 import { Toolbar } from "../toolbar"
 
 interface ListViewProps {
@@ -28,7 +29,7 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
           height="full"
           width="full"
         >
-          <Image
+          <RetryableImage
             src={currentImage}
             maxH={
               "calc(100vh - 4.125rem - 2*var(--chakra-space-8) - var(--chakra-space-12) - var(--chakra-space-24))"

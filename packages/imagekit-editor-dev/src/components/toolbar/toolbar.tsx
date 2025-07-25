@@ -12,6 +12,7 @@ import { PiX } from "@react-icons/all-files/pi/PiX"
 import type { FC } from "react"
 import { useEditorStore } from "../../store"
 import Hover from "../common/Hover"
+import RetryableImage from "../RetryableImage"
 
 interface ToolbarProps {
   onAddImage?: () => void
@@ -116,9 +117,11 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
                         <PiX color="white" size="14px" />
                       </Box>
                     )}
-                    <Image
+                    <RetryableImage
+                      showRetryButton={false}
+                      compactError
                       src={imageSrc}
-                      alt={`Imag`}
+                      alt={`Image`}
                       height={16}
                       width="auto"
                       minWidth={20}
