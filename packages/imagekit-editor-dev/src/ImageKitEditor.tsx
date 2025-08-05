@@ -3,18 +3,18 @@ import type { Dict } from "@chakra-ui/utils"
 import merge from "lodash/merge"
 import React, { forwardRef, useImperativeHandle } from "react"
 import { EditorLayout, EditorWrapper } from "./components/editor"
-import { type Signer, useEditorStore } from "./store"
+import { type FileElement, type Signer, useEditorStore } from "./store"
 import { themeOverrides } from "./theme"
 
 export interface ImageKitEditorRef {
-  loadImage: (imageSrc: string) => void
-  loadImages: (imageSrcs: string[]) => void
+  loadImage: (image: string | FileElement) => void
+  loadImages: (images: Array<string | FileElement>) => void
   setCurrentImage: (imageSrc: string) => void
 }
 
 interface EditorProps {
   theme?: Dict
-  initialImages?: string[]
+  initialImages?: Array<string | FileElement>
   signedUrls?: boolean
   signer?: Signer
   onAddImage?: () => void

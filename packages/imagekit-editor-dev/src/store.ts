@@ -19,9 +19,15 @@ export interface Transformation {
   value: IKTransformation
 }
 
+export interface FileElement {
+  url: string
+  metadata: Record<string, string>
+}
+
 export interface SignerRequest {
   url: string
   transformation: IKTransformation[]
+  metadata: Record<string, string>
 }
 
 export type Signer = (items: SignerRequest[]) => Promise<string[]>
@@ -43,7 +49,7 @@ interface InternalState {
 
 export interface EditorState {
   currentImage: string | undefined
-  originalImageList: string[]
+  originalImageList: FileElement[]
   imageList: string[]
   transformations: Transformation[]
   visibleTransformations: Record<string, boolean>
@@ -56,13 +62,13 @@ export interface EditorState {
 
 export type EditorActions = {
   initialize: (initialData?: {
-    imageList?: string[]
+    imageList?: Array<string | FileElement>
     shouldSignUrls?: boolean
     signer?: Signer
   }) => void
   setCurrentImage: (imageSrc: string | undefined) => void
-  addImage: (imageSrc: string) => void
-  addImages: (imageSrcs: string[]) => void
+  addImage: (imageSrc: string | FileElement) => void
+  addImages: (imageSrcs: Array<string | FileElement>) => void
   removeImage: (imageSrc: string) => void
   setTransformations: (transformations: Omit<Transformation, "id">[]) => void
   moveTransformation: (
@@ -101,6 +107,13 @@ function initTransformationStates(transformations: Transformation[]) {
 
 initTransformationStates(initialTransformations)
 
+function normalizeImage(image: string | FileElement): FileElement {
+  if (typeof image === "string") {
+    return { url: image, metadata: {} }
+  }
+  return { url: image.url, metadata: image.metadata ?? {} }
+}
+
 const useEditorStore = create<EditorState & EditorActions>()(
   subscribeWithSelector((set, get) => ({
     currentImage: undefined,
@@ -121,9 +134,10 @@ const useEditorStore = create<EditorState & EditorActions>()(
     initialize: (initialData) => {
       const updates: Partial<EditorState> = {}
       if (initialData?.imageList && initialData.imageList.length > 0) {
-        updates.originalImageList = initialData.imageList
-        updates.imageList = initialData.imageList
-        updates.currentImage = initialData.imageList[0]
+        const imgs = initialData.imageList.map(normalizeImage)
+        updates.originalImageList = imgs
+        updates.imageList = imgs.map((i) => i.url)
+        updates.currentImage = imgs[0].url
       }
       if (typeof initialData?.shouldSignUrls === "boolean") {
         updates.shouldSignUrls = initialData.shouldSignUrls
@@ -142,20 +156,22 @@ const useEditorStore = create<EditorState & EditorActions>()(
     },
 
     addImage: (imageSrc) => {
-      if (!get().originalImageList.includes(imageSrc)) {
+      const img = normalizeImage(imageSrc)
+      if (!get().originalImageList.some((i) => i.url === img.url)) {
         set((state) => ({
-          originalImageList: [...state.originalImageList, imageSrc],
-          currentImage: imageSrc,
+          originalImageList: [...state.originalImageList, img],
+          currentImage: img.url,
         }))
       } else {
-        set({ currentImage: imageSrc })
+        set({ currentImage: img.url })
       }
     },
 
     addImages: (imageSrcs) => {
-      const uniqueImages = imageSrcs.filter(
-        (img) => !get().originalImageList.includes(img),
-      )
+      const existing = get().originalImageList
+      const uniqueImages = imageSrcs
+        .map(normalizeImage)
+        .filter((img) => !existing.some((i) => i.url === img.url))
       set((state) => ({
         originalImageList: [...state.originalImageList, ...uniqueImages],
       }))
@@ -165,13 +181,13 @@ const useEditorStore = create<EditorState & EditorActions>()(
       set((state) => {
         // Remove the image from the list
         const updatedImageList = state.originalImageList.filter(
-          (img) => img !== imageSrc,
+          (img) => img.url !== imageSrc,
         )
 
         // If the current image is being removed, set a new current image if available
         let newCurrentImage = state.currentImage
         if (state.currentImage === imageSrc && updatedImageList.length > 0) {
-          newCurrentImage = updatedImageList[0]
+          newCurrentImage = updatedImageList[0].url
         } else if (updatedImageList.length === 0) {
           newCurrentImage = undefined
         }
@@ -345,16 +361,14 @@ const useEditorStore = create<EditorState & EditorActions>()(
 )
 
 const calculateImageList = async (
-  imageList: string[],
+  imageList: FileElement[],
   transformations: Transformation[],
   visibleTransformations: Record<string, boolean>,
   showOriginal: boolean,
   shouldSignUrls: boolean,
   signer?: Signer,
+  activeImageIndex = 0,
 ) => {
-  let activeImageIndex = 0
-  const current = useEditorStore.getState().currentImage
-
   const IKTransformations = transformations
     .filter((transformation) => visibleTransformations[transformation.id])
     .map((transformation) => {
@@ -449,16 +463,11 @@ const calculateImageList = async (
       }
     })
 
-  const requests: SignerRequest[] = imageList.map((img) => {
-    if (img === current) {
-      activeImageIndex = imageList.indexOf(img)
-    }
-
-    return {
-      url: img,
-      transformation: showOriginal ? [] : IKTransformations,
-    }
-  })
+  const requests: SignerRequest[] = imageList.map((img) => ({
+    url: img.url,
+    transformation: showOriginal ? [] : IKTransformations,
+    metadata: img.metadata,
+  }))
 
   let imgs: string[]
 
@@ -485,6 +494,10 @@ async function recomputeImages() {
   if (state.shouldSignUrls && state.signer) {
     useEditorStore.setState({ isSigning: true })
   }
+  const currentIndex = Math.max(
+    state.imageList.findIndex((img) => img === state.currentImage),
+    0,
+  )
   const { imgs, activeImageIndex } = await calculateImageList(
     state.originalImageList,
     state.transformations,
@@ -492,6 +505,7 @@ async function recomputeImages() {
     state.showOriginal,
     state.shouldSignUrls,
     state.signer,
+    currentIndex,
   )
 
   useEditorStore.setState({
