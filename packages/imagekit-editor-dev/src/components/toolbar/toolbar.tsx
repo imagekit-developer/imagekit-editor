@@ -3,7 +3,6 @@ import {
   Center,
   Flex,
   IconButton,
-  Image,
   Spinner,
   useColorModeValue,
 } from "@chakra-ui/react"
@@ -20,7 +19,7 @@ interface ToolbarProps {
 }
 
 export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
-  const { currentImage, imageList, setCurrentImage, removeImage } =
+  const { currentImage, imageList, setCurrentImage, removeImage, isSigning } =
     useEditorStore()
   const borderColor = useColorModeValue("blue.400", "blue.600")
 
@@ -136,6 +135,7 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
                       borderColor={
                         currentImage === imageSrc ? borderColor : "transparent"
                       }
+                      isLoading={isSigning}
                     />
                   </Box>
                 )}

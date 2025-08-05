@@ -23,7 +23,7 @@ function App() {
   useEffect(() => {
     setEditorProps({
       initialImages: [
-        "https://ik.imagekit.io/v3sxk1svj/white%20BMW%20car%20on%20streetausgduias.jpg",
+        "https://ik.imagekit.io/v3sxk1svj/white%20BMW%20car%20on%20street.jpg",
         "https://ik.imagekit.io/v3sxk1svj/Young%20Living%20Patchouili%20bot....jpg",
       ],
       onAddImage: handleAddImage,
@@ -34,6 +34,10 @@ function App() {
         onClick: (images) => {
           console.log(images)
         },
+      },
+      signedUrls: true,
+      signer: (requests) => {
+        return Promise.resolve(requests.map((req) => req.url))
       },
     })
   }, [handleAddImage])

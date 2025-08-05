@@ -1,8 +1,11 @@
 import {
+  Box,
   Button,
+  Center,
   Flex,
   Image,
   type ImageProps,
+  Spinner,
   Text,
   VStack,
 } from "@chakra-ui/react"
@@ -23,6 +26,8 @@ export interface RetryableImageProps extends ImageProps {
   showRetryButton?: boolean
   /** Whether to show compact error state for small images (default: false) */
   compactError?: boolean
+  /** Whether to display a loading spinner overlay */
+  isLoading?: boolean
 }
 
 export const RetryableImage: React.FC<RetryableImageProps> = ({
@@ -36,6 +41,7 @@ export const RetryableImage: React.FC<RetryableImageProps> = ({
   onNonRetryableError,
   showRetryButton = true,
   compactError = false,
+  isLoading = false,
   ...imageProps
 }) => {
   const [retryCount, setRetryCount] = useState(0)
@@ -188,14 +194,21 @@ export const RetryableImage: React.FC<RetryableImageProps> = ({
   }
 
   return (
-    <Image
-      key={imageKey}
-      {...imageProps}
-      onError={handleError}
-      onLoad={handleLoad}
-      opacity={isRetrying ? 0.5 : 1}
-      transition="opacity 0.2s"
-    />
+    <Box position="relative" display="inline-block">
+      <Image
+        key={imageKey}
+        {...imageProps}
+        onError={handleError}
+        onLoad={handleLoad}
+        opacity={isRetrying ? 0.5 : 1}
+        transition="opacity 0.2s"
+      />
+      {isLoading && (
+        <Center position="absolute" inset={0} bg="rgba(255, 255, 255, 0.6)">
+          <Spinner />
+        </Center>
+      )}
+    </Box>
   )
 }
 

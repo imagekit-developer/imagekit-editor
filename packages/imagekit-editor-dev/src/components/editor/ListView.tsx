@@ -1,4 +1,4 @@
-import { Center, Flex, Image, Spinner } from "@chakra-ui/react"
+import { Center, Flex, Spinner } from "@chakra-ui/react"
 import type { FC } from "react"
 import { useEditorStore } from "../../store"
 import RetryableImage from "../RetryableImage"
@@ -9,7 +9,7 @@ interface ListViewProps {
 }
 
 export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
-  const { currentImage, setCurrentImage } = useEditorStore()
+  const { currentImage, setCurrentImage, isSigning } = useEditorStore()
 
   return (
     <>
@@ -42,6 +42,7 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
                 <Spinner />
               </Center>
             }
+            isLoading={isSigning}
           />
         </Flex>
       </Flex>

@@ -3,7 +3,7 @@ import type { Dict } from "@chakra-ui/utils"
 import merge from "lodash/merge"
 import React, { forwardRef, useImperativeHandle } from "react"
 import { EditorLayout, EditorWrapper } from "./components/editor"
-import { useEditorStore } from "./store"
+import { type Signer, useEditorStore } from "./store"
 import { themeOverrides } from "./theme"
 
 export interface ImageKitEditorRef {
@@ -15,6 +15,8 @@ export interface ImageKitEditorRef {
 interface EditorProps {
   theme?: Dict
   initialImages?: string[]
+  signedUrls?: boolean
+  signer?: Signer
   onAddImage?: () => void
   exportOptions?:
     | {
@@ -37,15 +39,17 @@ interface EditorProps {
 
 export const ImageKitEditor = forwardRef<ImageKitEditorRef, EditorProps>(
   (props, ref) => {
-    const { theme, initialImages } = props
+    const { theme, initialImages, signedUrls, signer } = props
     const { addImage, addImages, setCurrentImage, initialize } =
       useEditorStore()
 
     React.useEffect(() => {
-      if (initialImages && initialImages.length > 0) {
-        initialize({ imageList: initialImages })
-      }
-    }, [initialImages, initialize])
+      initialize({
+        imageList: initialImages,
+        shouldSignUrls: signedUrls,
+        signer,
+      })
+    }, [initialImages, signedUrls, signer, initialize])
 
     useImperativeHandle(
       ref,

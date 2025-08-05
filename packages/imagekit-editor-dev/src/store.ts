@@ -19,6 +19,13 @@ export interface Transformation {
   value: IKTransformation
 }
 
+export interface SignerRequest {
+  url: string
+  transformation: IKTransformation[]
+}
+
+export type Signer = (items: SignerRequest[]) => Promise<string[]>
+
 interface InternalState {
   sidebarState: "none" | "type" | "config"
   selectedTransformationKey: string | null
@@ -41,11 +48,18 @@ export interface EditorState {
   transformations: Transformation[]
   visibleTransformations: Record<string, boolean>
   showOriginal: boolean
+  shouldSignUrls: boolean
+  signer?: Signer
+  isSigning: boolean
   _internalState: InternalState
 }
 
 export type EditorActions = {
-  initialize: (initialData?: { imageList?: string[] }) => void
+  initialize: (initialData?: {
+    imageList?: string[]
+    shouldSignUrls?: boolean
+    signer?: Signer
+  }) => void
   setCurrentImage: (imageSrc: string | undefined) => void
   addImage: (imageSrc: string) => void
   addImages: (imageSrcs: string[]) => void
@@ -95,6 +109,9 @@ const useEditorStore = create<EditorState & EditorActions>()(
     transformations: initialTransformations,
     visibleTransformations: initialVisibleTransformations,
     showOriginal: false,
+    shouldSignUrls: false,
+    signer: undefined,
+    isSigning: false,
     _internalState: {
       sidebarState: "none",
       selectedTransformationKey: null,
@@ -102,12 +119,20 @@ const useEditorStore = create<EditorState & EditorActions>()(
     },
 
     initialize: (initialData) => {
+      const updates: Partial<EditorState> = {}
       if (initialData?.imageList && initialData.imageList.length > 0) {
-        set({
-          originalImageList: initialData.imageList,
-          imageList: initialData.imageList,
-          currentImage: initialData.imageList[0],
-        })
+        updates.originalImageList = initialData.imageList
+        updates.imageList = initialData.imageList
+        updates.currentImage = initialData.imageList[0]
+      }
+      if (typeof initialData?.shouldSignUrls === "boolean") {
+        updates.shouldSignUrls = initialData.shouldSignUrls
+      }
+      if (initialData?.signer) {
+        updates.signer = initialData.signer
+      }
+      if (Object.keys(updates).length > 0) {
+        set(updates as EditorState)
       }
     },
 
@@ -319,196 +344,202 @@ const useEditorStore = create<EditorState & EditorActions>()(
   })),
 )
 
-const calculateImageList = (
+const calculateImageList = async (
   imageList: string[],
   transformations: Transformation[],
   visibleTransformations: Record<string, boolean>,
   showOriginal: boolean,
+  shouldSignUrls: boolean,
+  signer?: Signer,
 ) => {
   let activeImageIndex = 0
-  const imgs = imageList.map((img) => {
-    if (img === useEditorStore.getState().currentImage) {
+  const current = useEditorStore.getState().currentImage
+
+  const IKTransformations = transformations
+    .filter((transformation) => visibleTransformations[transformation.id])
+    .map((transformation) => {
+      const t = transformationSchema
+        .find((schema) => schema.key === transformation.key.split("-")[0])
+        ?.items.find((item) => item.key === transformation.key)
+
+      const groupedTransforms: Record<
+        string,
+        {
+          fields: Array<{
+            name: string
+            value: unknown
+            field: TransformationField
+          }>
+          transformationKey: string
+        }
+      > = {}
+
+      if (t?.transformations) {
+        t.transformations.forEach((transform) => {
+          if (
+            transform.transformationGroup &&
+            transform.isVisible?.(
+              transformation.value as Record<string, unknown>,
+            ) !== false
+          ) {
+            const value = (transformation.value as Record<string, unknown>)[
+              transform.name
+            ]
+            if (value !== undefined && value !== "") {
+              if (!groupedTransforms[transform.transformationGroup]) {
+                groupedTransforms[transform.transformationGroup] = {
+                  fields: [],
+                  transformationKey:
+                    transform.transformationKey || transform.name,
+                }
+              }
+              groupedTransforms[transform.transformationGroup].fields.push({
+                name: transform.name,
+                value,
+                field: transform,
+              })
+            }
+          }
+        })
+      }
+
+      const transforms: Record<string, unknown> = Object.fromEntries(
+        Object.entries(transformation.value)
+          .map(([key, value]) => {
+            const transform = t?.transformations.find(
+              (field) => field.name === key,
+            )
+
+            if (transform?.transformationGroup) {
+              return []
+            }
+
+            if (
+              transform?.isTransformation &&
+              (transform.isVisible?.(
+                transformation.value as Record<string, unknown>,
+              ) ??
+                true) &&
+              value !== ""
+            ) {
+              return [transform.transformationKey ?? key, value]
+            }
+            return []
+          })
+          .filter((entry) => entry.length > 0),
+      )
+
+      for (const groupName in groupedTransforms) {
+        const group = groupedTransforms[groupName]
+        const formatter = transformationFormatters[groupName]
+
+        if (formatter) {
+          const groupValues = {} as Record<string, unknown>
+          group.fields.forEach((f) => {
+            groupValues[f.name] = f.value
+          })
+
+          formatter(groupValues, transforms)
+        }
+      }
+
+      return {
+        ...t?.defaultTransformation,
+        ...transforms,
+      }
+    })
+
+  const requests: SignerRequest[] = imageList.map((img) => {
+    if (img === current) {
       activeImageIndex = imageList.indexOf(img)
     }
 
-    if (showOriginal) {
-      return img
+    return {
+      url: img,
+      transformation: showOriginal ? [] : IKTransformations,
     }
-
-    const IKTransformations = transformations
-      .filter((transformation) => visibleTransformations[transformation.id])
-      .map((transformation) => {
-        const t = transformationSchema
-          .find((schema) => schema.key === transformation.key.split("-")[0])
-          ?.items.find((item) => item.key === transformation.key)
-
-        // Process grouped transformations
-        const groupedTransforms: Record<
-          string,
-          {
-            fields: Array<{
-              name: string
-              value: unknown
-              field: TransformationField
-            }>
-            transformationKey: string
-          }
-        > = {}
-
-        // Collect all fields that are part of transformation groups
-        if (t?.transformations) {
-          t.transformations.forEach((transform) => {
-            if (
-              transform.transformationGroup &&
-              transform.isVisible?.(
-                transformation.value as Record<string, unknown>,
-              ) !== false
-            ) {
-              const value = (transformation.value as Record<string, unknown>)[
-                transform.name
-              ]
-              if (value !== undefined && value !== "") {
-                if (!groupedTransforms[transform.transformationGroup]) {
-                  groupedTransforms[transform.transformationGroup] = {
-                    fields: [],
-                    transformationKey:
-                      transform.transformationKey || transform.name,
-                  }
-                }
-                groupedTransforms[transform.transformationGroup].fields.push({
-                  name: transform.name,
-                  value,
-                  field: transform,
-                })
-              }
-            }
-          })
-        }
-
-        // Process regular (non-grouped) transformations
-        const transforms: Record<string, unknown> = Object.fromEntries(
-          Object.entries(transformation.value)
-            .map(([key, value]) => {
-              const transform = t?.transformations.find(
-                (field) => field.name === key,
-              )
-
-              // Skip fields that are part of a transformation group
-              if (transform?.transformationGroup) {
-                return []
-              }
-
-              if (
-                transform?.isTransformation &&
-                (transform.isVisible?.(
-                  transformation.value as Record<string, unknown>,
-                ) ??
-                  true) &&
-                value !== ""
-              ) {
-                return [transform.transformationKey ?? key, value]
-              }
-              return []
-            })
-            .filter((entry) => entry.length > 0),
-        )
-
-        for (const groupName in groupedTransforms) {
-          const group = groupedTransforms[groupName]
-          const formatter = transformationFormatters[groupName]
-
-          // If a formatter is provided, use it
-          if (formatter) {
-            const groupValues = {} as Record<string, unknown>
-            group.fields.forEach((f) => {
-              groupValues[f.name] = f.value
-            })
-
-            formatter(groupValues, transforms)
-          }
-        }
-
-        return {
-          ...t?.defaultTransformation,
-          ...transforms,
-        }
-      })
-
-    return buildSrc({
-      src: img,
-      urlEndpoint: "does-not-matter",
-      transformation: IKTransformations,
-    })
   })
+
+  let imgs: string[]
+
+  if (shouldSignUrls && signer) {
+    imgs = await signer(requests)
+  } else {
+    imgs = requests.map((req) => {
+      if (req.transformation.length === 0) {
+        return req.url
+      }
+      return buildSrc({
+        src: req.url,
+        urlEndpoint: "does-not-matter",
+        transformation: req.transformation,
+      })
+    })
+  }
 
   return { imgs, activeImageIndex }
 }
 
+async function recomputeImages() {
+  const state = useEditorStore.getState()
+  if (state.shouldSignUrls && state.signer) {
+    useEditorStore.setState({ isSigning: true })
+  }
+  const { imgs, activeImageIndex } = await calculateImageList(
+    state.originalImageList,
+    state.transformations,
+    state.visibleTransformations,
+    state.showOriginal,
+    state.shouldSignUrls,
+    state.signer,
+  )
+
+  useEditorStore.setState({
+    imageList: imgs,
+    currentImage: imgs[activeImageIndex],
+    isSigning: false,
+  })
+}
+
 useEditorStore.subscribe(
   (state) => state.showOriginal,
-  (showOriginal) => {
-    const { imgs, activeImageIndex } = calculateImageList(
-      useEditorStore.getState().originalImageList,
-      useEditorStore.getState().transformations,
-      useEditorStore.getState().visibleTransformations,
-      showOriginal,
-    )
-
-    useEditorStore.setState({
-      imageList: imgs,
-      currentImage: imgs[activeImageIndex],
-    })
+  () => {
+    recomputeImages()
   },
 )
 
 useEditorStore.subscribe(
   (state) => state.transformations,
-  (transformations) => {
-    const { imgs, activeImageIndex } = calculateImageList(
-      useEditorStore.getState().originalImageList,
-      transformations,
-      useEditorStore.getState().visibleTransformations,
-      useEditorStore.getState().showOriginal,
-    )
-
-    useEditorStore.setState({
-      imageList: imgs,
-      currentImage: imgs[activeImageIndex],
-    })
+  () => {
+    recomputeImages()
   },
 )
 
 useEditorStore.subscribe(
   (state) => state.visibleTransformations,
-  (visibleTransformations) => {
-    const { imgs, activeImageIndex } = calculateImageList(
-      useEditorStore.getState().originalImageList,
-      useEditorStore.getState().transformations,
-      visibleTransformations,
-      useEditorStore.getState().showOriginal,
-    )
-
-    useEditorStore.setState({
-      imageList: imgs,
-      currentImage: imgs[activeImageIndex],
-    })
+  () => {
+    recomputeImages()
   },
 )
 
 useEditorStore.subscribe(
   (state) => state.originalImageList,
-  (originalImageList) => {
-    const { imgs, activeImageIndex } = calculateImageList(
-      originalImageList,
-      useEditorStore.getState().transformations,
-      useEditorStore.getState().visibleTransformations,
-      useEditorStore.getState().showOriginal,
-    )
+  () => {
+    recomputeImages()
+  },
+)
 
-    useEditorStore.setState({
-      imageList: imgs,
-      currentImage: imgs[activeImageIndex],
-    })
+useEditorStore.subscribe(
+  (state) => state.shouldSignUrls,
+  () => {
+    recomputeImages()
+  },
+)
+
+useEditorStore.subscribe(
+  (state) => state.signer,
+  () => {
+    recomputeImages()
   },
 )
 

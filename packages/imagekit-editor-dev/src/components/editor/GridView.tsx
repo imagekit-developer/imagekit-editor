@@ -1,4 +1,4 @@
-import { Box, Flex, Icon, Image, Text } from "@chakra-ui/react"
+import { Box, Flex, Icon, Text } from "@chakra-ui/react"
 import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
 import type { FC } from "react"
 import { useEditorStore } from "../../store"
@@ -10,7 +10,8 @@ interface GridViewProps {
 }
 
 export const GridView: FC<GridViewProps> = ({ imageSize, onAddImage }) => {
-  const { currentImage, setCurrentImage, imageList } = useEditorStore()
+  const { currentImage, setCurrentImage, imageList, isSigning } =
+    useEditorStore()
   return (
     <Flex
       flex="1"
@@ -72,6 +73,7 @@ export const GridView: FC<GridViewProps> = ({ imageSize, onAddImage }) => {
                 maxHeight="100%"
                 objectFit="contain"
                 alt={`Image ${index + 1}`}
+                isLoading={isSigning}
               />
             </Box>
           ))}
