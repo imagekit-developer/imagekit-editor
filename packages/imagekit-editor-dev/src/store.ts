@@ -21,16 +21,19 @@ export interface Transformation {
 
 export interface FileElement {
   url: string
-  metadata: Record<string, string>
+  metadata: { requireSignedUrl: boolean } & Record<
+    string,
+    string | boolean | number
+  >
 }
 
 export interface SignerRequest {
   url: string
   transformation: IKTransformation[]
-  metadata: Record<string, string>
+  metadata: Record<string, string | boolean | number>
 }
 
-export type Signer = (items: SignerRequest[]) => Promise<string[]>
+export type Signer = (item: SignerRequest) => Promise<string>
 
 interface InternalState {
   sidebarState: "none" | "type" | "config"
@@ -54,7 +57,6 @@ export interface EditorState {
   transformations: Transformation[]
   visibleTransformations: Record<string, boolean>
   showOriginal: boolean
-  shouldSignUrls: boolean
   signer?: Signer
   isSigning: boolean
   _internalState: InternalState
@@ -63,7 +65,6 @@ export interface EditorState {
 export type EditorActions = {
   initialize: (initialData?: {
     imageList?: Array<string | FileElement>
-    shouldSignUrls?: boolean
     signer?: Signer
   }) => void
   setCurrentImage: (imageSrc: string | undefined) => void
@@ -109,9 +110,12 @@ initTransformationStates(initialTransformations)
 
 function normalizeImage(image: string | FileElement): FileElement {
   if (typeof image === "string") {
-    return { url: image, metadata: {} }
+    return { url: image, metadata: { requireSignedUrl: false } }
   }
-  return { url: image.url, metadata: image.metadata ?? {} }
+  return {
+    url: image.url,
+    metadata: image.metadata ?? { requireSignedUrl: false },
+  }
 }
 
 const useEditorStore = create<EditorState & EditorActions>()(
@@ -122,7 +126,6 @@ const useEditorStore = create<EditorState & EditorActions>()(
     transformations: initialTransformations,
     visibleTransformations: initialVisibleTransformations,
     showOriginal: false,
-    shouldSignUrls: false,
     signer: undefined,
     isSigning: false,
     _internalState: {
@@ -138,9 +141,6 @@ const useEditorStore = create<EditorState & EditorActions>()(
         updates.originalImageList = imgs
         updates.imageList = imgs.map((i) => i.url)
         updates.currentImage = imgs[0].url
-      }
-      if (typeof initialData?.shouldSignUrls === "boolean") {
-        updates.shouldSignUrls = initialData.shouldSignUrls
       }
       if (initialData?.signer) {
         updates.signer = initialData.signer
@@ -365,7 +365,6 @@ const calculateImageList = async (
   transformations: Transformation[],
   visibleTransformations: Record<string, boolean>,
   showOriginal: boolean,
-  shouldSignUrls: boolean,
   signer?: Signer,
   activeImageIndex = 0,
 ) => {
@@ -463,35 +462,33 @@ const calculateImageList = async (
       }
     })
 
-  const requests: SignerRequest[] = imageList.map((img) => ({
-    url: img.url,
-    transformation: showOriginal ? [] : IKTransformations,
-    metadata: img.metadata,
-  }))
-
-  let imgs: string[]
-
-  if (shouldSignUrls && signer) {
-    imgs = await signer(requests)
-  } else {
-    imgs = requests.map((req) => {
+  const imgs: string[] = await Promise.all(
+    imageList.map(async (img) => {
+      const req = {
+        url: img.url,
+        transformation: showOriginal ? [] : IKTransformations,
+        metadata: img.metadata,
+      }
       if (req.transformation.length === 0) {
         return req.url
+      }
+      if (req.metadata.requireSignedUrl && signer) {
+        return signer(req)
       }
       return buildSrc({
         src: req.url,
         urlEndpoint: "does-not-matter",
         transformation: req.transformation,
       })
-    })
-  }
+    }),
+  )
 
   return { imgs, activeImageIndex }
 }
 
 async function recomputeImages() {
   const state = useEditorStore.getState()
-  if (state.shouldSignUrls && state.signer) {
+  if (state.signer) {
     useEditorStore.setState({ isSigning: true })
   }
   const currentIndex = Math.max(
@@ -503,7 +500,6 @@ async function recomputeImages() {
     state.transformations,
     state.visibleTransformations,
     state.showOriginal,
-    state.shouldSignUrls,
     state.signer,
     currentIndex,
   )
@@ -538,13 +534,6 @@ useEditorStore.subscribe(
 
 useEditorStore.subscribe(
   (state) => state.originalImageList,
-  () => {
-    recomputeImages()
-  },
-)
-
-useEditorStore.subscribe(
-  (state) => state.shouldSignUrls,
   () => {
     recomputeImages()
   },

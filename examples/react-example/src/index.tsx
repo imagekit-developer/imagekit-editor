@@ -35,9 +35,8 @@ function App() {
           console.log(images)
         },
       },
-      // signedUrls: true,
-      // signer: (requests) => {
-      //   return Promise.resolve(requests.map((req) => req.url))
+      // signer: (request) => {
+      //   return Promise.resolve(request.url)
       // },
     })
   }, [handleAddImage])

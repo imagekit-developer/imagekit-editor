@@ -15,7 +15,6 @@ export interface ImageKitEditorRef {
 interface EditorProps {
   theme?: Dict
   initialImages?: Array<string | FileElement>
-  signedUrls?: boolean
   signer?: Signer
   onAddImage?: () => void
   exportOptions?:
@@ -39,17 +38,27 @@ interface EditorProps {
 
 export const ImageKitEditor = forwardRef<ImageKitEditorRef, EditorProps>(
   (props, ref) => {
-    const { theme, initialImages, signedUrls, signer } = props
+    const { theme, initialImages, signer } = props
     const { addImage, addImages, setCurrentImage, initialize } =
       useEditorStore()
 
     React.useEffect(() => {
+      if (
+        initialImages?.some(
+          (img) => typeof img !== "string" && img.metadata.requireSignedUrl,
+        ) &&
+        !signer
+      ) {
+        console.warn(
+          "ImageKitEditor: Some images require signed URL but no signer function is provided",
+        )
+      }
+
       initialize({
         imageList: initialImages,
-        shouldSignUrls: signedUrls,
         signer,
       })
-    }, [initialImages, signedUrls, signer, initialize])
+    }, [initialImages, signer, initialize])
 
     useImperativeHandle(
       ref,
