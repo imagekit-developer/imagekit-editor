@@ -23,7 +23,6 @@ import {
   PopoverBody,
   PopoverContent,
   PopoverTrigger,
-  Select,
   Slider,
   SliderFilledTrack,
   SliderThumb,
@@ -37,7 +36,9 @@ import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
 import { PiInfo } from "@react-icons/all-files/pi/PiInfo"
 import { PiX } from "@react-icons/all-files/pi/PiX"
 import { useEffect, useMemo } from "react"
-import { type SubmitHandler, useForm } from "react-hook-form"
+import { Controller, type SubmitHandler, useForm } from "react-hook-form"
+import Select from "react-select"
+import CreateableSelect from "react-select/creatable"
 import { z } from "zod/v3"
 import type { TransformationField } from "../../schema"
 import { transformationSchema } from "../../schema"
@@ -119,6 +120,7 @@ export const TransformationConfigSidebar: React.FC = () => {
     reset,
     watch,
     setValue,
+    control,
   } = useForm<Record<string, unknown>>({
     resolver: zodResolver(selectedTransformation?.schema ?? z.object({})),
     defaultValues: defaultValues,
@@ -279,19 +281,74 @@ export const TransformationConfigSidebar: React.FC = () => {
                 {field.label}
               </FormLabel>
               {field.fieldType === "select" ? (
-                <Select
-                  id={field.name}
-                  fontSize="xs"
-                  size="sm"
-                  {...register(field.name)}
-                  placeholder="Select"
-                >
-                  {field.fieldProps?.options?.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Select>
+                <Controller
+                  name={field.name}
+                  control={control}
+                  render={({ field: controllerField }) => (
+                    <Select
+                      id={field.name}
+                      placeholder="Select"
+                      options={field.fieldProps?.options?.map((option) => ({
+                        value: option.value,
+                        label: option.label,
+                      }))}
+                      value={field.fieldProps?.options?.find(
+                        (option) => option.value === controllerField.value,
+                      )}
+                      onChange={(selectedOption) =>
+                        controllerField.onChange(selectedOption?.value)
+                      }
+                      onBlur={controllerField.onBlur}
+                      styles={{
+                        control: (base) => ({
+                          ...base,
+                          fontSize: "12px",
+                          minHeight: "32px",
+                          borderColor: "#E2E8F0",
+                        }),
+                        option: (base) => ({
+                          ...base,
+                          fontSize: "12px",
+                        }),
+                      }}
+                    />
+                  )}
+                />
+              ) : null}
+              {field.fieldType === "select-creatable" ? (
+                <Controller
+                  name={field.name}
+                  control={control}
+                  render={({ field: controllerField }) => (
+                    <CreateableSelect
+                      id={field.name}
+                      placeholder="Select"
+                      options={field.fieldProps?.options?.map((option) => ({
+                        value: option.value,
+                        label: option.label,
+                      }))}
+                      value={field.fieldProps?.options?.find(
+                        (option) => option.value === controllerField.value,
+                      )}
+                      onChange={(selectedOption) =>
+                        controllerField.onChange(selectedOption?.value)
+                      }
+                      onBlur={controllerField.onBlur}
+                      styles={{
+                        control: (base) => ({
+                          ...base,
+                          fontSize: "12px",
+                          minHeight: "32px",
+                          borderColor: "#E2E8F0",
+                        }),
+                        option: (base) => ({
+                          ...base,
+                          fontSize: "12px",
+                        }),
+                      }}
+                    />
+                  )}
+                />
               ) : null}
               {field.fieldType === "input" ? (
                 <Input

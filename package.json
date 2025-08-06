@@ -36,5 +36,8 @@
     "*": [
       "biome ci --files-ignore-unknown=true"
     ]
+  },
+  "dependencies": {
+    "react-select": "^5.2.1"
   }
 }

@@ -244,7 +244,6 @@ export const transformationSchema: TransformationSchema[] = [
           .object({
             width: widthValidator.optional(),
             height: heightValidator.optional(),
-            // TODO: aspectRatio is always required fix it
             aspectRatio: aspectRatioValidator.optional(),
             focus: z.string().optional(),
             focusAnchor: z.string().optional(),
@@ -267,6 +266,27 @@ export const transformationSchema: TransformationSchema[] = [
             },
           )
           .superRefine((val, ctx) => {
+            if (!val.width && !val.height && !val.aspectRatio) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message:
+                  "At least one of width, height or aspect ratio is required",
+                path: ["width"],
+              })
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message:
+                  "At least one of width, height or aspect ratio is required",
+                path: ["height"],
+              })
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message:
+                  "At least one of width, height or aspect ratio is required",
+                path: ["aspectRatio"],
+              })
+            }
+
             if (val.width && val.height) {
               ctx.addIssue({
                 code: z.ZodIssueCode.custom,
@@ -319,11 +339,25 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Aspect Ratio",
             name: "aspectRatio",
-            fieldType: "input",
+            fieldType: "select-creatable",
             isTransformation: true,
             transformationKey: "aspectRatio",
             helpText:
               "Enter an aspect ratio as 'width-height' (e.g., 16-9 or 4-3) or an expression such as iar_mul_0.75. Cannot be used alongside both width and height.",
+            fieldProps: {
+              options: [
+                { label: "Square (1:1)", value: "1-1" },
+                { label: "Social Landscape (19:10)", value: "19-10" },
+                { label: "Landscape (3:2)", value: "3-2" },
+                { label: "Header (3:1)", value: "3-1" },
+                { label: "Cover (4:1)", value: "4-1" },
+                { label: "Presentation (4:3)", value: "4-3" },
+                { label: "Portrait (4:5)", value: "4-5" },
+                { label: "Portrait (2:3)", value: "2-3" },
+                { label: "Portrait (9:16)", value: "9-16" },
+                { label: "Widescreen (16:9)", value: "16-9" },
+              ],
+            },
           },
           {
             label: "Focus",

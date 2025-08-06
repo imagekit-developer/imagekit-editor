@@ -60,6 +60,7 @@ const aspectRatioExpressionValidator = z
   .regex(/^(?:iar|car)_(?:add|sub|mul|div|mod|pow)_(\d+(\.\d{1,2})?)$/)
 
 export const aspectRatioValidator = z.any().superRefine((val, ctx) => {
+  if (val === undefined || val === "") return
   if (aspectRatioValueValidator.safeParse(val).success) {
     return
   }
