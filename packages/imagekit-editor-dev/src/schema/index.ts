@@ -54,8 +54,13 @@ export const transformationSchema: TransformationSchema[] = [
       {
         key: "resize-pad_resize",
         name: "Pad Resize",
+        // When using the pad resize crop strategy, ImageKit resizes the image to the
+        // requested width and/or height while preserving the original aspect ratio.
+        // Any remaining space is filled with a background, which can be a solid
+        // colour, a blurred version of the image or a generative fill. This
+        // strategy never crops the image content.
         description:
-          "Resize an image to fit within the specified width and height while preserving its aspect ratio. Any extra space is padded with a background colour, a blurred version of the image, or an AI‑generated fill.",
+          "Resize an image to fit within the specified width and height while preserving its aspect ratio. Any extra space is padded with a background colour, a blurred version of the image, or an AI-generated fill.",
         docsLink:
           "https://imagekit.io/docs/image-resize-and-crop#pad-resize-crop-strategy-cm-pad_resize",
         defaultTransformation: { cropMode: "pad_resize" },
@@ -783,7 +788,7 @@ export const transformationSchema: TransformationSchema[] = [
         // remaining area. This allows you to centre or position a subject and
         // fill unused space with a solid colour or generative fill.
         description:
-          "Extract a region from the image and pad it to match the requested dimensions. Use a solid colour or an AI‑generated fill for the padding and optionally set a focus point.",
+          "Extract a region from the image and pad it to match the requested dimensions. Use a solid colour or an AI-generated fill for the padding and optionally set a focus point.",
         docsLink:
           "https://imagekit.io/docs/image-resize-and-crop#pad-extract-crop-strategy-cm-pad_extract",
         defaultTransformation: { cropMode: "pad_extract" },
@@ -938,20 +943,32 @@ export const transformationSchema: TransformationSchema[] = [
       {
         key: "adjust-shadow",
         name: "Shadow",
-        // Adds a non-AI shadow under objects in images with a transparent background.
+        // Adds a shadow beneath objects in images with a transparent background. You can adjust blur, saturation and positional offsets.
         description:
-          "Add a shadow beneath objects in images with transparent backgrounds. You can control blur, saturation and offset values using the e-shadow parameters.",
+          "Add a shadow beneath objects in images with a transparent background. Use blur, saturation and offset controls to customise the shadow.",
         docsLink:
           "https://imagekit.io/docs/effects-and-enhancements#shadow-e-shadow",
         defaultTransformation: {},
+        // Schema allows toggling the shadow effect and specifying optional blur, saturation and X/Y offsets.
         schema: z
           .object({
-            shadow: z.string().optional(),
+            // Toggle to enable or disable the shadow effect
+            shadow: z.coerce.boolean().optional(),
+            // Optional blur radius for the shadow (0-15). Accepts numeric or string input
+            shadowBlur: z.string().optional(),
+            // Optional saturation level for the shadow (0-100). Accepts numeric or string input
+            shadowSaturation: z.string().optional(),
+            // Optional horizontal offset; prefix negative values with N (e.g., N10 for -10%)
+            shadowOffsetX: z.string().optional(),
+            // Optional vertical offset; prefix negative values with N (e.g., N5 for -5%)
+            shadowOffsetY: z.string().optional(),
           })
           .refine(
             (val) => {
               if (
-                Object.values(val).some((v) => v !== undefined && v !== null)
+                Object.values(val).some(
+                  (v) => v !== undefined && v !== null && v !== "",
+                )
               ) {
                 return true
               }
@@ -966,11 +983,67 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Shadow",
             name: "shadow",
+            fieldType: "switch",
+            isTransformation: true,
+            transformationKey: "shadow",
+            transformationGroup: "shadow",
+            helpText: "Toggle to add a shadow under objects in the image.",
+          },
+          {
+            label: "Blur",
+            name: "shadowBlur",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationKey: "shadow",
+            transformationGroup: "shadow",
+            helpText:
+              "Set the blur radius for the shadow (0-15). Higher values create a softer shadow.",
+            fieldProps: {
+              min: 0,
+              max: 15,
+              step: 1,
+              defaultValue: 10,
+            },
+            isVisible: ({ shadow }) => shadow === true,
+          },
+          {
+            label: "Saturation",
+            name: "shadowSaturation",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationKey: "shadow",
+            transformationGroup: "shadow",
+            helpText:
+              "Adjust the saturation of the shadow (0-100). Higher values produce a darker shadow.",
+            fieldProps: {
+              min: 0,
+              max: 100,
+              step: 1,
+              defaultValue: 40,
+            },
+            isVisible: ({ shadow }) => shadow === true,
+          },
+          {
+            label: "X Offset",
+            name: "shadowOffsetX",
             fieldType: "input",
             isTransformation: true,
             transformationKey: "shadow",
+            transformationGroup: "shadow",
             helpText:
-              "Enter optional shadow parameters (e.g., bl-15_st-40_x-10_y-N5). Leave blank for default shadow.",
+              "Enter the horizontal offset as a percentage of the image width. For negative offset, prefix with 'N' (e.g., N10 for -10%).",
+            isVisible: ({ shadow }) => shadow === true,
+          },
+          {
+            label: "Y Offset",
+            name: "shadowOffsetY",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "shadow",
+            transformationGroup: "shadow",
+            helpText:
+              "Enter the vertical offset as a percentage of the image height. For negative offset, prefix with 'N' (e.g., N5 for -5%).",
+            isVisible: ({ shadow }) => shadow === true,
           },
         ],
       },
@@ -1051,7 +1124,7 @@ export const transformationSchema: TransformationSchema[] = [
         key: "adjust-rotate",
         name: "Rotate",
         description:
-          "Rotate the image by a specified number of degrees clockwise or counter‑clockwise, or automatically rotate based on EXIF orientation.",
+          "Rotate the image by a specified number of degrees clockwise or counter-clockwise, or automatically rotate based on EXIF orientation.",
         docsLink: "https://imagekit.io/docs/effects-and-enhancements#rotate-rt",
         defaultTransformation: {},
         schema: z
@@ -1080,7 +1153,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "rt",
             helpText:
-              "Enter degrees to rotate the image clockwise (e.g., 90). Prefix with 'N' for counter‑clockwise rotation (e.g., N45). Use 'auto' to rotate based on EXIF data.",
+              "Enter degrees to rotate the image clockwise (e.g., 90). Prefix with 'N' for counter-clockwise rotation (e.g., N45). Use 'auto' to rotate based on EXIF data.",
           },
         ],
       },
@@ -1210,7 +1283,7 @@ export const transformationSchema: TransformationSchema[] = [
       {
         key: "effect-removedotbg",
         name: "Remove Dot Background",
-        // This option removes the background using the third‑party remove.bg service.
+        // This option removes the background using the third-party remove.bg service.
         description:
           "Remove the background of the image using Remove.bg (external service). This isolates the subject and makes the background transparent.",
         docsLink:
@@ -1250,7 +1323,7 @@ export const transformationSchema: TransformationSchema[] = [
         key: "effect-bgremove",
         name: "ImageKit Background Removal",
         description:
-          "Remove the background using ImageKit's built‑in background removal model. This method is cost‑effective compared to Remove.bg.",
+          "Remove the background using ImageKit's built-in background removal model. This method is cost-effective compared to Remove.bg.",
         docsLink:
           "https://imagekit.io/docs/ai-transformations#imagekit-background-removal-e-bgremove",
         defaultTransformation: {},
@@ -1364,7 +1437,7 @@ export const transformationSchema: TransformationSchema[] = [
         key: "effect-dropshadow",
         name: "Drop Shadow",
         description:
-          "Add a realistic AI‑generated drop shadow around the object. Requires a transparent background; remove the background first for best results.",
+          "Add a realistic AI-generated drop shadow around the object. Requires a transparent background; remove the background first for best results.",
         docsLink:
           "https://imagekit.io/docs/ai-transformations#ai-drop-shadow-e-dropshadow",
         defaultTransformation: {},
@@ -1394,7 +1467,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "aiDropShadow",
             helpText:
-              "Toggle to add an AI‑generated drop shadow. Requires transparent background.",
+              "Toggle to add an AI-generated drop shadow. Requires transparent background.",
           },
         ],
       },
@@ -1439,7 +1512,7 @@ export const transformationSchema: TransformationSchema[] = [
         key: "effect-upscale",
         name: "Upscale",
         description:
-          "Increase the resolution of low‑resolution images using AI upscaling. The output can be up to 16 MP.",
+          "Increase the resolution of low-resolution images using AI upscaling. The output can be up to 16 MP.",
         docsLink:
           "https://imagekit.io/docs/ai-transformations#upscale-e-upscale",
         defaultTransformation: {},
@@ -1605,7 +1678,7 @@ export const transformationSchema: TransformationSchema[] = [
         key: "delivery-dpr",
         name: "DPR",
         description:
-          "Set the device pixel ratio (DPR) to deliver images optimised for high‑resolution displays. A higher DPR increases the pixel density of the delivered image.",
+          "Set the device pixel ratio (DPR) to deliver images optimised for high-resolution displays. A higher DPR increases the pixel density of the delivered image.",
         docsLink:
           "https://imagekit.io/docs/transformations#device-pixel-ratio-dpr",
         defaultTransformation: {},
@@ -1706,5 +1779,48 @@ export const transformationFormatters: Record<
     } else if (focus === "object") {
       transforms.focus = focusObject
     }
+  },
+  shadow: (values, transforms) => {
+    const {
+      shadow,
+      shadowBlur,
+      shadowSaturation,
+      shadowOffsetX,
+      shadowOffsetY,
+    } = values as Record<string, any>
+
+    // Only apply the shadow transformation when the switch is enabled
+    if (!shadow) return
+    const params: string[] = []
+    // Blur parameter (0-15)
+    if (shadowBlur !== undefined && shadowBlur !== null && shadowBlur !== "") {
+      params.push(`bl-${shadowBlur}`)
+    }
+    // Saturation parameter (0-100)
+    if (
+      shadowSaturation !== undefined &&
+      shadowSaturation !== null &&
+      shadowSaturation !== ""
+    ) {
+      params.push(`st-${shadowSaturation}`)
+    }
+    // Horizontal offset; negative values should include N prefix as part of the value
+    if (
+      shadowOffsetX !== undefined &&
+      shadowOffsetX !== null &&
+      shadowOffsetX !== ""
+    ) {
+      params.push(`x-${shadowOffsetX}`)
+    }
+    // Vertical offset; negative values should include N prefix as part of the value
+    if (
+      shadowOffsetY !== undefined &&
+      shadowOffsetY !== null &&
+      shadowOffsetY !== ""
+    ) {
+      params.push(`y-${shadowOffsetY}`)
+    }
+    // Compose the final transform string
+    transforms.shadow = params.length > 0 ? `${params.join("_")}` : ""
   },
 }
