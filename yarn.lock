@@ -1651,7 +1651,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@imagekit/editor@npm:0.0.12, @imagekit/editor@workspace:packages/imagekit-editor":
+"@imagekit/editor@npm:0.0.13, @imagekit/editor@workspace:packages/imagekit-editor":
   version: 0.0.0-use.local
   resolution: "@imagekit/editor@workspace:packages/imagekit-editor"
   peerDependencies:
@@ -1662,6 +1662,7 @@ __metadata:
     framer-motion: 6.5.1
     react: ^17.0.2
     react-dom: ^17.0.2
+    react-select: ^5.2.1
   languageName: unknown
   linkType: soft
 
@@ -4187,7 +4188,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "react-example@workspace:examples/react-example"
   dependencies:
-    "@imagekit/editor": "npm:0.0.12"
+    "@imagekit/editor": "npm:0.0.13"
     "@types/node": "npm:^20.11.24"
     "@types/react": "npm:^17.0.2"
     "@types/react-dom": "npm:^17.0.2"
