@@ -54,9 +54,11 @@ export const transformationSchema: TransformationSchema[] = [
       {
         key: "resize-pad_resize",
         name: "Pad Resize",
+        description:
+          "Resize an image to fit within the specified width and height while preserving its aspect ratio. Any extra space is padded with a background colour, a blurred version of the image, or an AI‑generated fill.",
+        docsLink:
+          "https://imagekit.io/docs/image-resize-and-crop#pad-resize-crop-strategy-cm-pad_resize",
         defaultTransformation: { cropMode: "pad_resize" },
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             width: widthValidator.optional(),
@@ -135,7 +137,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "width",
             helpText:
-              "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
+              "Specify the output width. Use a decimal between 0 and 1 (e.g., 0.5 for 50%), an integer greater than 1 for pixel units (e.g., 300 for 300 px), or an expression such as iw_div_2. If only width is provided, height scales automatically to preserve aspect ratio.",
           },
           {
             label: "Height",
@@ -144,7 +146,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "height",
             helpText:
-              "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
+              "Specify the output height. Use a decimal between 0 and 1 (percentage of the original), an integer greater than 1 (pixel units), or an expression such as ih_div_2. If only height is provided, width scales automatically to preserve aspect ratio.",
           },
           {
             label: "Background Type",
@@ -172,7 +174,8 @@ export const transformationSchema: TransformationSchema[] = [
             label: "Background Blur Intensity",
             name: "backgroundBlurIntensity",
             fieldType: "slider",
-            helpText: "Enter 'auto' or a number between 0 and 100",
+            helpText:
+              "For blurred backgrounds, choose a blur radius from 0 to 100 or select 'auto' for a smart default. Width and height are required when using a blurred background.",
             isTransformation: true,
             transformationKey: "background",
             transformationGroup: "background",
@@ -189,7 +192,8 @@ export const transformationSchema: TransformationSchema[] = [
             label: "Background Blur Brightness",
             name: "backgroundBlurBrightness",
             fieldType: "slider",
-            helpText: "Enter a number between -255 and 255",
+            helpText:
+              "Adjust the brightness of a blurred background. Use a number between −255 (darker) and 255 (brighter).",
             isTransformation: false,
             transformationGroup: "background",
             fieldProps: {
@@ -204,7 +208,8 @@ export const transformationSchema: TransformationSchema[] = [
             label: "Background Generative Fill",
             name: "backgroundGenerativeFill",
             fieldType: "input",
-            helpText: "(Optional) Enter a prompt for generative fill",
+            helpText:
+              "When using a generative fill background, enter an optional text prompt describing what should fill the padded area (e.g., 'snowy forest'). Width and height are required for generative fill.",
             isTransformation: true,
             transformationGroup: "background",
             isVisible: ({ backgroundType }) =>
@@ -225,6 +230,15 @@ export const transformationSchema: TransformationSchema[] = [
       {
         key: "resize-maintain_aspect_ratio",
         name: "Maintain Aspect Ratio",
+        // This strategy resizes and crops the image to fit the requested box while
+        // preserving the original aspect ratio. It may crop parts of the image
+        // (default centre crop) to achieve the final size. You can specify only
+        // one dimension (width or height) or an aspect ratio. Focus settings can
+        // be used to keep important content in view.
+        description:
+          "Resize an image to the requested dimensions while preserving its aspect ratio. The image is scaled and cropped as necessary; specify width, height or an aspect ratio, and optionally set a focus area.",
+        docsLink:
+          "https://imagekit.io/docs/image-resize-and-crop#maintain-ratio-crop-strategy-c-maintain_ratio",
         defaultTransformation: { crop: "maintain_ratio" },
         schema: z
           .object({
@@ -272,14 +286,14 @@ export const transformationSchema: TransformationSchema[] = [
               ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: "Focus object is required",
-                path: [],
+                path: ["focusObject"],
               })
             }
             if (val.focus === "anchor" && !val.focusAnchor) {
               ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: "Focus anchor is required",
-                path: [],
+                path: ["focusAnchor"],
               })
             }
           }),
@@ -291,7 +305,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "width",
             helpText:
-              "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
+              "Specify the target width. Width and height cannot be used together. You can enter a decimal for percentage, an integer for pixel units, or an expression such as iw_div_2.",
           },
           {
             label: "Height",
@@ -300,7 +314,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "height",
             helpText:
-              "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
+              "Specify the target height. Height and width cannot be used together. Accepts decimal (percentage), integer (pixels), or expression (e.g., ih_div_2).",
           },
           {
             label: "Aspect Ratio",
@@ -309,7 +323,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "aspectRatio",
             helpText:
-              "Enter the aspect ratio in the format 'width-height' (e.g., 16-9 or 4-3) or an expression string (e.g., iar_add_16_9, etc.)",
+              "Enter an aspect ratio as 'width-height' (e.g., 16-9 or 4-3) or an expression such as iar_mul_0.75. Cannot be used alongside both width and height.",
           },
           {
             label: "Focus",
@@ -361,6 +375,13 @@ export const transformationSchema: TransformationSchema[] = [
       {
         key: "resize-forced_crop",
         name: "Forced Crop",
+        // Forced crop squeezes the entire image into the requested width and height,
+        // ignoring the original aspect ratio. The image is not cropped; instead it
+        // is stretched or squashed to exactly fit the provided dimensions.
+        description:
+          "Resize an image to exactly the specified width and height, distorting the aspect ratio if necessary. The entire original image is preserved without cropping.",
+        docsLink:
+          "https://imagekit.io/docs/image-resize-and-crop#forced-crop-c-force",
         defaultTransformation: { crop: "force" },
         schema: z
           .object({
@@ -394,7 +415,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "width",
             helpText:
-              "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
+              "Specify the exact width of the output. The image will be squashed or stretched to fit this width if both width and height are provided. Use a decimal (percentage), integer (pixels) or an expression.",
           },
           {
             label: "Height",
@@ -403,7 +424,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "height",
             helpText:
-              "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
+              "Specify the exact height of the output. The image will be squashed or stretched to fit this height if both width and height are provided. Use a decimal (percentage), integer (pixels) or an expression.",
           },
           {
             label: "Focus",
@@ -454,6 +475,14 @@ export const transformationSchema: TransformationSchema[] = [
       {
         key: "resize-max_size",
         name: "Max Size",
+        // Max size cropping preserves the aspect ratio and scales the image so
+        // that at least one dimension matches the requested size, while the other
+        // dimension is equal to or smaller than the requested dimension. It
+        // guarantees the output image will never be larger than the requested box.
+        description:
+          "Resize the image so that it fits within the specified width and/or height. The aspect ratio is preserved and at least one dimension will match the request while the other may be smaller.",
+        docsLink:
+          "https://imagekit.io/docs/image-resize-and-crop#max-size-crop-strategy-c-at_max",
         defaultTransformation: { crop: "at_max" },
         schema: z
           .object({
@@ -484,7 +513,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "width",
             helpText:
-              "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
+              "Specify the maximum width. The image will scale down to fit within this width while preserving aspect ratio. Use percentage, pixels or expressions.",
           },
           {
             label: "Height",
@@ -493,13 +522,21 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "height",
             helpText:
-              "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
+              "Specify the maximum height. The image will scale down to fit within this height while preserving aspect ratio. Use percentage, pixels or expressions.",
           },
         ],
       },
       {
         key: "resize-max_size_enlarge",
         name: "Max Size (Enlarge)",
+        // The max size (enlarge) strategy behaves like max size cropping but
+        // allows the image to be upscaled if the requested dimensions are larger
+        // than the original. Aspect ratio is preserved and at least one
+        // dimension will match the requested size.
+        description:
+          "Resize the image so that it fits within the specified dimensions, preserving aspect ratio. If the target size is larger than the original image, the image will be upscaled.",
+        docsLink:
+          "https://imagekit.io/docs/image-resize-and-crop#max-size-enlarge-crop-strategy-c-at_max_enlarge",
         defaultTransformation: { crop: "at_max_enlarge" },
         schema: z
           .object({
@@ -530,7 +567,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "width",
             helpText:
-              "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
+              "Specify the maximum width. The image will scale up or down to fit this width while preserving aspect ratio. Use percentage, pixels or expressions.",
           },
           {
             label: "Height",
@@ -539,13 +576,21 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "height",
             helpText:
-              "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
+              "Specify the maximum height. The image will scale up or down to fit this height while preserving aspect ratio. Use percentage, pixels or expressions.",
           },
         ],
       },
       {
         key: "resize-at_least",
         name: "Min-size",
+        // The min-size crop strategy resizes the image so that at least one
+        // dimension is equal to or greater than the requested dimension. The
+        // aspect ratio is preserved and the other dimension may exceed the
+        // requested value.
+        description:
+          "Resize the image so that it meets or exceeds the specified width and/or height. The aspect ratio is preserved and at least one dimension will match or exceed the request.",
+        docsLink:
+          "https://imagekit.io/docs/image-resize-and-crop#min-size-crop-strategy-c-at_least",
         defaultTransformation: { crop: "at_least" },
         schema: z
           .object({
@@ -576,7 +621,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "width",
             helpText:
-              "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
+              "Specify the minimum width. The image will scale so that the width is at least this value while preserving aspect ratio. Use percentage, pixels or expressions.",
           },
           {
             label: "Height",
@@ -585,7 +630,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "height",
             helpText:
-              "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
+              "Specify the minimum height. The image will scale so that the height is at least this value while preserving aspect ratio. Use percentage, pixels or expressions.",
           },
         ],
       },
@@ -598,9 +643,15 @@ export const transformationSchema: TransformationSchema[] = [
       {
         key: "crop_extract-extract",
         name: "Extract",
+        // Extract crop cuts out a region of the specified width and height from
+        // the original image without scaling. The crop can be centred by default
+        // or positioned using focus (anchor or object). If the specified crop
+        // area is larger than the original bounds, the operation will fail.
+        description:
+          "Extract a rectangular region from the original image without resizing. Specify width and height to define the area and optionally choose a focus point or object to position the crop.",
+        docsLink:
+          "https://imagekit.io/docs/image-resize-and-crop#extract-crop-strategy-cm-extract",
         defaultTransformation: { cropMode: "extract" },
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             width: widthValidator.optional(),
@@ -633,7 +684,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "width",
             helpText:
-              "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
+              "Specify the width of the region to extract. Use a decimal (percentage), integer (pixels) or an expression. The image is not resized; only the specified region is returned.",
           },
           {
             label: "Height",
@@ -642,7 +693,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "height",
             helpText:
-              "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
+              "Specify the height of the region to extract. Use a decimal (percentage), integer (pixels) or an expression. The image is not resized; only the specified region is returned.",
           },
           {
             label: "Focus",
@@ -693,9 +744,15 @@ export const transformationSchema: TransformationSchema[] = [
       {
         key: "crop_extract-pad_extract",
         name: "Pad Extract",
+        // Pad extract crops a region from the image like extract, but if the
+        // cropped region is smaller than the requested dimensions it pads the
+        // remaining area. This allows you to centre or position a subject and
+        // fill unused space with a solid colour or generative fill.
+        description:
+          "Extract a region from the image and pad it to match the requested dimensions. Use a solid colour or an AI‑generated fill for the padding and optionally set a focus point.",
+        docsLink:
+          "https://imagekit.io/docs/image-resize-and-crop#pad-extract-crop-strategy-cm-pad_extract",
         defaultTransformation: { cropMode: "pad_extract" },
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             width: widthValidator.optional(),
@@ -731,7 +788,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "width",
             helpText:
-              "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
+              "Specify the width of the extracted region. If the region is smaller than this width, padding will be added. Use percentage, pixels or expressions.",
           },
           {
             label: "Height",
@@ -740,7 +797,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "height",
             helpText:
-              "Enter a decimal between 0 and 1 (e.g., 0.5 for 50%) or an integer greater than 1 (e.g., 100 for 100px) or an expression string (e.g., iw, ih, iw_div_2, etc.)",
+              "Specify the height of the extracted region. If the region is smaller than this height, padding will be added. Use percentage, pixels or expressions.",
           },
           {
             label: "Background Type",
@@ -760,6 +817,8 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "input",
             transformationKey: "background",
             isTransformation: true,
+            helpText:
+              "When using colour padding, enter a hex code or colour name (e.g., FFFFFF or white).",
             isVisible: ({ backgroundType }) => backgroundType === "color",
           },
           {
@@ -768,10 +827,11 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "input",
             transformationKey: "aiChangeBackground",
             isTransformation: true,
+            helpText:
+              "When using AI generative padding, provide a text prompt describing the fill (e.g., 'mountain landscape').",
             isVisible: ({ backgroundType }) =>
               backgroundType === "generative_fill",
           },
-
           {
             label: "Focus",
             name: "focus",
@@ -803,9 +863,14 @@ export const transformationSchema: TransformationSchema[] = [
       {
         key: "adjust-contrast",
         name: "Contrast",
+        // Contrast stretch automatically expands the tonal range of the image
+        // making dark areas darker and light areas lighter. This toggle applies
+        // ImageKit's e-contrast effect.
+        description:
+          "Enhance the tonal range of the image automatically by stretching the contrast. Dark areas become darker and light areas become lighter.",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#contrast-stretch-e-contrast",
         defaultTransformation: {},
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             contrast: z.coerce.boolean().optional(),
@@ -831,16 +896,20 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "switch",
             isTransformation: true,
             transformationKey: "contrast",
-            helpText: "Enable or disable contrast",
+            helpText:
+              "Toggle to automatically stretch and enhance image contrast.",
           },
         ],
       },
       {
         key: "adjust-shadow",
         name: "Shadow",
+        // Adds a non-AI shadow under objects in images with a transparent background.
+        description:
+          "Add a shadow beneath objects in images with transparent backgrounds. You can control blur, saturation and offset values using the e-shadow parameters.",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#shadow-e-shadow",
         defaultTransformation: {},
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             shadow: z.string().optional(),
@@ -866,16 +935,18 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "input",
             isTransformation: true,
             transformationKey: "shadow",
-            helpText: "Enter shadow value",
+            helpText:
+              "Enter optional shadow parameters (e.g., bl-15_st-40_x-10_y-N5). Leave blank for default shadow.",
           },
         ],
       },
       {
         key: "adjust-grayscale",
         name: "Grayscale",
+        description: "Convert the image to grayscale (black and white).",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#grayscale-e-grayscale",
         defaultTransformation: {},
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             grayscale: z.coerce.boolean().optional(),
@@ -901,16 +972,17 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "switch",
             isTransformation: true,
             transformationKey: "grayscale",
-            helpText: "Enable or disable grayscale",
+            helpText: "Toggle to convert the image to grayscale.",
           },
         ],
       },
       {
         key: "adjust-blur",
         name: "Blur",
+        description:
+          "Apply a Gaussian blur to the image. Higher values create a stronger blur effect.",
+        docsLink: "https://imagekit.io/docs/effects-and-enhancements#blur-bl",
         defaultTransformation: {},
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             blur: z.coerce.number().optional(),
@@ -936,16 +1008,18 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "input",
             isTransformation: true,
             transformationKey: "blur",
-            helpText: "Enter blur value",
+            helpText:
+              "Enter a blur radius between 1 and 100 to control the intensity of the Gaussian blur.",
           },
         ],
       },
       {
         key: "adjust-rotate",
         name: "Rotate",
+        description:
+          "Rotate the image by a specified number of degrees clockwise or counter‑clockwise, or automatically rotate based on EXIF orientation.",
+        docsLink: "https://imagekit.io/docs/effects-and-enhancements#rotate-rt",
         defaultTransformation: {},
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             rotate: z.coerce.number().optional(),
@@ -971,16 +1045,17 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "input",
             isTransformation: true,
             transformationKey: "rt",
-            helpText: "Enter rotate value",
+            helpText:
+              "Enter degrees to rotate the image clockwise (e.g., 90). Prefix with 'N' for counter‑clockwise rotation (e.g., N45). Use 'auto' to rotate based on EXIF data.",
           },
         ],
       },
       {
         key: "adjust-flip",
         name: "Flip",
+        description: "Flip the image horizontally, vertically, or both.",
+        docsLink: "https://imagekit.io/docs/effects-and-enhancements#flip-fl",
         defaultTransformation: {},
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             flip: z.coerce.string().optional(),
@@ -1006,7 +1081,8 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "select",
             isTransformation: true,
             transformationKey: "fl",
-            helpText: "Enable or disable flip",
+            helpText:
+              "Choose how to flip the image: horizontally (h), vertically (v) or both (h_v).",
             fieldProps: {
               options: [
                 { label: "Horizontal", value: "h" },
@@ -1020,9 +1096,10 @@ export const transformationSchema: TransformationSchema[] = [
       {
         key: "adjust-radius",
         name: "Radius",
+        description:
+          "Round the corners of the image. Specify a radius value to control how rounded the corners are, or use 'max' to make the image circular.",
+        docsLink: "https://imagekit.io/docs/effects-and-enhancements#radius-r",
         defaultTransformation: {},
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             radius: z.coerce.number().optional(),
@@ -1048,16 +1125,18 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "input",
             isTransformation: true,
             transformationKey: "r",
-            helpText: "Enter radius value",
+            helpText:
+              "Enter a positive integer for rounded corners or 'max' for a fully circular output.",
           },
         ],
       },
       {
         key: "adjust-opacity",
         name: "Opacity",
+        description:
+          "Adjust the opacity of the image to make it more or less transparent.",
+        docsLink: "https://imagekit.io/docs/effects-and-enhancements",
         defaultTransformation: {},
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             opacity: z.coerce.number().optional(),
@@ -1083,7 +1162,8 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "input",
             isTransformation: true,
             transformationKey: "opacity",
-            helpText: "Enter opacity value",
+            helpText:
+              "Enter an opacity percentage between 0 (fully transparent) and 100 (fully opaque).",
           },
         ],
       },
@@ -1096,9 +1176,12 @@ export const transformationSchema: TransformationSchema[] = [
       {
         key: "effect-removedotbg",
         name: "Remove Dot Background",
+        // This option removes the background using the third‑party remove.bg service.
+        description:
+          "Remove the background of the image using Remove.bg (external service). This isolates the subject and makes the background transparent.",
+        docsLink:
+          "https://imagekit.io/docs/ai-transformations#background-removal-e-removedotbg",
         defaultTransformation: {},
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             removedotbg: z.coerce.boolean().optional(),
@@ -1124,16 +1207,19 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "switch",
             isTransformation: true,
             transformationKey: "aiRemoveBackgroundExternal",
-            helpText: "Enable or disable remove background using Remove.bg",
+            helpText:
+              "Toggle to remove the background using Remove.bg. Processing may take a few seconds depending on image complexity.",
           },
         ],
       },
       {
         key: "effect-bgremove",
         name: "ImageKit Background Removal",
+        description:
+          "Remove the background using ImageKit's built‑in background removal model. This method is cost‑effective compared to Remove.bg.",
+        docsLink:
+          "https://imagekit.io/docs/ai-transformations#imagekit-background-removal-e-bgremove",
         defaultTransformation: {},
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             bgremove: z.coerce.boolean().optional(),
@@ -1159,16 +1245,19 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "switch",
             isTransformation: true,
             transformationKey: "aiRemoveBackground",
-            helpText: "Enable or disable remove background using ImageKit",
+            helpText:
+              "Toggle to remove the background using ImageKit's own background removal.",
           },
         ],
       },
       {
         key: "effect-changebg",
         name: "Change Background",
+        description:
+          "Replace the background of the image with a new scene described by a text prompt. Use AI to generate a new background.",
+        docsLink:
+          "https://imagekit.io/docs/ai-transformations#change-background-e-changebg",
         defaultTransformation: {},
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             changebg: z.string().optional(),
@@ -1194,16 +1283,19 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "input",
             isTransformation: true,
             transformationKey: "aiChangeBackground",
-            helpText: "Enter background prompt",
+            helpText:
+              "Enter a descriptive prompt for the new background (e.g., 'snowy mountains' or 'sunset beach').",
           },
         ],
       },
       {
         key: "effect-edit",
         name: "Edit Image using AI",
+        description:
+          "Use AI to modify the image based on a descriptive prompt. Add or remove objects or alter colours and textures.",
+        docsLink:
+          "https://imagekit.io/docs/ai-transformations#edit-image-e-edit",
         defaultTransformation: {},
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             edit: z.string().optional(),
@@ -1229,16 +1321,19 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "input",
             isTransformation: true,
             transformationKey: "e-edit-prompt",
-            helpText: "Enter edit prompt",
+            helpText:
+              "Enter a prompt describing how to edit the image (e.g., 'add sunglasses', 'make the sky blue').",
           },
         ],
       },
       {
         key: "effect-dropshadow",
         name: "Drop Shadow",
+        description:
+          "Add a realistic AI‑generated drop shadow around the object. Requires a transparent background; remove the background first for best results.",
+        docsLink:
+          "https://imagekit.io/docs/ai-transformations#ai-drop-shadow-e-dropshadow",
         defaultTransformation: {},
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             dropshadow: z.coerce.boolean().optional(),
@@ -1264,16 +1359,18 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "switch",
             isTransformation: true,
             transformationKey: "aiDropShadow",
-            helpText: "Enable or disable drop shadow",
+            helpText:
+              "Toggle to add an AI‑generated drop shadow. Requires transparent background.",
           },
         ],
       },
       {
         key: "effect-retouch",
         name: "Retouch",
+        description: "Improve the quality of the image using AI retouching.",
+        docsLink:
+          "https://imagekit.io/docs/ai-transformations#retouch-e-retouch",
         defaultTransformation: {},
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             retouch: z.coerce.boolean().optional(),
@@ -1299,16 +1396,19 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "switch",
             isTransformation: true,
             transformationKey: "aiRetouch",
-            helpText: "Enable or disable retouch",
+            helpText:
+              "Toggle to apply AI retouching and enhance image quality.",
           },
         ],
       },
       {
         key: "effect-upscale",
         name: "Upscale",
+        description:
+          "Increase the resolution of low‑resolution images using AI upscaling. The output can be up to 16 MP.",
+        docsLink:
+          "https://imagekit.io/docs/ai-transformations#upscale-e-upscale",
         defaultTransformation: {},
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             upscale: z.coerce.boolean().optional(),
@@ -1334,16 +1434,19 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "switch",
             isTransformation: true,
             transformationKey: "aiUpscale",
-            helpText: "Enable or disable upscale",
+            helpText:
+              "Toggle to increase resolution of the image using AI upscaling (max 16 MP input).",
           },
         ],
       },
       {
         key: "effect-genvar",
         name: "Generate Variations",
+        description:
+          "Create a new variation of the original image using AI, altering colours and textures while preserving the structure.",
+        docsLink:
+          "https://imagekit.io/docs/ai-transformations#generate-variations-e-genvar",
         defaultTransformation: {},
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             genvar: z.coerce.boolean().optional(),
@@ -1369,7 +1472,8 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "switch",
             isTransformation: true,
             transformationKey: "aiGenerateVariations",
-            helpText: "Enable or disable generate variations",
+            helpText:
+              "Toggle to generate a new variation of the image using AI.",
           },
         ],
       },
@@ -1382,9 +1486,10 @@ export const transformationSchema: TransformationSchema[] = [
       {
         key: "delivery-format",
         name: "Format",
+        description:
+          "Specify the output format for the image. Converting formats can reduce file size or improve compatibility.",
+        docsLink: "https://imagekit.io/docs/transformations#supported-formats",
         defaultTransformation: {},
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             format: z.coerce.boolean().optional(),
@@ -1424,9 +1529,10 @@ export const transformationSchema: TransformationSchema[] = [
       {
         key: "delivery-quality",
         name: "Quality",
+        description:
+          "Control the compression quality of the output image. Lower values reduce file size but may introduce artefacts; higher values preserve more detail.",
+        docsLink: "https://imagekit.io/docs/transformations#quality",
         defaultTransformation: {},
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             quality: z.coerce.number().optional(),
@@ -1464,9 +1570,11 @@ export const transformationSchema: TransformationSchema[] = [
       {
         key: "delivery-dpr",
         name: "DPR",
+        description:
+          "Set the device pixel ratio (DPR) to deliver images optimised for high‑resolution displays. A higher DPR increases the pixel density of the delivered image.",
+        docsLink:
+          "https://imagekit.io/docs/transformations#device-pixel-ratio-dpr",
         defaultTransformation: {},
-        description: "Lorem ipsum dolar sit amit",
-        docsLink: "https://docs.imagekit.io/",
         schema: z
           .object({
             dpr: z.coerce.number().optional(),
