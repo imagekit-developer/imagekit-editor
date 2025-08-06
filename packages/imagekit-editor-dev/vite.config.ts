@@ -38,6 +38,8 @@ export default defineConfig({
         "@chakra-ui/react",
         "@chakra-ui/icons",
         "framer-motion",
+        "react-select",
+        "react-select/creatable",
       ],
       output: {
         globals: {
@@ -48,6 +50,8 @@ export default defineConfig({
           "@chakra-ui/react": "@chakra-ui/react",
           "@chakra-ui/icons": "@chakra-ui/icons",
           "framer-motion": "framer-motion",
+          "react-select": "react-select",
+          "react-select/creatable": "react-select/creatable",
         },
       },
     },
@@ -72,6 +76,8 @@ export default defineConfig({
       "@chakra-ui/react",
       "@chakra-ui/icons",
       "framer-motion",
+      "react-select",
+      "react-select/creatable",
     ],
   },
   envPrefix: "IMAGEKIT_",
