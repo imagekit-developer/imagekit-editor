@@ -13,7 +13,9 @@ export interface ImageKitEditorRef {
 }
 
 interface EditorProps<
-  Metadata extends Record<string, unknown> = Record<string, unknown>,
+  Metadata extends { requireSignedUrl: boolean } = {
+    requireSignedUrl: boolean
+  },
 > {
   theme?: Dict
   initialImages?: Array<string | FileElement<Metadata>>

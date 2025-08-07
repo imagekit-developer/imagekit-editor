@@ -19,24 +19,26 @@ export interface Transformation {
   value: IKTransformation
 }
 
+export type RequiredMetadata = { requireSignedUrl: boolean }
+
 export interface FileElement<
-  Metadata extends Record<string, unknown> = Record<string, unknown>,
+  Metadata extends RequiredMetadata = RequiredMetadata,
 > {
   url: string
-  metadata: { requireSignedUrl: boolean } & Metadata
+  metadata: Metadata
 }
 
 export interface SignerRequest<
-  Metadata extends Record<string, unknown> = Record<string, unknown>,
+  Metadata extends RequiredMetadata = RequiredMetadata,
 > {
   url: string
   transformation: IKTransformation[]
-  metadata: { requireSignedUrl: boolean } & Metadata
+  metadata: Metadata
 }
 
-export type Signer<
-  Metadata extends Record<string, unknown> = Record<string, unknown>,
-> = (item: SignerRequest<Metadata>) => Promise<string>
+export type Signer<Metadata extends RequiredMetadata = RequiredMetadata> = (
+  item: SignerRequest<Metadata>,
+) => Promise<string>
 
 interface InternalState {
   sidebarState: "none" | "type" | "config"
@@ -54,7 +56,7 @@ interface InternalState {
 }
 
 export interface EditorState<
-  Metadata extends Record<string, unknown> = Record<string, unknown>,
+  Metadata extends RequiredMetadata = RequiredMetadata,
 > {
   currentImage: string | undefined
   originalImageList: FileElement<Metadata>[]
@@ -68,7 +70,7 @@ export interface EditorState<
 }
 
 export type EditorActions<
-  Metadata extends Record<string, unknown> = Record<string, unknown>,
+  Metadata extends RequiredMetadata = RequiredMetadata,
 > = {
   initialize: (initialData?: {
     imageList?: Array<string | FileElement<Metadata>>
@@ -115,24 +117,20 @@ function initTransformationStates(transformations: Transformation[]) {
 
 initTransformationStates(initialTransformations)
 
-function normalizeImage<
-  Metadata extends Record<string, unknown> = Record<string, unknown>,
->(image: string | FileElement<Metadata>): FileElement<Metadata> {
+function normalizeImage<Metadata extends RequiredMetadata = RequiredMetadata>(
+  image: string | FileElement<Metadata>,
+): FileElement<Metadata> {
   if (typeof image === "string") {
     return {
       url: image,
-      metadata: { requireSignedUrl: false } as {
-        requireSignedUrl: boolean
-      } & Metadata,
+      metadata: { requireSignedUrl: false } as Metadata,
     }
   }
   return {
     url: image.url,
     metadata: image.metadata
       ? { ...image.metadata, requireSignedUrl: false }
-      : ({ requireSignedUrl: false } as {
-          requireSignedUrl: boolean
-        } & Metadata),
+      : ({ requireSignedUrl: false } as Metadata),
   }
 }
 
