@@ -129,7 +129,10 @@ function normalizeImage<Metadata extends RequiredMetadata = RequiredMetadata>(
   return {
     url: image.url,
     metadata: image.metadata
-      ? { ...image.metadata, requireSignedUrl: false }
+      ? {
+          ...image.metadata,
+          requireSignedUrl: image.metadata.requireSignedUrl ?? false,
+        }
       : ({ requireSignedUrl: false } as Metadata),
   }
 }
