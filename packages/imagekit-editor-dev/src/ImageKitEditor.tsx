@@ -17,7 +17,7 @@ export interface ImageKitEditorRef {
   setCurrentImage: (imageSrc: string) => void
 }
 
-interface EditorProps<Metadata extends RequiredMetadata> {
+interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
   theme?: Dict
   initialImages?: Array<string | FileElement<Metadata>>
   signer?: Signer<Metadata>

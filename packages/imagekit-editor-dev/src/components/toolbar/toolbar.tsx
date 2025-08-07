@@ -27,7 +27,7 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
     <Flex
       width="full"
       py="3"
-      h={24}
+      h={44}
       borderTop="1px"
       borderColor="gray.200"
       justifyContent="center"
@@ -90,8 +90,8 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
                     transition="all 0.2s"
                     borderRadius="md"
                     overflow="hidden"
-                    h={16}
-                    w={20}
+                    h={32}
+                    w={40}
                   >
                     {isHovered && (
                       <Box
@@ -121,9 +121,9 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
                       compactError
                       src={imageSrc}
                       alt={`Image`}
-                      height={16}
+                      height={32}
                       width="auto"
-                      minWidth={20}
+                      minWidth={40}
                       objectFit="cover"
                       borderRadius="md"
                       border="2px solid"

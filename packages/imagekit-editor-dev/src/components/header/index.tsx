@@ -49,7 +49,7 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
     <Flex
       as="header"
       width="full"
-      h="4.125rem"
+      h="16"
       alignItems="center"
       flexDirection="row"
       px="1rem"

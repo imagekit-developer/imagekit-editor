@@ -9,8 +9,8 @@ export const SidebarHeader = (
 
   return (
     <Flex
-      h="12"
-      py="2"
+      h="16"
+      py="4"
       px="4"
       gap="2"
       alignItems="center"

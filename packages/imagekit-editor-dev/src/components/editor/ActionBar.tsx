@@ -59,7 +59,7 @@ export const ActionBar: FC<ActionBarProps> = ({
       width="full"
       py="2"
       px="4"
-      h="12"
+      h="16"
       bg="white"
       borderBottom="1px"
       borderColor="editorBattleshipGrey.100"
@@ -70,7 +70,7 @@ export const ActionBar: FC<ActionBarProps> = ({
       <HStack spacing={4}>
         <Button
           variant="ghost"
-          size="xs"
+          size="md"
           fontWeight="medium"
           leftIcon={<Icon boxSize={4} as={PiImageSquare} />}
           onClick={() => {
@@ -84,11 +84,11 @@ export const ActionBar: FC<ActionBarProps> = ({
           <>
             <Divider
               orientation="vertical"
-              h="4"
+              h="6"
               borderColor="editorBattleshipGrey.200"
             />
 
-            <Text fontSize="xs" fontWeight="medium">
+            <Text fontSize="md" fontWeight="medium">
               Dimensions:{" "}
               <Text as="span" fontWeight="normal">
                 {imageDimensions.width} x {imageDimensions.height}
@@ -99,11 +99,11 @@ export const ActionBar: FC<ActionBarProps> = ({
 
         <Divider
           orientation="vertical"
-          h="4"
+          h="6"
           borderColor="editorBattleshipGrey.200"
         />
         <Link href={currentImage || ""} isExternal>
-          <Text fontSize="xs" fontWeight="medium">
+          <Text fontSize="md" fontWeight="medium">
             <Text as="span" fontWeight="normal" mr="2">
               {decodeURIComponent(
                 currentImage?.split("/").pop()?.split("?")?.[0] || "",
@@ -117,8 +117,8 @@ export const ActionBar: FC<ActionBarProps> = ({
       <HStack spacing={4}>
         {viewMode === "grid" && (
           <>
-            <Flex alignItems="center" gap={2} width="150px">
-              <Icon as={PiImageSquare} boxSize={3} />
+            <Flex alignItems="center" gap={4} width="200px">
+              <Icon as={PiImageSquare} boxSize={4} />
               <Slider
                 aria-label="Image size slider"
                 defaultValue={gridImageSize}
@@ -132,11 +132,11 @@ export const ActionBar: FC<ActionBarProps> = ({
                 </SliderTrack>
                 <SliderThumb />
               </Slider>
-              <Icon as={PiImageSquare} boxSize={4} />
+              <Icon as={PiImageSquare} boxSize={6} />
             </Flex>
             <Divider
               orientation="vertical"
-              h="4"
+              h="6"
               borderColor="editorBattleshipGrey.200"
             />
           </>
@@ -147,12 +147,12 @@ export const ActionBar: FC<ActionBarProps> = ({
           placement="top"
         >
           <IconButton
-            size="sm"
+            size="md"
             variant="ghost"
             aria-label="Show Original"
             icon={
               <Icon
-                boxSize={4}
+                boxSize={6}
                 as={viewMode === "grid" ? PiListBullets : PiGridFour}
               />
             }

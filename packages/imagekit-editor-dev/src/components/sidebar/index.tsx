@@ -69,9 +69,9 @@ export const Sidebar = () => {
 
   return (
     <>
-      <SidebarRoot>
+      <SidebarRoot w="80">
         <SidebarHeader>
-          <Text fontSize="sm" fontWeight="normal">
+          <Text fontSize="md" fontWeight="normal">
             Transformations
           </Text>
         </SidebarHeader>
@@ -112,7 +112,7 @@ export const Sidebar = () => {
                       opacity={0.8}
                     >
                       <Icon as={PiRectangle} boxSize={4} opacity={0.7} />
-                      <Text fontSize="sm">
+                      <Text fontSize="md">
                         {
                           transformations.find((item) => item.id === activeId)
                             ?.name
@@ -135,8 +135,8 @@ export const Sidebar = () => {
                 }}
                 variant="ghost"
                 fontWeight="normal"
-                size="sm"
-                fontSize="xs"
+                size="md"
+                fontSize="sm"
                 width="full"
                 justifyContent="flex-start"
               >
@@ -153,9 +153,8 @@ export const Sidebar = () => {
               bg="editorBlue.50"
               spacing="3"
             >
-              <Box w="3" />
               <Icon boxSize={4} as={PiRectangleDashed} opacity={0.7} />
-              <Text fontSize="sm">Select Transformation</Text>
+              <Text fontSize="md">Select Transformation</Text>
             </HStack>
           </SidebarBody>
         )}

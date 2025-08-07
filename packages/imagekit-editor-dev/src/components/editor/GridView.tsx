@@ -41,7 +41,7 @@ export const GridView: FC<GridViewProps> = ({ imageSize, onAddImage }) => {
           >
             <Flex direction="column" alignItems="center">
               <Icon as={PiPlus} boxSize={8} color="gray.500" />
-              <Text mt={2} fontSize="sm" color="gray.500">
+              <Text mt={2} fontSize="md" color="gray.500">
                 Add New Image
               </Text>
             </Flex>

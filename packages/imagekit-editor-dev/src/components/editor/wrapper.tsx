@@ -14,6 +14,7 @@ export function EditorWrapper({ children }: EditorWrapperProps) {
       top={0}
       left={0}
       id="ik-editor"
+      fontSize="16px"
     >
       <Flex
         position="absolute"

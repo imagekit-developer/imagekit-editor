@@ -54,7 +54,7 @@ const ColorPickerField = ({
     <Flex direction="column" gap="2">
       <Flex>
         <Input
-          size="sm"
+          size="md"
           value={localValue || "#FFFFFF"}
           onChange={(e) => {
             const newValue = e.target.value
@@ -65,8 +65,9 @@ const ColorPickerField = ({
           borderColor="gray.200"
           placeholder="#FFFFFF"
           fontFamily="mono"
+          borderRadius="4px"
           borderRightRadius="0"
-          width="calc(100% - 32px)"
+          width="calc(100% - var(--chakra-space-10))"
         />
         <Popover
           placement="auto"
@@ -77,15 +78,15 @@ const ColorPickerField = ({
         >
           <PopoverTrigger>
             <Flex
-              width="32px"
-              height="32px"
+              width="10"
+              height="10"
               align="center"
               justify="center"
               bg={localValue || "#FFFFFF"}
               borderWidth="1px"
               borderColor="gray.200"
               borderLeft="0"
-              borderRightRadius="md"
+              borderRightRadius="4px"
               cursor="pointer"
             />
           </PopoverTrigger>

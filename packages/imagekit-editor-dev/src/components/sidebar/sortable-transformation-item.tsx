@@ -90,12 +90,12 @@ export const SortableTransformationItem = ({
             _setSelectedTransformationKey(transformation.key)
             _setTransformationToEdit(transformation.id, "inplace")
           }}
+          {...attributes}
+          {...listeners}
         >
           {isHover ? (
             <Box
               cursor="grab"
-              {...attributes}
-              {...listeners}
               mr={-1}
               transition="opacity 0.2s"
               opacity={isHover ? 1 : 0}
@@ -114,7 +114,7 @@ export const SortableTransformationItem = ({
             </Box>
           )}
 
-          <Text fontSize="sm" opacity={isVisible ? 1 : 0.5}>
+          <Text fontSize="md" opacity={isVisible ? 1 : 0.5}>
             {transformation.name}
           </Text>
           <Box flex={1} />
@@ -151,7 +151,7 @@ export const SortableTransformationItem = ({
                     _hover={{ opacity: 1 }}
                   />
                 </MenuButton>
-                <MenuList fontSize="sm" minW="200px" zIndex={10}>
+                <MenuList fontSize="md" minW="200px" zIndex={10}>
                   <MenuItem
                     icon={<Icon as={PiPlus} />}
                     onClick={(e) => {

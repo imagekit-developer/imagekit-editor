@@ -34,6 +34,7 @@ export interface TransformationField {
     step?: number
   }
   helpText?: string
+  examples?: string[]
   isTransformation: boolean
   transformationKey?: string
   isVisible?: (value: Record<string, unknown>) => boolean
@@ -142,7 +143,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "width",
             helpText:
-              "Specify the output width. Use a decimal between 0 and 1 (e.g., 0.5 for 50%), an integer greater than 1 for pixel units (e.g., 300 for 300 px), or an expression such as iw_div_2. If only width is provided, height scales automatically to preserve aspect ratio.",
+              "Specify the output width. Use a decimal between 0 and 1, an integer greater than 1 for pixel units, or an expression.",
+            examples: ["0.5 (50%)", "300", "iw_div_2"],
           },
           {
             label: "Height",
@@ -151,7 +153,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "height",
             helpText:
-              "Specify the output height. Use a decimal between 0 and 1 (percentage of the original), an integer greater than 1 (pixel units), or an expression such as ih_div_2. If only height is provided, width scales automatically to preserve aspect ratio.",
+              "Specify the output height. Use a decimal between 0 and 1, an integer greater than 1, or an expression.",
+            examples: ["0.5", "300", "ih_div_2"],
           },
           {
             label: "Background Type",
@@ -180,7 +183,8 @@ export const transformationSchema: TransformationSchema[] = [
             name: "backgroundBlurIntensity",
             fieldType: "slider",
             helpText:
-              "For blurred backgrounds, choose a blur radius from 0 to 100 or select 'auto' for a smart default. Width and height are required when using a blurred background.",
+              "For blurred backgrounds, choose a blur radius or select 'auto' for a smart default. Width and height are required when using a blurred background.",
+            examples: ["auto", "30"],
             isTransformation: true,
             transformationKey: "background",
             transformationGroup: "background",
@@ -214,7 +218,8 @@ export const transformationSchema: TransformationSchema[] = [
             name: "backgroundGenerativeFill",
             fieldType: "input",
             helpText:
-              "When using a generative fill background, enter an optional text prompt describing what should fill the padded area (e.g., 'snowy forest'). Width and height are required for generative fill.",
+              "When using a generative fill background, enter an optional text prompt describing what should fill the padded area. Width and height are required for generative fill.",
+            examples: ["snowy forest"],
             isTransformation: true,
             transformationGroup: "background",
             isVisible: ({ backgroundType }) =>
@@ -271,27 +276,6 @@ export const transformationSchema: TransformationSchema[] = [
             },
           )
           .superRefine((val, ctx) => {
-            if (!val.width && !val.height && !val.aspectRatio) {
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message:
-                  "At least one of width, height or aspect ratio is required",
-                path: ["width"],
-              })
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message:
-                  "At least one of width, height or aspect ratio is required",
-                path: ["height"],
-              })
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message:
-                  "At least one of width, height or aspect ratio is required",
-                path: ["aspectRatio"],
-              })
-            }
-
             if (val.width && val.height) {
               ctx.addIssue({
                 code: z.ZodIssueCode.custom,
@@ -330,7 +314,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "width",
             helpText:
-              "Specify the target width. Width and height cannot be used together. You can enter a decimal for percentage, an integer for pixel units, or an expression such as iw_div_2.",
+              "Specify the target width. Width and height cannot be used together. Use a decimal, an integer, or an expression.",
+            examples: ["0.5", "300", "iw_div_2"],
           },
           {
             label: "Height",
@@ -339,30 +324,18 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "height",
             helpText:
-              "Specify the target height. Height and width cannot be used together. Accepts decimal (percentage), integer (pixels), or expression (e.g., ih_div_2).",
+              "Specify the target height. Height and width cannot be used together. Use a decimal, an integer, or an expression.",
+            examples: ["0.5", "300", "ih_div_2"],
           },
           {
             label: "Aspect Ratio",
             name: "aspectRatio",
-            fieldType: "select-creatable",
+            fieldType: "input",
             isTransformation: true,
             transformationKey: "aspectRatio",
             helpText:
-              "Enter an aspect ratio as 'width-height' (e.g., 16-9 or 4-3) or an expression such as iar_mul_0.75. Cannot be used alongside both width and height.",
-            fieldProps: {
-              options: [
-                { label: "Square (1:1)", value: "1-1" },
-                { label: "Social Landscape (19:10)", value: "19-10" },
-                { label: "Landscape (3:2)", value: "3-2" },
-                { label: "Header (3:1)", value: "3-1" },
-                { label: "Cover (4:1)", value: "4-1" },
-                { label: "Presentation (4:3)", value: "4-3" },
-                { label: "Portrait (4:5)", value: "4-5" },
-                { label: "Portrait (2:3)", value: "2-3" },
-                { label: "Portrait (9:16)", value: "9-16" },
-                { label: "Widescreen (16:9)", value: "16-9" },
-              ],
-            },
+              "Enter an aspect ratio as 'width-height' or an expression. Cannot be used alongside both width and height.",
+            examples: ["16-9", "4-3", "iar_mul_0.75"],
           },
           {
             label: "Focus",
@@ -410,7 +383,6 @@ export const transformationSchema: TransformationSchema[] = [
           },
         ],
       },
-      // TODO: DONE TILL HERE
       {
         key: "resize-forced_crop",
         name: "Forced Crop",
@@ -454,7 +426,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "width",
             helpText:
-              "Specify the exact width of the output. The image will be squashed or stretched to fit this width if both width and height are provided. Use a decimal (percentage), integer (pixels) or an expression.",
+              "Specify the exact width of the output. The image will be squashed or stretched to fit this width if both width and height are provided. Use a decimal, integer, or expression.",
+            examples: ["0.5", "300", "iw_div_2"],
           },
           {
             label: "Height",
@@ -463,7 +436,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "height",
             helpText:
-              "Specify the exact height of the output. The image will be squashed or stretched to fit this height if both width and height are provided. Use a decimal (percentage), integer (pixels) or an expression.",
+              "Specify the exact height of the output. The image will be squashed or stretched to fit this height if both width and height are provided. Use a decimal, integer, or expression.",
+            examples: ["0.5", "300", "ih_div_2"],
           },
           {
             label: "Focus",
@@ -552,7 +526,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "width",
             helpText:
-              "Specify the maximum width. The image will scale down to fit within this width while preserving aspect ratio. Use percentage, pixels or expressions.",
+              "Specify the maximum width. The image will scale down to fit within this width while preserving aspect ratio. Use a percentage, pixels, or an expression.",
+            examples: ["0.5", "300", "iw_div_2"],
           },
           {
             label: "Height",
@@ -561,7 +536,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "height",
             helpText:
-              "Specify the maximum height. The image will scale down to fit within this height while preserving aspect ratio. Use percentage, pixels or expressions.",
+              "Specify the maximum height. The image will scale down to fit within this height while preserving aspect ratio. Use a percentage, pixels, or an expression.",
+            examples: ["0.5", "300", "ih_div_2"],
           },
         ],
       },
@@ -606,7 +582,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "width",
             helpText:
-              "Specify the maximum width. The image will scale up or down to fit this width while preserving aspect ratio. Use percentage, pixels or expressions.",
+              "Specify the maximum width. The image will scale up or down to fit this width while preserving aspect ratio. Use a percentage, pixels, or an expression.",
+            examples: ["0.5", "300", "iw_div_2"],
           },
           {
             label: "Height",
@@ -615,7 +592,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "height",
             helpText:
-              "Specify the maximum height. The image will scale up or down to fit this height while preserving aspect ratio. Use percentage, pixels or expressions.",
+              "Specify the maximum height. The image will scale up or down to fit this height while preserving aspect ratio. Use a percentage, pixels, or an expression.",
+            examples: ["0.5", "300", "ih_div_2"],
           },
         ],
       },
@@ -660,7 +638,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "width",
             helpText:
-              "Specify the minimum width. The image will scale so that the width is at least this value while preserving aspect ratio. Use percentage, pixels or expressions.",
+              "Specify the minimum width. The image will scale so that the width is at least this value while preserving aspect ratio. Use a percentage, pixels, or an expression.",
+            examples: ["0.5", "300", "iw_div_2"],
           },
           {
             label: "Height",
@@ -669,7 +648,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "height",
             helpText:
-              "Specify the minimum height. The image will scale so that the height is at least this value while preserving aspect ratio. Use percentage, pixels or expressions.",
+              "Specify the minimum height. The image will scale so that the height is at least this value while preserving aspect ratio. Use a percentage, pixels, or an expression.",
+            examples: ["0.5", "300", "ih_div_2"],
           },
         ],
       },
@@ -723,7 +703,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "width",
             helpText:
-              "Specify the width of the region to extract. Use a decimal (percentage), integer (pixels) or an expression. The image is not resized; only the specified region is returned.",
+              "Specify the width of the region to extract. Use a decimal, an integer, or an expression. The image is not resized; only the specified region is returned.",
+            examples: ["0.5", "300", "iw_div_2"],
           },
           {
             label: "Height",
@@ -732,7 +713,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "height",
             helpText:
-              "Specify the height of the region to extract. Use a decimal (percentage), integer (pixels) or an expression. The image is not resized; only the specified region is returned.",
+              "Specify the height of the region to extract. Use a decimal, an integer, or an expression. The image is not resized; only the specified region is returned.",
+            examples: ["0.5", "300", "ih_div_2"],
           },
           {
             label: "Focus",
@@ -827,7 +809,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "width",
             helpText:
-              "Specify the width of the extracted region. If the region is smaller than this width, padding will be added. Use percentage, pixels or expressions.",
+              "Specify the width of the extracted region. If the region is smaller than this width, padding will be added. Use a percentage, pixels, or an expression.",
+            examples: ["0.5", "300", "iw_div_2"],
           },
           {
             label: "Height",
@@ -836,7 +819,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "height",
             helpText:
-              "Specify the height of the extracted region. If the region is smaller than this height, padding will be added. Use percentage, pixels or expressions.",
+              "Specify the height of the extracted region. If the region is smaller than this height, padding will be added. Use a percentage, pixels, or an expression.",
+            examples: ["0.5", "300", "ih_div_2"],
           },
           {
             label: "Background Type",
@@ -857,7 +841,8 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "background",
             isTransformation: true,
             helpText:
-              "When using colour padding, enter a hex code or colour name (e.g., FFFFFF or white).",
+              "When using colour padding, enter a hex code or colour name.",
+            examples: ["FFFFFF", "white"],
             isVisible: ({ backgroundType }) => backgroundType === "color",
           },
           {
@@ -867,7 +852,8 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "aiChangeBackground",
             isTransformation: true,
             helpText:
-              "When using AI generative padding, provide a text prompt describing the fill (e.g., 'mountain landscape').",
+              "When using AI generative padding, provide a text prompt describing the fill.",
+            examples: ["mountain landscape"],
             isVisible: ({ backgroundType }) =>
               backgroundType === "generative_fill",
           },
@@ -943,9 +929,9 @@ export const transformationSchema: TransformationSchema[] = [
       {
         key: "adjust-shadow",
         name: "Shadow",
-        // Adds a shadow beneath objects in images with a transparent background. You can adjust blur, saturation and positional offsets.
+        // Adds a non-AI shadow beneath objects in images with a transparent background. You can adjust blur, saturation and positional offsets.
         description:
-          "Add a shadow beneath objects in images with a transparent background. Use blur, saturation and offset controls to customise the shadow.",
+          "Add a non-AI shadow beneath objects in images with a transparent background. Use blur, saturation and offset controls to customise the shadow.",
         docsLink:
           "https://imagekit.io/docs/effects-and-enhancements#shadow-e-shadow",
         defaultTransformation: {},
@@ -954,9 +940,9 @@ export const transformationSchema: TransformationSchema[] = [
           .object({
             // Toggle to enable or disable the shadow effect
             shadow: z.coerce.boolean().optional(),
-            // Optional blur radius for the shadow (0-15). Accepts numeric or string input
+            // Optional blur radius for the shadow (0–15). Accepts numeric or string input
             shadowBlur: z.string().optional(),
-            // Optional saturation level for the shadow (0-100). Accepts numeric or string input
+            // Optional saturation level for the shadow (0–100). Accepts numeric or string input
             shadowSaturation: z.string().optional(),
             // Optional horizontal offset; prefix negative values with N (e.g., N10 for -10%)
             shadowOffsetX: z.string().optional(),
@@ -986,8 +972,8 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "switch",
             isTransformation: true,
             transformationKey: "shadow",
-            transformationGroup: "shadow",
-            helpText: "Toggle to add a shadow under objects in the image.",
+            helpText:
+              "Toggle to add a non-AI shadow under objects in the image.",
           },
           {
             label: "Blur",
@@ -995,9 +981,9 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "slider",
             isTransformation: true,
             transformationKey: "shadow",
-            transformationGroup: "shadow",
             helpText:
-              "Set the blur radius for the shadow (0-15). Higher values create a softer shadow.",
+              "Set the blur radius for the shadow. Higher values create a softer shadow.",
+            examples: ["5"],
             fieldProps: {
               min: 0,
               max: 15,
@@ -1012,9 +998,9 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "slider",
             isTransformation: true,
             transformationKey: "shadow",
-            transformationGroup: "shadow",
             helpText:
-              "Adjust the saturation of the shadow (0-100). Higher values produce a darker shadow.",
+              "Adjust the saturation of the shadow. Higher values produce a darker shadow.",
+            examples: ["40"],
             fieldProps: {
               min: 0,
               max: 100,
@@ -1029,9 +1015,9 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "input",
             isTransformation: true,
             transformationKey: "shadow",
-            transformationGroup: "shadow",
             helpText:
-              "Enter the horizontal offset as a percentage of the image width. For negative offset, prefix with 'N' (e.g., N10 for -10%).",
+              "Enter the horizontal offset as a percentage of the image width. For negative values prefix with 'N'.",
+            examples: ["10", "N10"],
             isVisible: ({ shadow }) => shadow === true,
           },
           {
@@ -1040,9 +1026,9 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "input",
             isTransformation: true,
             transformationKey: "shadow",
-            transformationGroup: "shadow",
             helpText:
-              "Enter the vertical offset as a percentage of the image height. For negative offset, prefix with 'N' (e.g., N5 for -5%).",
+              "Enter the vertical offset as a percentage of the image height. For negative values prefix with 'N'.",
+            examples: ["5", "N5"],
             isVisible: ({ shadow }) => shadow === true,
           },
         ],
@@ -1116,7 +1102,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "blur",
             helpText:
-              "Enter a blur radius between 1 and 100 to control the intensity of the Gaussian blur.",
+              "Enter a blur radius to control the intensity of the Gaussian blur.",
+            examples: ["10"],
           },
         ],
       },
@@ -1153,7 +1140,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "rt",
             helpText:
-              "Enter degrees to rotate the image clockwise (e.g., 90). Prefix with 'N' for counter-clockwise rotation (e.g., N45). Use 'auto' to rotate based on EXIF data.",
+              "Enter degrees to rotate the image clockwise. Prefix with 'N' for counter-clockwise rotation or use 'auto' to rotate based on EXIF data.",
+            examples: ["90", "N45", "auto"],
           },
         ],
       },
@@ -1189,7 +1177,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "fl",
             helpText:
-              "Choose how to flip the image: horizontally (h), vertically (v) or both (h_v).",
+              "Choose how to flip the image: horizontally, vertically, or both.",
+            examples: ["h", "v", "h_v"],
             fieldProps: {
               options: [
                 { label: "Horizontal", value: "h" },
@@ -1234,6 +1223,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "r",
             helpText:
               "Enter a positive integer for rounded corners or 'max' for a fully circular output.",
+            examples: ["10", "max"],
           },
         ],
       },
@@ -1269,8 +1259,8 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "input",
             isTransformation: true,
             transformationKey: "opacity",
-            helpText:
-              "Enter an opacity percentage between 0 (fully transparent) and 100 (fully opaque).",
+            helpText: "Enter an opacity percentage between 0 and 100.",
+            examples: ["50"],
           },
         ],
       },
@@ -1390,8 +1380,8 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "input",
             isTransformation: true,
             transformationKey: "aiChangeBackground",
-            helpText:
-              "Enter a descriptive prompt for the new background (e.g., 'snowy mountains' or 'sunset beach').",
+            helpText: "Enter a descriptive prompt for the new background.",
+            examples: ["snowy mountains", "sunset beach"],
           },
         ],
       },
@@ -1428,8 +1418,8 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "input",
             isTransformation: true,
             transformationKey: "e-edit-prompt",
-            helpText:
-              "Enter a prompt describing how to edit the image (e.g., 'add sunglasses', 'make the sky blue').",
+            helpText: "Enter a prompt describing how to edit the image.",
+            examples: ["add sunglasses", "make the sky blue"],
           },
         ],
       },
@@ -1718,6 +1708,387 @@ export const transformationSchema: TransformationSchema[] = [
       },
     ],
   },
+  // New Layers section: allows adding text and image overlays as layers
+  {
+    key: "layers",
+    name: "Layers",
+    items: [
+      {
+        key: "layers-text",
+        name: "Text Layer",
+        description:
+          "Add a text overlay on top of the base image. Specify text content, font, size, colour, position and optional background or padding.",
+        docsLink:
+          "https://imagekit.io/docs/add-overlays-on-images#text-overlay-l-text",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            text: z.string().optional(),
+            color: z.string().optional(),
+            fontSize: z.coerce.number().optional(),
+            fontFamily: z.string().optional(),
+            positionX: z.string().optional(),
+            positionY: z.string().optional(),
+            anchor: z.string().optional(),
+            backgroundColor: z.string().optional(),
+            padding: z.coerce.number().optional(),
+            opacity: z.coerce.number().optional(),
+          })
+          .refine(
+            (val) => {
+              return Object.values(val).some(
+                (v) => v !== undefined && v !== null && v !== "",
+              )
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
+          {
+            label: "Text",
+            name: "text",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "text",
+            transformationGroup: "textLayer",
+            helpText: "Enter the text to overlay on the image.",
+            examples: ["Hello World"],
+          },
+          {
+            label: "Font Size",
+            name: "fontSize",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationKey: "fontSize",
+            transformationGroup: "textLayer",
+            helpText: "Specify the font size of the text.",
+            examples: ["24"],
+            fieldProps: {
+              min: 1,
+              max: 100,
+              step: 1,
+              defaultValue: 24,
+            },
+          },
+          {
+            label: "Font Family",
+            name: "fontFamily",
+            fieldType: "select",
+            isTransformation: true,
+            transformationKey: "fontFamily",
+            transformationGroup: "textLayer",
+            helpText: "Choose a font family for the text.",
+            fieldProps: {
+              options: [
+                { label: "Arial", value: "Arial" },
+                { label: "Helvetica", value: "Helvetica" },
+                { label: "Times New Roman", value: "Times New Roman" },
+                { label: "Courier New", value: "Courier New" },
+                { label: "Roboto", value: "Roboto" },
+              ],
+            },
+          },
+          {
+            label: "Colour",
+            name: "color",
+            fieldType: "color-picker",
+            isTransformation: true,
+            transformationKey: "fontColor",
+            transformationGroup: "textLayer",
+            helpText: "Select a colour for the text.",
+            examples: ["FFFFFF", "black"],
+          },
+          {
+            label: "Background Colour",
+            name: "backgroundColor",
+            fieldType: "color-picker",
+            isTransformation: true,
+            transformationKey: "background",
+            transformationGroup: "textLayer",
+            helpText: "Set a background colour for the text box.",
+            examples: ["FFFFFF", "black"],
+          },
+          {
+            label: "Position Mode",
+            name: "positionMode",
+            fieldType: "select",
+            isTransformation: false,
+            fieldProps: {
+              options: [
+                { label: "Custom (X/Y)", value: "custom" },
+                { label: "Anchor", value: "anchor" },
+              ],
+              defaultValue: "custom",
+            },
+          },
+          {
+            label: "Position X",
+            name: "positionX",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "x",
+            transformationGroup: "textLayer",
+            helpText: "Specify horizontal offset for the text.",
+            examples: ["10", "iw_div_2"],
+            // Show X coordinate only when using custom positioning
+            isVisible: ({ positionMode }) => positionMode !== "anchor",
+          },
+          {
+            label: "Position Y",
+            name: "positionY",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "y",
+            transformationGroup: "textLayer",
+            helpText: "Specify vertical offset for the text.",
+            examples: ["10", "ih_div_2"],
+            // Show Y coordinate only when using custom positioning
+            isVisible: ({ positionMode }) => positionMode !== "anchor",
+          },
+          {
+            label: "Anchor",
+            name: "anchor",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationKey: "focus",
+            transformationGroup: "textLayer",
+            helpText: "Specify the anchor point for the text.",
+            fieldProps: {
+              positions: [
+                "center",
+                "top",
+                "bottom",
+                "left",
+                "right",
+                "top_left",
+                "top_right",
+                "bottom_left",
+                "bottom_right",
+              ],
+            },
+            // Show anchor selector only when position mode is anchor
+            isVisible: ({ positionMode }) => positionMode === "anchor",
+          },
+          {
+            label: "Padding",
+            name: "padding",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationKey: "padding",
+            transformationGroup: "textLayer",
+            helpText: "Specify padding around the text (in pixels).",
+            examples: ["10"],
+            fieldProps: {
+              min: 0,
+              max: 100,
+              step: 1,
+              defaultValue: 0,
+            },
+          },
+          {
+            label: "Opacity",
+            name: "opacity",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationKey: "alpha",
+            transformationGroup: "textLayer",
+            helpText: "Set opacity for the text overlay (0-100).",
+            examples: ["80"],
+            fieldProps: {
+              min: 0,
+              max: 100,
+              step: 1,
+              defaultValue: 100,
+            },
+          },
+        ],
+      },
+      {
+        key: "layers-image",
+        name: "Image Layer",
+        description:
+          "Overlay another image on top of the base image. Position, resize and set opacity for the overlaid image.",
+        docsLink:
+          "https://imagekit.io/docs/add-overlays-on-images#image-overlay-l-image",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            imageUrl: z.string().optional(),
+            width: z.string().optional(),
+            height: z.string().optional(),
+            positionX: z.string().optional(),
+            positionY: z.string().optional(),
+            anchor: z.string().optional(),
+            opacity: z.coerce.number().optional(),
+          })
+          .refine(
+            (val) => {
+              return Object.values(val).some(
+                (v) => v !== undefined && v !== null && v !== "",
+              )
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
+          {
+            label: "Image URL",
+            name: "imageUrl",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "input",
+            transformationGroup: "imageLayer",
+            helpText: "Enter the URL or path of the overlay image.",
+            examples: ["overlay.png"],
+          },
+          {
+            label: "Width",
+            name: "width",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "width",
+            transformationGroup: "imageLayer",
+            helpText: "Specify the width of the overlay image.",
+            examples: ["100", "0.5"],
+          },
+          {
+            label: "Height",
+            name: "height",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "height",
+            transformationGroup: "imageLayer",
+            helpText: "Specify the height of the overlay image.",
+            examples: ["100", "0.5"],
+          },
+          {
+            label: "Position Mode",
+            name: "positionMode",
+            fieldType: "select",
+            isTransformation: false,
+            fieldProps: {
+              options: [
+                { label: "Custom (X/Y)", value: "custom" },
+                { label: "Anchor", value: "anchor" },
+              ],
+              defaultValue: "custom",
+            },
+          },
+          {
+            label: "Position X",
+            name: "positionX",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "x",
+            transformationGroup: "imageLayer",
+            helpText: "Specify the horizontal offset for the overlay image.",
+            examples: ["10"],
+            isVisible: ({ positionMode }) => positionMode !== "anchor",
+          },
+          {
+            label: "Position Y",
+            name: "positionY",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "y",
+            transformationGroup: "imageLayer",
+            helpText: "Specify the vertical offset for the overlay image.",
+            examples: ["10"],
+            isVisible: ({ positionMode }) => positionMode !== "anchor",
+          },
+          {
+            label: "Anchor",
+            name: "anchor",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationKey: "focus",
+            transformationGroup: "imageLayer",
+            helpText:
+              "Specify the anchor point for positioning the overlay image.",
+            fieldProps: {
+              positions: [
+                "center",
+                "top",
+                "bottom",
+                "left",
+                "right",
+                "top_left",
+                "top_right",
+                "bottom_left",
+                "bottom_right",
+              ],
+            },
+            // Show anchor selector only when position mode is anchor
+            isVisible: ({ positionMode }) => positionMode === "anchor",
+          },
+          {
+            label: "Opacity",
+            name: "opacity",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationKey: "alpha",
+            transformationGroup: "imageLayer",
+            helpText: "Set the opacity for the overlay image (0-100).",
+            examples: ["80"],
+            fieldProps: {
+              min: 0,
+              max: 100,
+              step: 1,
+              defaultValue: 100,
+            },
+          },
+        ],
+      },
+    ],
+  },
+  // Custom raw transformation section. Allows users to input a raw ImageKit
+  // transformation string that will be appended directly to the URL. This is
+  // useful for advanced or unsupported transformations.
+  {
+    key: "advanced",
+    name: "Advanced",
+    items: [
+      {
+        key: "advanced-raw",
+        name: "Raw Transformation",
+        description:
+          "Specify a raw ImageKit transformation string to be appended directly to the URL. Use this for advanced or unsupported transformations.",
+        docsLink: "https://imagekit.io/docs/transformations",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            raw: z.string().optional(),
+          })
+          .refine(
+            (val) => {
+              return Object.values(val).some(
+                (v) => v !== undefined && v !== null && v !== "",
+              )
+            },
+            {
+              message: "Raw transformation is required",
+              path: [],
+            },
+          ),
+        transformations: [
+          {
+            label: "Raw Transformation String",
+            name: "raw",
+            fieldType: "textarea",
+            isTransformation: true,
+            transformationKey: "raw",
+            helpText:
+              "Enter any valid ImageKit transformation string. For example: w-300,h-300,cm-extract,x-10,y-20.",
+            examples: ["w-300,h-300,cm-extract,x-10,y-20"],
+          },
+        ],
+      },
+    ],
+  },
 ]
 
 export const transformationFormatters: Record<
@@ -1822,5 +2193,155 @@ export const transformationFormatters: Record<
     }
     // Compose the final transform string
     transforms.shadow = params.length > 0 ? `${params.join("_")}` : ""
+  } /**
+   * Formatter for text overlays. Constructs an overlay object for the SDK based
+   * on the provided group values. The resulting object is assigned to the
+   * `overlay` key on the transforms object. Supported fields include text
+   * content, colour, font size, font family, position offsets or anchor, background
+   * colour, padding, and opacity. Opacity values (0–100) are mapped to the
+   * SDK's alpha range (1–9).
+   */,
+  textLayer: (values, transforms) => {
+    const overlay: any = { type: "text" }
+
+    // Text content
+    if (values.text) {
+      overlay.text = values.text
+    }
+    // Always let the SDK decide encoding based on content
+    overlay.encoding = "auto"
+
+    // Build the overlay transformation object (styling options)
+    const overlayTransform: any = {}
+    if (values.color) {
+      // Remove leading '#' if present
+      const col = (values.color as string).replace(/^#/, "")
+      overlayTransform.fontColor = col
+    }
+    if (
+      values.fontSize !== undefined &&
+      values.fontSize !== null &&
+      values.fontSize !== ""
+    ) {
+      overlayTransform.fontSize = values.fontSize
+    }
+    if (values.fontFamily) {
+      overlayTransform.fontFamily = values.fontFamily
+    }
+    if (values.backgroundColor) {
+      const bg = (values.backgroundColor as string).replace(/^#/, "")
+      overlayTransform.background = bg
+    }
+    if (
+      values.padding !== undefined &&
+      values.padding !== null &&
+      values.padding !== ""
+    ) {
+      overlayTransform.padding = values.padding
+    }
+    // Convert opacity percentage (0–100) to alpha (1–9)
+    if (
+      values.opacity !== undefined &&
+      values.opacity !== null &&
+      values.opacity !== ""
+    ) {
+      const op = Number(values.opacity)
+      if (!Number.isNaN(op)) {
+        // Map 0–100 to 1–9: 0% => 1, 100% => 9
+        const alpha = Math.min(9, Math.max(1, Math.round((op / 100) * 8) + 1))
+        overlay.alpha = alpha
+      }
+    }
+    // Assign the transformation array only if there are styling properties
+    if (Object.keys(overlayTransform).length > 0) {
+      overlay.transformation = [overlayTransform]
+    }
+
+    // Positioning: use x/y coordinates or focus if anchor is provided
+    const position: any = {}
+    if (values.positionX) {
+      position.x = values.positionX
+    }
+    if (values.positionY) {
+      position.y = values.positionY
+    }
+    if (values.anchor) {
+      position.focus = values.anchor
+    }
+    if (Object.keys(position).length > 0) {
+      overlay.position = position
+    }
+
+    // Attach overlay to transforms
+    transforms.overlay = overlay
+  },
+
+  /**
+   * Formatter for image overlays. Constructs an overlay object for the SDK based
+   * on the provided group values. The resulting object is assigned to the
+   * `overlay` key on the transforms object. Supported fields include input
+   * URL/path, width, height, position offsets or anchor, and opacity. Width and
+   * height are applied via the overlay's transformation array. Opacity values
+   * (0–100) are mapped to the SDK's alpha range (1–9).
+   */
+  imageLayer: (values, transforms) => {
+    const overlay: any = { type: "image" }
+
+    // Input path to the overlay image
+    if (values.imageUrl) {
+      // Remove any leading slash; the SDK will handle path encoding
+      overlay.input = (values.imageUrl as string).replace(/^\//, "")
+    }
+
+    // Build overlay transformation for sizing
+    const overlayTransform: any = {}
+    if (
+      values.width !== undefined &&
+      values.width !== null &&
+      values.width !== ""
+    ) {
+      overlayTransform.width = values.width
+    }
+    if (
+      values.height !== undefined &&
+      values.height !== null &&
+      values.height !== ""
+    ) {
+      overlayTransform.height = values.height
+    }
+    if (Object.keys(overlayTransform).length > 0) {
+      overlay.transformation = [overlayTransform]
+    }
+
+    // Positioning via x/y or focus anchor
+    const position: any = {}
+    if (values.positionX) {
+      position.x = values.positionX
+    }
+    if (values.positionY) {
+      position.y = values.positionY
+    }
+    if (values.anchor) {
+      position.focus = values.anchor
+    }
+    if (Object.keys(position).length > 0) {
+      overlay.position = position
+    }
+
+    // Opacity mapping
+    if (
+      values.opacity !== undefined &&
+      values.opacity !== null &&
+      values.opacity !== ""
+    ) {
+      const op = Number(values.opacity)
+      if (!Number.isNaN(op)) {
+        const alpha = Math.min(9, Math.max(1, Math.round((op / 100) * 8) + 1))
+        overlay.alpha = alpha
+      }
+    }
+
+    // Assign overlay to transforms
+    transforms.overlay = overlay
   },
 }

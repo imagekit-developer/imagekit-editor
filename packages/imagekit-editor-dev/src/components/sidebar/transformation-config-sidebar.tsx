@@ -29,6 +29,7 @@ import {
   SliderTrack,
   Switch,
   Text,
+  Textarea,
 } from "@chakra-ui/react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { PiArrowLeft } from "@react-icons/all-files/pi/PiArrowLeft"
@@ -215,7 +216,7 @@ export const TransformationConfigSidebar: React.FC = () => {
             aria-label="Back Button"
           />
         ) : null}
-        <Text fontSize="sm" fontWeight="normal">
+        <Text fontSize="md" fontWeight="normal">
           {selectedTransformation.name}
         </Text>
 
@@ -237,7 +238,7 @@ export const TransformationConfigSidebar: React.FC = () => {
               />
             </PopoverTrigger>
             <PopoverContent>
-              <PopoverBody fontSize="xs">
+              <PopoverBody fontSize="sm">
                 {selectedTransformation.description && (
                   <Text>{selectedTransformation.description}</Text>
                 )}
@@ -277,7 +278,7 @@ export const TransformationConfigSidebar: React.FC = () => {
           })
           .map((field: TransformationField) => (
             <FormControl key={field.name} isInvalid={!!errors[field.name]}>
-              <FormLabel htmlFor={field.name} fontSize="xs">
+              <FormLabel htmlFor={field.name} fontSize="sm">
                 {field.label}
               </FormLabel>
               {field.fieldType === "select" ? (
@@ -353,16 +354,21 @@ export const TransformationConfigSidebar: React.FC = () => {
               {field.fieldType === "input" ? (
                 <Input
                   id={field.name}
-                  fontSize="xs"
-                  size="sm"
+                  fontSize="sm"
+                  {...register(field.name)}
+                />
+              ) : null}
+              {field.fieldType === "textarea" ? (
+                <Textarea
+                  id={field.name}
+                  fontSize="sm"
                   {...register(field.name)}
                 />
               ) : null}
               {field.fieldType === "switch" ? (
                 <Switch
                   id={field.name}
-                  fontSize="xs"
-                  size="sm"
+                  fontSize="sm"
                   isChecked={watch(field.name) === true}
                   {...register(field.name)}
                 />
@@ -372,8 +378,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                   <Flex justify="space-between" mb={1}>
                     <Input
                       id={`${field.name}-input`}
-                      fontSize="xs"
-                      size="sm"
+                      fontSize="sm"
                       width="80px"
                       value={(watch(field.name) as string) || ""}
                       defaultValue={field.fieldProps?.defaultValue}
@@ -381,7 +386,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                     />
                     {field.fieldProps?.autoOption && (
                       <Button
-                        size="xs"
+                        size="sm"
                         colorScheme={
                           watch(field.name) === "auto" ? "blue" : "gray"
                         }
@@ -425,19 +430,24 @@ export const TransformationConfigSidebar: React.FC = () => {
                   onChange={(value) => setValue(field.name, value)}
                 />
               ) : null}
-              <FormErrorMessage fontSize="xs">
+              <FormErrorMessage fontSize="sm">
                 {String(
                   errors[field.name as keyof typeof errors]?.message ?? "",
                 )}
               </FormErrorMessage>
               {field.helpText && (
-                <FormHelperText fontSize="xs">{field.helpText}</FormHelperText>
+                <FormHelperText fontSize="sm">{field.helpText}</FormHelperText>
+              )}
+              {field.examples && (
+                <FormHelperText fontSize="sm">
+                  <b>Examples</b>: {field.examples.join(", ")}
+                </FormHelperText>
               )}
             </FormControl>
           ))}
       </SidebarBody>
       {errors[""] && (
-        <Alert status="error" fontSize="xs" p="2">
+        <Alert status="error" fontSize="sm" p="2">
           <AlertIcon />
           <AlertDescription lineHeight="normal">
             {errors[""]?.message}
@@ -446,12 +456,12 @@ export const TransformationConfigSidebar: React.FC = () => {
       )}
       <SidebarFooter>
         <HStack spacing={2} w="full" justifyContent="space-between">
-          <Button variant="ghost" size="sm" fontSize="xs" onClick={onClose}>
+          <Button variant="ghost" size="md" onClick={onClose}>
             Discard changes
           </Button>
 
           <ButtonGroup
-            size="sm"
+            size="md"
             isAttached
             variant="solid"
             colorScheme="editorBlue"
@@ -465,10 +475,11 @@ export const TransformationConfigSidebar: React.FC = () => {
                 colorScheme="editorBlue"
                 borderLeft="1px"
                 borderLeftColor="blue.300"
+                px="2"
               >
-                <Icon as={PiCaretDown} fontSize="xs" />
+                <Icon as={PiCaretDown} />
               </MenuButton>
-              <MenuList minW="160px" fontSize="sm">
+              <MenuList minW="160px">
                 <MenuItem onClick={handleSubmit(onSubmit(true))}>
                   Apply & Close
                 </MenuItem>

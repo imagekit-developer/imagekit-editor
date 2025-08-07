@@ -7,7 +7,8 @@ import ReactDOM from "react-dom"
 
 function App() {
   const [open, setOpen] = React.useState(true)
-  const [editorProps, setEditorProps] = React.useState<ImageKitEditorProps>()
+  const [editorProps, setEditorProps] =
+    React.useState<ImageKitEditorProps<{ requireSignedUrl: boolean }>>()
   const ref = React.useRef<ImageKitEditorRef>(null)
 
   /**
@@ -35,9 +36,10 @@ function App() {
           console.log(images)
         },
       },
-      // signer: (request) => {
-      //   return Promise.resolve(request.url)
-      // },
+      signer: (request) => {
+        console.log(request)
+        return Promise.resolve(request.url)
+      },
     })
   }, [handleAddImage])
 

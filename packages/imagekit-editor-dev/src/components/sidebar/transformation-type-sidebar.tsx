@@ -64,7 +64,7 @@ export const TransformationTypeSidebar: React.FC = () => {
   return (
     <SidebarRoot>
       <SidebarHeader justifyContent="space-between">
-        <Text fontSize="xs" fontWeight="normal" mt={0}>
+        <Text fontSize="md" fontWeight="normal" mt={0}>
           Add Transformation
         </Text>
         {hasTransformations && (
@@ -79,7 +79,7 @@ export const TransformationTypeSidebar: React.FC = () => {
       </SidebarHeader>
       <SidebarBody p="2">
         <Box mb={2}>
-          <InputGroup size="sm">
+          <InputGroup size="md">
             <InputLeftElement pointerEvents="none">
               <Icon as={PiMagnifyingGlass} color="gray.400" />
             </InputLeftElement>
@@ -88,7 +88,6 @@ export const TransformationTypeSidebar: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               bg="white"
-              borderRadius="md"
               borderColor="gray.200"
               _hover={{ borderColor: "gray.300" }}
               _focus={{
@@ -103,7 +102,7 @@ export const TransformationTypeSidebar: React.FC = () => {
             key={`category-${category.name}`}
             mb={index === filteredTransformationSchema.length - 1 ? 0 : 8}
           >
-            <Text color="gray.500" fontSize="sm" m={2}>
+            <Text color="gray.500" fontSize="md" m={2}>
               {category.name}
             </Text>
             <VStack spacing={0} align="stretch" p="0">
@@ -116,8 +115,7 @@ export const TransformationTypeSidebar: React.FC = () => {
                   borderRadius="0"
                   borderWidth="0px 0px 1px 0px"
                   borderColor="editorBattleshipGrey.100"
-                  size="sm"
-                  py="4"
+                  py="5"
                   sx={{
                     "&:last-of-type": {
                       borderBottomWidth: "0px",
@@ -125,7 +123,7 @@ export const TransformationTypeSidebar: React.FC = () => {
                   }}
                   leftIcon={<Icon color="gray.500" as={RiImageEditLine} />}
                 >
-                  <Text fontSize="xs" fontWeight="normal">
+                  <Text fontSize="sm" fontWeight="normal">
                     {item.name}
                   </Text>
                 </Button>

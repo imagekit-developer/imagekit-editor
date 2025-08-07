@@ -162,14 +162,14 @@ export const RetryableImage: React.FC<RetryableImageProps> = ({
       >
         <VStack spacing={compactError ? 1 : 3}>
           {!compactError && (
-            <Text fontSize="sm" color="gray.500" textAlign="center">
+            <Text fontSize="md" color="gray.500" textAlign="center">
               {isNonRetryableError
                 ? `Failed to load image (Error ${errorStatusCode || "Unknown"})`
                 : `Failed to load image after ${maxRetries} attempts`}
             </Text>
           )}
           {compactError && (
-            <Text fontSize="xs" color="gray.500" textAlign="center">
+            <Text fontSize="sm" color="gray.500" textAlign="center">
               ❌
             </Text>
           )}
