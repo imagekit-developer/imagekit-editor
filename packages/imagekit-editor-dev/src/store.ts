@@ -19,21 +19,24 @@ export interface Transformation {
   value: IKTransformation
 }
 
-export interface FileElement {
+export interface FileElement<
+  Metadata extends Record<string, unknown> = Record<string, unknown>,
+> {
   url: string
-  metadata: { requireSignedUrl: boolean } & Record<
-    string,
-    string | boolean | number
-  >
+  metadata: { requireSignedUrl: boolean } & Metadata
 }
 
-export interface SignerRequest {
+export interface SignerRequest<
+  Metadata extends Record<string, unknown> = Record<string, unknown>,
+> {
   url: string
   transformation: IKTransformation[]
-  metadata: Record<string, string | boolean | number>
+  metadata: { requireSignedUrl: boolean } & Metadata
 }
 
-export type Signer = (item: SignerRequest) => Promise<string>
+export type Signer<
+  Metadata extends Record<string, unknown> = Record<string, unknown>,
+> = (item: SignerRequest<Metadata>) => Promise<string>
 
 interface InternalState {
   sidebarState: "none" | "type" | "config"
@@ -50,26 +53,30 @@ interface InternalState {
     | null
 }
 
-export interface EditorState {
+export interface EditorState<
+  Metadata extends Record<string, unknown> = Record<string, unknown>,
+> {
   currentImage: string | undefined
-  originalImageList: FileElement[]
+  originalImageList: FileElement<Metadata>[]
   imageList: string[]
   transformations: Transformation[]
   visibleTransformations: Record<string, boolean>
   showOriginal: boolean
-  signer?: Signer
+  signer?: Signer<Metadata>
   isSigning: boolean
   _internalState: InternalState
 }
 
-export type EditorActions = {
+export type EditorActions<
+  Metadata extends Record<string, unknown> = Record<string, unknown>,
+> = {
   initialize: (initialData?: {
-    imageList?: Array<string | FileElement>
-    signer?: Signer
+    imageList?: Array<string | FileElement<Metadata>>
+    signer?: Signer<Metadata>
   }) => void
   setCurrentImage: (imageSrc: string | undefined) => void
-  addImage: (imageSrc: string | FileElement) => void
-  addImages: (imageSrcs: Array<string | FileElement>) => void
+  addImage: (imageSrc: string | FileElement<Metadata>) => void
+  addImages: (imageSrcs: Array<string | FileElement<Metadata>>) => void
   removeImage: (imageSrc: string) => void
   setTransformations: (transformations: Omit<Transformation, "id">[]) => void
   moveTransformation: (
@@ -108,13 +115,24 @@ function initTransformationStates(transformations: Transformation[]) {
 
 initTransformationStates(initialTransformations)
 
-function normalizeImage(image: string | FileElement): FileElement {
+function normalizeImage<
+  Metadata extends Record<string, unknown> = Record<string, unknown>,
+>(image: string | FileElement<Metadata>): FileElement<Metadata> {
   if (typeof image === "string") {
-    return { url: image, metadata: { requireSignedUrl: false } }
+    return {
+      url: image,
+      metadata: { requireSignedUrl: false } as {
+        requireSignedUrl: boolean
+      } & Metadata,
+    }
   }
   return {
     url: image.url,
-    metadata: image.metadata ?? { requireSignedUrl: false },
+    metadata: image.metadata
+      ? { ...image.metadata, requireSignedUrl: false }
+      : ({ requireSignedUrl: false } as {
+          requireSignedUrl: boolean
+        } & Metadata),
   }
 }
 

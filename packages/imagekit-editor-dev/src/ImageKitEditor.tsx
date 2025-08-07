@@ -12,10 +12,12 @@ export interface ImageKitEditorRef {
   setCurrentImage: (imageSrc: string) => void
 }
 
-interface EditorProps {
+interface EditorProps<
+  Metadata extends Record<string, unknown> = Record<string, unknown>,
+> {
   theme?: Dict
-  initialImages?: Array<string | FileElement>
-  signer?: Signer
+  initialImages?: Array<string | FileElement<Metadata>>
+  signer?: Signer<Metadata>
   onAddImage?: () => void
   exportOptions?:
     | {
