@@ -9,8 +9,14 @@ interface ListViewProps {
 }
 
 export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
-  const { currentImage, setCurrentImage, isSigning, _internalState } =
-    useEditorStore()
+  const {
+    currentImage,
+    setCurrentImage,
+    imageList,
+    originalImageList,
+    signingImages,
+    _internalState,
+  } = useEditorStore()
 
   const isCollapsed = _internalState.isToolbarCollapsed
 
@@ -45,7 +51,12 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
                 <Spinner />
               </Center>
             }
-            isLoading={isSigning}
+            isLoading={(() => {
+              const idx = imageList.findIndex((img) => img === currentImage)
+              if (idx === -1) return false
+              const originalUrl = originalImageList[idx]?.url
+              return originalUrl ? signingImages[originalUrl] : false
+            })()}
           />
         </Flex>
       </Flex>

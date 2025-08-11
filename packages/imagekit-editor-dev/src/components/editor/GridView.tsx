@@ -20,8 +20,14 @@ interface GridViewProps {
 }
 
 export const GridView: FC<GridViewProps> = ({ imageSize, onAddImage }) => {
-  const { currentImage, setCurrentImage, imageList, isSigning, removeImage } =
-    useEditorStore()
+  const {
+    currentImage,
+    setCurrentImage,
+    imageList,
+    originalImageList,
+    signingImages,
+    removeImage,
+  } = useEditorStore()
   return (
     <Flex
       flex="1"
@@ -57,99 +63,105 @@ export const GridView: FC<GridViewProps> = ({ imageSize, onAddImage }) => {
             </Flex>
           </Flex>
 
-          {imageList.map((imageSrc) => (
-            <Hover display="block" key={imageSrc}>
-              {(isHovered) => (
-                <Box
-                  key={imageSrc}
-                  position="relative"
-                  cursor="pointer"
-                  onClick={() => setCurrentImage(imageSrc)}
-                  borderWidth={imageSrc === currentImage ? "2px" : "1px"}
-                  borderColor={
-                    imageSrc === currentImage ? "blue.500" : "gray.200"
-                  }
-                  borderStyle="solid"
-                  borderRadius="md"
-                  transition="all 0.2s"
-                  _hover={{ transform: "scale(1.02)", boxShadow: "md" }}
-                  width={`${imageSize}px`}
-                  height={`${imageSize}px`}
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
-                  bg="white"
-                >
-                  {isHovered && (
-                    <IconButton
-                      variant="unstyled"
-                      position="absolute"
-                      minW="6"
-                      h="6"
-                      top={0}
-                      right={0}
-                      zIndex={2}
-                      transition="opacity 0.2s"
-                      display="flex"
-                      alignItems="center"
-                      justifyContent="center"
-                      borderRadius="full"
-                      bg="white"
-                      border="1px solid"
-                      borderColor="editorBattleshipGrey.100"
-                      transform="translateY(-40%) translateX(40%)"
-                      isLoading={isSigning}
-                      isDisabled={imageList.length === 1}
-                      _disabled={{
-                        background: "editorBattleshipGrey.100",
-                        cursor: "not-allowed",
-                        color: "editorBattleshipGrey.400",
-                        "&:hover": {
-                          background:
-                            "var(--chakra-colors-editorBattleshipGrey-100) !important",
-                          cursor: "not-allowed",
-                          color:
-                            "var(--chakra-colors-editorBattleshipGrey-400) !important",
-                        },
-                      }}
-                      boxShadow="md"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        removeImage(imageSrc)
-                      }}
-                      aria-label="Remove image"
-                      icon={<Icon as={PiX} size="14px" />}
-                    />
-                  )}
-
-                  <RetryableImage
-                    showRetryButton={false}
-                    compactError
-                    src={imageSrc}
-                    alt={`Image`}
-                    height={`${imageSize}px`}
-                    width="auto"
-                    minWidth={`${imageSize}px`}
-                    objectFit="contain"
-                    borderRadius="md"
-                    borderWidth={currentImage === imageSrc ? "2px" : "1px"}
-                    borderStyle="solid"
+          {imageList.map((imageSrc, index) => {
+            const originalUrl = originalImageList[index]?.url
+            const key = originalUrl ?? imageSrc
+            const isSigning = originalUrl ? signingImages[originalUrl] : false
+            return (
+              <Hover display="block" key={key}>
+                {(isHovered) => (
+                  <Box
+                    position="relative"
+                    cursor="pointer"
+                    onClick={() => setCurrentImage(imageSrc)}
+                    borderWidth={imageSrc === currentImage ? "2px" : "1px"}
                     borderColor={
-                      currentImage === imageSrc
-                        ? "editorBlue.300"
-                        : "editorBattleshipGrey.100"
+                      imageSrc === currentImage ? "blue.500" : "gray.200"
                     }
-                    fallback={
-                      <Center h={`${imageSize}px`} w={`${imageSize}px`}>
-                        <Spinner />
-                      </Center>
-                    }
-                    isLoading={isSigning}
-                  />
-                </Box>
-              )}
-            </Hover>
-          ))}
+                    borderStyle="solid"
+                    borderRadius="md"
+                    transition="all 0.2s"
+                    _hover={{ transform: "scale(1.02)", boxShadow: "md" }}
+                    width={`${imageSize}px`}
+                    height={`${imageSize}px`}
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                    bg="white"
+                  >
+                    {isHovered && (
+                      <IconButton
+                        variant="unstyled"
+                        position="absolute"
+                        minW="6"
+                        h="6"
+                        top={0}
+                        right={0}
+                        zIndex={2}
+                        transition="opacity 0.2s"
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="center"
+                        borderRadius="full"
+                        bg="white"
+                        border="1px solid"
+                        borderColor="editorBattleshipGrey.100"
+                        transform="translateY(-40%) translateX(40%)"
+                        isLoading={isSigning}
+                        isDisabled={imageList.length === 1}
+                        _disabled={{
+                          background: "editorBattleshipGrey.100",
+                          cursor: "not-allowed",
+                          color: "editorBattleshipGrey.400",
+                          "&:hover": {
+                            background:
+                              "var(--chakra-colors-editorBattleshipGrey-100) !important",
+                            cursor: "not-allowed",
+                            color:
+                              "var(--chakra-colors-editorBattleshipGrey-400) !important",
+                          },
+                        }}
+                        boxShadow="md"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (originalUrl) {
+                            removeImage(originalUrl)
+                          }
+                        }}
+                        aria-label="Remove image"
+                        icon={<Icon as={PiX} size="14px" />}
+                      />
+                    )}
+
+                    <RetryableImage
+                      showRetryButton={false}
+                      compactError
+                      src={imageSrc}
+                      alt={`Image`}
+                      height={`${imageSize}px`}
+                      width="auto"
+                      minWidth={`${imageSize}px`}
+                      objectFit="contain"
+                      borderRadius="md"
+                      borderWidth={currentImage === imageSrc ? "2px" : "1px"}
+                      borderStyle="solid"
+                      borderColor={
+                        currentImage === imageSrc
+                          ? "editorBlue.300"
+                          : "editorBattleshipGrey.100"
+                      }
+                      fallback={
+                        <Center h={`${imageSize}px`} w={`${imageSize}px`}>
+                          <Spinner />
+                        </Center>
+                      }
+                      isLoading={isSigning}
+                    />
+                  </Box>
+                )}
+              </Hover>
+            )
+          })}
         </Flex>
       </Box>
     </Flex>

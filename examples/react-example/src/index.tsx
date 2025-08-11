@@ -27,13 +27,13 @@ function App() {
         {
           url: "https://ik.imagekit.io/v3sxk1svj/white%20BMW%20car%20on%20street.jpg",
           metadata: {
-            requireSignedUrl: true,
+            requireSignedUrl: false,
           },
         },
         {
           url: "https://ik.imagekit.io/v3sxk1svj/Young%20Living%20Patchouili%20bot....jpg",
           metadata: {
-            requireSignedUrl: true,
+            requireSignedUrl: false,
           },
         },
       ],

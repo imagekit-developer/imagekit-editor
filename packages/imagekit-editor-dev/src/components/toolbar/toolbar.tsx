@@ -33,9 +33,10 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
   const {
     currentImage,
     imageList,
+    originalImageList,
+    signingImages,
     setCurrentImage,
     removeImage,
-    isSigning,
     _internalState,
     _setIsToolbarCollapsed,
   } = useEditorStore()
@@ -109,9 +110,12 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
           pr={4}
           minWidth="min-content"
         >
-          {imageList.map((imageSrc) => {
+          {imageList.map((imageSrc, index) => {
+            const originalUrl = originalImageList[index]?.url
+            const key = originalUrl ?? imageSrc
+            const isSigning = originalUrl ? signingImages[originalUrl] : false
             return (
-              <Hover display="block" key={imageSrc}>
+              <Hover display="block" key={key}>
                 {(isHovered) => (
                   <Box
                     position="relative"
@@ -168,7 +172,9 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
                         boxShadow="md"
                         onClick={(e) => {
                           e.stopPropagation()
-                          removeImage(imageSrc)
+                          if (originalUrl) {
+                            removeImage(originalUrl)
+                          }
                         }}
                         aria-label="Remove image"
                         icon={<Icon as={PiX} size="14px" />}

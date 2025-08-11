@@ -38,6 +38,7 @@ export interface SignerRequest<
 
 export type Signer<Metadata extends RequiredMetadata = RequiredMetadata> = (
   item: SignerRequest<Metadata>,
+  controller?: AbortController,
 ) => Promise<string>
 
 interface InternalState {
@@ -66,7 +67,10 @@ export interface EditorState<
   visibleTransformations: Record<string, boolean>
   showOriginal: boolean
   signer?: Signer<Metadata>
-  isSigning: boolean
+  signingImages: Record<string, boolean>
+  signingAbortControllers: Record<string, AbortController>
+  signedUrlCache: Record<string, string>
+  currentTransformKey: string
   _internalState: InternalState
 }
 
@@ -148,7 +152,10 @@ const useEditorStore = create<EditorState & EditorActions>()(
     visibleTransformations: initialVisibleTransformations,
     showOriginal: false,
     signer: undefined,
-    isSigning: false,
+    signingImages: {},
+    signingAbortControllers: {},
+    signedUrlCache: {},
+    currentTransformKey: "",
     _internalState: {
       sidebarState: "none",
       isToolbarCollapsed: false,
@@ -224,9 +231,31 @@ const useEditorStore = create<EditorState & EditorActions>()(
           newCurrentImage = undefined
         }
 
+        const updatedSigningImages = { ...state.signingImages }
+        delete updatedSigningImages[imageSrc]
+
+        const updatedSigningAbortControllers = {
+          ...state.signingAbortControllers,
+        }
+        const controller = updatedSigningAbortControllers[imageSrc]
+        if (controller) {
+          controller.abort()
+          delete updatedSigningAbortControllers[imageSrc]
+        }
+
+        const updatedSignedUrlCache = { ...state.signedUrlCache }
+        Object.keys(updatedSignedUrlCache).forEach((key) => {
+          if (key.startsWith(`${imageSrc}::`)) {
+            delete updatedSignedUrlCache[key]
+          }
+        })
+
         return {
           originalImageList: updatedImageList,
           currentImage: newCurrentImage,
+          signingImages: updatedSigningImages,
+          signingAbortControllers: updatedSigningAbortControllers,
+          signedUrlCache: updatedSignedUrlCache,
         }
       })
     },
@@ -398,13 +427,14 @@ const useEditorStore = create<EditorState & EditorActions>()(
   })),
 )
 
-const calculateImageList = async (
+const calculateImageList = (
   imageList: FileElement[],
   transformations: Transformation[],
   visibleTransformations: Record<string, boolean>,
   showOriginal: boolean,
-  signer?: Signer,
-  activeImageIndex = 0,
+  signer: Signer | undefined,
+  activeImageIndex: number,
+  signedUrlCache: Record<string, string>,
 ) => {
   const IKTransformations = transformations
     .filter((transformation) => visibleTransformations[transformation.id])
@@ -500,53 +530,130 @@ const calculateImageList = async (
       }
     })
 
-  const imgs: string[] = await Promise.all(
-    imageList.map(async (img) => {
-      const req = {
-        url: img.url,
-        transformation: showOriginal ? [] : IKTransformations,
-        metadata: img.metadata,
-      }
-      if (req.transformation.length === 0) {
-        return req.url
-      }
-      if (req.metadata.requireSignedUrl && signer) {
-        return signer(req)
-      }
-      return buildSrc({
-        src: req.url,
-        urlEndpoint: "does-not-matter",
-        transformation: req.transformation,
-      })
-    }),
-  )
+  const transformKey = showOriginal
+    ? "original"
+    : JSON.stringify(IKTransformations)
 
-  return { imgs, activeImageIndex }
+  const imgs: string[] = []
+  const toSign: Array<{
+    index: number
+    request: SignerRequest
+    cacheKey: string
+  }> = []
+
+  imageList.forEach((img, index) => {
+    const req = {
+      url: img.url,
+      transformation: showOriginal ? [] : IKTransformations,
+      metadata: img.metadata,
+    }
+
+    if (req.transformation.length === 0) {
+      imgs[index] = req.url
+      return
+    }
+
+    if (req.metadata.requireSignedUrl && signer) {
+      const cacheKey = `${req.url}::${transformKey}`
+      const cached = signedUrlCache[cacheKey]
+      if (cached) {
+        imgs[index] = cached
+      } else {
+        imgs[index] = req.url
+        toSign.push({ index, request: req, cacheKey })
+      }
+      return
+    }
+
+    imgs[index] = buildSrc({
+      src: req.url,
+      urlEndpoint: "does-not-matter",
+      transformation: req.transformation,
+    })
+  })
+
+  return { imgs, activeImageIndex, toSign, transformKey }
 }
 
-async function recomputeImages() {
+function recomputeImages() {
   const state = useEditorStore.getState()
-  if (state.signer) {
-    useEditorStore.setState({ isSigning: true })
-  }
   const currentIndex = Math.max(
     state.imageList.findIndex((img) => img === state.currentImage),
     0,
   )
-  const { imgs, activeImageIndex } = await calculateImageList(
+
+  const { imgs, activeImageIndex, toSign, transformKey } = calculateImageList(
     state.originalImageList,
     state.transformations,
     state.visibleTransformations,
     state.showOriginal,
     state.signer,
     currentIndex,
+    state.signedUrlCache,
   )
+
+  const transformationsChanged = transformKey !== state.currentTransformKey
+  if (transformationsChanged) {
+    Object.values(state.signingAbortControllers).forEach((c) => c.abort())
+    useEditorStore.setState({ signingImages: {}, signingAbortControllers: {} })
+  }
 
   useEditorStore.setState({
     imageList: imgs,
     currentImage: imgs[activeImageIndex],
-    isSigning: false,
+    currentTransformKey: transformKey,
   })
+
+  const signer = state.signer
+  if (signer && toSign.length > 0) {
+    toSign.forEach(({ index, request, cacheKey }) => {
+      const existing =
+        useEditorStore.getState().signingAbortControllers[request.url]
+      if (existing) existing.abort()
+      const controller = new AbortController()
+      useEditorStore.setState((s) => ({
+        signingImages: { ...s.signingImages, [request.url]: true },
+        signingAbortControllers: {
+          ...s.signingAbortControllers,
+          [request.url]: controller,
+        },
+      }))
+      signer(request, controller)
+        .then((signedUrl) => {
+          useEditorStore.setState((s) => {
+            const updatedImgs = [...s.imageList]
+            updatedImgs[index] = signedUrl
+            const wasCurrent = s.currentImage === s.imageList[index]
+            return {
+              imageList: updatedImgs,
+              currentImage: wasCurrent ? signedUrl : s.currentImage,
+              signedUrlCache: {
+                ...s.signedUrlCache,
+                [cacheKey]: signedUrl,
+              },
+            }
+          })
+        })
+        .catch((err) => {
+          if ((err as DOMException)?.name !== "AbortError") {
+            // eslint-disable-next-line no-console
+            console.error(err)
+          }
+        })
+        .finally(() => {
+          useEditorStore.setState((s) => {
+            const updatedSigningImages = { ...s.signingImages }
+            delete updatedSigningImages[request.url]
+            const updatedControllers = { ...s.signingAbortControllers }
+            delete updatedControllers[request.url]
+            return {
+              signingImages: updatedSigningImages,
+              signingAbortControllers: updatedControllers,
+            }
+          })
+        })
+    })
+  }
 }
 
 useEditorStore.subscribe(
