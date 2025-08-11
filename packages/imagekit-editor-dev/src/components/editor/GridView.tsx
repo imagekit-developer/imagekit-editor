@@ -1,4 +1,12 @@
-import { Box, Flex, Icon, IconButton, Text } from "@chakra-ui/react"
+import {
+  Box,
+  Center,
+  Flex,
+  Icon,
+  IconButton,
+  Spinner,
+  Text,
+} from "@chakra-ui/react"
 import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
 import { PiX } from "@react-icons/all-files/pi/PiX"
 import type { FC } from "react"
@@ -129,6 +137,11 @@ export const GridView: FC<GridViewProps> = ({ imageSize, onAddImage }) => {
                       currentImage === imageSrc
                         ? "editorBlue.300"
                         : "editorBattleshipGrey.100"
+                    }
+                    fallback={
+                      <Center h={`${imageSize}px`} w={`${imageSize}px`}>
+                        <Spinner />
+                      </Center>
                     }
                     isLoading={isSigning}
                   />

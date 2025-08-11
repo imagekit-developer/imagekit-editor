@@ -123,8 +123,8 @@ export const ActionBar: FC<ActionBarProps> = ({
               <Slider
                 aria-label="Image size slider"
                 defaultValue={gridImageSize}
-                min={120}
-                max={420}
+                min={200}
+                max={600}
                 step={80}
                 onChange={(val: number) => setGridImageSize(val)}
               >

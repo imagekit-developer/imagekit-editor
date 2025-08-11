@@ -206,6 +206,7 @@ export const RetryableImage: React.FC<RetryableImageProps> = ({
       {isLoading && (
         <Center
           position="absolute"
+          zIndex={1}
           inset={0}
           top="0"
           left="0"

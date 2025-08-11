@@ -28,7 +28,7 @@ interface Props {
 
 export function EditorLayout({ onAddImage, onClose, exportOptions }: Props) {
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
-  const [gridImageSize, setGridImageSize] = useState<number>(220)
+  const [gridImageSize, setGridImageSize] = useState<number>(300)
 
   return (
     <>

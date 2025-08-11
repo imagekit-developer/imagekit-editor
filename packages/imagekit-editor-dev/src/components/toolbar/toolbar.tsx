@@ -1,10 +1,12 @@
 import {
   Box,
   Button,
+  Center,
   chakra,
   Flex,
   Icon,
   IconButton,
+  Spinner,
   shouldForwardProp,
 } from "@chakra-ui/react"
 import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
@@ -187,6 +189,11 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
                         currentImage === imageSrc
                           ? "editorBlue.300"
                           : "editorBattleshipGrey.100"
+                      }
+                      fallback={
+                        <Center h={32} w={40}>
+                          <Spinner />
+                        </Center>
                       }
                       isLoading={isSigning}
                     />

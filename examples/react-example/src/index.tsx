@@ -24,8 +24,18 @@ function App() {
   useEffect(() => {
     setEditorProps({
       initialImages: [
-        "https://ik.imagekit.io/v3sxk1svj/white%20BMW%20car%20on%20street.jpg",
-        "https://ik.imagekit.io/v3sxk1svj/Young%20Living%20Patchouili%20bot....jpg",
+        {
+          url: "https://ik.imagekit.io/v3sxk1svj/white%20BMW%20car%20on%20street.jpg",
+          metadata: {
+            requireSignedUrl: true,
+          },
+        },
+        {
+          url: "https://ik.imagekit.io/v3sxk1svj/Young%20Living%20Patchouili%20bot....jpg",
+          metadata: {
+            requireSignedUrl: true,
+          },
+        },
       ],
       onAddImage: handleAddImage,
       onClose: () => setOpen(false),
@@ -36,8 +46,9 @@ function App() {
           console.log(images)
         },
       },
-      signer: (request) => {
+      signer: async (request) => {
         console.log(request)
+        await new Promise((resolve) => setTimeout(resolve, 4000))
         return Promise.resolve(request.url)
       },
     })
