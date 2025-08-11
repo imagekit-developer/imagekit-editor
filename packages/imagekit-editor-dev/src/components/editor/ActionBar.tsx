@@ -108,39 +108,6 @@ export const ActionBar: FC<ActionBarProps> = ({
                 {decodeURIComponent(
                   currentImage?.split("/").pop()?.split("?")?.[0] || "",
                 )}
-                {decodeURIComponent(
-                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
-                )}
-                {decodeURIComponent(
-                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
-                )}
-                {decodeURIComponent(
-                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
-                )}
-                {decodeURIComponent(
-                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
-                )}
-                {decodeURIComponent(
-                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
-                )}
-                {decodeURIComponent(
-                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
-                )}
-                {decodeURIComponent(
-                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
-                )}
-                {decodeURIComponent(
-                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
-                )}
-                {decodeURIComponent(
-                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
-                )}
-                {decodeURIComponent(
-                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
-                )}
-                {decodeURIComponent(
-                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
-                )}
               </Text>
               <ExternalLinkIcon flexShrink={0} />
             </HStack>
