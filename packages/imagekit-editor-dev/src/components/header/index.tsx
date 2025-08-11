@@ -40,7 +40,9 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
 
   const headerText = useMemo(() => {
     if (imageList.length === 1) {
-      return imageList[0].split("/").pop()
+      return decodeURIComponent(
+        imageList[0].split("/").pop()?.split("?")?.[0] || "",
+      )
     }
     return `${imageList.length} Images`
   }, [imageList])

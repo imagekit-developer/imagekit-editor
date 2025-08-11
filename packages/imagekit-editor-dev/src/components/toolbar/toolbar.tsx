@@ -121,6 +121,10 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
                         setCurrentImage(imageSrc)
                       }
                     }}
+                    _hover={{
+                      transform: "scale(1.02)",
+                      boxShadow: "md",
+                    }}
                     opacity={currentImage === imageSrc || isHovered ? 1 : 0.7}
                     transition="all 0.2s"
                     borderRadius="md"
@@ -175,13 +179,14 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
                       height={32}
                       width="auto"
                       minWidth={40}
-                      objectFit="cover"
+                      objectFit="contain"
                       borderRadius="md"
-                      border="2px solid"
+                      borderWidth={currentImage === imageSrc ? "2px" : "1px"}
+                      borderStyle="solid"
                       borderColor={
                         currentImage === imageSrc
                           ? "editorBlue.300"
-                          : "transparent"
+                          : "editorBattleshipGrey.100"
                       }
                       isLoading={isSigning}
                     />

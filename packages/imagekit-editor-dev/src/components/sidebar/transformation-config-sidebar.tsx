@@ -45,7 +45,9 @@ import type { TransformationField } from "../../schema"
 import { transformationSchema } from "../../schema"
 import { useEditorStore } from "../../store"
 import AnchorField from "../common/AnchorField"
+import CheckboxCardField from "../common/CheckboxCardField"
 import ColorPickerField from "../common/ColorPickerField"
+import RadioCardField from "../common/RadioCardField"
 import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
@@ -134,7 +136,11 @@ export const TransformationConfigSidebar: React.FC = () => {
   const values = watch()
 
   const onClose = () => {
-    _setSidebarState("none")
+    if (transformations.length === 0) {
+      _setSidebarState("type")
+    } else {
+      _setSidebarState("none")
+    }
     _setSelectedTransformationKey(null)
     _setTransformationToEdit(null)
   }
@@ -408,6 +414,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                     }
                     defaultValue={field.fieldProps?.defaultValue as number}
                     onChange={(val) => setValue(field.name, val.toString())}
+                    focusThumbOnChange={false}
                   >
                     <SliderTrack>
                       <SliderFilledTrack />
@@ -430,6 +437,22 @@ export const TransformationConfigSidebar: React.FC = () => {
                   onChange={(value) => setValue(field.name, value)}
                 />
               ) : null}
+              {field.fieldType === "radio-card" ? (
+                <RadioCardField
+                  value={watch(field.name) as string}
+                  options={field.fieldProps?.options ?? []}
+                  onChange={(value) => setValue(field.name, value)}
+                  {...field.fieldProps}
+                />
+              ) : null}
+              {field.fieldType === "checkbox-card" ? (
+                <CheckboxCardField
+                  value={watch(field.name) as string[]}
+                  options={field.fieldProps?.options ?? []}
+                  onChange={(value) => setValue(field.name, value)}
+                  {...field.fieldProps}
+                />
+              ) : null}
               <FormErrorMessage fontSize="sm">
                 {String(
                   errors[field.name as keyof typeof errors]?.message ?? "",
@@ -440,7 +463,8 @@ export const TransformationConfigSidebar: React.FC = () => {
               )}
               {field.examples && (
                 <FormHelperText fontSize="sm">
-                  <b>Examples</b>: {field.examples.join(", ")}
+                  <b>Example{field.examples.length > 1 ? "s" : ""}</b>:{" "}
+                  {field.examples.join(", ")}
                 </FormHelperText>
               )}
             </FormControl>

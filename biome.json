@@ -22,6 +22,9 @@
       },
       "nursery": {
         "useUniqueElementIds": "off"
+      },
+      "a11y": {
+        "useSemanticElements": "warn"
       }
     }
   },

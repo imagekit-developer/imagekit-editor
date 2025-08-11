@@ -1,4 +1,11 @@
 import type { Transformation } from "@imagekit/javascript"
+import { PiFlipHorizontalFill } from "@react-icons/all-files/pi/PiFlipHorizontalFill"
+import { PiFlipVerticalFill } from "@react-icons/all-files/pi/PiFlipVerticalFill"
+import { RxFontBold } from "@react-icons/all-files/rx/RxFontBold"
+import { RxFontItalic } from "@react-icons/all-files/rx/RxFontItalic"
+import { RxTextAlignCenter } from "@react-icons/all-files/rx/RxTextAlignCenter"
+import { RxTextAlignLeft } from "@react-icons/all-files/rx/RxTextAlignLeft"
+import { RxTextAlignRight } from "@react-icons/all-files/rx/RxTextAlignRight"
 import { z } from "zod/v3"
 import { SIMPLE_OVERLAY_TEXT_REGEX, safeBtoa } from "../utils"
 import {
@@ -23,9 +30,10 @@ export interface TransformationField {
   name: string
   fieldType?: "input" | "select" | string
   fieldProps?: Record<string, unknown> & {
-    defaultValue?: string | number
+    defaultValue?: string | number | unknown
     options?: {
       label: string
+      icon?: React.ReactNode
       value: string
     }[]
     autoOption?: boolean
@@ -206,7 +214,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: false,
             transformationGroup: "background",
             fieldProps: {
-              defaultValue: 0,
+              defaultValue: "0",
               min: -255,
               max: 255,
               step: 5,
@@ -1723,16 +1731,27 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            text: z.string().optional(),
-            color: z.string().optional(),
-            fontSize: z.coerce.number().optional(),
-            fontFamily: z.string().optional(),
+            text: z.string(),
+            width: widthValidator.optional(),
             positionX: z.string().optional(),
             positionY: z.string().optional(),
-            anchor: z.string().optional(),
-            backgroundColor: z.string().optional(),
+            fontSize: z.coerce.number().optional(),
+            fontFamily: z.string().optional(),
+            color: z.string().optional(),
+            innerAlignment: z
+              .enum(["left", "right", "center"])
+              .default("center"),
             padding: z.coerce.number().optional(),
-            opacity: z.coerce.number().optional(),
+            alpha: z.coerce.number().min(1).max(9).optional(),
+            typography: z
+              .array(z.enum(["bold", "italic"]).optional())
+              .optional(),
+            backgroundColor: z.string().optional(),
+            radius: z.union([z.literal("max"), z.coerce.number().min(0)]),
+            flip: z
+              .array(z.enum(["horizontal", "vertical"]).optional())
+              .optional(),
+            rotation: z.coerce.number().optional(),
           })
           .refine(
             (val) => {
@@ -1757,19 +1776,46 @@ export const transformationSchema: TransformationSchema[] = [
             examples: ["Hello World"],
           },
           {
+            label: "Width",
+            name: "width",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "width",
+            transformationGroup: "textLayer",
+            helpText: "Specify the width of the overlaid text.",
+            examples: ["300", "iw_div_2"],
+          },
+          {
+            label: "Position X",
+            name: "positionX",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "x",
+            transformationGroup: "textLayer",
+            helpText: "Specify horizontal offset for the text.",
+            examples: ["10", "iw_div_2"],
+          },
+          {
+            label: "Position Y",
+            name: "positionY",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "y",
+            transformationGroup: "textLayer",
+            helpText: "Specify vertical offset for the text.",
+            examples: ["10", "ih_div_2"],
+          },
+          {
             label: "Font Size",
             name: "fontSize",
-            fieldType: "slider",
+            fieldType: "input",
             isTransformation: true,
             transformationKey: "fontSize",
             transformationGroup: "textLayer",
             helpText: "Specify the font size of the text.",
-            examples: ["24"],
+            examples: ["24", "iw_mul_2"],
             fieldProps: {
-              min: 1,
-              max: 100,
-              step: 1,
-              defaultValue: 24,
+              defaultValue: "14",
             },
           },
           {
@@ -1782,12 +1828,47 @@ export const transformationSchema: TransformationSchema[] = [
             helpText: "Choose a font family for the text.",
             fieldProps: {
               options: [
-                { label: "Arial", value: "Arial" },
-                { label: "Helvetica", value: "Helvetica" },
-                { label: "Times New Roman", value: "Times New Roman" },
-                { label: "Courier New", value: "Courier New" },
+                { label: "AbrilFatFace", value: "AbrilFatFace" },
+                { label: "Amaranth", value: "Amaranth" },
+                { label: "Arvo", value: "Arvo" },
+                { label: "Audiowide", value: "Audiowide" },
+                { label: "Chivo", value: "Chivo" },
+                { label: "Crimson Text", value: "Crimson Text" },
+                { label: "exo", value: "exo" },
+                { label: "Fredoka One", value: "Fredoka One" },
+                { label: "Gravitas One", value: "Gravitas One" },
+                { label: "Kanit", value: "Kanit" },
+                { label: "Lato", value: "Lato" },
+                { label: "Lobster", value: "Lobster" },
+                { label: "Lora", value: "Lora" },
+                { label: "Monoton", value: "Monoton" },
+                { label: "Montserrat", value: "Montserrat" },
+                { label: "PT Mono", value: "PT Mono" },
+                { label: "PT_Serif", value: "PT_Serif" },
+                { label: "Open Sans", value: "Open Sans" },
                 { label: "Roboto", value: "Roboto" },
+                { label: "Old Standard", value: "Old Standard" },
+                { label: "Ubuntu", value: "Ubuntu" },
+                { label: "Vollkorn", value: "Vollkorn" },
               ],
+              defaultValue: "Open Sans",
+            },
+          },
+          {
+            label: "Typography",
+            name: "typography",
+            fieldType: "checkbox-card",
+            isTransformation: true,
+            transformationKey: "typography",
+            transformationGroup: "textLayer",
+            helpText: "Set the typography of the text.",
+            fieldProps: {
+              options: [
+                { label: "Bold", icon: RxFontBold, value: "bold" },
+                { label: "Italic", icon: RxFontItalic, value: "italic" },
+              ],
+              defaultValue: [],
+              columns: 2,
             },
           },
           {
@@ -1811,96 +1892,95 @@ export const transformationSchema: TransformationSchema[] = [
             examples: ["FFFFFF", "black"],
           },
           {
-            label: "Position Mode",
-            name: "positionMode",
-            fieldType: "select",
-            isTransformation: false,
+            label: "Inner Alignment",
+            name: "innerAlignment",
+            fieldType: "radio-card",
+            isTransformation: true,
+            transformationKey: "innerAlignment",
+            transformationGroup: "textLayer",
+            helpText: "Choose the alignment of the text within the text box.",
             fieldProps: {
               options: [
-                { label: "Custom (X/Y)", value: "custom" },
-                { label: "Anchor", value: "anchor" },
+                { label: "Left", icon: RxTextAlignLeft, value: "left" },
+                { label: "Center", icon: RxTextAlignCenter, value: "center" },
+                { label: "Right", icon: RxTextAlignRight, value: "right" },
               ],
-              defaultValue: "custom",
+              defaultValue: "center",
             },
-          },
-          {
-            label: "Position X",
-            name: "positionX",
-            fieldType: "input",
-            isTransformation: true,
-            transformationKey: "x",
-            transformationGroup: "textLayer",
-            helpText: "Specify horizontal offset for the text.",
-            examples: ["10", "iw_div_2"],
-            // Show X coordinate only when using custom positioning
-            isVisible: ({ positionMode }) => positionMode !== "anchor",
-          },
-          {
-            label: "Position Y",
-            name: "positionY",
-            fieldType: "input",
-            isTransformation: true,
-            transformationKey: "y",
-            transformationGroup: "textLayer",
-            helpText: "Specify vertical offset for the text.",
-            examples: ["10", "ih_div_2"],
-            // Show Y coordinate only when using custom positioning
-            isVisible: ({ positionMode }) => positionMode !== "anchor",
-          },
-          {
-            label: "Anchor",
-            name: "anchor",
-            fieldType: "anchor",
-            isTransformation: true,
-            transformationKey: "focus",
-            transformationGroup: "textLayer",
-            helpText: "Specify the anchor point for the text.",
-            fieldProps: {
-              positions: [
-                "center",
-                "top",
-                "bottom",
-                "left",
-                "right",
-                "top_left",
-                "top_right",
-                "bottom_left",
-                "bottom_right",
-              ],
-            },
-            // Show anchor selector only when position mode is anchor
-            isVisible: ({ positionMode }) => positionMode === "anchor",
           },
           {
             label: "Padding",
             name: "padding",
-            fieldType: "slider",
+            fieldType: "input",
             isTransformation: true,
             transformationKey: "padding",
             transformationGroup: "textLayer",
             helpText: "Specify padding around the text (in pixels).",
-            examples: ["10"],
-            fieldProps: {
-              min: 0,
-              max: 100,
-              step: 1,
-              defaultValue: 0,
-            },
+            examples: ["10", "iw_mul_2"],
           },
           {
             label: "Opacity",
-            name: "opacity",
+            name: "alpha",
             fieldType: "slider",
             isTransformation: true,
             transformationKey: "alpha",
             transformationGroup: "textLayer",
-            helpText: "Set opacity for the text overlay (0-100).",
-            examples: ["80"],
+            helpText: "Set opacity for the text overlay (1-9).",
             fieldProps: {
-              min: 0,
-              max: 100,
+              min: 1,
+              max: 9,
               step: 1,
-              defaultValue: 100,
+              defaultValue: 9,
+            },
+          },
+          {
+            label: "Radius",
+            name: "radius",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "radius",
+            transformationGroup: "textLayer",
+            helpText:
+              "Set the radius for the corner of the text overlay. Set to 'max' for circle or oval.",
+          },
+          {
+            label: "Flip",
+            name: "flip",
+            fieldType: "checkbox-card",
+            isTransformation: true,
+            transformationKey: "flip",
+            transformationGroup: "textLayer",
+            helpText: "Flip the text overlay horizontally or vertically.",
+            fieldProps: {
+              options: [
+                {
+                  label: "Horizontal",
+                  icon: PiFlipHorizontalFill,
+                  value: "horizontal",
+                },
+                {
+                  label: "Vertical",
+                  icon: PiFlipVerticalFill,
+                  value: "vertical",
+                },
+              ],
+              columns: 2,
+              defaultValue: [],
+            },
+          },
+          {
+            label: "Rotation",
+            name: "rotation",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationKey: "rotation",
+            transformationGroup: "textLayer",
+            helpText: "Rotate the text overlay (in degrees).",
+            fieldProps: {
+              min: -180,
+              max: 180,
+              step: 1,
+              defaultValue: "0",
             },
           },
         ],
@@ -2099,11 +2179,12 @@ export const transformationFormatters: Record<
   ) => void
 > = {
   background: (values, transforms) => {
-    const {
-      backgroundType,
-      backgroundBlurIntensity,
-      backgroundBlurBrightness,
-    } = values
+    let { backgroundType, backgroundBlurIntensity, backgroundBlurBrightness } =
+      values as Record<string, string>
+
+    if (backgroundBlurBrightness?.startsWith("-")) {
+      backgroundBlurBrightness = backgroundBlurBrightness.replace("-", "N")
+    }
 
     if (backgroundType === "color" && values.background) {
       transforms.background = (values.background as string).replace("#", "")
@@ -2202,6 +2283,8 @@ export const transformationFormatters: Record<
    * SDK's alpha range (1–9).
    */,
   textLayer: (values, transforms) => {
+    console.log(values)
+
     const overlay: any = { type: "text" }
 
     // Text content
@@ -2252,6 +2335,51 @@ export const transformationFormatters: Record<
         overlay.alpha = alpha
       }
     }
+
+    if ((values.flip as Array<string>)?.length) {
+      const flip = []
+      if ((values.flip as Array<string>).includes("horizontal")) {
+        flip.push("h")
+      }
+      if ((values.flip as Array<string>).includes("vertical")) {
+        flip.push("v")
+      }
+
+      overlayTransform.flip = flip.join("_")
+    }
+
+    if (values.rotation as number) {
+      overlayTransform.rotation =
+        (values.rotation as number) < 0
+          ? `N${Math.abs(values.rotation as number)}`
+          : (values.rotation as number)
+    }
+
+    if (values.radius === "max") {
+      overlayTransform.radius = "max"
+    } else if (values.radius as number) {
+      overlayTransform.radius = values.radius as number
+    }
+
+    if (values.alpha as number) {
+      overlayTransform.alpha = values.alpha as number
+    }
+
+    if (values.innerAlignment) {
+      overlayTransform.innerAlignment = values.innerAlignment
+    }
+
+    if ((values.typography as Array<string>)?.length) {
+      const typography = []
+      if ((values.typography as Array<string>).includes("bold")) {
+        typography.push("b")
+      }
+      if ((values.typography as Array<string>).includes("italic")) {
+        typography.push("i")
+      }
+      overlayTransform.typography = typography.join("_")
+    }
+
     // Assign the transformation array only if there are styling properties
     if (Object.keys(overlayTransform).length > 0) {
       overlay.transformation = [overlayTransform]
@@ -2265,12 +2393,11 @@ export const transformationFormatters: Record<
     if (values.positionY) {
       position.y = values.positionY
     }
-    if (values.anchor) {
-      position.focus = values.anchor
-    }
     if (Object.keys(position).length > 0) {
       overlay.position = position
     }
+
+    console.log(overlay)
 
     // Attach overlay to transforms
     transforms.overlay = overlay

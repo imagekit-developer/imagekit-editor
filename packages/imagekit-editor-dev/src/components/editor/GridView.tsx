@@ -49,7 +49,7 @@ export const GridView: FC<GridViewProps> = ({ imageSize, onAddImage }) => {
             </Flex>
           </Flex>
 
-          {imageList.map((imageSrc, index) => (
+          {imageList.map((imageSrc) => (
             <Hover display="block" key={imageSrc}>
               {(isHovered) => (
                 <Box
@@ -112,23 +112,26 @@ export const GridView: FC<GridViewProps> = ({ imageSize, onAddImage }) => {
                       icon={<Icon as={PiX} size="14px" />}
                     />
                   )}
-                  <Box
-                    overflow="hidden"
-                    width={`${imageSize}px`}
+
+                  <RetryableImage
+                    showRetryButton={false}
+                    compactError
+                    src={imageSrc}
+                    alt={`Image`}
                     height={`${imageSize}px`}
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    <RetryableImage
-                      src={imageSrc}
-                      maxWidth="100%"
-                      maxHeight="100%"
-                      objectFit="contain"
-                      alt={`Image ${index + 1}`}
-                      isLoading={isSigning}
-                    />
-                  </Box>
+                    width="auto"
+                    minWidth={`${imageSize}px`}
+                    objectFit="contain"
+                    borderRadius="md"
+                    borderWidth={currentImage === imageSrc ? "2px" : "1px"}
+                    borderStyle="solid"
+                    borderColor={
+                      currentImage === imageSrc
+                        ? "editorBlue.300"
+                        : "editorBattleshipGrey.100"
+                    }
+                    isLoading={isSigning}
+                  />
                 </Box>
               )}
             </Hover>

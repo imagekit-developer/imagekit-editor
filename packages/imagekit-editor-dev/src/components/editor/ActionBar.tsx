@@ -67,15 +67,14 @@ export const ActionBar: FC<ActionBarProps> = ({
       justifyContent="space-between"
       alignItems="center"
     >
-      <HStack spacing={4}>
+      <HStack spacing={4} flex="1" minW={0} overflow="hidden" mr={12}>
         <Button
           variant="ghost"
           size="md"
           fontWeight="medium"
           leftIcon={<Icon boxSize={4} as={PiImageSquare} />}
-          onClick={() => {
-            setShowOriginal(!showOriginal)
-          }}
+          onClick={() => setShowOriginal(!showOriginal)}
+          minWidth="48"
         >
           {showOriginal ? "Show Transformed" : "Show Original"}
         </Button>
@@ -87,8 +86,7 @@ export const ActionBar: FC<ActionBarProps> = ({
               h="6"
               borderColor="editorBattleshipGrey.200"
             />
-
-            <Text fontSize="md" fontWeight="medium">
+            <Text fontSize="md" fontWeight="medium" whiteSpace="nowrap">
               Dimensions:{" "}
               <Text as="span" fontWeight="normal">
                 {imageDimensions.width} x {imageDimensions.height}
@@ -102,19 +100,55 @@ export const ActionBar: FC<ActionBarProps> = ({
           h="6"
           borderColor="editorBattleshipGrey.200"
         />
-        <Link href={currentImage || ""} isExternal>
-          <Text fontSize="md" fontWeight="medium">
-            <Text as="span" fontWeight="normal" mr="2">
-              {decodeURIComponent(
-                currentImage?.split("/").pop()?.split("?")?.[0] || "",
-              )}
-            </Text>
-            <ExternalLinkIcon />
-          </Text>
-        </Link>
+
+        <Box flex="1" minW={0}>
+          <Link href={currentImage || ""} isExternal>
+            <HStack spacing={1} minW={0} justifyContent="flex-start">
+              <Text as="span" fontSize="md" noOfLines={1} minW={0}>
+                {decodeURIComponent(
+                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
+                )}
+                {decodeURIComponent(
+                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
+                )}
+                {decodeURIComponent(
+                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
+                )}
+                {decodeURIComponent(
+                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
+                )}
+                {decodeURIComponent(
+                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
+                )}
+                {decodeURIComponent(
+                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
+                )}
+                {decodeURIComponent(
+                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
+                )}
+                {decodeURIComponent(
+                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
+                )}
+                {decodeURIComponent(
+                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
+                )}
+                {decodeURIComponent(
+                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
+                )}
+                {decodeURIComponent(
+                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
+                )}
+                {decodeURIComponent(
+                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
+                )}
+              </Text>
+              <ExternalLinkIcon flexShrink={0} />
+            </HStack>
+          </Link>
+        </Box>
       </HStack>
 
-      <HStack spacing={4}>
+      <HStack spacing={4} flexShrink={0}>
         {viewMode === "grid" && (
           <>
             <Flex alignItems="center" gap={4} width="200px">
@@ -149,7 +183,7 @@ export const ActionBar: FC<ActionBarProps> = ({
           <IconButton
             size="md"
             variant="ghost"
-            aria-label="Show Original"
+            aria-label="Toggle view"
             icon={
               <Icon
                 boxSize={6}
