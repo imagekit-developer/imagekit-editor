@@ -1,13 +1,17 @@
 import {
   Box,
-  Center,
+  Button,
+  chakra,
   Flex,
+  Icon,
   IconButton,
-  Spinner,
-  useColorModeValue,
+  shouldForwardProp,
 } from "@chakra-ui/react"
+import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
+import { PiCaretUp } from "@react-icons/all-files/pi/PiCaretUp"
 import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
 import { PiX } from "@react-icons/all-files/pi/PiX"
+import { isValidMotionProp, motion } from "framer-motion"
 import type { FC } from "react"
 import { useEditorStore } from "../../store"
 import Hover from "../common/Hover"
@@ -18,22 +22,53 @@ interface ToolbarProps {
   onSelectImage?: (imageSrc: string) => void
 }
 
+const MotionFlex = chakra(motion.div, {
+  shouldForwardProp: (prop) =>
+    isValidMotionProp(prop) || shouldForwardProp(prop),
+})
+
 export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
-  const { currentImage, imageList, setCurrentImage, removeImage, isSigning } =
-    useEditorStore()
-  const borderColor = useColorModeValue("blue.400", "blue.600")
+  const {
+    currentImage,
+    imageList,
+    setCurrentImage,
+    removeImage,
+    isSigning,
+    _internalState,
+    _setIsToolbarCollapsed,
+  } = useEditorStore()
+
+  const isCollapsed = _internalState.isToolbarCollapsed
 
   return (
-    <Flex
+    <MotionFlex
+      display="flex"
       width="full"
-      py="3"
+      animate={isCollapsed ? "collapsed" : "expanded"}
+      variants={{
+        collapsed: {
+          translateY: "100%",
+          transition: { duration: 0.3, ease: "easeInOut" },
+        },
+        expanded: {
+          translateY: "0%",
+          transition: { duration: 0.3, ease: "easeInOut" },
+        },
+      }}
       h={44}
+      py={3}
+      initial={isCollapsed ? "collapsed" : "expanded"}
       borderTop="1px"
-      borderColor="gray.200"
+      borderColor="editorBattleshipGrey.100"
       justifyContent="center"
       alignItems="center"
       bg="white"
-      maxW={"calc(100vw - 2*var(--chakra-space-72))"}
+      maxW={
+        _internalState.sidebarState === "none"
+          ? "calc(100vw - var(--chakra-space-64) - var(--chakra-space-6))"
+          : "calc(100vw - var(--chakra-space-72) - var(--chakra-space-80) - var(--chakra-space-2))"
+      }
+      position="relative"
     >
       <Flex
         position="sticky"
@@ -59,8 +94,8 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
 
       <Box
         flex={1}
+        minW={0}
         overflowX="auto"
-        overflowY="hidden"
         py={3}
         display="block"
         whiteSpace="nowrap"
@@ -89,32 +124,48 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
                     opacity={currentImage === imageSrc || isHovered ? 1 : 0.7}
                     transition="all 0.2s"
                     borderRadius="md"
-                    overflow="hidden"
                     h={32}
                     w={40}
                   >
                     {isHovered && (
-                      <Box
+                      <IconButton
+                        variant="unstyled"
                         position="absolute"
-                        top={1}
-                        right={1}
+                        minW="6"
+                        h="6"
+                        top={0}
+                        right={0}
                         zIndex={2}
-                        opacity={1}
                         transition="opacity 0.2s"
                         display="flex"
                         alignItems="center"
                         justifyContent="center"
                         borderRadius="full"
-                        bg="rgba(0, 0, 0, 0.6)"
-                        p={0.5}
+                        bg="white"
+                        border="1px solid"
+                        borderColor="editorBattleshipGrey.100"
+                        transform="translateY(-40%) translateX(40%)"
+                        disabled={imageList.length === 1}
+                        _disabled={{
+                          background: "editorBattleshipGrey.100",
+                          cursor: "not-allowed",
+                          color: "editorBattleshipGrey.400",
+                          "&:hover": {
+                            background:
+                              "var(--chakra-colors-editorBattleshipGrey-100) !important",
+                            cursor: "not-allowed",
+                            color:
+                              "var(--chakra-colors-editorBattleshipGrey-400) !important",
+                          },
+                        }}
+                        boxShadow="md"
                         onClick={(e) => {
                           e.stopPropagation()
                           removeImage(imageSrc)
                         }}
                         aria-label="Remove image"
-                      >
-                        <PiX color="white" size="14px" />
-                      </Box>
+                        icon={<Icon as={PiX} size="14px" />}
+                      />
                     )}
                     <RetryableImage
                       showRetryButton={false}
@@ -127,13 +178,10 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
                       objectFit="cover"
                       borderRadius="md"
                       border="2px solid"
-                      fallback={
-                        <Center h="full" w="full">
-                          <Spinner />
-                        </Center>
-                      }
                       borderColor={
-                        currentImage === imageSrc ? borderColor : "transparent"
+                        currentImage === imageSrc
+                          ? "editorBlue.300"
+                          : "transparent"
                       }
                       isLoading={isSigning}
                     />
@@ -144,6 +192,25 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
           })}
         </Flex>
       </Box>
-    </Flex>
+
+      <Button
+        aria-label={isCollapsed ? "Add more images" : "Hide toolbar"}
+        leftIcon={isCollapsed ? <PiCaretUp /> : <PiCaretDown />}
+        onClick={() => _setIsToolbarCollapsed(!isCollapsed)}
+        size="md"
+        position="absolute"
+        right={10}
+        bottom="100%"
+        marginBottom={0}
+        alignItems="center"
+        justifyContent="center"
+        bg="white"
+        borderRadius={0}
+        borderWidth="1px"
+        borderColor="var(--chakra-colors-editorBattleshipGrey-100)"
+      >
+        {isCollapsed ? "Add more images" : "Hide toolbar"}
+      </Button>
+    </MotionFlex>
   )
 }

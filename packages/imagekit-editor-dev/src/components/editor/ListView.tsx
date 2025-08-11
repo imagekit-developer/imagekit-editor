@@ -9,7 +9,10 @@ interface ListViewProps {
 }
 
 export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
-  const { currentImage, setCurrentImage, isSigning } = useEditorStore()
+  const { currentImage, setCurrentImage, isSigning, _internalState } =
+    useEditorStore()
+
+  const isCollapsed = _internalState.isToolbarCollapsed
 
   return (
     <>
@@ -31,9 +34,9 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
         >
           <RetryableImage
             src={currentImage}
-            maxH={
-              "calc(100vh - 2*var(--chakra-space-16) - var(--chakra-space-44) - 2*var(--chakra-space-4))"
-            }
+            maxH={`calc(100vh - 2*var(--chakra-space-16) - ${
+              isCollapsed ? "var(--chakra-space-12)" : "var(--chakra-space-44)"
+            } - 2*var(--chakra-space-4))`}
             maxW={
               "calc(100vw - 2*var(--chakra-space-96) - 2*var(--chakra-space-4))"
             }

@@ -204,7 +204,14 @@ export const RetryableImage: React.FC<RetryableImageProps> = ({
         transition="opacity 0.2s"
       />
       {isLoading && (
-        <Center position="absolute" inset={0} bg="rgba(255, 255, 255, 0.6)">
+        <Center
+          position="absolute"
+          inset={0}
+          top="0"
+          left="0"
+          right="0"
+          bottom="0"
+        >
           <Spinner />
         </Center>
       )}

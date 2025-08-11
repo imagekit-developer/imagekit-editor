@@ -33,7 +33,7 @@ export function EditorLayout({ onAddImage, onClose, exportOptions }: Props) {
   return (
     <>
       <Header onClose={onClose} exportOptions={exportOptions} />
-      <Flex flexDirection="row" width="full" flexGrow={1}>
+      <Flex flexDirection="row" width="full" height="full" flexGrow={0}>
         <Sidebar />
         <Flex
           flex="1 0 0"

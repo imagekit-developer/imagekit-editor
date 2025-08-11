@@ -1,7 +1,9 @@
-import { Box, Flex, Icon, Text } from "@chakra-ui/react"
+import { Box, Flex, Icon, IconButton, Text } from "@chakra-ui/react"
 import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
+import { PiX } from "@react-icons/all-files/pi/PiX"
 import type { FC } from "react"
 import { useEditorStore } from "../../store"
+import Hover from "../common/Hover"
 import RetryableImage from "../RetryableImage"
 
 interface GridViewProps {
@@ -10,13 +12,13 @@ interface GridViewProps {
 }
 
 export const GridView: FC<GridViewProps> = ({ imageSize, onAddImage }) => {
-  const { currentImage, setCurrentImage, imageList, isSigning } =
+  const { currentImage, setCurrentImage, imageList, isSigning, removeImage } =
     useEditorStore()
   return (
     <Flex
       flex="1"
       padding={8}
-      overflow="auto"
+      overflowY="scroll"
       justifyContent="center"
       alignItems="flex-start"
       position="relative"
@@ -48,34 +50,88 @@ export const GridView: FC<GridViewProps> = ({ imageSize, onAddImage }) => {
           </Flex>
 
           {imageList.map((imageSrc, index) => (
-            <Box
-              key={imageSrc}
-              position="relative"
-              cursor="pointer"
-              onClick={() => setCurrentImage(imageSrc)}
-              borderWidth={imageSrc === currentImage ? "2px" : "1px"}
-              borderColor={imageSrc === currentImage ? "blue.500" : "gray.200"}
-              borderStyle="solid"
-              borderRadius="md"
-              overflow="hidden"
-              transition="all 0.2s"
-              _hover={{ transform: "scale(1.02)", boxShadow: "md" }}
-              width={`${imageSize}px`}
-              height={`${imageSize}px`}
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-              bg="white"
-            >
-              <RetryableImage
-                src={imageSrc}
-                maxWidth="100%"
-                maxHeight="100%"
-                objectFit="contain"
-                alt={`Image ${index + 1}`}
-                isLoading={isSigning}
-              />
-            </Box>
+            <Hover display="block" key={imageSrc}>
+              {(isHovered) => (
+                <Box
+                  key={imageSrc}
+                  position="relative"
+                  cursor="pointer"
+                  onClick={() => setCurrentImage(imageSrc)}
+                  borderWidth={imageSrc === currentImage ? "2px" : "1px"}
+                  borderColor={
+                    imageSrc === currentImage ? "blue.500" : "gray.200"
+                  }
+                  borderStyle="solid"
+                  borderRadius="md"
+                  transition="all 0.2s"
+                  _hover={{ transform: "scale(1.02)", boxShadow: "md" }}
+                  width={`${imageSize}px`}
+                  height={`${imageSize}px`}
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  bg="white"
+                >
+                  {isHovered && (
+                    <IconButton
+                      variant="unstyled"
+                      position="absolute"
+                      minW="6"
+                      h="6"
+                      top={0}
+                      right={0}
+                      zIndex={2}
+                      transition="opacity 0.2s"
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
+                      borderRadius="full"
+                      bg="white"
+                      border="1px solid"
+                      borderColor="editorBattleshipGrey.100"
+                      transform="translateY(-40%) translateX(40%)"
+                      disabled={imageList.length === 1}
+                      _disabled={{
+                        background: "editorBattleshipGrey.100",
+                        cursor: "not-allowed",
+                        color: "editorBattleshipGrey.400",
+                        "&:hover": {
+                          background:
+                            "var(--chakra-colors-editorBattleshipGrey-100) !important",
+                          cursor: "not-allowed",
+                          color:
+                            "var(--chakra-colors-editorBattleshipGrey-400) !important",
+                        },
+                      }}
+                      boxShadow="md"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removeImage(imageSrc)
+                      }}
+                      aria-label="Remove image"
+                      icon={<Icon as={PiX} size="14px" />}
+                    />
+                  )}
+                  <Box
+                    overflow="hidden"
+                    width={`${imageSize}px`}
+                    height={`${imageSize}px`}
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                  >
+                    <RetryableImage
+                      src={imageSrc}
+                      maxWidth="100%"
+                      maxHeight="100%"
+                      objectFit="contain"
+                      alt={`Image ${index + 1}`}
+                      isLoading={isSigning}
+                    />
+                  </Box>
+                </Box>
+              )}
+            </Hover>
           ))}
         </Flex>
       </Box>

@@ -19,7 +19,7 @@ const ColorPickerField = ({
   value: string
   setValue: (name: string, value: string) => void
 }) => {
-  const [localValue, setLocalValue] = useState<string>(value || "#FFFFFF")
+  const [localValue, setLocalValue] = useState<string>(value)
 
   const handleColorChange = (color: string) => {
     const parts = color.match(/[\d.]+/g)?.map(Number) ?? []
@@ -55,11 +55,11 @@ const ColorPickerField = ({
       <Flex>
         <Input
           size="md"
-          value={localValue || "#FFFFFF"}
+          value={localValue}
           onChange={(e) => {
             const newValue = e.target.value
-            if (newValue.match(/^#[0-9A-Fa-f]{0,8}$/) || newValue === "") {
-              setLocalValue(newValue || "#FFFFFF")
+            if (newValue.match(/^#[0-9A-Fa-f]{0,8}$/)) {
+              setLocalValue(newValue)
             }
           }}
           borderColor="gray.200"
@@ -82,7 +82,7 @@ const ColorPickerField = ({
               height="10"
               align="center"
               justify="center"
-              bg={localValue || "#FFFFFF"}
+              bg={localValue}
               borderWidth="1px"
               borderColor="gray.200"
               borderLeft="0"
@@ -93,7 +93,7 @@ const ColorPickerField = ({
           <PopoverContent p="2" width="auto" zIndex={1400}>
             <PopoverBody p="0">
               <ColorPicker
-                value={localValue || "#FFFFFF"}
+                value={localValue}
                 onChange={handleColorChange}
                 disableDarkMode
                 hideGradientType
