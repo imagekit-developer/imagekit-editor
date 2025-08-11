@@ -151,7 +151,8 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
                         border="1px solid"
                         borderColor="editorBattleshipGrey.100"
                         transform="translateY(-40%) translateX(40%)"
-                        disabled={imageList.length === 1}
+                        isLoading={isSigning}
+                        isDisabled={imageList.length === 1}
                         _disabled={{
                           background: "editorBattleshipGrey.100",
                           cursor: "not-allowed",

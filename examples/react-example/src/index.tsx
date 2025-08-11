@@ -48,7 +48,8 @@ function App() {
       },
       signer: async (request) => {
         console.log(request)
-        await new Promise((resolve) => setTimeout(resolve, 4000))
+        await new Promise((resolve) => setTimeout(resolve, 10000))
+        console.log("Signed URL", request.url)
         return Promise.resolve(request.url)
       },
     })
