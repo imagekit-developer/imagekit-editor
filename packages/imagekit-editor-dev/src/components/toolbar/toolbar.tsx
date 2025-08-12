@@ -49,7 +49,7 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
         justifyContent="center"
         bg="white"
         px={4}
-        zIndex={11}
+        zIndex={2}
       >
         <IconButton
           aria-label="Add new image"

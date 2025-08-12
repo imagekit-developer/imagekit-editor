@@ -849,7 +849,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationGroup: "background",
             isTransformation: true,
             helpText: "When using colour padding, enter a hex code.",
-            examples: ["FFFFFF", "white"],
+            examples: ["FFFFFF", "FF0000"],
             isVisible: ({ backgroundType }) => backgroundType === "color",
           },
           {
