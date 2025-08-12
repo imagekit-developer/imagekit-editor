@@ -66,10 +66,10 @@ export const transformationSchema: TransformationSchema[] = [
         // When using the pad resize crop strategy, ImageKit resizes the image to the
         // requested width and/or height while preserving the original aspect ratio.
         // Any remaining space is filled with a background, which can be a solid
-        // colour, a blurred version of the image or a generative fill. This
+        // color, a blurred version of the image or a generative fill. This
         // strategy never crops the image content.
         description:
-          "Resize an image to fit within the specified width and height while preserving its aspect ratio. Any extra space is padded with a background colour, a blurred version of the image, or an AI-generated fill.",
+          "Resize an image to fit within the specified width and height while preserving its aspect ratio. Any extra space is padded with a background color, a blurred version of the image, or an AI-generated fill.",
         docsLink:
           "https://imagekit.io/docs/image-resize-and-crop#pad-resize-crop-strategy-cm-pad_resize",
         defaultTransformation: { cropMode: "pad_resize" },
@@ -776,9 +776,9 @@ export const transformationSchema: TransformationSchema[] = [
         // Pad extract crops a region from the image like extract, but if the
         // cropped region is smaller than the requested dimensions it pads the
         // remaining area. This allows you to centre or position a subject and
-        // fill unused space with a solid colour or generative fill.
+        // fill unused space with a solid color or generative fill.
         description:
-          "Extract a region from the image and pad it to match the requested dimensions. Use a solid colour or an AI-generated fill for the padding and optionally set a focus point.",
+          "Extract a region from the image and pad it to match the requested dimensions. Use a solid color or an AI-generated fill for the padding and optionally set a focus point.",
         docsLink:
           "https://imagekit.io/docs/image-resize-and-crop#pad-extract-crop-strategy-cm-pad_extract",
         defaultTransformation: { cropMode: "pad_extract" },
@@ -848,7 +848,7 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "color-picker",
             transformationGroup: "background",
             isTransformation: true,
-            helpText: "When using colour padding, enter a hex code.",
+            helpText: "When using color padding, enter a hex code.",
             examples: ["FFFFFF", "FF0000"],
             isVisible: ({ backgroundType }) => backgroundType === "color",
           },
@@ -1377,7 +1377,7 @@ export const transformationSchema: TransformationSchema[] = [
         key: "effect-edit",
         name: "Edit Image using AI",
         description:
-          "Use AI to modify the image based on a descriptive prompt. Add or remove objects or alter colours and textures.",
+          "Use AI to modify the image based on a descriptive prompt. Add or remove objects or alter colors and textures.",
         docsLink:
           "https://imagekit.io/docs/ai-transformations#edit-image-e-edit",
         defaultTransformation: {},
@@ -1528,7 +1528,7 @@ export const transformationSchema: TransformationSchema[] = [
         key: "effect-genvar",
         name: "Generate Variations",
         description:
-          "Create a new variation of the original image using AI, altering colours and textures while preserving the structure.",
+          "Create a new variation of the original image using AI, altering colors and textures while preserving the structure.",
         docsLink:
           "https://imagekit.io/docs/ai-transformations#generate-variations-e-genvar",
         defaultTransformation: {},
@@ -1705,7 +1705,7 @@ export const transformationSchema: TransformationSchema[] = [
         key: "layers-text",
         name: "Text Layer",
         description:
-          "Add a text overlay on top of the base image. Specify text content, font, size, colour, position and optional background or padding.",
+          "Add a text overlay on top of the base image. Specify text content, font, size, color, position and optional background or padding.",
         docsLink:
           "https://imagekit.io/docs/add-overlays-on-images#text-overlay-l-text",
         defaultTransformation: {},
@@ -1852,23 +1852,23 @@ export const transformationSchema: TransformationSchema[] = [
             },
           },
           {
-            label: "Colour",
+            label: "Color",
             name: "color",
             fieldType: "color-picker",
             isTransformation: true,
             transformationKey: "fontColor",
             transformationGroup: "textLayer",
-            helpText: "Select a colour for the text.",
+            helpText: "Select a color for the text.",
             examples: ["FFFFFF", "black"],
           },
           {
-            label: "Background Colour",
+            label: "Background Color",
             name: "backgroundColor",
             fieldType: "color-picker",
             isTransformation: true,
             transformationKey: "background",
             transformationGroup: "textLayer",
-            helpText: "Set a background colour for the text box.",
+            helpText: "Set a background color for the text box.",
             examples: ["FFFFFF", "black"],
           },
           {
@@ -2266,8 +2266,8 @@ export const transformationFormatters: Record<
    * Formatter for text overlays. Constructs an overlay object for the SDK based
    * on the provided group values. The resulting object is assigned to the
    * `overlay` key on the transforms object. Supported fields include text
-   * content, colour, font size, font family, position offsets or anchor, background
-   * colour, padding, and opacity. Opacity values (0–100) are mapped to the
+   * content, color, font size, font family, position offsets or anchor, background
+   * color, padding, and opacity. Opacity values (0–100) are mapped to the
    * SDK's alpha range (1–9).
    */,
   textLayer: (values, transforms) => {
