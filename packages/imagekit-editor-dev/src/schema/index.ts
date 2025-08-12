@@ -834,6 +834,7 @@ export const transformationSchema: TransformationSchema[] = [
             name: "backgroundType",
             fieldType: "select",
             isTransformation: false,
+            transformationGroup: "background",
             fieldProps: {
               options: [
                 { label: "Color", value: "color" },
@@ -845,7 +846,7 @@ export const transformationSchema: TransformationSchema[] = [
             label: "Background Color",
             name: "background",
             fieldType: "color-picker",
-            transformationKey: "background",
+            transformationGroup: "background",
             isTransformation: true,
             helpText: "When using colour padding, enter a hex code.",
             examples: ["FFFFFF", "white"],
@@ -855,7 +856,7 @@ export const transformationSchema: TransformationSchema[] = [
             label: "Background Generative Fill",
             name: "backgroundGenerativeFill",
             fieldType: "input",
-            transformationKey: "aiChangeBackground",
+            transformationGroup: "background",
             isTransformation: true,
             helpText:
               "When using AI generative padding, provide a text prompt describing the fill.",

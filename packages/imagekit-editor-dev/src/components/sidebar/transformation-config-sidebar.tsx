@@ -295,6 +295,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                     <Select
                       id={field.name}
                       placeholder="Select"
+                      menuPlacement="top"
                       options={field.fieldProps?.options?.map((option) => ({
                         value: option.value,
                         label: option.label,
@@ -330,6 +331,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                     <CreateableSelect
                       id={field.name}
                       placeholder="Select"
+                      menuPlacement="top"
                       options={field.fieldProps?.options?.map((option) => ({
                         value: option.value,
                         label: option.label,
