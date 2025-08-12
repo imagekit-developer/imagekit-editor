@@ -386,11 +386,36 @@ export const TransformationConfigSidebar: React.FC = () => {
                   <Flex justify="space-between" mb={1}>
                     <Input
                       id={`${field.name}-input`}
+                      type={field.fieldProps?.autoOption ? "text" : "number"}
                       fontSize="sm"
                       width="80px"
                       value={(watch(field.name) as string) || ""}
-                      defaultValue={field.fieldProps?.defaultValue}
-                      onChange={(e) => setValue(field.name, e.target.value)}
+                      defaultValue={field.fieldProps?.defaultValue as number}
+                      onChange={(e) => {
+                        if (
+                          field.fieldProps?.autoOption &&
+                          e.target.value?.match(/au?t?o?/)
+                        ) {
+                          setValue(field.name, "auto")
+                        } else if (
+                          field.fieldProps?.step &&
+                          Number(e.target.value) % field.fieldProps?.step !== 0
+                        ) {
+                          return
+                        } else if (
+                          field.fieldProps?.min &&
+                          Number(e.target.value) < field.fieldProps?.min
+                        ) {
+                          setValue(field.name, field.fieldProps?.min)
+                        } else if (
+                          field.fieldProps?.max &&
+                          Number(e.target.value) > field.fieldProps?.max
+                        ) {
+                          setValue(field.name, field.fieldProps?.max)
+                        } else {
+                          setValue(field.name, Number(e.target.value))
+                        }
+                      }}
                     />
                     {field.fieldProps?.autoOption && (
                       <Button

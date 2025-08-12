@@ -31,7 +31,7 @@ export interface RetryableImageProps extends ImageProps {
 }
 
 export const RetryableImage: React.FC<RetryableImageProps> = ({
-  maxRetries = 3,
+  maxRetries = 10,
   retryDelay = 10000,
   fallbackContent,
   onRetryExhausted,

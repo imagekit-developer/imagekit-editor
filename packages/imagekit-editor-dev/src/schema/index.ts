@@ -1086,12 +1086,18 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Blur",
             name: "blur",
-            fieldType: "input",
+            fieldType: "slider",
             isTransformation: true,
             transformationKey: "blur",
             helpText:
-              "Enter a blur radius to control the intensity of the Gaussian blur.",
+              "Enter a blur radius to control the intensity of the Gaussian blur. Possible values include integers between 1 and 100.",
             examples: ["10"],
+            fieldProps: {
+              min: 0,
+              max: 100,
+              step: 1,
+              defaultValue: 10,
+            },
           },
         ],
       },
@@ -1104,7 +1110,7 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            rotate: z.coerce.number().optional(),
+            rotate: z.union([z.literal("auto"), z.coerce.number()]).optional(),
           })
           .refine(
             (val) => {
@@ -1124,12 +1130,18 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Rotate",
             name: "rotate",
-            fieldType: "input",
+            fieldType: "slider",
             isTransformation: true,
             transformationKey: "rt",
             helpText:
-              "Enter degrees to rotate the image clockwise. Prefix with 'N' for counter-clockwise rotation or use 'auto' to rotate based on EXIF data.",
-            examples: ["90", "N45", "auto"],
+              "Specify rotation angle in degrees (positive for clockwise, negative for counter-clockwise). Select 'auto' to use the image's EXIF orientation data.",
+            fieldProps: {
+              min: -180,
+              max: 180,
+              step: 1,
+              defaultValue: "auto",
+              autoOption: true,
+            },
           },
         ],
       },
@@ -1161,18 +1173,27 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Flip",
             name: "flip",
-            fieldType: "select",
+            fieldType: "checkbox-card",
             isTransformation: true,
             transformationKey: "fl",
+            transformationGroup: "flip",
             helpText:
               "Choose how to flip the image: horizontally, vertically, or both.",
-            examples: ["h", "v", "h_v"],
             fieldProps: {
               options: [
-                { label: "Horizontal", value: "h" },
-                { label: "Vertical", value: "v" },
-                { label: "Both", value: "h_v" },
+                {
+                  label: "Horizontal",
+                  icon: PiFlipHorizontalFill,
+                  value: "horizontal",
+                },
+                {
+                  label: "Vertical",
+                  icon: PiFlipVerticalFill,
+                  value: "vertical",
+                },
               ],
+              columns: 2,
+              defaultValue: [],
             },
           },
         ],
@@ -1186,7 +1207,7 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            radius: z.coerce.number().optional(),
+            radius: z.union([z.literal("max"), z.coerce.number().min(0)]),
           })
           .refine(
             (val) => {
@@ -2458,5 +2479,18 @@ export const transformationFormatters: Record<
 
     // Assign overlay to transforms
     transforms.overlay = overlay
+  },
+  flip: (values, transforms) => {
+    if ((values.flip as Array<string>)?.length) {
+      const flip = []
+      if ((values.flip as Array<string>).includes("horizontal")) {
+        flip.push("h")
+      }
+      if ((values.flip as Array<string>).includes("vertical")) {
+        flip.push("v")
+      }
+
+      transforms.flip = flip.join("_")
+    }
   },
 }
