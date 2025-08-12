@@ -791,7 +791,6 @@ export const transformationSchema: TransformationSchema[] = [
               .union([z.literal("").transform(() => ""), colorValidator])
               .optional(),
             backgroundGenerativeFill: z.string().optional(),
-            focus: z.string().optional(),
           })
           .refine(
             (val) => {
@@ -845,11 +844,10 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Background Color",
             name: "background",
-            fieldType: "input",
+            fieldType: "color-picker",
             transformationKey: "background",
             isTransformation: true,
-            helpText:
-              "When using colour padding, enter a hex code or colour name.",
+            helpText: "When using colour padding, enter a hex code.",
             examples: ["FFFFFF", "white"],
             isVisible: ({ backgroundType }) => backgroundType === "color",
           },
@@ -864,26 +862,6 @@ export const transformationSchema: TransformationSchema[] = [
             examples: ["mountain landscape"],
             isVisible: ({ backgroundType }) =>
               backgroundType === "generative_fill",
-          },
-          {
-            label: "Focus",
-            name: "focus",
-            fieldType: "select",
-            isTransformation: true,
-            transformationKey: "focus",
-            fieldProps: {
-              options: [
-                { label: "Center", value: "center" },
-                { label: "Top Left", value: "top_left" },
-                { label: "Top Right", value: "top_right" },
-                { label: "Bottom Left", value: "bottom_left" },
-                { label: "Bottom Right", value: "bottom_right" },
-                { label: "Top", value: "top" },
-                { label: "Bottom", value: "bottom" },
-                { label: "Left", value: "left" },
-                { label: "Right", value: "right" },
-              ],
-            },
           },
         ],
       },
