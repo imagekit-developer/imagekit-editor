@@ -43,7 +43,6 @@ export type Signer<Metadata extends RequiredMetadata = RequiredMetadata> = (
 
 interface InternalState {
   sidebarState: "none" | "type" | "config"
-  isToolbarCollapsed: boolean
   selectedTransformationKey: string | null
   transformationToEdit:
     | {
@@ -103,7 +102,6 @@ export type EditorActions<
   setShowOriginal: (showOriginal: boolean) => void
 
   _setSidebarState: (state: "none" | "type" | "config") => void
-  _setIsToolbarCollapsed: (isToolbarCollapsed: boolean) => void
   _setSelectedTransformationKey: (key: string | null) => void
   _setTransformationToEdit: (
     transformationId: string | null,
@@ -158,7 +156,6 @@ const useEditorStore = create<EditorState & EditorActions>()(
     currentTransformKey: "",
     _internalState: {
       sidebarState: "none",
-      isToolbarCollapsed: false,
       selectedTransformationKey: null,
       transformationToEdit: null,
     },
@@ -176,16 +173,6 @@ const useEditorStore = create<EditorState & EditorActions>()(
       }
       if (Object.keys(updates).length > 0) {
         set(updates as EditorState)
-      }
-
-      if (initialData?.imageList && initialData.imageList.length === 1) {
-        set((state) => ({
-          ...state,
-          _internalState: {
-            ...state._internalState,
-            isToolbarCollapsed: true,
-          },
-        }))
       }
     },
 
@@ -363,12 +350,6 @@ const useEditorStore = create<EditorState & EditorActions>()(
     _setSidebarState: (sidebarState) => {
       set((state) => ({
         _internalState: { ...state._internalState, sidebarState },
-      }))
-    },
-
-    _setIsToolbarCollapsed: (isToolbarCollapsed) => {
-      set((state) => ({
-        _internalState: { ...state._internalState, isToolbarCollapsed },
       }))
     },
 

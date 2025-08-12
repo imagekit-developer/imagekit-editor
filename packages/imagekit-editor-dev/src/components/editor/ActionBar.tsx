@@ -67,14 +67,13 @@ export const ActionBar: FC<ActionBarProps> = ({
       justifyContent="space-between"
       alignItems="center"
     >
-      <HStack spacing={4} flex="1" minW={0} overflow="hidden" mr={12}>
+      <HStack spacing={2} flex="1" minW={0} mr={8}>
         <Button
           variant="ghost"
           size="md"
           fontWeight="medium"
           leftIcon={<Icon boxSize={4} as={PiImageSquare} />}
           onClick={() => setShowOriginal(!showOriginal)}
-          minWidth="48"
         >
           {showOriginal ? "Show Transformed" : "Show Original"}
         </Button>
@@ -115,10 +114,10 @@ export const ActionBar: FC<ActionBarProps> = ({
         </Box>
       </HStack>
 
-      <HStack spacing={4} flexShrink={0}>
+      <HStack spacing={2} flexShrink={0}>
         {viewMode === "grid" && (
           <>
-            <Flex alignItems="center" gap={4} width="200px">
+            <Flex alignItems="center" gap={2} width="150px">
               <Icon as={PiImageSquare} boxSize={4} />
               <Slider
                 aria-label="Image size slider"

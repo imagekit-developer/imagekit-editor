@@ -1,19 +1,6 @@
-import {
-  Box,
-  Button,
-  Center,
-  chakra,
-  Flex,
-  Icon,
-  IconButton,
-  Spinner,
-  shouldForwardProp,
-} from "@chakra-ui/react"
-import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
-import { PiCaretUp } from "@react-icons/all-files/pi/PiCaretUp"
+import { Box, Center, Flex, Icon, IconButton, Spinner } from "@chakra-ui/react"
 import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
 import { PiX } from "@react-icons/all-files/pi/PiX"
-import { isValidMotionProp, motion } from "framer-motion"
 import type { FC } from "react"
 import { useEditorStore } from "../../store"
 import Hover from "../common/Hover"
@@ -24,11 +11,6 @@ interface ToolbarProps {
   onSelectImage?: (imageSrc: string) => void
 }
 
-const MotionFlex = chakra(motion.div, {
-  shouldForwardProp: (prop) =>
-    isValidMotionProp(prop) || shouldForwardProp(prop),
-})
-
 export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
   const {
     currentImage,
@@ -38,29 +20,14 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
     setCurrentImage,
     removeImage,
     _internalState,
-    _setIsToolbarCollapsed,
   } = useEditorStore()
 
-  const isCollapsed = _internalState.isToolbarCollapsed
-
   return (
-    <MotionFlex
+    <Flex
       display="flex"
       width="full"
-      animate={isCollapsed ? "collapsed" : "expanded"}
-      variants={{
-        collapsed: {
-          translateY: "100%",
-          transition: { duration: 0.3, ease: "easeInOut" },
-        },
-        expanded: {
-          translateY: "0%",
-          transition: { duration: 0.3, ease: "easeInOut" },
-        },
-      }}
       h={44}
       py={3}
-      initial={isCollapsed ? "collapsed" : "expanded"}
       borderTop="1px"
       borderColor="editorBattleshipGrey.100"
       justifyContent="center"
@@ -211,25 +178,6 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
           })}
         </Flex>
       </Box>
-
-      <Button
-        aria-label={isCollapsed ? "Add more images" : "Hide toolbar"}
-        leftIcon={isCollapsed ? <PiCaretUp /> : <PiCaretDown />}
-        onClick={() => _setIsToolbarCollapsed(!isCollapsed)}
-        size="md"
-        position="absolute"
-        right={10}
-        bottom="100%"
-        marginBottom={0}
-        alignItems="center"
-        justifyContent="center"
-        bg="white"
-        borderRadius={0}
-        borderWidth="1px"
-        borderColor="var(--chakra-colors-editorBattleshipGrey-100)"
-      >
-        {isCollapsed ? "Add more images" : "Hide toolbar"}
-      </Button>
-    </MotionFlex>
+    </Flex>
   )
 }
