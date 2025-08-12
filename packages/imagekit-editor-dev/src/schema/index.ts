@@ -907,7 +907,7 @@ export const transformationSchema: TransformationSchema[] = [
             name: "contrast",
             fieldType: "switch",
             isTransformation: true,
-            transformationKey: "contrast",
+            transformationKey: "contrastStretch",
             helpText:
               "Toggle to automatically stretch and enhance image contrast.",
           },
@@ -925,23 +925,16 @@ export const transformationSchema: TransformationSchema[] = [
         // Schema allows toggling the shadow effect and specifying optional blur, saturation and X/Y offsets.
         schema: z
           .object({
-            // Toggle to enable or disable the shadow effect
             shadow: z.coerce.boolean().optional(),
-            // Optional blur radius for the shadow (0–15). Accepts numeric or string input
-            shadowBlur: z.string().optional(),
-            // Optional saturation level for the shadow (0–100). Accepts numeric or string input
-            shadowSaturation: z.string().optional(),
-            // Optional horizontal offset; prefix negative values with N (e.g., N10 for -10%)
-            shadowOffsetX: z.string().optional(),
-            // Optional vertical offset; prefix negative values with N (e.g., N5 for -5%)
-            shadowOffsetY: z.string().optional(),
+            shadowBlur: z.coerce.number().optional(),
+            shadowSaturation: z.coerce.number().optional(),
+            shadowOffsetX: z.coerce.number().optional(),
+            shadowOffsetY: z.coerce.number().optional(),
           })
           .refine(
             (val) => {
               if (
-                Object.values(val).some(
-                  (v) => v !== undefined && v !== null && v !== "",
-                )
+                Object.values(val).some((v) => v !== undefined && v !== null)
               ) {
                 return true
               }
@@ -958,7 +951,7 @@ export const transformationSchema: TransformationSchema[] = [
             name: "shadow",
             fieldType: "switch",
             isTransformation: true,
-            transformationKey: "shadow",
+            transformationGroup: "shadow",
             helpText:
               "Toggle to add a non-AI shadow under objects in the image.",
           },
@@ -967,10 +960,9 @@ export const transformationSchema: TransformationSchema[] = [
             name: "shadowBlur",
             fieldType: "slider",
             isTransformation: true,
-            transformationKey: "shadow",
+            transformationGroup: "shadow",
             helpText:
               "Set the blur radius for the shadow. Higher values create a softer shadow.",
-            examples: ["5"],
             fieldProps: {
               min: 0,
               max: 15,
@@ -984,39 +976,48 @@ export const transformationSchema: TransformationSchema[] = [
             name: "shadowSaturation",
             fieldType: "slider",
             isTransformation: true,
-            transformationKey: "shadow",
+            transformationGroup: "shadow",
             helpText:
               "Adjust the saturation of the shadow. Higher values produce a darker shadow.",
-            examples: ["40"],
             fieldProps: {
               min: 0,
               max: 100,
               step: 1,
-              defaultValue: 40,
+              defaultValue: 30,
             },
             isVisible: ({ shadow }) => shadow === true,
           },
           {
             label: "X Offset",
             name: "shadowOffsetX",
-            fieldType: "input",
+            fieldType: "slider",
             isTransformation: true,
-            transformationKey: "shadow",
+            transformationGroup: "shadow",
             helpText:
-              "Enter the horizontal offset as a percentage of the image width. For negative values prefix with 'N'.",
-            examples: ["10", "N10"],
+              "Enter the horizontal offset as a percentage of the image width.",
             isVisible: ({ shadow }) => shadow === true,
+            fieldProps: {
+              min: -100,
+              max: 100,
+              step: 1,
+              defaultValue: 2,
+            },
           },
           {
             label: "Y Offset",
             name: "shadowOffsetY",
-            fieldType: "input",
+            fieldType: "slider",
             isTransformation: true,
-            transformationKey: "shadow",
+            transformationGroup: "shadow",
             helpText:
-              "Enter the vertical offset as a percentage of the image height. For negative values prefix with 'N'.",
-            examples: ["5", "N5"],
+              "Enter the vertical offset as a percentage of the image height.",
             isVisible: ({ shadow }) => shadow === true,
+            fieldProps: {
+              min: -100,
+              max: 100,
+              step: 1,
+              defaultValue: 2,
+            },
           },
         ],
       },
@@ -2241,7 +2242,11 @@ export const transformationFormatters: Record<
       shadowOffsetX !== null &&
       shadowOffsetX !== ""
     ) {
-      params.push(`x-${shadowOffsetX}`)
+      if (shadowOffsetX < 0) {
+        params.push(`x-N${Math.abs(shadowOffsetX)}`)
+      } else {
+        params.push(`x-${shadowOffsetX}`)
+      }
     }
     // Vertical offset; negative values should include N prefix as part of the value
     if (
@@ -2249,7 +2254,11 @@ export const transformationFormatters: Record<
       shadowOffsetY !== null &&
       shadowOffsetY !== ""
     ) {
-      params.push(`y-${shadowOffsetY}`)
+      if (shadowOffsetY < 0) {
+        params.push(`y-N${Math.abs(shadowOffsetY)}`)
+      } else {
+        params.push(`y-${shadowOffsetY}`)
+      }
     }
     // Compose the final transform string
     transforms.shadow = params.length > 0 ? `${params.join("_")}` : ""
