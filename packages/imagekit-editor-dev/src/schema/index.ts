@@ -2612,11 +2612,11 @@ export const transformationFormatters: Record<
     }
   },
   aiChangeBackground: (values, transforms) => {
-    if (values.aiChangeBackground) {
-      if (SIMPLE_OVERLAY_TEXT_REGEX.test(values.aiChangeBackground as string)) {
-        transforms.aiChangeBackground = `prompte-${encodeURIComponent(safeBtoa(values.aiChangeBackground as string))}`
+    if (values.changebg) {
+      if (SIMPLE_OVERLAY_TEXT_REGEX.test(values.changebg as string)) {
+        transforms.aiChangeBackground = `prompt-${values.changebg as string}`
       } else {
-        transforms.aiChangeBackground = `prompt-${values.aiChangeBackground as string}`
+        transforms.aiChangeBackground = `prompte-${encodeURIComponent(safeBtoa(values.changebg as string))}`
       }
     }
   },

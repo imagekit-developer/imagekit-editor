@@ -10,7 +10,7 @@ import {
   VStack,
 } from "@chakra-ui/react"
 import type React from "react"
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 export interface RetryableImageProps extends ImageProps {
   maxRetries?: number
@@ -131,13 +131,21 @@ export const RetryableImage: React.FC<RetryableImageProps> = ({
   )
 
   const handleLoad = useCallback(() => {
-    // Reset all error states on successful load
     setRetryCount(0)
     setHasError(false)
     setIsRetrying(false)
     setIsNonRetryableError(false)
     setErrorStatusCode(undefined)
   }, [])
+
+  useEffect(() => {
+    if (!imageProps.src) return
+    setRetryCount(0)
+    setHasError(false)
+    setIsRetrying(false)
+    setIsNonRetryableError(false)
+    setErrorStatusCode(undefined)
+  }, [imageProps.src])
 
   if (hasError && !isRetrying) {
     if (fallbackContent) {
