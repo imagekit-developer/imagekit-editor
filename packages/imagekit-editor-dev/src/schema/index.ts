@@ -2391,8 +2391,6 @@ export const transformationFormatters: Record<
    * SDK's alpha range (1–9).
    */,
   textLayer: (values, transforms) => {
-    console.log(values)
-
     const overlay: any = { type: "text" }
 
     // Text content
@@ -2491,9 +2489,6 @@ export const transformationFormatters: Record<
     if (Object.keys(position).length > 0) {
       overlay.position = position
     }
-
-    console.log(overlay)
-
     // Attach overlay to transforms
     transforms.overlay = overlay
   },
@@ -2594,6 +2589,7 @@ export const transformationFormatters: Record<
     if (values.positionY) {
       position.y = values.positionY
     }
+
     if (Object.keys(position).length > 0) {
       overlay.position = position
     }
