@@ -1751,7 +1751,9 @@ export const transformationSchema: TransformationSchema[] = [
               .enum(["left", "right", "center"])
               .default("center"),
             padding: z.coerce.number().optional(),
-            alpha: z.coerce.number().min(1).max(9).optional(),
+            alpha: z
+              .union([z.coerce.number().min(1).max(9), z.literal("")])
+              .optional(),
             typography: z
               .array(z.enum(["bold", "italic"]).optional())
               .optional(),
@@ -1939,7 +1941,6 @@ export const transformationSchema: TransformationSchema[] = [
               min: 1,
               max: 9,
               step: 1,
-              defaultValue: 9,
             },
           },
           {

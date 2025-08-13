@@ -206,6 +206,8 @@ export const TransformationConfigSidebar: React.FC = () => {
     }
   }
 
+  console.log(values)
+
   if (!selectedTransformation) {
     return null
   }
@@ -389,7 +391,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                       type={field.fieldProps?.autoOption ? "text" : "number"}
                       fontSize="sm"
                       width="80px"
-                      value={(watch(field.name) as string) || ""}
+                      value={(watch(field.name) as string) ?? ""}
                       defaultValue={field.fieldProps?.defaultValue as number}
                       onBlur={() => {
                         const currentVal = watch(field.name)

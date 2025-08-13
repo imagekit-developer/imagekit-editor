@@ -33,6 +33,7 @@ export const GridView: FC<GridViewProps> = ({ imageSize, onAddImage }) => {
       flex="1"
       padding={8}
       overflowY="scroll"
+      maxHeight="calc(100vh - 2*var(--chakra-sizes-16))"
       justifyContent="center"
       alignItems="flex-start"
       position="relative"
