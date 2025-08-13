@@ -1605,7 +1605,7 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            format: z.coerce.boolean().optional(),
+            format: z.string().optional(),
           })
           .refine(
             (val) => {
