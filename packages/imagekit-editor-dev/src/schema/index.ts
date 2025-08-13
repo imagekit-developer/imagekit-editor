@@ -2623,12 +2623,12 @@ export const transformationFormatters: Record<
   rotate: (values, transforms) => {
     if (typeof values.rotate === "number") {
       if (values.rotate < 0) {
-        transforms.rotate = `N${Math.abs(values.rotate)}`
+        transforms.rotation = `N${Math.abs(values.rotate)}`
       } else {
-        transforms.rotate = values.rotate
+        transforms.rotation = values.rotate
       }
     } else if (values.rotate === "auto") {
-      transforms.rotate = "auto"
+      transforms.rotation = "auto"
     }
   },
 }
