@@ -1,6 +1,6 @@
 {
   "name": "@imagekit/editor",
-  "version": "0.0.32",
+  "version": "0.0.33",
   "description": "Image Editor powered by ImageKit",
   "main": "dist/index.cjs.js",
   "module": "dist/index.es.js",
