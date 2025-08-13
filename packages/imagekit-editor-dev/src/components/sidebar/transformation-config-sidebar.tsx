@@ -295,7 +295,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                     <Select
                       id={field.name}
                       placeholder="Select"
-                      menuPlacement="top"
+                      menuPlacement="auto"
                       options={field.fieldProps?.options?.map((option) => ({
                         value: option.value,
                         label: option.label,
@@ -331,7 +331,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                     <CreateableSelect
                       id={field.name}
                       placeholder="Select"
-                      menuPlacement="top"
+                      menuPlacement="auto"
                       options={field.fieldProps?.options?.map((option) => ({
                         value: option.value,
                         label: option.label,
@@ -391,29 +391,47 @@ export const TransformationConfigSidebar: React.FC = () => {
                       width="80px"
                       value={(watch(field.name) as string) || ""}
                       defaultValue={field.fieldProps?.defaultValue as number}
+                      onBlur={() => {
+                        const currentVal = watch(field.name)
+                        if (currentVal === "" || currentVal === undefined) {
+                          setValue(
+                            field.name,
+                            field.fieldProps?.defaultValue ?? "",
+                          )
+                        }
+                      }}
                       onChange={(e) => {
+                        const val = e.target.value
+
+                        if (val === "") {
+                          setValue(field.name, "")
+                          return
+                        }
+
                         if (
                           field.fieldProps?.autoOption &&
-                          e.target.value?.match(/au?t?o?/)
+                          val.match(/au?t?o?/i)
                         ) {
                           setValue(field.name, "auto")
                         } else if (
                           field.fieldProps?.step &&
-                          Number(e.target.value) % field.fieldProps?.step !== 0
+                          !Number.isInteger(
+                            Number(val) / field.fieldProps?.step,
+                          )
                         ) {
                           return
                         } else if (
-                          field.fieldProps?.min &&
-                          Number(e.target.value) < field.fieldProps?.min
+                          field.fieldProps?.min !== undefined &&
+                          Number(val) < field.fieldProps.min
                         ) {
-                          setValue(field.name, field.fieldProps?.min)
+                          setValue(field.name, field.fieldProps.min)
                         } else if (
-                          field.fieldProps?.max &&
-                          Number(e.target.value) > field.fieldProps?.max
+                          field.fieldProps?.max !== undefined &&
+                          Number(val) > field.fieldProps.max
                         ) {
-                          setValue(field.name, field.fieldProps?.max)
+                          setValue(field.name, field.fieldProps.max)
                         } else {
-                          setValue(field.name, Number(e.target.value))
+                          setValue(field.name, val)
                         }
                       }}
                     />

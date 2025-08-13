@@ -46,7 +46,13 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
   ref: React.Ref<ImageKitEditorRef>,
 ) {
   const { theme, initialImages, signer } = props
-  const { addImage, addImages, setCurrentImage, initialize } = useEditorStore()
+  const { addImage, addImages, setCurrentImage, initialize, destroy } =
+    useEditorStore()
+
+  const handleOnClose = () => {
+    destroy()
+    props.onClose()
+  }
 
   React.useEffect(() => {
     if (
@@ -84,7 +90,7 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
         <EditorWrapper>
           <EditorLayout
             onAddImage={props.onAddImage}
-            onClose={props.onClose}
+            onClose={handleOnClose}
             exportOptions={props.exportOptions}
           />
         </EditorWrapper>

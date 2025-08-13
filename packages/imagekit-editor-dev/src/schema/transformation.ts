@@ -6,7 +6,7 @@ const widthNumber = z.coerce.number().min(0, {
 
 const widthExpr = z
   .string()
-  .regex(/^(?:iw|bw|cw)_(?:add|sub|mul|div|mod|pow)_(\d+\.\d{1,2})?$/, {
+  .regex(/^(?:iw|bw|cw)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/, {
     message: "Width string must be a valid expression string",
   })
 
@@ -28,7 +28,7 @@ const heightNumber = z.coerce.number().min(0, {
 })
 const heightExpr = z
   .string()
-  .regex(/^(?:ih|bh|ch)_(?:add|sub|mul|div|mod|pow)_\d+$/, {
+  .regex(/^(?:ih|bh|ch)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/, {
     message: "Height string must be a valid expression string",
   })
 
@@ -70,5 +70,49 @@ export const aspectRatioValidator = z.any().superRefine((val, ctx) => {
   ctx.addIssue({
     code: z.ZodIssueCode.custom,
     message: "Aspect ratio must be a valid value or expression string",
+  })
+})
+
+const layerXNumber = z.coerce.number().min(0, {
+  message: "Layer X must be a positive number",
+})
+
+const layerXExpr = z
+  .string()
+  .regex(/^(?:bw|cw)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/)
+
+export const layerXValidator = z.any().superRefine((val, ctx) => {
+  if (val === undefined || val === "") return
+  if (layerXNumber.safeParse(val).success) {
+    return
+  }
+  if (layerXExpr.safeParse(val).success) {
+    return
+  }
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: "Layer X must be a positive number or a valid expression string",
+  })
+})
+
+const layerYNumber = z.coerce.number().min(0, {
+  message: "Layer Y must be a positive number",
+})
+
+const layerYExpr = z
+  .string()
+  .regex(/^(?:bh|ch)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/)
+
+export const layerYValidator = z.any().superRefine((val, ctx) => {
+  if (val === undefined || val === "") return
+  if (layerYNumber.safeParse(val).success) {
+    return
+  }
+  if (layerYExpr.safeParse(val).success) {
+    return
+  }
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: "Layer Y must be a positive number or a valid expression string",
   })
 })

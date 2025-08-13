@@ -80,6 +80,7 @@ export type EditorActions<
     imageList?: Array<string | FileElement<Metadata>>
     signer?: Signer<Metadata>
   }) => void
+  destroy: () => void
   setCurrentImage: (imageSrc: string | undefined) => void
   addImage: (imageSrc: string | FileElement<Metadata>) => void
   addImages: (imageSrcs: Array<string | FileElement<Metadata>>) => void
@@ -141,24 +142,28 @@ function normalizeImage<Metadata extends RequiredMetadata = RequiredMetadata>(
   }
 }
 
+const DEFAULT_STATE: EditorState = {
+  currentImage: undefined,
+  originalImageList: [],
+  imageList: [],
+  transformations: initialTransformations,
+  visibleTransformations: initialVisibleTransformations,
+  showOriginal: false,
+  signer: undefined,
+  signingImages: {},
+  signingAbortControllers: {},
+  signedUrlCache: {},
+  currentTransformKey: "",
+  _internalState: {
+    sidebarState: "none",
+    selectedTransformationKey: null,
+    transformationToEdit: null,
+  },
+}
+
 const useEditorStore = create<EditorState & EditorActions>()(
   subscribeWithSelector((set, get) => ({
-    currentImage: undefined,
-    originalImageList: [],
-    imageList: [],
-    transformations: initialTransformations,
-    visibleTransformations: initialVisibleTransformations,
-    showOriginal: false,
-    signer: undefined,
-    signingImages: {},
-    signingAbortControllers: {},
-    signedUrlCache: {},
-    currentTransformKey: "",
-    _internalState: {
-      sidebarState: "none",
-      selectedTransformationKey: null,
-      transformationToEdit: null,
-    },
+    ...DEFAULT_STATE,
 
     initialize: (initialData) => {
       const updates: Partial<EditorState> = {}
@@ -174,6 +179,10 @@ const useEditorStore = create<EditorState & EditorActions>()(
       if (Object.keys(updates).length > 0) {
         set(updates as EditorState)
       }
+    },
+
+    destroy: () => {
+      set(DEFAULT_STATE)
     },
 
     // Actions

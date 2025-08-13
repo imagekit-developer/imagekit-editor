@@ -80,6 +80,11 @@ const AnchorField: React.FC<AnchorFieldProps> = ({
                 isDisabled={!positions.includes(position.value)}
                 onClick={() => onChange(position.value)}
                 borderRadius="md"
+                border={
+                  value === position.value
+                    ? "1px solid var(--chakra-colors-blue-500)"
+                    : "none"
+                }
                 _hover={{
                   bg: "blue.50",
                 }}

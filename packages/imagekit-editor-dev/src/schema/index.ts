@@ -12,6 +12,8 @@ import {
   aspectRatioValidator,
   colorValidator,
   heightValidator,
+  layerXValidator,
+  layerYValidator,
   widthValidator,
 } from "./transformation"
 
@@ -71,7 +73,7 @@ export const transformationSchema: TransformationSchema[] = [
         description:
           "Resize an image to fit within the specified width and height while preserving its aspect ratio. Any extra space is padded with a background color, a blurred version of the image, or an AI-generated fill.",
         docsLink:
-          "https://imagekit.io/docs/image-resize-and-crop#pad-resize-crop-strategy-cm-pad_resize",
+          "https://imagekit.io/docs/image-resize-and-crop#pad-resize-crop-strategy---cm-pad_resize",
         defaultTransformation: { cropMode: "pad_resize" },
         schema: z
           .object({
@@ -256,7 +258,7 @@ export const transformationSchema: TransformationSchema[] = [
         description:
           "Resize an image to the requested dimensions while preserving its aspect ratio. The image is scaled and cropped as necessary; specify width, height or an aspect ratio, and optionally set a focus area.",
         docsLink:
-          "https://imagekit.io/docs/image-resize-and-crop#maintain-ratio-crop-strategy-c-maintain_ratio",
+          "https://imagekit.io/docs/image-resize-and-crop#maintain-ratio-crop-strategy---c-maintain_ratio",
         defaultTransformation: { crop: "maintain_ratio" },
         schema: z
           .object({
@@ -400,7 +402,7 @@ export const transformationSchema: TransformationSchema[] = [
         description:
           "Resize an image to exactly the specified width and height, distorting the aspect ratio if necessary. The entire original image is preserved without cropping.",
         docsLink:
-          "https://imagekit.io/docs/image-resize-and-crop#forced-crop-c-force",
+          "https://imagekit.io/docs/image-resize-and-crop#forced-crop---c-force",
         defaultTransformation: { crop: "force" },
         schema: z
           .object({
@@ -503,7 +505,7 @@ export const transformationSchema: TransformationSchema[] = [
         description:
           "Resize the image so that it fits within the specified width and/or height. The aspect ratio is preserved and at least one dimension will match the request while the other may be smaller.",
         docsLink:
-          "https://imagekit.io/docs/image-resize-and-crop#max-size-crop-strategy-c-at_max",
+          "https://imagekit.io/docs/image-resize-and-crop#max-size-crop-strategy---c-at_max",
         defaultTransformation: { crop: "at_max" },
         schema: z
           .object({
@@ -559,7 +561,7 @@ export const transformationSchema: TransformationSchema[] = [
         description:
           "Resize the image so that it fits within the specified dimensions, preserving aspect ratio. If the target size is larger than the original image, the image will be upscaled.",
         docsLink:
-          "https://imagekit.io/docs/image-resize-and-crop#max-size-enlarge-crop-strategy-c-at_max_enlarge",
+          "https://imagekit.io/docs/image-resize-and-crop#max-size-enlarge-crop-strategy---c-at_max_enlarge",
         defaultTransformation: { crop: "at_max_enlarge" },
         schema: z
           .object({
@@ -615,7 +617,7 @@ export const transformationSchema: TransformationSchema[] = [
         description:
           "Resize the image so that it meets or exceeds the specified width and/or height. The aspect ratio is preserved and at least one dimension will match or exceed the request.",
         docsLink:
-          "https://imagekit.io/docs/image-resize-and-crop#min-size-crop-strategy-c-at_least",
+          "https://imagekit.io/docs/image-resize-and-crop#min-size-crop-strategy---c-at_least",
         defaultTransformation: { crop: "at_least" },
         schema: z
           .object({
@@ -677,7 +679,7 @@ export const transformationSchema: TransformationSchema[] = [
         description:
           "Extract a rectangular region from the original image without resizing. Specify width and height to define the area and optionally choose a focus point or object to position the crop.",
         docsLink:
-          "https://imagekit.io/docs/image-resize-and-crop#extract-crop-strategy-cm-extract",
+          "https://imagekit.io/docs/image-resize-and-crop#extract-crop-strategy---cm-extract",
         defaultTransformation: { cropMode: "extract" },
         schema: z
           .object({
@@ -780,7 +782,7 @@ export const transformationSchema: TransformationSchema[] = [
         description:
           "Extract a region from the image and pad it to match the requested dimensions. Use a solid color or an AI-generated fill for the padding and optionally set a focus point.",
         docsLink:
-          "https://imagekit.io/docs/image-resize-and-crop#pad-extract-crop-strategy-cm-pad_extract",
+          "https://imagekit.io/docs/image-resize-and-crop#pad-extract-crop-strategy---cm-pad_extract",
         defaultTransformation: { cropMode: "pad_extract" },
         schema: z
           .object({
@@ -881,7 +883,7 @@ export const transformationSchema: TransformationSchema[] = [
         description:
           "Enhance the tonal range of the image automatically by stretching the contrast. Dark areas become darker and light areas become lighter.",
         docsLink:
-          "https://imagekit.io/docs/effects-and-enhancements#contrast-stretch-e-contrast",
+          "https://imagekit.io/docs/effects-and-enhancements#contrast-stretch---e-contrast",
         defaultTransformation: {},
         schema: z
           .object({
@@ -920,7 +922,7 @@ export const transformationSchema: TransformationSchema[] = [
         description:
           "Add a non-AI shadow beneath objects in images with a transparent background. Use blur, saturation and offset controls to customise the shadow.",
         docsLink:
-          "https://imagekit.io/docs/effects-and-enhancements#shadow-e-shadow",
+          "https://imagekit.io/docs/effects-and-enhancements#shadow---e-shadow",
         defaultTransformation: {},
         // Schema allows toggling the shadow effect and specifying optional blur, saturation and X/Y offsets.
         schema: z
@@ -1026,7 +1028,7 @@ export const transformationSchema: TransformationSchema[] = [
         name: "Grayscale",
         description: "Convert the image to grayscale (black and white).",
         docsLink:
-          "https://imagekit.io/docs/effects-and-enhancements#grayscale-e-grayscale",
+          "https://imagekit.io/docs/effects-and-enhancements#grayscale---e-grayscale",
         defaultTransformation: {},
         schema: z
           .object({
@@ -1062,7 +1064,7 @@ export const transformationSchema: TransformationSchema[] = [
         name: "Blur",
         description:
           "Apply a Gaussian blur to the image. Higher values create a stronger blur effect.",
-        docsLink: "https://imagekit.io/docs/effects-and-enhancements#blur-bl",
+        docsLink: "https://imagekit.io/docs/effects-and-enhancements#blur---bl",
         defaultTransformation: {},
         schema: z
           .object({
@@ -1106,7 +1108,8 @@ export const transformationSchema: TransformationSchema[] = [
         name: "Rotate",
         description:
           "Rotate the image by a specified number of degrees clockwise or counter-clockwise, or automatically rotate based on EXIF orientation.",
-        docsLink: "https://imagekit.io/docs/effects-and-enhancements#rotate-rt",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#rotate---rt",
         defaultTransformation: {},
         schema: z
           .object({
@@ -1149,7 +1152,7 @@ export const transformationSchema: TransformationSchema[] = [
         key: "adjust-flip",
         name: "Flip",
         description: "Flip the image horizontally, vertically, or both.",
-        docsLink: "https://imagekit.io/docs/effects-and-enhancements#flip-fl",
+        docsLink: "https://imagekit.io/docs/effects-and-enhancements#flip---fl",
         defaultTransformation: {},
         schema: z
           .object({
@@ -1203,7 +1206,8 @@ export const transformationSchema: TransformationSchema[] = [
         name: "Radius",
         description:
           "Round the corners of the image. Specify a radius value to control how rounded the corners are, or use 'max' to make the image circular.",
-        docsLink: "https://imagekit.io/docs/effects-and-enhancements#radius-r",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#radius---r",
         defaultTransformation: {},
         schema: z
           .object({
@@ -1241,7 +1245,8 @@ export const transformationSchema: TransformationSchema[] = [
         name: "Opacity",
         description:
           "Adjust the opacity of the image to make it more or less transparent.",
-        docsLink: "https://imagekit.io/docs/effects-and-enhancements",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#opacity---o",
         defaultTransformation: {},
         schema: z
           .object({
@@ -1389,6 +1394,7 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "input",
             isTransformation: true,
             transformationKey: "aiChangeBackground",
+            transformationGroup: "aiChangeBackground",
             helpText: "Enter a descriptive prompt for the new background.",
             examples: ["snowy mountains", "sunset beach"],
           },
@@ -1551,7 +1557,7 @@ export const transformationSchema: TransformationSchema[] = [
         description:
           "Create a new variation of the original image using AI, altering colors and textures while preserving the structure.",
         docsLink:
-          "https://imagekit.io/docs/ai-transformations#generate-variations-e-genvar",
+          "https://imagekit.io/docs/ai-transformations#generate-variations-of-an-image-e-genvar",
         defaultTransformation: {},
         schema: z
           .object({
@@ -1577,7 +1583,7 @@ export const transformationSchema: TransformationSchema[] = [
             name: "genvar",
             fieldType: "switch",
             isTransformation: true,
-            transformationKey: "aiGenerateVariations",
+            transformationKey: "aiVariation",
             helpText:
               "Toggle to generate a new variation of the image using AI.",
           },
@@ -1678,8 +1684,7 @@ export const transformationSchema: TransformationSchema[] = [
         name: "DPR",
         description:
           "Set the device pixel ratio (DPR) to deliver images optimised for high-resolution displays. A higher DPR increases the pixel density of the delivered image.",
-        docsLink:
-          "https://imagekit.io/docs/transformations#device-pixel-ratio-dpr",
+        docsLink: "https://imagekit.io/docs/image-resize-and-crop#dpr---dpr",
         defaultTransformation: {},
         schema: z
           .object({
@@ -1703,12 +1708,14 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "DPR",
             name: "dpr",
+            helpText:
+              "Set this value to deliver images optimised for high-resolution displays. The value can be between 0.1 and 5.",
             fieldType: "slider",
             isTransformation: true,
             transformationKey: "dpr",
             fieldProps: {
               defaultValue: 1,
-              min: 0,
+              min: 0.1,
               max: 5,
               step: 0.1,
             },
@@ -1728,14 +1735,14 @@ export const transformationSchema: TransformationSchema[] = [
         description:
           "Add a text overlay on top of the base image. Specify text content, font, size, color, position and optional background or padding.",
         docsLink:
-          "https://imagekit.io/docs/add-overlays-on-images#text-overlay-l-text",
+          "https://imagekit.io/docs/add-overlays-on-images#add-text-over-image",
         defaultTransformation: {},
         schema: z
           .object({
             text: z.string(),
             width: widthValidator.optional(),
-            positionX: z.string().optional(),
-            positionY: z.string().optional(),
+            positionX: layerXValidator.optional(),
+            positionY: layerYValidator.optional(),
             fontSize: z.coerce.number().optional(),
             fontFamily: z.string().optional(),
             color: z.string().optional(),
@@ -1992,17 +1999,29 @@ export const transformationSchema: TransformationSchema[] = [
         description:
           "Overlay another image on top of the base image. Position, resize and set opacity for the overlaid image.",
         docsLink:
-          "https://imagekit.io/docs/add-overlays-on-images#image-overlay-l-image",
+          "https://imagekit.io/docs/add-overlays-on-images#add-images-over-image",
         defaultTransformation: {},
         schema: z
           .object({
             imageUrl: z.string().optional(),
-            width: z.string().optional(),
-            height: z.string().optional(),
-            positionX: z.string().optional(),
-            positionY: z.string().optional(),
+            width: widthValidator.optional(),
+            height: heightValidator.optional(),
+            crop: z.string().optional(),
+            positionX: layerXValidator.optional(),
+            positionY: layerYValidator.optional(),
             anchor: z.string().optional(),
             opacity: z.coerce.number().optional(),
+            backgroundColor: z.string().optional(),
+            radius: z
+              .union([z.literal("max"), z.coerce.number().min(0)])
+              .optional(),
+            flip: z
+              .array(z.enum(["horizontal", "vertical"]).optional())
+              .optional(),
+            rotation: z.coerce.number().optional(),
+            trim: z.coerce.boolean().optional(),
+            quality: z.coerce.number().optional(),
+            blur: z.coerce.number().optional(),
           })
           .refine(
             (val) => {
@@ -2034,7 +2053,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "width",
             transformationGroup: "imageLayer",
             helpText: "Specify the width of the overlay image.",
-            examples: ["100", "0.5"],
+            examples: ["100", "iw_div_2"],
           },
           {
             label: "Height",
@@ -2044,19 +2063,26 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "height",
             transformationGroup: "imageLayer",
             helpText: "Specify the height of the overlay image.",
-            examples: ["100", "0.5"],
+            examples: ["100", "ih_div_2"],
           },
           {
-            label: "Position Mode",
-            name: "positionMode",
+            label: "Crop",
+            name: "crop",
             fieldType: "select",
-            isTransformation: false,
+            isTransformation: true,
+            transformationKey: "crop",
+            transformationGroup: "imageLayer",
+            helpText: "Crop the overlay image.",
             fieldProps: {
               options: [
-                { label: "Custom (X/Y)", value: "custom" },
-                { label: "Anchor", value: "anchor" },
+                { label: "Select one", value: "" },
+                { label: "Force", value: "c-force" },
+                { label: "At max", value: "c-at_max" },
+                { label: "At least", value: "c-at_least" },
+                { label: "Extract", value: "cm-extract" },
+                { label: "Pad Resize", value: "cm-pad_resize" },
               ],
-              defaultValue: "custom",
+              defaultValue: "",
             },
           },
           {
@@ -2068,7 +2094,6 @@ export const transformationSchema: TransformationSchema[] = [
             transformationGroup: "imageLayer",
             helpText: "Specify the horizontal offset for the overlay image.",
             examples: ["10"],
-            isVisible: ({ positionMode }) => positionMode !== "anchor",
           },
           {
             label: "Position Y",
@@ -2079,32 +2104,6 @@ export const transformationSchema: TransformationSchema[] = [
             transformationGroup: "imageLayer",
             helpText: "Specify the vertical offset for the overlay image.",
             examples: ["10"],
-            isVisible: ({ positionMode }) => positionMode !== "anchor",
-          },
-          {
-            label: "Anchor",
-            name: "anchor",
-            fieldType: "anchor",
-            isTransformation: true,
-            transformationKey: "focus",
-            transformationGroup: "imageLayer",
-            helpText:
-              "Specify the anchor point for positioning the overlay image.",
-            fieldProps: {
-              positions: [
-                "center",
-                "top",
-                "bottom",
-                "left",
-                "right",
-                "top_left",
-                "top_right",
-                "bottom_left",
-                "bottom_right",
-              ],
-            },
-            // Show anchor selector only when position mode is anchor
-            isVisible: ({ positionMode }) => positionMode === "anchor",
           },
           {
             label: "Opacity",
@@ -2120,6 +2119,107 @@ export const transformationSchema: TransformationSchema[] = [
               max: 100,
               step: 1,
               defaultValue: 100,
+            },
+          },
+          {
+            label: "Background Color",
+            name: "backgroundColor",
+            fieldType: "color-picker",
+            isTransformation: true,
+            transformationKey: "background",
+            transformationGroup: "imageLayer",
+            helpText: "Set a background color for the overlay image.",
+          },
+          {
+            label: "Radius",
+            name: "radius",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "radius",
+            transformationGroup: "imageLayer",
+            helpText:
+              "Set the corner radius for the overlay image. Use 'max' for a circle or oval.",
+          },
+          {
+            label: "Flip",
+            name: "flip",
+            fieldType: "checkbox-card",
+            isTransformation: true,
+            transformationKey: "flip",
+            transformationGroup: "imageLayer",
+            helpText: "Flip the overlay image horizontally or vertically.",
+            fieldProps: {
+              options: [
+                {
+                  label: "Horizontal",
+                  icon: PiFlipHorizontalFill,
+                  value: "horizontal",
+                },
+                {
+                  label: "Vertical",
+                  icon: PiFlipVerticalFill,
+                  value: "vertical",
+                },
+              ],
+              columns: 2,
+              defaultValue: [],
+            },
+          },
+          {
+            label: "Rotation",
+            name: "rotation",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationKey: "rotation",
+            transformationGroup: "imageLayer",
+            helpText: "Rotate the overlay image (in degrees).",
+            fieldProps: {
+              min: -180,
+              max: 180,
+              step: 1,
+              defaultValue: "0",
+            },
+          },
+          {
+            label: "Trim",
+            name: "trim",
+            fieldType: "switch",
+            isTransformation: true,
+            transformationKey: "trim",
+            transformationGroup: "imageLayer",
+            helpText: "Control trimming of the overlay image.",
+            fieldProps: {
+              defaultValue: true,
+            },
+          },
+          {
+            label: "Quality",
+            name: "quality",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationKey: "quality",
+            transformationGroup: "imageLayer",
+            helpText: "Set the compression quality of the overlay image.",
+            fieldProps: {
+              min: 0,
+              max: 100,
+              step: 1,
+              defaultValue: 80,
+            },
+          },
+          {
+            label: "Blur",
+            name: "blur",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationKey: "blur",
+            transformationGroup: "imageLayer",
+            helpText: "Apply a Gaussian blur to the overlay image.",
+            fieldProps: {
+              min: 1,
+              max: 100,
+              step: 1,
+              defaultValue: "0",
             },
           },
         ],
@@ -2138,7 +2238,7 @@ export const transformationSchema: TransformationSchema[] = [
         name: "Raw Transformation",
         description:
           "Specify a raw ImageKit transformation string to be appended directly to the URL. Use this for advanced or unsupported transformations.",
-        docsLink: "https://imagekit.io/docs/transformations",
+        docsLink: "https://imagekit.io/docs/image-transformation",
         defaultTransformation: {},
         schema: z
           .object({
@@ -2162,8 +2262,7 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "textarea",
             isTransformation: true,
             transformationKey: "raw",
-            helpText:
-              "Enter any valid ImageKit transformation string. For example: w-300,h-300,cm-extract,x-10,y-20.",
+            helpText: "Enter any valid ImageKit transformation string.",
             examples: ["w-300,h-300,cm-extract,x-10,y-20"],
           },
         ],
@@ -2331,19 +2430,6 @@ export const transformationFormatters: Record<
     ) {
       overlayTransform.padding = values.padding
     }
-    // Convert opacity percentage (0–100) to alpha (1–9)
-    if (
-      values.opacity !== undefined &&
-      values.opacity !== null &&
-      values.opacity !== ""
-    ) {
-      const op = Number(values.opacity)
-      if (!Number.isNaN(op)) {
-        // Map 0–100 to 1–9: 0% => 1, 100% => 9
-        const alpha = Math.min(9, Math.max(1, Math.round((op / 100) * 8) + 1))
-        overlay.alpha = alpha
-      }
-    }
 
     if ((values.flip as Array<string>)?.length) {
       const flip = []
@@ -2445,6 +2531,57 @@ export const transformationFormatters: Record<
     ) {
       overlayTransform.height = values.height
     }
+
+    if (values.opacity) {
+      overlayTransform.opacity = values.opacity
+    }
+
+    if (values.backgroundColor) {
+      overlayTransform.backgroundColor = values.backgroundColor
+    }
+
+    if (values.radius === "max") {
+      overlayTransform.radius = "max"
+    } else if (values.radius as number) {
+      overlayTransform.radius = values.radius as number
+    }
+
+    if ((values.flip as Array<string>)?.length) {
+      const flip = []
+      if ((values.flip as Array<string>).includes("horizontal")) {
+        flip.push("h")
+      }
+      if ((values.flip as Array<string>).includes("vertical")) {
+        flip.push("v")
+      }
+
+      overlayTransform.flip = flip.join("_")
+    }
+
+    if (values.crop && typeof values.crop === "string") {
+      if (values.crop.startsWith("c-")) {
+        overlayTransform.crop = values.crop.replace("c-", "")
+      } else {
+        overlayTransform.cropMode = values.crop.replace("cm-", "")
+      }
+    }
+
+    if (values.rotation) {
+      overlayTransform.rotation = values.rotation
+    }
+
+    if (typeof values.trim === "boolean") {
+      overlayTransform.trim = values.trim
+    }
+
+    if (values.quality) {
+      overlayTransform.quality = values.quality
+    }
+
+    if (values.blur) {
+      overlayTransform.blur = values.blur
+    }
+
     if (Object.keys(overlayTransform).length > 0) {
       overlay.transformation = [overlayTransform]
     }
@@ -2457,24 +2594,8 @@ export const transformationFormatters: Record<
     if (values.positionY) {
       position.y = values.positionY
     }
-    if (values.anchor) {
-      position.focus = values.anchor
-    }
     if (Object.keys(position).length > 0) {
       overlay.position = position
-    }
-
-    // Opacity mapping
-    if (
-      values.opacity !== undefined &&
-      values.opacity !== null &&
-      values.opacity !== ""
-    ) {
-      const op = Number(values.opacity)
-      if (!Number.isNaN(op)) {
-        const alpha = Math.min(9, Math.max(1, Math.round((op / 100) * 8) + 1))
-        overlay.alpha = alpha
-      }
     }
 
     // Assign overlay to transforms
@@ -2491,6 +2612,15 @@ export const transformationFormatters: Record<
       }
 
       transforms.flip = flip.join("_")
+    }
+  },
+  aiChangeBackground: (values, transforms) => {
+    if (values.aiChangeBackground) {
+      if (SIMPLE_OVERLAY_TEXT_REGEX.test(values.aiChangeBackground as string)) {
+        transforms.aiChangeBackground = `prompte-${encodeURIComponent(safeBtoa(values.aiChangeBackground as string))}`
+      } else {
+        transforms.aiChangeBackground = `prompt-${values.aiChangeBackground as string}`
+      }
     }
   },
 }
