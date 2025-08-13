@@ -1136,6 +1136,7 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "slider",
             isTransformation: true,
             transformationKey: "rt",
+            transformationGroup: "rotate",
             helpText:
               "Specify rotation angle in degrees (positive for clockwise, negative for counter-clockwise). Select 'auto' to use the image's EXIF orientation data.",
             fieldProps: {
@@ -2617,6 +2618,17 @@ export const transformationFormatters: Record<
       } else {
         transforms.aiChangeBackground = `prompt-${values.aiChangeBackground as string}`
       }
+    }
+  },
+  rotate: (values, transforms) => {
+    if (typeof values.rotate === "number") {
+      if (values.rotate < 0) {
+        transforms.rotate = `N${Math.abs(values.rotate)}`
+      } else {
+        transforms.rotate = values.rotate
+      }
+    } else if (values.rotate === "auto") {
+      transforms.rotate = "auto"
     }
   },
 }

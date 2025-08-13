@@ -408,6 +408,11 @@ export const TransformationConfigSidebar: React.FC = () => {
                           return
                         }
 
+                        if (val === "-") {
+                          setValue(field.name, "-")
+                          return
+                        }
+
                         if (
                           field.fieldProps?.autoOption &&
                           val.match(/au?t?o?/i)
