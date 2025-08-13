@@ -402,7 +402,7 @@ export const transformationSchema: TransformationSchema[] = [
         description:
           "Resize an image to exactly the specified width and height, distorting the aspect ratio if necessary. The entire original image is preserved without cropping.",
         docsLink:
-          "https://imagekit.io/docs/image-resize-and-crop#forced-crop---c-force",
+          "https://imagekit.io/docs/image-resize-and-crop#forced-crop-strategy---c-force",
         defaultTransformation: { crop: "force" },
         schema: z
           .object({
@@ -505,7 +505,7 @@ export const transformationSchema: TransformationSchema[] = [
         description:
           "Resize the image so that it fits within the specified width and/or height. The aspect ratio is preserved and at least one dimension will match the request while the other may be smaller.",
         docsLink:
-          "https://imagekit.io/docs/image-resize-and-crop#max-size-crop-strategy---c-at_max",
+          "https://imagekit.io/docs/image-resize-and-crop#max-size-cropping-strategy---c-at_max",
         defaultTransformation: { crop: "at_max" },
         schema: z
           .object({
@@ -561,7 +561,7 @@ export const transformationSchema: TransformationSchema[] = [
         description:
           "Resize the image so that it fits within the specified dimensions, preserving aspect ratio. If the target size is larger than the original image, the image will be upscaled.",
         docsLink:
-          "https://imagekit.io/docs/image-resize-and-crop#max-size-enlarge-crop-strategy---c-at_max_enlarge",
+          "https://imagekit.io/docs/image-resize-and-crop#max-size-enlarge-cropping-strategy---c-at_max_enlarge",
         defaultTransformation: { crop: "at_max_enlarge" },
         schema: z
           .object({
@@ -617,7 +617,7 @@ export const transformationSchema: TransformationSchema[] = [
         description:
           "Resize the image so that it meets or exceeds the specified width and/or height. The aspect ratio is preserved and at least one dimension will match or exceed the request.",
         docsLink:
-          "https://imagekit.io/docs/image-resize-and-crop#min-size-crop-strategy---c-at_least",
+          "https://imagekit.io/docs/image-resize-and-crop#min-size-cropping-strategy---c-at_least",
         defaultTransformation: { crop: "at_least" },
         schema: z
           .object({
@@ -1601,7 +1601,7 @@ export const transformationSchema: TransformationSchema[] = [
         name: "Format",
         description:
           "Specify the output format for the image. Converting formats can reduce file size or improve compatibility.",
-        docsLink: "https://imagekit.io/docs/transformations#supported-formats",
+        docsLink: "https://imagekit.io/docs/image-optimization#format---f",
         defaultTransformation: {},
         schema: z
           .object({
@@ -1644,7 +1644,7 @@ export const transformationSchema: TransformationSchema[] = [
         name: "Quality",
         description:
           "Control the compression quality of the output image. Lower values reduce file size but may introduce artefacts; higher values preserve more detail.",
-        docsLink: "https://imagekit.io/docs/transformations#quality",
+        docsLink: "https://imagekit.io/docs/image-optimization#quality---q",
         defaultTransformation: {},
         schema: z
           .object({
