@@ -101,7 +101,13 @@ export const ActionBar: FC<ActionBarProps> = ({
         />
 
         <Box flex="1" minW={0}>
-          <Link href={currentImage || ""} isExternal>
+          <Link
+            href={currentImage || ""}
+            isExternal
+            _focus={{
+              boxShadow: "none",
+            }}
+          >
             <HStack spacing={1} minW={0} justifyContent="flex-start">
               <Text as="span" fontSize="md" noOfLines={1} minW={0}>
                 {decodeURIComponent(

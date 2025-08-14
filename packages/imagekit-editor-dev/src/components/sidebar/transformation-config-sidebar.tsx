@@ -44,6 +44,7 @@ import { z } from "zod/v3"
 import type { TransformationField } from "../../schema"
 import { transformationSchema } from "../../schema"
 import { useEditorStore } from "../../store"
+import { isStepAligned } from "../../utils"
 import AnchorField from "../common/AnchorField"
 import CheckboxCardField from "../common/CheckboxCardField"
 import ColorPickerField from "../common/ColorPickerField"
@@ -394,13 +395,21 @@ export const TransformationConfigSidebar: React.FC = () => {
                       value={(watch(field.name) as string) ?? ""}
                       defaultValue={field.fieldProps?.defaultValue as number}
                       onBlur={() => {
-                        const currentVal = watch(field.name)
-                        if (currentVal === "" || currentVal === undefined) {
-                          setValue(
-                            field.name,
-                            field.fieldProps?.defaultValue ?? "",
-                          )
+                        const raw = watch(field.name)
+                        const n = Number(raw)
+                        if (!Number.isFinite(n)) return
+
+                        const { step, min, max } = field.fieldProps ?? {}
+                        let v = n
+
+                        if (min !== undefined) v = Math.max(v, min)
+                        if (max !== undefined) v = Math.min(v, max)
+                        if (step) {
+                          v = Math.round(v / step) * step
+                          const dp = (String(step).split(".")[1] || "").length
+                          v = Number(v.toFixed(dp))
                         }
+                        setValue(field.name, String(v))
                       }}
                       onChange={(e) => {
                         const val = e.target.value
@@ -422,9 +431,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                           setValue(field.name, "auto")
                         } else if (
                           field.fieldProps?.step &&
-                          !Number.isInteger(
-                            Number(val) / field.fieldProps?.step,
-                          )
+                          !isStepAligned(val, field.fieldProps?.step)
                         ) {
                           return
                         } else if (
