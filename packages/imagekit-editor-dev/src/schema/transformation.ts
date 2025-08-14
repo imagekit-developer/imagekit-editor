@@ -1,13 +1,15 @@
 import { z } from "zod/v3"
 
-const widthNumber = z.coerce.number().min(0, {
-  message: "Width must be a positive number",
-})
+const widthNumber = z.coerce
+  .number({ invalid_type_error: "Should be a number." })
+  .min(0, {
+    message: "Width must be a positive number.",
+  })
 
 const widthExpr = z
   .string()
   .regex(/^(?:iw|bw|cw)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/, {
-    message: "Width string must be a valid expression string",
+    message: "Width string must be a valid expression string.",
   })
 
 export const widthValidator = z.any().superRefine((val, ctx) => {
@@ -19,17 +21,19 @@ export const widthValidator = z.any().superRefine((val, ctx) => {
   }
   ctx.addIssue({
     code: z.ZodIssueCode.custom,
-    message: "Width must be a positive number or a valid expression string",
+    message: "Width must be a positive number or a valid expression string.",
   })
 })
 
-const heightNumber = z.coerce.number().min(0, {
-  message: "Height must be a positive number",
-})
+const heightNumber = z.coerce
+  .number({ invalid_type_error: "Should be a number." })
+  .min(0, {
+    message: "Height must be a positive number.",
+  })
 const heightExpr = z
   .string()
   .regex(/^(?:ih|bh|ch)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/, {
-    message: "Height string must be a valid expression string",
+    message: "Height string must be a valid expression string.",
   })
 
 export const heightValidator = z.any().superRefine((val, ctx) => {
@@ -41,7 +45,7 @@ export const heightValidator = z.any().superRefine((val, ctx) => {
   }
   ctx.addIssue({
     code: z.ZodIssueCode.custom,
-    message: "Height must be a positive number or a valid expression string",
+    message: "Height must be a positive number or a valid expression string.",
   })
 })
 
@@ -69,13 +73,15 @@ export const aspectRatioValidator = z.any().superRefine((val, ctx) => {
   }
   ctx.addIssue({
     code: z.ZodIssueCode.custom,
-    message: "Aspect ratio must be a valid value or expression string",
+    message: "Aspect ratio must be a valid value or expression string.",
   })
 })
 
-const layerXNumber = z.coerce.number().min(0, {
-  message: "Layer X must be a positive number",
-})
+const layerXNumber = z.coerce
+  .number({ invalid_type_error: "Should be a number." })
+  .min(0, {
+    message: "Layer X must be a positive number.",
+  })
 
 const layerXExpr = z
   .string()
@@ -91,13 +97,15 @@ export const layerXValidator = z.any().superRefine((val, ctx) => {
   }
   ctx.addIssue({
     code: z.ZodIssueCode.custom,
-    message: "Layer X must be a positive number or a valid expression string",
+    message: "Layer X must be a positive number or a valid expression string.",
   })
 })
 
-const layerYNumber = z.coerce.number().min(0, {
-  message: "Layer Y must be a positive number",
-})
+const layerYNumber = z.coerce
+  .number({ invalid_type_error: "Should be a number." })
+  .min(0, {
+    message: "Layer Y must be a positive number.",
+  })
 
 const layerYExpr = z
   .string()
@@ -113,6 +121,6 @@ export const layerYValidator = z.any().superRefine((val, ctx) => {
   }
   ctx.addIssue({
     code: z.ZodIssueCode.custom,
-    message: "Layer Y must be a positive number or a valid expression string",
+    message: "Layer Y must be a positive number or a valid expression string.",
   })
 })

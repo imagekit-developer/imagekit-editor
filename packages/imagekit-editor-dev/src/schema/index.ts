@@ -83,8 +83,17 @@ export const transformationSchema: TransformationSchema[] = [
             background: z
               .union([z.literal("").transform(() => ""), colorValidator])
               .optional(),
-            backgroundBlurIntensity: z.coerce.string().optional(),
-            backgroundBlurBrightness: z.coerce.string().optional(),
+            backgroundBlurIntensity: z.coerce
+              .string({
+                invalid_type_error:
+                  "Should be a number between 1 and 100 or auto.",
+              })
+              .optional(),
+            backgroundBlurBrightness: z.coerce
+              .string({
+                invalid_type_error: "Should be a number between -255 and 255.",
+              })
+              .optional(),
             backgroundGenerativeFill: z.string().optional(),
             focus: z.string().optional(),
           })
@@ -887,7 +896,11 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            contrast: z.coerce.boolean().optional(),
+            contrast: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
           })
           .refine(
             (val) => {
@@ -927,11 +940,31 @@ export const transformationSchema: TransformationSchema[] = [
         // Schema allows toggling the shadow effect and specifying optional blur, saturation and X/Y offsets.
         schema: z
           .object({
-            shadow: z.coerce.boolean().optional(),
-            shadowBlur: z.coerce.number().optional(),
-            shadowSaturation: z.coerce.number().optional(),
-            shadowOffsetX: z.coerce.number().optional(),
-            shadowOffsetY: z.coerce.number().optional(),
+            shadow: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+            shadowBlur: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
+            shadowSaturation: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
+            shadowOffsetX: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
+            shadowOffsetY: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
           })
           .refine(
             (val) => {
@@ -1032,7 +1065,11 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            grayscale: z.coerce.boolean().optional(),
+            grayscale: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
           })
           .refine(
             (val) => {
@@ -1068,7 +1105,11 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            blur: z.coerce.number().optional(),
+            blur: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
           })
           .refine(
             (val) => {
@@ -1113,7 +1154,14 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            rotate: z.union([z.literal("auto"), z.coerce.number()]).optional(),
+            rotate: z
+              .union([
+                z.literal("auto"),
+                z.coerce.number({
+                  invalid_type_error: "Should be a number.",
+                }),
+              ])
+              .optional(),
           })
           .refine(
             (val) => {
@@ -1157,7 +1205,11 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            flip: z.coerce.string().optional(),
+            flip: z.coerce
+              .string({
+                invalid_type_error: "Should be a string.",
+              })
+              .optional(),
           })
           .refine(
             (val) => {
@@ -1212,7 +1264,14 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            radius: z.union([z.literal("max"), z.coerce.number().min(0)]),
+            radius: z.union([
+              z.literal("max"),
+              z.coerce
+                .number({
+                  invalid_type_error: "Should be a number.",
+                })
+                .min(0),
+            ]),
           })
           .refine(
             (val) => {
@@ -1251,7 +1310,11 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            opacity: z.coerce.number().optional(),
+            opacity: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
           })
           .refine(
             (val) => {
@@ -1296,7 +1359,11 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            removedotbg: z.coerce.boolean().optional(),
+            removedotbg: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
           })
           .refine(
             (val) => {
@@ -1334,7 +1401,11 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            bgremove: z.coerce.boolean().optional(),
+            bgremove: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
           })
           .refine(
             (val) => {
@@ -1449,7 +1520,11 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            dropshadow: z.coerce.boolean().optional(),
+            dropshadow: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
           })
           .refine(
             (val) => {
@@ -1486,7 +1561,11 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            retouch: z.coerce.boolean().optional(),
+            retouch: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
           })
           .refine(
             (val) => {
@@ -1524,7 +1603,11 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            upscale: z.coerce.boolean().optional(),
+            upscale: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
           })
           .refine(
             (val) => {
@@ -1562,7 +1645,11 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            genvar: z.coerce.boolean().optional(),
+            genvar: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
           })
           .refine(
             (val) => {
@@ -1648,7 +1735,11 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            quality: z.coerce.number().optional(),
+            quality: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
           })
           .refine(
             (val) => {
@@ -1689,7 +1780,11 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            dpr: z.coerce.number().optional(),
+            dpr: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
           })
           .refine(
             (val) => {
@@ -1744,25 +1839,52 @@ export const transformationSchema: TransformationSchema[] = [
             width: widthValidator.optional(),
             positionX: layerXValidator.optional(),
             positionY: layerYValidator.optional(),
-            fontSize: z.coerce.number().optional(),
+            fontSize: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
             fontFamily: z.string().optional(),
             color: z.string().optional(),
             innerAlignment: z
               .enum(["left", "right", "center"])
               .default("center"),
-            padding: z.coerce.number().optional(),
+            padding: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
             alpha: z
-              .union([z.coerce.number().min(1).max(9), z.literal("")])
+              .union([
+                z.coerce
+                  .number({
+                    invalid_type_error: "Should be a number.",
+                  })
+                  .min(1)
+                  .max(9),
+                z.literal(""),
+              ])
               .optional(),
             typography: z
               .array(z.enum(["bold", "italic"]).optional())
               .optional(),
             backgroundColor: z.string().optional(),
-            radius: z.union([z.literal("max"), z.coerce.number().min(0)]),
+            radius: z.union([
+              z.literal("max"),
+              z.coerce
+                .number({
+                  invalid_type_error: "Should be a number.",
+                })
+                .min(0),
+            ]),
             flip: z
               .array(z.enum(["horizontal", "vertical"]).optional())
               .optional(),
-            rotation: z.coerce.number().optional(),
+            rotation: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
           })
           .refine(
             (val) => {
@@ -1824,7 +1946,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "fontSize",
             transformationGroup: "textLayer",
             helpText: "Specify the font size of the text.",
-            examples: ["24", "iw_mul_2"],
+            examples: ["24", "12"],
             fieldProps: {
               defaultValue: "14",
             },
@@ -1890,7 +2012,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "fontColor",
             transformationGroup: "textLayer",
             helpText: "Select a color for the text.",
-            examples: ["FFFFFF", "black"],
+            examples: ["FFFFFF", "FF0000"],
           },
           {
             label: "Background Color",
@@ -1900,7 +2022,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "background",
             transformationGroup: "textLayer",
             helpText: "Set a background color for the text box.",
-            examples: ["FFFFFF", "black"],
+            examples: ["FFFFFF", "FF0000"],
           },
           {
             label: "Inner Alignment",
@@ -1927,7 +2049,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "padding",
             transformationGroup: "textLayer",
             helpText: "Specify padding around the text (in pixels).",
-            examples: ["10", "iw_mul_2"],
+            examples: ["10", "20"],
           },
           {
             label: "Opacity",
@@ -2012,18 +2134,45 @@ export const transformationSchema: TransformationSchema[] = [
             positionX: layerXValidator.optional(),
             positionY: layerYValidator.optional(),
             anchor: z.string().optional(),
-            opacity: z.coerce.number().optional(),
+            opacity: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
             backgroundColor: z.string().optional(),
             radius: z
-              .union([z.literal("max"), z.coerce.number().min(0)])
+              .union([
+                z.literal("max"),
+                z.coerce
+                  .number({
+                    invalid_type_error: "Should be a number.",
+                  })
+                  .min(0),
+              ])
               .optional(),
             flip: z
               .array(z.enum(["horizontal", "vertical"]).optional())
               .optional(),
-            rotation: z.coerce.number().optional(),
-            trim: z.coerce.boolean().optional(),
-            quality: z.coerce.number().optional(),
-            blur: z.coerce.number().optional(),
+            rotation: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
+            trim: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+            quality: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
+            blur: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
           })
           .refine(
             (val) => {
