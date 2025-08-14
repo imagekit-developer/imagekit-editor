@@ -48,7 +48,7 @@ export const heightValidator = z.any().superRefine((val, ctx) => {
 export const colorValidator = z
   .string()
   .regex(/^#?(?:[A-Fa-f0-9]{3}|[A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$/, {
-    message: "Color must be a valid hex color code",
+    message: "Enter a valid hex colour code.",
   })
 
 const aspectRatioValueValidator = z

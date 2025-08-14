@@ -60,6 +60,8 @@ const ColorPickerField = ({
             const newValue = e.target.value
             if (newValue.match(/^#[0-9A-Fa-f]{0,8}$/)) {
               setLocalValue(newValue)
+            } else if (newValue === "") {
+              setLocalValue("")
             }
           }}
           borderColor="gray.200"
