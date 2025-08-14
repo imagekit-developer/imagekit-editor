@@ -1926,7 +1926,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "x",
             transformationGroup: "textLayer",
             helpText: "Specify horizontal offset for the text.",
-            examples: ["10", "iw_div_2"],
+            examples: ["10", "bw_div_2"],
           },
           {
             label: "Position Y",
@@ -1936,7 +1936,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "y",
             transformationGroup: "textLayer",
             helpText: "Specify vertical offset for the text.",
-            examples: ["10", "ih_div_2"],
+            examples: ["10", "bh_div_2"],
           },
           {
             label: "Font Size",
