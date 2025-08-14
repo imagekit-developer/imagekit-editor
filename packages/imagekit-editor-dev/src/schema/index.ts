@@ -2682,8 +2682,8 @@ export const transformationFormatters: Record<
       overlayTransform.opacity = values.opacity
     }
 
-    if (values.backgroundColor) {
-      overlayTransform.backgroundColor = values.backgroundColor
+    if (typeof values.backgroundColor === "string") {
+      overlayTransform.background = values.backgroundColor.replace(/^#/, "")
     }
 
     if (values.radius === "max") {
