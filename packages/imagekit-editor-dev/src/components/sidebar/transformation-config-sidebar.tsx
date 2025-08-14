@@ -317,6 +317,10 @@ export const TransformationConfigSidebar: React.FC = () => {
                           minHeight: "32px",
                           borderColor: "#E2E8F0",
                         }),
+                        menu: (base) => ({
+                          ...base,
+                          zIndex: 10,
+                        }),
                         option: (base) => ({
                           ...base,
                           fontSize: "12px",
@@ -352,6 +356,10 @@ export const TransformationConfigSidebar: React.FC = () => {
                           fontSize: "12px",
                           minHeight: "32px",
                           borderColor: "#E2E8F0",
+                        }),
+                        menu: (base) => ({
+                          ...base,
+                          zIndex: 10,
                         }),
                         option: (base) => ({
                           ...base,
