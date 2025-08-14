@@ -261,7 +261,7 @@ import type {
 
 ## Contributing
 
-We welcome contributions! Please see our [contributing guidelines](https://github.com/imagekit-developer/imagekit-editor) for more details.
+We welcome contributions! Please see our [contributing guidelines](./CONTRIBUTING.md) for more details.
 
 ## Support
 
