@@ -1,4 +1,9 @@
 import type { Transformation } from "@imagekit/javascript"
+import type {
+  OverlayPosition,
+  TextOverlay,
+  TextOverlayTransformation,
+} from "@imagekit/javascript/dist/interfaces"
 import { PiFlipHorizontalFill } from "@react-icons/all-files/pi/PiFlipHorizontalFill"
 import { PiFlipVerticalFill } from "@react-icons/all-files/pi/PiFlipVerticalFill"
 import { RxFontBold } from "@react-icons/all-files/rx/RxFontBold"
@@ -1861,7 +1866,7 @@ export const transformationSchema: TransformationSchema[] = [
                     invalid_type_error: "Should be a number.",
                   })
                   .min(1)
-                  .max(9),
+                  .max(10),
                 z.literal(""),
               ])
               .optional(),
@@ -1916,7 +1921,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "width",
             transformationGroup: "textLayer",
             helpText: "Specify the width of the overlaid text.",
-            examples: ["300", "iw_div_2"],
+            examples: ["300", "bw_div_2"],
           },
           {
             label: "Position X",
@@ -2542,88 +2547,95 @@ export const transformationFormatters: Record<
    * SDK's alpha range (1–9).
    */,
   textLayer: (values, transforms) => {
-    const overlay: any = { type: "text" }
+    const overlay: TextOverlay = { type: "text", text: "" }
 
-    // Text content
-    if (values.text) {
+    if (typeof values.text === "string") {
       overlay.text = values.text
     }
-    // Always let the SDK decide encoding based on content
+
     overlay.encoding = "auto"
 
-    // Build the overlay transformation object (styling options)
-    const overlayTransform: any = {}
-    if (values.color) {
+    const overlayTransform: TextOverlayTransformation = {}
+
+    if (typeof values.width === "number" || typeof values.width === "string") {
+      overlayTransform.width = values.width
+    }
+
+    if (typeof values.color === "string") {
       // Remove leading '#' if present
       const col = (values.color as string).replace(/^#/, "")
       overlayTransform.fontColor = col
     }
     if (
-      values.fontSize !== undefined &&
-      values.fontSize !== null &&
-      values.fontSize !== ""
+      typeof values.fontSize === "number" ||
+      typeof values.fontSize === "string"
     ) {
       overlayTransform.fontSize = values.fontSize
     }
-    if (values.fontFamily) {
+    if (typeof values.fontFamily === "string") {
       overlayTransform.fontFamily = values.fontFamily
     }
-    if (values.backgroundColor) {
+    if (typeof values.backgroundColor === "string") {
       const bg = (values.backgroundColor as string).replace(/^#/, "")
       overlayTransform.background = bg
     }
     if (
-      values.padding !== undefined &&
-      values.padding !== null &&
-      values.padding !== ""
+      typeof values.padding === "number" ||
+      typeof values.padding === "string"
     ) {
       overlayTransform.padding = values.padding
     }
 
-    if ((values.flip as Array<string>)?.length) {
+    if (Array.isArray(values.flip) && values.flip.length > 0) {
       const flip = []
-      if ((values.flip as Array<string>).includes("horizontal")) {
+      if (values.flip.includes("horizontal")) {
         flip.push("h")
       }
-      if ((values.flip as Array<string>).includes("vertical")) {
+      if (values.flip.includes("vertical")) {
         flip.push("v")
       }
 
-      overlayTransform.flip = flip.join("_")
+      overlayTransform.flip = flip.join("_") as "h" | "v" | "h_v" | "v_h"
     }
 
-    if (values.rotation as number) {
+    if (
+      typeof values.rotation === "number" ||
+      typeof values.rotation === "string"
+    ) {
       overlayTransform.rotation =
         (values.rotation as number) < 0
           ? `N${Math.abs(values.rotation as number)}`
           : (values.rotation as number)
     }
 
-    if (values.radius === "max") {
+    if (typeof values.radius === "string" && values.radius === "max") {
       overlayTransform.radius = "max"
-    } else if (values.radius as number) {
-      overlayTransform.radius = values.radius as number
+    } else if (typeof values.radius === "number") {
+      overlayTransform.radius = values.radius
     }
 
-    if (values.opacity as number) {
-      if ((values.opacity as number) !== 10) {
-        overlayTransform.alpha = (values.opacity as number) / 10
+    if (typeof values.opacity === "number") {
+      if (values.opacity !== 10) {
+        overlayTransform.alpha = values.opacity / 10
       }
     }
 
-    if (values.innerAlignment) {
-      overlayTransform.innerAlignment = values.innerAlignment
+    if (typeof values.innerAlignment === "string") {
+      overlayTransform.innerAlignment = values.innerAlignment as
+        | "center"
+        | "left"
+        | "right"
     }
 
-    if ((values.typography as Array<string>)?.length) {
+    if (Array.isArray(values.typography) && values.typography.length > 0) {
       const typography = []
-      if ((values.typography as Array<string>).includes("bold")) {
+      if (values.typography.includes("bold")) {
         typography.push("b")
       }
-      if ((values.typography as Array<string>).includes("italic")) {
+      if (values.typography.includes("italic")) {
         typography.push("i")
       }
-      overlayTransform.typography = typography.join("_")
+      overlayTransform.typography = typography.join("_") as "b" | "i" | "b_i"
     }
 
     // Assign the transformation array only if there are styling properties
@@ -2632,17 +2644,23 @@ export const transformationFormatters: Record<
     }
 
     // Positioning: use x/y coordinates or focus if anchor is provided
-    const position: any = {}
-    if (values.positionX) {
+    const position: OverlayPosition = {}
+    if (
+      typeof values.positionX === "number" ||
+      typeof values.positionX === "string"
+    ) {
       position.x = values.positionX
     }
-    if (values.positionY) {
+    if (
+      typeof values.positionY === "number" ||
+      typeof values.positionY === "string"
+    ) {
       position.y = values.positionY
     }
     if (Object.keys(position).length > 0) {
       overlay.position = position
     }
-    // Attach overlay to transforms
+
     transforms.overlay = overlay
   },
 
