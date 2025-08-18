@@ -1,6 +1,7 @@
 import type { UniqueIdentifier } from "@dnd-kit/core"
 import {
   buildSrc,
+  buildTransformationString,
   type Transformation as IKTransformation,
 } from "@imagekit/javascript"
 import { create } from "zustand"
@@ -32,7 +33,7 @@ export interface SignerRequest<
   Metadata extends RequiredMetadata = RequiredMetadata,
 > {
   url: string
-  transformation: IKTransformation[]
+  transformation: string
   metadata: Metadata
 }
 
@@ -550,7 +551,14 @@ const calculateImageList = (
         imgs[index] = cached
       } else {
         imgs[index] = req.url
-        toSign.push({ index, request: req, cacheKey })
+        toSign.push({
+          index,
+          request: {
+            ...req,
+            transformation: buildTransformationString(req.transformation),
+          },
+          cacheKey,
+        })
       }
       return
     }
