@@ -1854,7 +1854,7 @@ export const transformationSchema: TransformationSchema[] = [
                 invalid_type_error: "Should be a number.",
               })
               .optional(),
-            alpha: z
+            opacity: z
               .union([
                 z.coerce
                   .number({
@@ -2053,16 +2053,16 @@ export const transformationSchema: TransformationSchema[] = [
           },
           {
             label: "Opacity",
-            name: "alpha",
+            name: "opacity",
             fieldType: "slider",
             isTransformation: true,
-            transformationKey: "alpha",
             transformationGroup: "textLayer",
-            helpText: "Set opacity for the text overlay (1-9).",
+            helpText: "Set opacity for the text overlay (0-10).",
             fieldProps: {
               min: 1,
-              max: 9,
+              max: 10,
               step: 1,
+              defaultValue: 10,
             },
           },
           {
@@ -2261,7 +2261,7 @@ export const transformationSchema: TransformationSchema[] = [
             name: "opacity",
             fieldType: "slider",
             isTransformation: true,
-            transformationKey: "alpha",
+            transformationKey: "opacity",
             transformationGroup: "imageLayer",
             helpText: "Set the opacity for the overlay image (0-100).",
             examples: ["80"],
@@ -2605,8 +2605,10 @@ export const transformationFormatters: Record<
       overlayTransform.radius = values.radius as number
     }
 
-    if (values.alpha as number) {
-      overlayTransform.alpha = values.alpha as number
+    if (values.opacity as number) {
+      if ((values.opacity as number) !== 10) {
+        overlayTransform.alpha = (values.opacity as number) / 10
+      }
     }
 
     if (values.innerAlignment) {

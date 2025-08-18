@@ -207,8 +207,6 @@ export const TransformationConfigSidebar: React.FC = () => {
     }
   }
 
-  console.log(values)
-
   if (!selectedTransformation) {
     return null
   }
