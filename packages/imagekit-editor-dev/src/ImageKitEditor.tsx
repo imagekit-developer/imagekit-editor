@@ -39,7 +39,7 @@ interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
         }>
       }
 
-  onClose: ({ dirty }?: { dirty?: boolean }) => void
+  onClose: (args: { dirty: boolean; destroy: () => void }) => void
 }
 
 function ImageKitEditorImpl<M extends RequiredMetadata>(
@@ -57,9 +57,8 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
   } = useEditorStore()
 
   const handleOnClose = () => {
-    destroy()
     const dirty = transformations.length > 0
-    props.onClose({ dirty })
+    props.onClose({ dirty, destroy })
   }
 
   React.useEffect(() => {
