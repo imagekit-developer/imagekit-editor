@@ -14,8 +14,8 @@ import {
 } from "@dnd-kit/core"
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
-import { PiRectangle } from "@react-icons/all-files/pi/PiRectangle"
 import { PiRectangleDashed } from "@react-icons/all-files/pi/PiRectangleDashed"
+import { RxTransform } from "@react-icons/all-files/rx/RxTransform"
 import { useEffect, useState } from "react"
 import { useEditorStore } from "../../store"
 import { SidebarBody } from "./sidebar-body"
@@ -38,10 +38,13 @@ export const Sidebar = () => {
   } = useEditorStore()
 
   useEffect(() => {
-    if (transformations.length === 0) {
+    if (
+      transformations.length === 0 &&
+      _internalState.sidebarState === "none"
+    ) {
       _setSidebarState("type")
     }
-  }, [transformations.length, _setSidebarState])
+  }, [transformations.length, _setSidebarState, _internalState.sidebarState])
 
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null)
 
@@ -102,23 +105,35 @@ export const Sidebar = () => {
                 </SortableContext>
                 <DragOverlay>
                   {activeId ? (
-                    <Flex
-                      px={4}
-                      py={2}
+                    <HStack
                       bg="white"
                       boxShadow="md"
-                      borderRadius="md"
-                      width="90%"
                       opacity={0.8}
+                      px={4}
+                      py={2}
+                      spacing={3}
+                      position="relative"
+                      width="full"
+                      minH="8"
+                      alignItems="center"
                     >
-                      <Icon as={PiRectangle} boxSize={4} opacity={0.7} />
+                      <Box
+                        mr={-1}
+                        height="24px"
+                        display="flex"
+                        alignItems="center"
+                        w="5"
+                      >
+                        <Icon as={RxTransform} boxSize={4} />
+                      </Box>
                       <Text fontSize="md">
                         {
                           transformations.find((item) => item.id === activeId)
                             ?.name
                         }
                       </Text>
-                    </Flex>
+                      <Box flex={1} />
+                    </HStack>
                   ) : null}
                 </DragOverlay>
               </SidebarBody>
@@ -150,7 +165,7 @@ export const Sidebar = () => {
               px={4}
               py={2}
               color="editorBlue.400"
-              bg="editorBlue.50"
+              bg="gray.50"
               spacing="3"
             >
               <Icon boxSize={4} as={PiRectangleDashed} opacity={0.7} />

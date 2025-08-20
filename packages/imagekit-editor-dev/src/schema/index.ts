@@ -30,6 +30,10 @@ export interface TransformationItem {
   docsLink?: string
   schema: z.ZodTypeAny
   transformations: TransformationField[]
+  warning?: {
+    heading?: string
+    message?: string
+  }
 }
 
 export interface TransformationField {
@@ -1350,12 +1354,12 @@ export const transformationSchema: TransformationSchema[] = [
     ],
   },
   {
-    key: "effect",
-    name: "Effect",
+    key: "ai",
+    name: "AI Transformations",
     items: [
       {
-        key: "effect-removedotbg",
-        name: "Remove Dot Background",
+        key: "ai-removedotbg",
+        name: "Remove Background using Remove.bg",
         // This option removes the background using the third-party remove.bg service.
         description:
           "Remove the background of the image using Remove.bg (external service). This isolates the subject and makes the background transparent.",
@@ -1395,10 +1399,15 @@ export const transformationSchema: TransformationSchema[] = [
               "Toggle to remove the background using Remove.bg. Processing may take a few seconds depending on image complexity.",
           },
         ],
+        warning: {
+          heading: "This action consumes AI credits.",
+          message:
+            "You are about to apply Remove Background using Remove.bg to {imageList.length} items. ",
+        },
       },
       {
-        key: "effect-bgremove",
-        name: "ImageKit Background Removal",
+        key: "ai-bgremove",
+        name: "Remove Background using ImageKit AI",
         description:
           "Remove the background using ImageKit's built-in background removal model. This method is cost-effective compared to Remove.bg.",
         docsLink:
@@ -1428,7 +1437,7 @@ export const transformationSchema: TransformationSchema[] = [
           ),
         transformations: [
           {
-            label: "Remove Background using ImageKit",
+            label: "Remove Background using ImageKit AI",
             name: "bgremove",
             fieldType: "switch",
             isTransformation: true,
@@ -1437,9 +1446,14 @@ export const transformationSchema: TransformationSchema[] = [
               "Toggle to remove the background using ImageKit's own background removal.",
           },
         ],
+        warning: {
+          heading: "This action consumes AI credits.",
+          message:
+            "You are about to apply Remove Background using ImageKit AI to {imageList.length} items. ",
+        },
       },
       {
-        key: "effect-changebg",
+        key: "ai-changebg",
         name: "Change Background",
         description:
           "Replace the background of the image with a new scene described by a text prompt. Use AI to generate a new background.",
@@ -1476,9 +1490,14 @@ export const transformationSchema: TransformationSchema[] = [
             examples: ["snowy mountains", "sunset beach"],
           },
         ],
+        warning: {
+          heading: "This action consumes AI credits.",
+          message:
+            "You are about to apply Change Background to {imageList.length} items. ",
+        },
       },
       {
-        key: "effect-edit",
+        key: "ai-edit",
         name: "Edit Image using AI",
         description:
           "Use AI to modify the image based on a descriptive prompt. Add or remove objects or alter colors and textures.",
@@ -1514,9 +1533,14 @@ export const transformationSchema: TransformationSchema[] = [
             examples: ["add sunglasses", "make the sky blue"],
           },
         ],
+        warning: {
+          heading: "This action consumes AI credits.",
+          message:
+            "You are about to apply Edit Image using AI to {imageList.length} items. ",
+        },
       },
       {
-        key: "effect-dropshadow",
+        key: "ai-dropshadow",
         name: "Drop Shadow",
         description:
           "Add a realistic AI-generated drop shadow around the object. Requires a transparent background; remove the background first for best results.",
@@ -1556,9 +1580,14 @@ export const transformationSchema: TransformationSchema[] = [
               "Toggle to add an AI-generated drop shadow. Requires transparent background.",
           },
         ],
+        warning: {
+          heading: "This action consumes AI credits.",
+          message:
+            "You are about to apply Drop Shadow to {imageList.length} items. ",
+        },
       },
       {
-        key: "effect-retouch",
+        key: "ai-retouch",
         name: "Retouch",
         description: "Improve the quality of the image using AI retouching.",
         docsLink:
@@ -1597,9 +1626,14 @@ export const transformationSchema: TransformationSchema[] = [
               "Toggle to apply AI retouching and enhance image quality.",
           },
         ],
+        warning: {
+          heading: "This action consumes AI credits.",
+          message:
+            "You are about to apply Retouch to {imageList.length} items. ",
+        },
       },
       {
-        key: "effect-upscale",
+        key: "ai-upscale",
         name: "Upscale",
         description:
           "Increase the resolution of low-resolution images using AI upscaling. The output can be up to 16 MP.",
@@ -1639,9 +1673,14 @@ export const transformationSchema: TransformationSchema[] = [
               "Toggle to increase resolution of the image using AI upscaling (max 16 MP input).",
           },
         ],
+        warning: {
+          heading: "This action consumes AI credits.",
+          message:
+            "You are about to apply Upscale to {imageList.length} items. ",
+        },
       },
       {
-        key: "effect-genvar",
+        key: "ai-genvar",
         name: "Generate Variations",
         description:
           "Create a new variation of the original image using AI, altering colors and textures while preserving the structure.",
@@ -1681,6 +1720,11 @@ export const transformationSchema: TransformationSchema[] = [
               "Toggle to generate a new variation of the image using AI.",
           },
         ],
+        warning: {
+          heading: "This action consumes AI credits.",
+          message:
+            "You are about to generate variations of {imageList.length} items. ",
+        },
       },
     ],
   },
@@ -2495,7 +2539,7 @@ export const transformationFormatters: Record<
       shadowSaturation,
       shadowOffsetX,
       shadowOffsetY,
-    } = values as Record<string, any>
+    } = values as Record<string, unknown>
 
     // Only apply the shadow transformation when the switch is enabled
     if (!shadow) return
@@ -2673,7 +2717,7 @@ export const transformationFormatters: Record<
    * (0–100) are mapped to the SDK's alpha range (1–9).
    */
   imageLayer: (values, transforms) => {
-    const overlay: any = { type: "image" }
+    const overlay: Record<string, unknown> = { type: "image" }
 
     // Input path to the overlay image
     if (values.imageUrl) {
@@ -2682,7 +2726,7 @@ export const transformationFormatters: Record<
     }
 
     // Build overlay transformation for sizing
-    const overlayTransform: any = {}
+    const overlayTransform: Record<string, unknown> = {}
     if (
       values.width !== undefined &&
       values.width !== null &&
@@ -2753,7 +2797,7 @@ export const transformationFormatters: Record<
     }
 
     // Positioning via x/y or focus anchor
-    const position: any = {}
+    const position: Record<string, unknown> = {}
     if (values.positionX) {
       position.x = values.positionX
     }

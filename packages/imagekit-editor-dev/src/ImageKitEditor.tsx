@@ -1,5 +1,6 @@
 import { ChakraProvider, theme as defaultTheme } from "@chakra-ui/react"
 import type { Dict } from "@chakra-ui/utils"
+import { isEqual } from "lodash"
 import merge from "lodash/merge"
 import React, { forwardRef, useImperativeHandle } from "react"
 import { EditorLayout, EditorWrapper } from "./components/editor"
@@ -38,7 +39,7 @@ interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
         }>
       }
 
-  onClose: () => void
+  onClose: ({ dirty }?: { dirty?: boolean }) => void
 }
 
 function ImageKitEditorImpl<M extends RequiredMetadata>(
@@ -46,12 +47,19 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
   ref: React.Ref<ImageKitEditorRef>,
 ) {
   const { theme, initialImages, signer } = props
-  const { addImage, addImages, setCurrentImage, initialize, destroy } =
-    useEditorStore()
+  const {
+    addImage,
+    addImages,
+    setCurrentImage,
+    transformations,
+    initialize,
+    destroy,
+  } = useEditorStore()
 
   const handleOnClose = () => {
     destroy()
-    props.onClose()
+    const dirty = transformations.length > 0
+    props.onClose({ dirty })
   }
 
   React.useEffect(() => {

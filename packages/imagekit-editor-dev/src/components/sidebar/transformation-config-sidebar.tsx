@@ -2,6 +2,7 @@ import {
   Alert,
   AlertDescription,
   AlertIcon,
+  AlertTitle,
   Box,
   Button,
   ButtonGroup,
@@ -30,6 +31,7 @@ import {
   Switch,
   Text,
   Textarea,
+  VStack,
 } from "@chakra-ui/react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { PiArrowLeft } from "@react-icons/all-files/pi/PiArrowLeft"
@@ -59,6 +61,7 @@ export const TransformationConfigSidebar: React.FC = () => {
     transformations,
     addTransformation,
     updateTransformation,
+    imageList,
     _setSidebarState,
     _internalState,
     _setTransformationToEdit,
@@ -77,9 +80,17 @@ export const TransformationConfigSidebar: React.FC = () => {
       )
   }, [_internalState.selectedTransformationKey])
 
-  const defaultValues = useMemo(() => {
-    const transformationToEdit = _internalState.transformationToEdit
+  const transformationToEdit = _internalState.transformationToEdit
 
+  const editedTransformationValue = useMemo(() => {
+    if (!transformationToEdit) return undefined
+    return transformations.find(
+      (transformation) =>
+        transformation.id === transformationToEdit.transformationId,
+    )?.value as Record<string, unknown> | undefined
+  }, [transformations, transformationToEdit])
+
+  const defaultValues = useMemo(() => {
     if (
       transformationToEdit &&
       selectedTransformation &&
@@ -87,14 +98,12 @@ export const TransformationConfigSidebar: React.FC = () => {
     ) {
       const currentValues: Record<string, unknown> = {}
 
-      const value = transformations.find(
-        (transformation) =>
-          transformation.id === transformationToEdit.transformationId,
-      )?.value as Record<string, unknown>
-
       selectedTransformation.transformations.forEach((field) => {
-        if (value && field.name in value) {
-          currentValues[field.name] = value[field.name]
+        if (
+          editedTransformationValue &&
+          field.name in editedTransformationValue
+        ) {
+          currentValues[field.name] = editedTransformationValue[field.name]
         } else {
           currentValues[field.name] = field.fieldProps?.defaultValue ?? ""
         }
@@ -111,11 +120,7 @@ export const TransformationConfigSidebar: React.FC = () => {
       )
     }
     return {}
-  }, [
-    _internalState.transformationToEdit,
-    selectedTransformation,
-    transformations,
-  ])
+  }, [transformationToEdit, selectedTransformation, editedTransformationValue])
 
   const {
     register,
@@ -535,6 +540,24 @@ export const TransformationConfigSidebar: React.FC = () => {
             </FormControl>
           ))}
       </SidebarBody>
+      {selectedTransformation?.warning && (
+        <Alert status="warning" fontSize="sm" p="2">
+          <AlertIcon />
+          <VStack alignItems="start" justifyContent="space-between">
+            {selectedTransformation.warning.heading ? (
+              <AlertTitle>{selectedTransformation.warning.heading}</AlertTitle>
+            ) : null}
+            {selectedTransformation.warning.message ? (
+              <AlertDescription lineHeight="normal">
+                {selectedTransformation.warning.message.replace(
+                  "{imageList.length}",
+                  String(imageList.length),
+                )}
+              </AlertDescription>
+            ) : null}
+          </VStack>
+        </Alert>
+      )}
       {errors[""] && (
         <Alert status="error" fontSize="sm" p="2">
           <AlertIcon />

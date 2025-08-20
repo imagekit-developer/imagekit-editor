@@ -1,7 +1,9 @@
 import { Box, Center, Flex, Icon, IconButton, Spinner } from "@chakra-ui/react"
+import { PiCaretLeft } from "@react-icons/all-files/pi/PiCaretLeft"
+import { PiCaretRight } from "@react-icons/all-files/pi/PiCaretRight"
 import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
 import { PiX } from "@react-icons/all-files/pi/PiX"
-import type { FC } from "react"
+import { type FC, useRef } from "react"
 import { useEditorStore } from "../../store"
 import Hover from "../common/Hover"
 import RetryableImage from "../RetryableImage"
@@ -22,12 +24,18 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
     _internalState,
   } = useEditorStore()
 
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  const scrollThumbnails = (offset: number) => {
+    scrollRef.current?.scrollBy({ left: offset, behavior: "smooth" })
+  }
+
   return (
     <Flex
       display="flex"
       width="full"
       h={44}
-      py={3}
+      py={2}
       borderTop="1px"
       borderColor="editorBattleshipGrey.100"
       justifyContent="center"
@@ -50,6 +58,7 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
         bg="white"
         px={4}
         zIndex={2}
+        gap={2}
       >
         <IconButton
           aria-label="Add new image"
@@ -61,12 +70,33 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
           colorScheme="blue"
         />
       </Flex>
+      <Flex
+        position="sticky"
+        right={0}
+        top={0}
+        height="full"
+        alignItems="center"
+        justifyContent="center"
+        bg="white"
+        paddingLeft={2}
+        zIndex={2}
+      >
+        <IconButton
+          aria-label="Scroll thumbnails left"
+          icon={<PiCaretLeft />}
+          variant="ghost"
+          h="full"
+          size="sm"
+          onClick={() => scrollThumbnails(-200)}
+        />
+      </Flex>
 
       <Box
+        ref={scrollRef}
         flex={1}
         minW={0}
         overflowX="auto"
-        py={3}
+        px={3}
         display="block"
         whiteSpace="nowrap"
       >
@@ -81,6 +111,7 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
             const originalUrl = originalImageList[index]?.url
             const key = originalUrl ?? imageSrc
             const isSigning = originalUrl ? signingImages[originalUrl] : false
+
             return (
               <Hover display="block" key={key}>
                 {(isHovered) => (
@@ -95,7 +126,7 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
                       }
                     }}
                     _hover={{
-                      transform: "scale(1.02)",
+                      transform: "scale(1.01)",
                       boxShadow: "md",
                     }}
                     opacity={currentImage === imageSrc || isHovered ? 1 : 0.7}
@@ -178,6 +209,26 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
           })}
         </Flex>
       </Box>
+      <Flex
+        position="sticky"
+        right={0}
+        top={0}
+        height="full"
+        alignItems="center"
+        justifyContent="center"
+        bg="white"
+        px={2}
+        zIndex={2}
+      >
+        <IconButton
+          aria-label="Scroll thumbnails right"
+          icon={<PiCaretRight />}
+          variant="ghost"
+          size="sm"
+          onClick={() => scrollThumbnails(200)}
+          h="full"
+        />
+      </Flex>
     </Flex>
   )
 }

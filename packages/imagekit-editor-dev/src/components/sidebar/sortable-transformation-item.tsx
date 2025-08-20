@@ -7,6 +7,7 @@ import {
   MenuItem,
   MenuList,
   Text,
+  Tooltip,
 } from "@chakra-ui/react"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
@@ -18,8 +19,8 @@ import { PiEye } from "@react-icons/all-files/pi/PiEye"
 import { PiEyeSlash } from "@react-icons/all-files/pi/PiEyeSlash"
 import { PiPencilSimple } from "@react-icons/all-files/pi/PiPencilSimple"
 import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
-import { PiRectangle } from "@react-icons/all-files/pi/PiRectangle"
 import { PiTrash } from "@react-icons/all-files/pi/PiTrash"
+import { RxTransform } from "@react-icons/all-files/rx/RxTransform"
 import { type Transformation, useEditorStore } from "../../store"
 import Hover from "../common/Hover"
 
@@ -66,6 +67,7 @@ export const SortableTransformationItem = ({
   const isVisible = visibleTransformations[transformation.id]
 
   const isEditting =
+    _internalState.transformationToEdit?.position === "inplace" &&
     _internalState.transformationToEdit?.transformationId === transformation.id
 
   return (
@@ -76,8 +78,8 @@ export const SortableTransformationItem = ({
           px={4}
           py={2}
           cursor={isDragging ? "grabbing" : "pointer"}
-          bg={isHover ? "gray.100" : isEditting ? "gray.100" : undefined}
-          color={isEditting ? "editorBlue.400" : undefined}
+          bg={isHover ? "gray.50" : isEditting ? "gray.50" : undefined}
+          color={isEditting ? "editorBlue.500" : undefined}
           transition="background-color 0.2s, opacity 0.2s"
           spacing={3}
           position="relative"
@@ -106,11 +108,11 @@ export const SortableTransformationItem = ({
               alignItems="center"
               w="5"
             >
-              <Icon as={PiDotsSixVerticalBold} boxSize={4} color="gray.500" />
+              <Icon as={PiDotsSixVerticalBold} boxSize={4} color="gray.600" />
             </Box>
           ) : (
             <Box mr={-1} height="24px" display="flex" alignItems="center" w="5">
-              <Icon as={PiRectangle} boxSize={4} opacity={0.7} />
+              <Icon as={RxTransform} boxSize={4} />
             </Box>
           )}
 
@@ -119,38 +121,45 @@ export const SortableTransformationItem = ({
           </Text>
           <Box flex={1} />
           {isHover && (
-            <HStack spacing={1} color={"initial"}>
-              <Box
-                onClick={(e) => {
-                  e.stopPropagation()
-                  toggleTransformationVisibility(transformation.id)
-                }}
+            <HStack spacing={2} color={"initial"}>
+              <Tooltip
+                label={
+                  isVisible ? "Hide transformation" : "Show transformation"
+                }
+                placement="top"
               >
-                <Icon
-                  as={isVisible ? PiEye : PiEyeSlash}
-                  color="gray.500"
-                  boxSize={4}
-                  opacity={0.7}
-                  _hover={{ opacity: 1 }}
-                />
-              </Box>
-              <Menu closeOnSelect isLazy placement="bottom-end">
-                <MenuButton
-                  as="button"
-                  aria-label="Options"
-                  onClick={(e) => e.stopPropagation()}
-                  p={0}
-                  bg="transparent"
-                  _hover={{ bg: "transparent" }}
+                <Box
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggleTransformationVisibility(transformation.id)
+                  }}
                 >
                   <Icon
-                    as={PiDotsThreeVertical}
-                    color="gray.500"
+                    as={isVisible ? PiEye : PiEyeSlash}
+                    color="gray.600"
                     boxSize={4}
-                    opacity={0.7}
-                    _hover={{ opacity: 1 }}
+                    _hover={{ opacity: 1, color: "gray.800" }}
                   />
-                </MenuButton>
+                </Box>
+              </Tooltip>
+              <Menu closeOnSelect isLazy placement="bottom-end">
+                <Tooltip label="Options" placement="top">
+                  <MenuButton
+                    as="button"
+                    aria-label="Options"
+                    onClick={(e) => e.stopPropagation()}
+                    p={0}
+                    bg="transparent"
+                    _hover={{ bg: "transparent" }}
+                  >
+                    <Icon
+                      as={PiDotsThreeVertical}
+                      color="gray.600"
+                      boxSize={4}
+                      _hover={{ opacity: 1, color: "gray.800" }}
+                    />
+                  </MenuButton>
+                </Tooltip>
                 <MenuList fontSize="md" minW="200px" zIndex={10}>
                   <MenuItem
                     icon={<Icon as={PiPlus} />}
@@ -160,7 +169,7 @@ export const SortableTransformationItem = ({
                       _setTransformationToEdit(transformation.id, "above")
                     }}
                   >
-                    Add transformation above
+                    Add transformation before
                   </MenuItem>
                   <MenuItem
                     icon={<Icon as={PiPlus} />}
@@ -170,7 +179,7 @@ export const SortableTransformationItem = ({
                       _setTransformationToEdit(transformation.id, "below")
                     }}
                   >
-                    Add transformation below
+                    Add transformation after
                   </MenuItem>
                   <MenuItem
                     icon={<Icon as={PiPencilSimple} />}
@@ -230,9 +239,14 @@ export const SortableTransformationItem = ({
                     onClick={(e) => {
                       e.stopPropagation()
                       removeTransformation(transformation.id)
-                      _setSidebarState("none")
-                      _setSelectedTransformationKey(null)
-                      _setTransformationToEdit(null)
+                      if (
+                        _internalState.selectedTransformationKey ===
+                        transformation.key
+                      ) {
+                        _setSidebarState("none")
+                        _setSelectedTransformationKey(null)
+                        _setTransformationToEdit(null)
+                      }
                     }}
                   >
                     Delete

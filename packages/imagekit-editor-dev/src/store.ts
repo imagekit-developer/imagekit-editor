@@ -215,17 +215,26 @@ const useEditorStore = create<EditorState & EditorActions>()(
 
     removeImage: (imageSrc) => {
       set((state) => {
+        const index = state.originalImageList.findIndex(
+          (img) => img.url === imageSrc,
+        )
         // Remove the image from the list
         const updatedImageList = state.originalImageList.filter(
           (img) => img.url !== imageSrc,
         )
 
-        // If the current image is being removed, set a new current image if available
         let newCurrentImage = state.currentImage
-        if (state.currentImage === imageSrc && updatedImageList.length > 0) {
-          newCurrentImage = updatedImageList[0].url
-        } else if (updatedImageList.length === 0) {
-          newCurrentImage = undefined
+        if (state.currentImage === imageSrc) {
+          if (updatedImageList.length > 0) {
+            if (index >= updatedImageList.length) {
+              newCurrentImage =
+                updatedImageList[updatedImageList.length - 1].url
+            } else {
+              newCurrentImage = updatedImageList[index].url
+            }
+          } else {
+            newCurrentImage = undefined
+          }
         }
 
         const updatedSigningImages = { ...state.signingImages }
@@ -575,10 +584,22 @@ const calculateImageList = (
 
 function recomputeImages() {
   const state = useEditorStore.getState()
-  const currentIndex = Math.max(
-    state.imageList.findIndex((img) => img === state.currentImage),
-    0,
-  )
+
+  let currentIndex = 0
+  if (state.currentImage) {
+    const originalIndex = state.originalImageList.findIndex(
+      (img) => img.url === state.currentImage,
+    )
+
+    if (originalIndex >= 0) {
+      currentIndex = originalIndex
+    } else {
+      const imageListIndex = state.imageList.findIndex(
+        (img) => img === state.currentImage,
+      )
+      currentIndex = Math.max(imageListIndex, 0)
+    }
+  }
 
   const { imgs, activeImageIndex, toSign, transformKey } = calculateImageList(
     state.originalImageList,

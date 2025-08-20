@@ -7,7 +7,6 @@ import {
   HStack,
   Icon,
   IconButton,
-  Link,
   Slider,
   SliderFilledTrack,
   SliderThumb,
@@ -15,6 +14,7 @@ import {
   Text,
   Tooltip,
 } from "@chakra-ui/react"
+import { PiCopy } from "@react-icons/all-files/pi/PiCopy"
 import { PiGridFour } from "@react-icons/all-files/pi/PiGridFour"
 import { PiImageSquare } from "@react-icons/all-files/pi/PiImageSquare"
 import { PiListBullets } from "@react-icons/all-files/pi/PiListBullets"
@@ -100,24 +100,35 @@ export const ActionBar: FC<ActionBarProps> = ({
           borderColor="editorBattleshipGrey.200"
         />
 
-        <Box flex="1" minW={0}>
-          <Link
-            href={currentImage || ""}
-            isExternal
-            _focus={{
-              boxShadow: "none",
-            }}
+        <Flex flex="1" minW={0} flexDirection="row" gap="2">
+          <Button
+            aria-label="Open in new tab"
+            rightIcon={<Icon boxSize={6} as={ExternalLinkIcon} />}
+            variant="ghost"
+            size="md"
+            fontWeight="medium"
+            onClick={() => window.open(currentImage, "_blank")}
           >
-            <HStack spacing={1} minW={0} justifyContent="flex-start">
-              <Text as="span" fontSize="md" noOfLines={1} minW={0}>
-                {decodeURIComponent(
-                  currentImage?.split("/").pop()?.split("?")?.[0] || "",
-                )}
-              </Text>
-              <ExternalLinkIcon flexShrink={0} />
-            </HStack>
-          </Link>
-        </Box>
+            Open image in new tab
+          </Button>
+          <Tooltip label="Copy URL to clipboard" placement="top">
+            <IconButton
+              aria-label="Copy URL to clipboard"
+              icon={<Icon boxSize={6} as={PiCopy} />}
+              size="md"
+              variant="ghost"
+              onClick={async () => {
+                if (currentImage) {
+                  try {
+                    await navigator.clipboard.writeText(currentImage)
+                  } catch (err) {
+                    console.error("Failed to copy URL:", err)
+                  }
+                }
+              }}
+            />
+          </Tooltip>
+        </Flex>
       </HStack>
 
       <HStack spacing={2} flexShrink={0}>
