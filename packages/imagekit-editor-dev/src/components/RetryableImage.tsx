@@ -57,8 +57,8 @@ const DEFAULT_NON_RETRYABLE = [400, 401, 403, 404, 410, 422, 500, 502, 503, 504]
 export default function RetryableImage(props: RetryableImageProps) {
   const {
     src,
-    maxRetries = 3,
-    retryDelay = 1000,
+    maxRetries = 10,
+    retryDelay = 10000,
     onRetryExhausted,
     onRetry,
     nonRetryableStatusCodes = DEFAULT_NON_RETRYABLE,
