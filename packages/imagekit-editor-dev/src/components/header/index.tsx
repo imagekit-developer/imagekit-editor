@@ -29,7 +29,7 @@ interface ExportOptionMenu {
   label: string
   icon?: React.ReactElement
   isVisible: boolean | ((images: string[]) => boolean)
-  options: Array<ExportOptionButton>
+  options: Array<Omit<ExportOptionButton, "type">>
 }
 
 export interface HeaderProps {
@@ -68,57 +68,63 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
       />
       <Text>{headerText}</Text>
       <Spacer />
-      {exportOptions?.map((exportOption) => (
-        <React.Fragment key={`export-option-${exportOption.label}`}>
-          <Divider
-            orientation="vertical"
-            borderColor="editorBattleshipGrey.100"
-          />
-          {exportOption.type === "button" ? (
-            <Button
-              key={`export-button-${exportOption.label}`}
-              leftIcon={exportOption.icon}
-              aria-label={exportOption.label}
-              variant="ghost"
-              fontWeight="normal"
-              size="sm"
-              onClick={() => exportOption.onClick(imageList)}
-            >
-              {exportOption.label}
-            </Button>
-          ) : (
-            <Menu key={`export-menu-${exportOption.label}`}>
-              <MenuButton>
-                <Button
-                  leftIcon={exportOption.icon}
-                  aria-label={exportOption.label}
-                  variant="ghost"
-                  fontWeight="normal"
-                  size="sm"
-                >
-                  {exportOption.label}
-                </Button>
-              </MenuButton>
-              <MenuList>
-                {exportOption.options
-                  .filter((option) =>
-                    typeof option.isVisible === "boolean"
-                      ? option.isVisible
-                      : option.isVisible(imageList),
-                  )
-                  .map((option) => (
-                    <MenuItem
-                      key={`export-menu-option-${option.label}`}
-                      onClick={() => option.onClick(imageList)}
-                    >
-                      {option.label}
-                    </MenuItem>
-                  ))}
-              </MenuList>
-            </Menu>
-          )}
-        </React.Fragment>
-      ))}
+      {exportOptions
+        ?.filter((exportOption) =>
+          typeof exportOption.isVisible === "boolean"
+            ? exportOption.isVisible
+            : exportOption.isVisible(imageList),
+        )
+        .map((exportOption) => (
+          <React.Fragment key={`export-option-${exportOption.label}`}>
+            <Divider
+              orientation="vertical"
+              borderColor="editorBattleshipGrey.100"
+            />
+            {exportOption.type === "button" ? (
+              <Button
+                key={`export-button-${exportOption.label}`}
+                leftIcon={exportOption.icon}
+                aria-label={exportOption.label}
+                variant="ghost"
+                fontWeight="normal"
+                size="sm"
+                onClick={() => exportOption.onClick(imageList)}
+              >
+                {exportOption.label}
+              </Button>
+            ) : (
+              <Menu key={`export-menu-${exportOption.label}`}>
+                <MenuButton>
+                  <Button
+                    leftIcon={exportOption.icon}
+                    aria-label={exportOption.label}
+                    variant="ghost"
+                    fontWeight="normal"
+                    size="sm"
+                  >
+                    {exportOption.label}
+                  </Button>
+                </MenuButton>
+                <MenuList>
+                  {exportOption.options
+                    .filter((option) =>
+                      typeof option.isVisible === "boolean"
+                        ? option.isVisible
+                        : option.isVisible(imageList),
+                    )
+                    .map((option) => (
+                      <MenuItem
+                        key={`export-menu-option-${option.label}`}
+                        onClick={() => option.onClick(imageList)}
+                      >
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                </MenuList>
+              </Menu>
+            )}
+          </React.Fragment>
+        ))}
       <Divider orientation="vertical" borderColor="editorBattleshipGrey.100" />
       <Button
         leftIcon={<Icon boxSize={"5"} as={PiX} />}
