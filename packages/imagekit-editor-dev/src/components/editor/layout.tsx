@@ -1,6 +1,6 @@
 import { Flex } from "@chakra-ui/react"
 import { useState } from "react"
-import { Header } from "../header"
+import { Header, type HeaderProps } from "../header"
 import { Sidebar } from "../sidebar"
 import { ActionBar } from "./ActionBar"
 import { GridView } from "./GridView"
@@ -9,21 +9,7 @@ import { ListView } from "./ListView"
 interface Props {
   onAddImage?: () => void
   onClose: () => void
-  exportOptions?:
-    | {
-        label: string
-        icon?: React.ReactElement
-        onClick: (images: string[]) => void
-      }
-    | {
-        label: string
-        icon?: React.ReactElement
-        options: Array<{
-          label: string
-          isVisible: boolean | ((images: string[]) => boolean)
-          onClick: (images: string[]) => void
-        }>
-      }
+  exportOptions?: HeaderProps["exportOptions"]
 }
 
 export function EditorLayout({ onAddImage, onClose, exportOptions }: Props) {

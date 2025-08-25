@@ -34,7 +34,7 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
     <Flex
       display="flex"
       width="full"
-      h={44}
+      h={36}
       py={2}
       borderTop="1px"
       borderColor="editorBattleshipGrey.100"
@@ -96,6 +96,9 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
         flex={1}
         minW={0}
         overflowX="auto"
+        overflowY="hidden"
+        pt={2.5}
+        pb={2}
         px={3}
         display="block"
         whiteSpace="nowrap"
@@ -126,14 +129,14 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
                       }
                     }}
                     _hover={{
-                      transform: "scale(1.01)",
+                      // transform: "scale(1.02)",
                       boxShadow: "md",
                     }}
                     opacity={currentImage === imageSrc || isHovered ? 1 : 0.7}
                     transition="all 0.2s"
                     borderRadius="md"
-                    h={32}
-                    w={40}
+                    h={24}
+                    w={32}
                   >
                     {isHovered && (
                       <IconButton
@@ -183,9 +186,9 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
                       compactError
                       src={imageSrc}
                       alt={`Image`}
-                      height={32}
+                      height={24}
                       width="auto"
-                      minWidth={40}
+                      minWidth={32}
                       objectFit="contain"
                       borderRadius="md"
                       borderWidth={currentImage === imageSrc ? "2px" : "1px"}
@@ -196,7 +199,7 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
                           : "editorBattleshipGrey.100"
                       }
                       fallback={
-                        <Center h={32} w={40}>
+                        <Center h={24} w={32}>
                           <Spinner />
                         </Center>
                       }

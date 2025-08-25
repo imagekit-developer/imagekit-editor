@@ -1,9 +1,9 @@
 import { ChakraProvider, theme as defaultTheme } from "@chakra-ui/react"
 import type { Dict } from "@chakra-ui/utils"
-import { isEqual } from "lodash"
 import merge from "lodash/merge"
 import React, { forwardRef, useImperativeHandle } from "react"
 import { EditorLayout, EditorWrapper } from "./components/editor"
+import type { HeaderProps } from "./components/header"
 import {
   type FileElement,
   type RequiredMetadata,
@@ -23,21 +23,7 @@ interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
   initialImages?: Array<string | FileElement<Metadata>>
   signer?: Signer<Metadata>
   onAddImage?: () => void
-  exportOptions?:
-    | {
-        label: string
-        icon?: React.ReactElement
-        onClick: (images: string[]) => void
-      }
-    | {
-        label: string
-        icon?: React.ReactElement
-        options: Array<{
-          label: string
-          isVisible: boolean | ((images: string[]) => boolean)
-          onClick: (images: string[]) => void
-        }>
-      }
+  exportOptions?: HeaderProps["exportOptions"]
 
   onClose: (args: { dirty: boolean; destroy: () => void }) => void
 }

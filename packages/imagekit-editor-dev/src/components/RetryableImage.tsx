@@ -9,7 +9,8 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useVisibility } from "../hooks/useVisibility"
 
 export interface RetryableImageProps extends ImageProps {
   maxRetries?: number
@@ -21,7 +22,22 @@ export interface RetryableImageProps extends ImageProps {
   showRetryButton?: boolean
   compactError?: boolean
   isLoading?: boolean
+  lazy?: boolean
+  rootMargin?: string
+  intersectionRoot?: Element | null
 }
+
+const DEFAULT_NON_RETRYABLE = [
+  400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414,
+  415, 416, 417, 418, 421, 422, 423, 424, 425, 426, 428, 429, 431, 451, 500,
+  501, 502, 503, 504, 505, 506, 507, 508, 510, 511,
+]
+
+// Minimal in-flight dedupe map
+const inflight = new Map<
+  string,
+  Promise<{ ok: true } | { ok: false; status?: number; message: string }>
+>()
 
 const baseUrl = (url?: string) => {
   if (!url) return ""
@@ -36,29 +52,11 @@ const baseUrl = (url?: string) => {
   }
 }
 
-async function ensureDecodableImage(res: Response): Promise<string> {
-  const contentType = res.headers.get("content-type") || ""
-  if (!contentType.toLowerCase().startsWith("image/")) {
-    throw new Error("Response is not an image")
-  }
-  const blob = await res.blob()
-  const objectUrl = URL.createObjectURL(blob)
-  await new Promise<void>((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => resolve()
-    img.onerror = () => reject(new Error("Invalid or undecodable image"))
-    img.src = objectUrl
-  })
-  return objectUrl
-}
-
-const DEFAULT_NON_RETRYABLE = [400, 401, 403, 404, 410, 422, 500, 502, 503, 504]
-
 export default function RetryableImage(props: RetryableImageProps) {
   const {
     src,
-    maxRetries = 10,
-    retryDelay = 10000,
+    maxRetries = 3,
+    retryDelay = 1000,
     onRetryExhausted,
     onRetry,
     nonRetryableStatusCodes = DEFAULT_NON_RETRYABLE,
@@ -67,6 +65,9 @@ export default function RetryableImage(props: RetryableImageProps) {
     compactError = false,
     isLoading: externalLoading,
     alt,
+    lazy = true,
+    rootMargin = "400px",
+    intersectionRoot,
     ...imgProps
   } = props
 
@@ -75,164 +76,189 @@ export default function RetryableImage(props: RetryableImageProps) {
     status?: number
     message: string
   } | null>(null)
-  const [, setAttempt] = useState<number>(0)
-
+  const [attempt, setAttempt] = useState<number>(0)
   const [displayedSrc, setDisplayedSrc] = useState<string | undefined>(
     undefined,
   )
-  const displayedObjectUrlRef = useRef<string | null>(null)
-  const [lastSuccessBase, setLastSuccessBase] = useState<string>("")
 
   const currentSrcBase = useMemo(
     () => baseUrl(typeof src === "string" ? src : undefined),
     [src],
   )
+  const lastSuccessBaseRef = useRef<string>("")
 
   const abortRef = useRef<AbortController | null>(null)
   const retryTimeoutRef = useRef<number | null>(null)
+  const mountedRef = useRef(true)
 
-  const clearPending = useCallback(() => {
-    if (abortRef.current) {
-      abortRef.current.abort()
-      abortRef.current = null
-    }
-    if (retryTimeoutRef.current) {
-      window.clearTimeout(retryTimeoutRef.current)
-      retryTimeoutRef.current = null
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      if (abortRef.current) abortRef.current.abort()
+      if (retryTimeoutRef.current) window.clearTimeout(retryTimeoutRef.current)
     }
   }, [])
 
-  useEffect(() => {
-    return () => {
-      clearPending()
-      if (displayedObjectUrlRef.current) {
-        URL.revokeObjectURL(displayedObjectUrlRef.current)
-        displayedObjectUrlRef.current = null
-      }
-    }
-  }, [clearPending])
+  const { ref: rootRef, visible } = useVisibility<HTMLDivElement>(
+    lazy,
+    rootMargin,
+    intersectionRoot ?? undefined,
+  )
 
-  const startFetch = useCallback(
-    (freshAttempt = 0) => {
-      clearPending()
-      setAttempt(freshAttempt)
-      setError(null)
+  const preflight = useCallback(
+    async (
+      signal: AbortSignal,
+    ): Promise<
+      { ok: true } | { ok: false; status?: number; message: string }
+    > => {
+      try {
+        // Prefer HEAD to avoid downloading body; fall back to GET if HEAD fails quickly
+        let res: Response | null = null
+        try {
+          res = await fetch(String(src), {
+            method: "HEAD",
+            cache: "no-cache",
+            signal,
+          })
+        } catch {
+          // Some CDNs don't allow HEAD on images—fall back to GET
+          res = await fetch(String(src), {
+            method: "GET",
+            cache: "no-cache",
+            signal,
+          })
+        }
+        if (res.status !== 200) {
+          return {
+            ok: false,
+            status: res.status,
+            message: `HTTP ${res.status}`,
+          }
+        }
+        return { ok: true }
+      } catch (e: any) {
+        return { ok: false, message: e?.message || "Network error" }
+      }
+    },
+    [src],
+  )
+
+  const beginLoad = useCallback(
+    (tryIdx = 0) => {
+      if (!mountedRef.current || !src) return
+
+      // If only query params changed and we have a prior success for the same base, keep old image until new resolves
+      if (
+        lastSuccessBaseRef.current &&
+        lastSuccessBaseRef.current === currentSrcBase
+      ) {
+        setLoading(true)
+        setError(null)
+      } else {
+        setDisplayedSrc(undefined)
+        setLoading(true)
+        setError(null)
+      }
 
       const controller = new AbortController()
       abortRef.current = controller
 
-      const doFetch = async (tryIndex: number) => {
-        setLoading(true)
-        try {
-          const res = await fetch(String(src), {
-            cache: "no-store",
-            signal: controller.signal,
-          })
+      let p = inflight.get(src as string)
+      if (!p) {
+        p = preflight(controller.signal)
+        inflight.set(src as string, p)
+      }
 
-          if (res.status !== 200) {
-            if (nonRetryableStatusCodes.includes(res.status)) {
-              setError({ status: res.status, message: `HTTP ${res.status}` })
-              setLoading(false)
-              onNonRetryableError?.(res.status)
-              return
-            }
-            throw new Error(`HTTP ${res.status}`)
-          }
+      p.then((result) => {
+        if (!mountedRef.current || controller.signal.aborted) return
+        if (inflight.get(src as string) === p) inflight.delete(src as string)
 
-          let objectUrl: string | null = null
-          try {
-            objectUrl = await ensureDecodableImage(res)
-          } catch (e: any) {
-            if (tryIndex < maxRetries) {
-              const nextAttempt = tryIndex + 1
-              onRetry?.(nextAttempt)
-              retryTimeoutRef.current = window.setTimeout(
-                () => doFetch(nextAttempt),
-                retryDelay,
-              )
-              return
-            }
-            setError({ message: e?.message || "Invalid image" })
+        if (!result.ok) {
+          if (
+            result.status &&
+            nonRetryableStatusCodes.includes(result.status)
+          ) {
+            setError({ status: result.status, message: result.message })
             setLoading(false)
-            onRetryExhausted?.()
+            onNonRetryableError?.(result.status)
             return
           }
-
-          if (displayedObjectUrlRef.current) {
-            URL.revokeObjectURL(displayedObjectUrlRef.current)
-          }
-          displayedObjectUrlRef.current = objectUrl
-          setDisplayedSrc(objectUrl)
-          setLastSuccessBase(currentSrcBase)
-          setLoading(false)
-          setError(null)
-        } catch (e: any) {
-          if (controller.signal.aborted) return
-          if (tryIndex < maxRetries) {
-            const nextAttempt = tryIndex + 1
-            onRetry?.(nextAttempt)
+          if (tryIdx < maxRetries) {
+            const next = tryIdx + 1
+            onRetry?.(next)
+            setAttempt(next)
             retryTimeoutRef.current = window.setTimeout(
-              () => doFetch(nextAttempt),
+              () => beginLoad(next),
               retryDelay,
             )
             return
           }
-          setError({ message: e?.message || "Failed to load image" })
+          setError({ status: result.status, message: result.message })
           setLoading(false)
           onRetryExhausted?.()
+          return
         }
-      }
 
-      void doFetch(0)
+        // Status 200: render direct URL; decode validation happens via onLoad/onError events
+        setDisplayedSrc(src as string)
+        // keep loading true until onLoad fires to confirm decode
+      })
     },
     [
-      clearPending,
       currentSrcBase,
       maxRetries,
       nonRetryableStatusCodes,
+      onNonRetryableError,
       onRetry,
       onRetryExhausted,
-      onNonRetryableError,
+      preflight,
       retryDelay,
       src,
     ],
   )
 
+  // React to src/visibility changes
   useEffect(() => {
     if (!src) return
-
-    const sameUnderlyingImage =
-      lastSuccessBase && currentSrcBase === lastSuccessBase
-
-    if (sameUnderlyingImage) {
-      setLoading(true)
-      setError(null)
-      startFetch(0)
-      return
-    }
-
-    if (displayedObjectUrlRef.current) {
-      URL.revokeObjectURL(displayedObjectUrlRef.current)
-      displayedObjectUrlRef.current = null
-    }
-    setDisplayedSrc(undefined)
-    setLastSuccessBase("")
-    setLoading(true)
-    setError(null)
-    startFetch(0)
-  }, [src, currentSrcBase, lastSuccessBase, startFetch])
+    if (lazy && !visible) return
+    beginLoad(0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src, visible, lazy])
 
   const overlayActive = !!externalLoading || loading
 
+  // Image element event handlers for decode validation
+  const handleImgLoad = () => {
+    setLoading(false)
+    setError(null)
+    lastSuccessBaseRef.current = currentSrcBase
+  }
+  const handleImgError = () => {
+    // We had a 200 but decode failed (bad image). Retry according to policy
+    if (attempt < (maxRetries ?? 0)) {
+      const next = attempt + 1
+      setAttempt(next)
+      onRetry?.(next)
+      retryTimeoutRef.current = window.setTimeout(
+        () => beginLoad(next),
+        retryDelay,
+      )
+    } else {
+      setLoading(false)
+      setError({ message: "Invalid or undecodable image" })
+      onRetryExhausted?.()
+    }
+  }
+
   return (
-    <Box position="relative" display="inline-block">
+    <Box ref={rootRef as any} position="relative" display="inline-block">
       {error ? (
         <Center
-          w={imgProps.width || "full"}
-          h={imgProps.height || 56}
+          w={props.width || "full"}
+          h={props.height || 56}
           borderWidth="0"
           borderRadius="md"
-          minW={imgProps.minW ?? 40}
         >
           <Flex
             direction="column"
@@ -243,18 +269,14 @@ export default function RetryableImage(props: RetryableImageProps) {
             borderColor="gray.300"
             borderRadius={compactError ? "sm" : "md"}
             bg="gray.50"
-            h={compactError ? "100%" : undefined}
             minH={compactError ? "auto" : "200px"}
-            minW={imgProps.minW ?? 40}
-            {...(imgProps.boxSize && { boxSize: imgProps.boxSize })}
-            {...(imgProps.w && { w: imgProps.w })}
-            {...(imgProps.h && { h: imgProps.h })}
           >
             <VStack spacing={compactError ? 1 : 3}>
               {!compactError && (
                 <Text fontSize="md" color="gray.500" textAlign="center">
-                  {nonRetryableStatusCodes.includes(error.status ?? -1)
-                    ? `Failed to load image (Error ${error.status ?? "Unknown"})`
+                  {error.status &&
+                  nonRetryableStatusCodes.includes(error.status)
+                    ? `Failed to load image (Error ${error.status})`
                     : `Failed to load image after ${maxRetries} attempts`}
                 </Text>
               )}
@@ -267,11 +289,7 @@ export default function RetryableImage(props: RetryableImageProps) {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => {
-                    setAttempt(0)
-                    setError(null)
-                    startFetch(0)
-                  }}
+                  onClick={() => beginLoad(0)}
                 >
                   Try Again
                 </Button>
@@ -281,24 +299,32 @@ export default function RetryableImage(props: RetryableImageProps) {
         </Center>
       ) : displayedSrc ? (
         <>
-          <ChakraImage src={displayedSrc} alt={alt} {...imgProps} />
+          <ChakraImage
+            src={displayedSrc}
+            alt={alt}
+            onLoad={handleImgLoad}
+            onError={handleImgError}
+            loading="lazy"
+            {...imgProps}
+          />
           {overlayActive && (
             <Center position="absolute" inset={0} bg="blackAlpha.400">
-              <Spinner />
+              <Spinner thickness="3px" />
             </Center>
           )}
         </>
       ) : (
         <Center
-          w={imgProps.width || "full"}
-          h={imgProps.height || 56}
-          minW={imgProps.minW ?? 40}
+          w={props.width || "full"}
+          h={props.height || 56}
           borderWidth="0"
           borderRadius="md"
         >
-          <Spinner />
+          {lazy && !visible ? <span /> : <Spinner thickness="3px" />}
         </Center>
       )}
     </Box>
   )
 }
+
+export const MemoRetryableImage = React.memo(RetryableImage)

@@ -36,16 +36,43 @@ function App() {
             requireSignedUrl: false,
           },
         },
+        ...Array.from({ length: 10000 }).map((_, i) => ({
+          url: `https://ik.imagekit.io/v3sxk1svj/placeholder.jpg?updatedAt=${Date.now()}&v=${i}`,
+          metadata: {
+            requireSignedUrl: false,
+          },
+        })),
       ],
       onAddImage: handleAddImage,
       onClose: () => setOpen(false),
-      exportOptions: {
-        label: "Export",
-        icon: <Icon boxSize={"5"} as={PiDownload} />,
-        onClick: (images) => {
-          console.log(images)
+      exportOptions: [
+        {
+          type: "button",
+          label: "Export",
+          icon: <Icon boxSize={"5"} as={PiDownload} />,
+          isVisible: true,
+          onClick: (images) => {
+            console.log(images)
+          },
         },
-      },
+        {
+          type: "menu",
+          label: "Export",
+          icon: <Icon boxSize={"5"} as={PiDownload} />,
+          isVisible: true,
+          options: [
+            {
+              type: "button",
+              label: "Export",
+              icon: <Icon boxSize={"5"} as={PiDownload} />,
+              isVisible: true,
+              onClick: (images) => {
+                console.log(images)
+              },
+            },
+          ],
+        },
+      ],
       signer: async (request) => {
         console.log(request)
         await new Promise((resolve) => setTimeout(resolve, 10000))

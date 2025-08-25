@@ -14,7 +14,6 @@ import {
   Text,
   Tooltip,
 } from "@chakra-ui/react"
-import { PiCopy } from "@react-icons/all-files/pi/PiCopy"
 import { PiGridFour } from "@react-icons/all-files/pi/PiGridFour"
 import { PiImageSquare } from "@react-icons/all-files/pi/PiImageSquare"
 import { PiListBullets } from "@react-icons/all-files/pi/PiListBullets"
@@ -71,21 +70,26 @@ export const ActionBar: FC<ActionBarProps> = ({
         <Button
           variant="ghost"
           size="md"
-          fontWeight="medium"
+          fontWeight="normal"
           leftIcon={<Icon boxSize={4} as={PiImageSquare} />}
           onClick={() => setShowOriginal(!showOriginal)}
         >
           {showOriginal ? "Show Transformed" : "Show Original"}
         </Button>
 
-        {imageDimensions && (
+        {viewMode === "list" && imageDimensions && (
           <>
             <Divider
               orientation="vertical"
               h="6"
               borderColor="editorBattleshipGrey.200"
             />
-            <Text fontSize="md" fontWeight="medium" whiteSpace="nowrap">
+            <Text
+              fontSize="md"
+              fontWeight="medium"
+              whiteSpace="nowrap"
+              paddingX="4"
+            >
               Dimensions:{" "}
               <Text as="span" fontWeight="normal">
                 {imageDimensions.width} x {imageDimensions.height}
@@ -103,31 +107,14 @@ export const ActionBar: FC<ActionBarProps> = ({
         <Flex flex="1" minW={0} flexDirection="row" gap="2">
           <Button
             aria-label="Open in new tab"
-            rightIcon={<Icon boxSize={6} as={ExternalLinkIcon} />}
+            rightIcon={<Icon boxSize={5} as={ExternalLinkIcon} />}
             variant="ghost"
             size="md"
-            fontWeight="medium"
+            fontWeight="normal"
             onClick={() => window.open(currentImage, "_blank")}
           >
             Open image in new tab
           </Button>
-          <Tooltip label="Copy URL to clipboard" placement="top">
-            <IconButton
-              aria-label="Copy URL to clipboard"
-              icon={<Icon boxSize={6} as={PiCopy} />}
-              size="md"
-              variant="ghost"
-              onClick={async () => {
-                if (currentImage) {
-                  try {
-                    await navigator.clipboard.writeText(currentImage)
-                  } catch (err) {
-                    console.error("Failed to copy URL:", err)
-                  }
-                }
-              }}
-            />
-          </Tooltip>
         </Flex>
       </HStack>
 

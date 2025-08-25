@@ -13,26 +13,28 @@ import {
 import { PiImageSquare } from "@react-icons/all-files/pi/PiImageSquare"
 import { PiImagesSquare } from "@react-icons/all-files/pi/PiImagesSquare"
 import { PiX } from "@react-icons/all-files/pi/PiX"
-import { useMemo } from "react"
+import React, { useMemo } from "react"
 import { useEditorStore } from "../../store"
 
-interface HeaderProps {
+interface ExportOptionButton {
+  type: "button"
+  label: string
+  icon?: React.ReactElement
+  isVisible: boolean | ((images: string[]) => boolean)
+  onClick: (images: string[]) => void
+}
+
+interface ExportOptionMenu {
+  type: "menu"
+  label: string
+  icon?: React.ReactElement
+  isVisible: boolean | ((images: string[]) => boolean)
+  options: Array<ExportOptionButton>
+}
+
+export interface HeaderProps {
   onClose: () => void
-  exportOptions?:
-    | {
-        label: string
-        icon?: React.ReactElement
-        onClick: (images: string[]) => void
-      }
-    | {
-        label: string
-        icon?: React.ReactElement
-        options: Array<{
-          label: string
-          isVisible: boolean | ((images: string[]) => boolean)
-          onClick: (images: string[]) => void
-        }>
-      }
+  exportOptions?: Array<ExportOptionButton | ExportOptionMenu>
 }
 
 export const Header = ({ onClose, exportOptions }: HeaderProps) => {
@@ -66,27 +68,39 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
       />
       <Text>{headerText}</Text>
       <Spacer />
-      {exportOptions && (
-        <>
+      {exportOptions?.map((exportOption) => (
+        <React.Fragment key={`export-option-${exportOption.label}`}>
           <Divider
             orientation="vertical"
             borderColor="editorBattleshipGrey.100"
           />
-          {"options" in exportOptions ? (
-            <Menu>
+          {exportOption.type === "button" ? (
+            <Button
+              key={`export-button-${exportOption.label}`}
+              leftIcon={exportOption.icon}
+              aria-label={exportOption.label}
+              variant="ghost"
+              fontWeight="normal"
+              size="sm"
+              onClick={() => exportOption.onClick(imageList)}
+            >
+              {exportOption.label}
+            </Button>
+          ) : (
+            <Menu key={`export-menu-${exportOption.label}`}>
               <MenuButton>
                 <Button
-                  leftIcon={exportOptions.icon}
-                  aria-label={exportOptions.label}
+                  leftIcon={exportOption.icon}
+                  aria-label={exportOption.label}
                   variant="ghost"
                   fontWeight="normal"
                   size="sm"
                 >
-                  {exportOptions.label}
+                  {exportOption.label}
                 </Button>
               </MenuButton>
               <MenuList>
-                {exportOptions.options
+                {exportOption.options
                   .filter((option) =>
                     typeof option.isVisible === "boolean"
                       ? option.isVisible
@@ -94,7 +108,7 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
                   )
                   .map((option) => (
                     <MenuItem
-                      key={option.label}
+                      key={`export-menu-option-${option.label}`}
                       onClick={() => option.onClick(imageList)}
                     >
                       {option.label}
@@ -102,20 +116,9 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
                   ))}
               </MenuList>
             </Menu>
-          ) : (
-            <Button
-              leftIcon={exportOptions.icon}
-              aria-label={exportOptions.label}
-              onClick={() => exportOptions.onClick(imageList)}
-              variant="ghost"
-              fontWeight="normal"
-              size="sm"
-            >
-              {exportOptions.label}
-            </Button>
           )}
-        </>
-      )}
+        </React.Fragment>
+      ))}
       <Divider orientation="vertical" borderColor="editorBattleshipGrey.100" />
       <Button
         leftIcon={<Icon boxSize={"5"} as={PiX} />}

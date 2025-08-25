@@ -541,8 +541,7 @@ export const TransformationConfigSidebar: React.FC = () => {
           ))}
       </SidebarBody>
       {selectedTransformation?.warning && (
-        <Alert status="warning" fontSize="sm" p="2">
-          <AlertIcon />
+        <Alert status="warning" fontSize="sm" px="8" py="2">
           <VStack alignItems="start" justifyContent="space-between">
             {selectedTransformation.warning.heading ? (
               <AlertTitle>{selectedTransformation.warning.heading}</AlertTitle>
@@ -559,11 +558,13 @@ export const TransformationConfigSidebar: React.FC = () => {
         </Alert>
       )}
       {errors[""] && (
-        <Alert status="error" fontSize="sm" p="2">
-          <AlertIcon />
-          <AlertDescription lineHeight="normal">
-            {errors[""]?.message}
-          </AlertDescription>
+        <Alert status="error" fontSize="sm" px="8" py="2">
+          <VStack alignItems="start" justifyContent="space-between">
+            <AlertTitle>Invalid transformation</AlertTitle>
+            <AlertDescription lineHeight="normal">
+              {errors[""]?.message}
+            </AlertDescription>
+          </VStack>
         </Alert>
       )}
       <SidebarFooter>
