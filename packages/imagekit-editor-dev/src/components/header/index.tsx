@@ -20,15 +20,15 @@ interface ExportOptionButton {
   type: "button"
   label: string
   icon?: React.ReactElement
-  isVisible: boolean | ((images: string[]) => boolean)
-  onClick: (images: string[]) => void
+  isVisible: boolean | ((images: string[], currentImage?: string) => boolean)
+  onClick: (images: string[], currentImage?: string) => void
 }
 
 interface ExportOptionMenu {
   type: "menu"
   label: string
   icon?: React.ReactElement
-  isVisible: boolean | ((images: string[]) => boolean)
+  isVisible: boolean | ((images: string[], currentImage?: string) => boolean)
   options: Array<Omit<ExportOptionButton, "type">>
 }
 
@@ -38,16 +38,16 @@ export interface HeaderProps {
 }
 
 export const Header = ({ onClose, exportOptions }: HeaderProps) => {
-  const { imageList } = useEditorStore()
+  const { imageList, currentImage } = useEditorStore()
 
   const headerText = useMemo(() => {
     if (imageList.length === 1) {
       return decodeURIComponent(
-        imageList[0].split("/").pop()?.split("?")?.[0] || "",
+        currentImage?.split("/").pop()?.split("?")?.[0] || "",
       )
     }
     return `${imageList.length} Images`
-  }, [imageList])
+  }, [imageList, currentImage])
 
   return (
     <Flex
@@ -72,7 +72,7 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
         ?.filter((exportOption) =>
           typeof exportOption.isVisible === "boolean"
             ? exportOption.isVisible
-            : exportOption.isVisible(imageList),
+            : exportOption.isVisible(imageList, currentImage),
         )
         .map((exportOption) => (
           <React.Fragment key={`export-option-${exportOption.label}`}>
@@ -88,7 +88,7 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
                 variant="ghost"
                 fontWeight="normal"
                 size="sm"
-                onClick={() => exportOption.onClick(imageList)}
+                onClick={() => exportOption.onClick(imageList, currentImage)}
               >
                 {exportOption.label}
               </Button>
@@ -110,12 +110,12 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
                     .filter((option) =>
                       typeof option.isVisible === "boolean"
                         ? option.isVisible
-                        : option.isVisible(imageList),
+                        : option.isVisible(imageList, currentImage),
                     )
                     .map((option) => (
                       <MenuItem
                         key={`export-menu-option-${option.label}`}
-                        onClick={() => option.onClick(imageList)}
+                        onClick={() => option.onClick(imageList, currentImage)}
                       >
                         {option.label}
                       </MenuItem>
