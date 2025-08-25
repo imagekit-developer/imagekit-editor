@@ -62,7 +62,6 @@ function App() {
           isVisible: true,
           options: [
             {
-              type: "button",
               label: "Export",
               icon: <Icon boxSize={"5"} as={PiDownload} />,
               isVisible: true,

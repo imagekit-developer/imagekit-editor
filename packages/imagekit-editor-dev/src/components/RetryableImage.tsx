@@ -255,10 +255,11 @@ export default function RetryableImage(props: RetryableImageProps) {
     <Box ref={rootRef as any} position="relative" display="inline-block">
       {error ? (
         <Center
-          w={props.width || "full"}
-          h={props.height || 56}
+          w={imgProps.width || "full"}
+          h={imgProps.height || 24}
           borderWidth="0"
           borderRadius="md"
+          minW={imgProps.minW ?? 32}
         >
           <Flex
             direction="column"
@@ -269,7 +270,12 @@ export default function RetryableImage(props: RetryableImageProps) {
             borderColor="gray.300"
             borderRadius={compactError ? "sm" : "md"}
             bg="gray.50"
+            h={compactError ? "100%" : undefined}
             minH={compactError ? "auto" : "200px"}
+            minW={imgProps.minW ?? 32}
+            {...(imgProps.boxSize && { boxSize: imgProps.boxSize })}
+            {...(imgProps.w && { w: imgProps.w })}
+            {...(imgProps.h && { h: imgProps.h })}
           >
             <VStack spacing={compactError ? 1 : 3}>
               {!compactError && (
@@ -315,8 +321,9 @@ export default function RetryableImage(props: RetryableImageProps) {
         </>
       ) : (
         <Center
-          w={props.width || "full"}
-          h={props.height || 56}
+          w={imgProps.width || "full"}
+          h={imgProps.height || 24}
+          minW={imgProps.minW ?? 32}
           borderWidth="0"
           borderRadius="md"
         >
