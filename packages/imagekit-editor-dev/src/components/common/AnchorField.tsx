@@ -1,4 +1,4 @@
-import { Box, Button, Flex, Text, Tooltip } from "@chakra-ui/react"
+import { Box, Button, Flex, Tooltip } from "@chakra-ui/react"
 import { memo } from "react"
 
 type AnchorPosition =

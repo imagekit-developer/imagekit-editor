@@ -1,4 +1,4 @@
-import { Box, Button, Flex, HStack, Icon, Text, VStack } from "@chakra-ui/react"
+import { Box, Button, HStack, Icon, Text, VStack } from "@chakra-ui/react"
 import type {
   DragEndEvent,
   DragStartEvent,

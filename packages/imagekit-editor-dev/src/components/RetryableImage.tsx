@@ -17,8 +17,6 @@ export interface RetryableImageProps extends ImageProps {
   retryDelay?: number
   onRetryExhausted?: () => void
   onRetry?: (attempt: number) => void
-  nonRetryableStatusCodes?: number[]
-  onNonRetryableError?: (statusCode?: number) => void
   showRetryButton?: boolean
   compactError?: boolean
   isLoading?: boolean
@@ -26,18 +24,6 @@ export interface RetryableImageProps extends ImageProps {
   rootMargin?: string
   intersectionRoot?: Element | null
 }
-
-const DEFAULT_NON_RETRYABLE = [
-  400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414,
-  415, 416, 417, 418, 421, 422, 423, 424, 425, 426, 428, 429, 431, 451, 500,
-  501, 502, 503, 504, 505, 506, 507, 508, 510, 511,
-]
-
-// Minimal in-flight dedupe map
-const inflight = new Map<
-  string,
-  Promise<{ ok: true } | { ok: false; status?: number; message: string }>
->()
 
 const baseUrl = (url?: string) => {
   if (!url) return ""
@@ -59,8 +45,6 @@ export default function RetryableImage(props: RetryableImageProps) {
     retryDelay = 10000,
     onRetryExhausted,
     onRetry,
-    nonRetryableStatusCodes = DEFAULT_NON_RETRYABLE,
-    onNonRetryableError,
     showRetryButton = true,
     compactError = false,
     isLoading: externalLoading,
@@ -72,14 +56,12 @@ export default function RetryableImage(props: RetryableImageProps) {
   } = props
 
   const [loading, setLoading] = useState<boolean>(false)
-  const [error, setError] = useState<{
-    status?: number
-    message: string
-  } | null>(null)
+  const [error, setError] = useState<{ message: string } | null>(null)
   const [attempt, setAttempt] = useState<number>(0)
   const [displayedSrc, setDisplayedSrc] = useState<string | undefined>(
     undefined,
-  )
+  ) // last good
+  const [pendingSrc, setPendingSrc] = useState<string | undefined>(undefined) // hidden probe via <img>
 
   const currentSrcBase = useMemo(
     () => baseUrl(typeof src === "string" ? src : undefined),
@@ -87,7 +69,6 @@ export default function RetryableImage(props: RetryableImageProps) {
   )
   const lastSuccessBaseRef = useRef<string>("")
 
-  const abortRef = useRef<AbortController | null>(null)
   const retryTimeoutRef = useRef<number | null>(null)
   const mountedRef = useRef(true)
 
@@ -95,7 +76,6 @@ export default function RetryableImage(props: RetryableImageProps) {
     mountedRef.current = true
     return () => {
       mountedRef.current = false
-      if (abortRef.current) abortRef.current.abort()
       if (retryTimeoutRef.current) window.clearTimeout(retryTimeoutRef.current)
     }
   }, [])
@@ -106,142 +86,69 @@ export default function RetryableImage(props: RetryableImageProps) {
     intersectionRoot ?? undefined,
   )
 
-  const preflight = useCallback(
-    async (
-      signal: AbortSignal,
-    ): Promise<
-      { ok: true } | { ok: false; status?: number; message: string }
-    > => {
-      try {
-        const url = new URL(String(src))
+  const beginLoad = useCallback(() => {
+    if (!mountedRef.current || !src) return
 
-        url.searchParams.set("ik-version", Date.now().toString())
+    if (
+      lastSuccessBaseRef.current &&
+      lastSuccessBaseRef.current === currentSrcBase
+    ) {
+      setLoading(true)
+      setError(null)
+    } else {
+      setDisplayedSrc(undefined)
+      setLoading(true)
+      setError(null)
+    }
 
-        const res = await fetch(url.toString(), {
-          method: "GET",
-          signal,
-        })
+    setPendingSrc(String(src))
+  }, [currentSrcBase, src])
 
-        if (!res.headers.get("content-type")?.includes("image")) {
-          return {
-            ok: false,
-            status: res.status,
-            message: `HTTP ${res.status}`,
-          }
-        }
-        return { ok: true }
-      } catch (e: any) {
-        return { ok: false, message: e?.message || "Network error" }
-      }
-    },
-    [src],
-  )
-
-  const beginLoad = useCallback(
-    (tryIdx = 0) => {
-      if (!mountedRef.current || !src) return
-
-      // If only query params changed and we have a prior success for the same base, keep old image until new resolves
-      if (
-        lastSuccessBaseRef.current &&
-        lastSuccessBaseRef.current === currentSrcBase
-      ) {
-        setLoading(true)
-        setError(null)
-      } else {
-        setDisplayedSrc(undefined)
-        setLoading(true)
-        setError(null)
-      }
-
-      const controller = new AbortController()
-      abortRef.current = controller
-
-      let p = inflight.get(src as string)
-      if (!p) {
-        p = preflight(controller.signal)
-        inflight.set(src as string, p)
-      }
-
-      p.then((result) => {
-        if (!mountedRef.current || controller.signal.aborted) return
-        if (inflight.get(src as string) === p) inflight.delete(src as string)
-
-        if (!result.ok) {
-          if (
-            result.status &&
-            nonRetryableStatusCodes.includes(result.status)
-          ) {
-            setError({ status: result.status, message: result.message })
-            setLoading(false)
-            onNonRetryableError?.(result.status)
-            return
-          }
-          if (tryIdx < maxRetries) {
-            const next = tryIdx + 1
-            onRetry?.(next)
-            setAttempt(next)
-            retryTimeoutRef.current = window.setTimeout(
-              () => beginLoad(next),
-              retryDelay,
-            )
-            return
-          }
-          setError({ status: result.status, message: result.message })
-          setLoading(false)
-          onRetryExhausted?.()
-          return
-        }
-
-        // Status 200: render direct URL; decode validation happens via onLoad/onError events
-        setDisplayedSrc(src as string)
-        // keep loading true until onLoad fires to confirm decode
-      })
-    },
-    [
-      currentSrcBase,
-      maxRetries,
-      nonRetryableStatusCodes,
-      onNonRetryableError,
-      onRetry,
-      onRetryExhausted,
-      preflight,
-      retryDelay,
-      src,
-    ],
-  )
-
-  // React to src/visibility changes
   useEffect(() => {
     if (!src) return
     if (lazy && !visible) return
+    setAttempt(0)
     beginLoad(0)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src, visible, lazy])
 
-  const overlayActive = !!externalLoading || loading
+  const scheduleRetry = useCallback(() => {
+    if (attempt + 1 > maxRetries) {
+      setLoading(false)
+      setError({ message: "Image failed to load after retries." })
+      onRetryExhausted?.()
+      return
+    }
+    const next = attempt + 1
+    setAttempt(next)
+    onRetry?.(next)
+    retryTimeoutRef.current = window.setTimeout(() => {
+      if (!mountedRef.current) return
+      beginLoad(next)
+    }, retryDelay)
+  }, [attempt, maxRetries, onRetry, onRetryExhausted, retryDelay, beginLoad])
 
-  // Image element event handlers for decode validation
-  const handleImgLoad = () => {
+  const handleProbeLoad = () => {
+    if (!pendingSrc) return
+    setDisplayedSrc(pendingSrc)
+    setPendingSrc(undefined)
     setLoading(false)
     setError(null)
     lastSuccessBaseRef.current = currentSrcBase
   }
-  const handleImgError = () => {
-    // We had a 200 but decode failed (bad image). Retry according to policy
-    if (attempt < (maxRetries ?? 0)) {
-      const next = attempt + 1
-      setAttempt(next)
-      onRetry?.(next)
-      retryTimeoutRef.current = window.setTimeout(
-        () => beginLoad(next),
-        retryDelay,
-      )
-    } else {
-      setLoading(false)
-      setError({ message: "Invalid or undecodable image" })
-      onRetryExhausted?.()
-    }
+
+  const handleProbeError = () => {
+    scheduleRetry()
+  }
+
+  const overlayActive = !!externalLoading || loading
+
+  const handleVisibleLoad = () => {
+    setLoading(false)
+    setError(null)
+    lastSuccessBaseRef.current = currentSrcBase
+  }
+  const handleVisibleError = () => {
+    scheduleRetry()
   }
 
   return (
@@ -273,10 +180,8 @@ export default function RetryableImage(props: RetryableImageProps) {
             <VStack spacing={compactError ? 1 : 3}>
               {!compactError && (
                 <Text fontSize="md" color="gray.500" textAlign="center">
-                  {error.status &&
-                  nonRetryableStatusCodes.includes(error.status)
-                    ? `Failed to load image (Error ${error.status})`
-                    : `Failed to load image after ${maxRetries} attempts`}
+                  Failed to load image
+                  {maxRetries ? ` after ${maxRetries} attempts` : ""}
                 </Text>
               )}
               {compactError && (
@@ -296,32 +201,53 @@ export default function RetryableImage(props: RetryableImageProps) {
             </VStack>
           </Flex>
         </Center>
-      ) : displayedSrc ? (
+      ) : (
         <>
-          <ChakraImage
-            src={displayedSrc}
-            alt={alt}
-            onLoad={handleImgLoad}
-            onError={handleImgError}
-            loading="lazy"
-            {...imgProps}
-          />
-          {overlayActive && (
-            <Center position="absolute" inset={0} bg="blackAlpha.400">
-              <Spinner thickness="3px" />
+          {displayedSrc ? (
+            <>
+              <ChakraImage
+                src={displayedSrc}
+                alt={alt}
+                onLoad={handleVisibleLoad}
+                onError={handleVisibleError}
+                loading="lazy"
+                {...imgProps}
+              />
+              {overlayActive && (
+                <Center position="absolute" inset={0} bg="blackAlpha.400">
+                  <Spinner thickness="3px" />
+                </Center>
+              )}
+            </>
+          ) : (
+            <Center
+              w={imgProps.width || "full"}
+              h={imgProps.height || 24}
+              minW={imgProps.minW ?? 32}
+              borderWidth="0"
+              borderRadius="md"
+            >
+              {lazy && !visible ? <span /> : <Spinner thickness="3px" />}
             </Center>
           )}
+
+          {/* Hidden pending image that actually drives the new request */}
+          {pendingSrc && (
+            <img
+              src={pendingSrc}
+              alt=""
+              onLoad={handleProbeLoad}
+              onError={handleProbeError}
+              style={{
+                position: "absolute",
+                width: 0,
+                height: 0,
+                opacity: 0,
+                pointerEvents: "none",
+              }}
+            />
+          )}
         </>
-      ) : (
-        <Center
-          w={imgProps.width || "full"}
-          h={imgProps.height || 24}
-          minW={imgProps.minW ?? 32}
-          borderWidth="0"
-          borderRadius="md"
-        >
-          {lazy && !visible ? <span /> : <Spinner thickness="3px" />}
-        </Center>
       )}
     </Box>
   )

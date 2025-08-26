@@ -36,12 +36,12 @@ function App() {
             requireSignedUrl: false,
           },
         },
-        ...Array.from({ length: 10000 }).map((_, i) => ({
-          url: `https://ik.imagekit.io/v3sxk1svj/placeholder.jpg?updatedAt=${Date.now()}&v=${i}`,
-          metadata: {
-            requireSignedUrl: false,
-          },
-        })),
+        // ...Array.from({ length: 10000 }).map((_, i) => ({
+        //   url: `https://ik.imagekit.io/v3sxk1svj/placeholder.jpg?updatedAt=${Date.now()}&v=${i}`,
+        //   metadata: {
+        //     requireSignedUrl: false,
+        //   },
+        // })),
       ],
       onAddImage: handleAddImage,
       onClose: () => setOpen(false),

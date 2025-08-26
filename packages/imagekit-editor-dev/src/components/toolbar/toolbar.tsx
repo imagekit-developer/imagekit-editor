@@ -129,7 +129,7 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
                       }
                     }}
                     _hover={{
-                      // transform: "scale(1.02)",
+                      transform: "scale(1.02)",
                       boxShadow: "md",
                     }}
                     opacity={currentImage === imageSrc || isHovered ? 1 : 0.7}

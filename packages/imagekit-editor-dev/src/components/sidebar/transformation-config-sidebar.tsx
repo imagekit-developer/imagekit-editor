@@ -1,7 +1,6 @@
 import {
   Alert,
   AlertDescription,
-  AlertIcon,
   AlertTitle,
   Box,
   Button,
@@ -125,7 +124,7 @@ export const TransformationConfigSidebar: React.FC = () => {
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isDirty },
     reset,
     watch,
     setValue,
@@ -569,8 +568,18 @@ export const TransformationConfigSidebar: React.FC = () => {
       )}
       <SidebarFooter>
         <HStack spacing={2} w="full" justifyContent="space-between">
-          <Button variant="ghost" size="md" onClick={onClose}>
-            Discard changes
+          <Button
+            variant="ghost"
+            size="md"
+            onClick={() => {
+              if (isDirty) {
+                reset()
+              } else {
+                onClose()
+              }
+            }}
+          >
+            {isDirty ? "Discard changes" : "Close"}
           </Button>
 
           <ButtonGroup
