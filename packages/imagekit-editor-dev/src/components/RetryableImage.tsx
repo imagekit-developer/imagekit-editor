@@ -55,8 +55,8 @@ const baseUrl = (url?: string) => {
 export default function RetryableImage(props: RetryableImageProps) {
   const {
     src,
-    maxRetries = 3,
-    retryDelay = 1000,
+    maxRetries = 10,
+    retryDelay = 10000,
     onRetryExhausted,
     onRetry,
     nonRetryableStatusCodes = DEFAULT_NON_RETRYABLE,
@@ -113,23 +113,16 @@ export default function RetryableImage(props: RetryableImageProps) {
       { ok: true } | { ok: false; status?: number; message: string }
     > => {
       try {
-        // Prefer HEAD to avoid downloading body; fall back to GET if HEAD fails quickly
-        let res: Response | null = null
-        try {
-          res = await fetch(String(src), {
-            method: "HEAD",
-            cache: "no-cache",
-            signal,
-          })
-        } catch {
-          // Some CDNs don't allow HEAD on images—fall back to GET
-          res = await fetch(String(src), {
-            method: "GET",
-            cache: "no-cache",
-            signal,
-          })
-        }
-        if (res.status !== 200) {
+        const url = new URL(String(src))
+
+        url.searchParams.set("ik-version", Date.now().toString())
+
+        const res = await fetch(url.toString(), {
+          method: "GET",
+          signal,
+        })
+
+        if (!res.headers.get("content-type")?.includes("image")) {
           return {
             ok: false,
             status: res.status,
