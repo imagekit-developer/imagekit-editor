@@ -627,7 +627,7 @@ export const transformationSchema: TransformationSchema[] = [
       },
       {
         key: "resize-at_least",
-        name: "Min-size",
+        name: "Min Size",
         // The min-size crop strategy resizes the image so that at least one
         // dimension is equal to or greater than the requested dimension. The
         // aspect ratio is preserved and the other dimension may exceed the
@@ -1343,11 +1343,16 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Opacity",
             name: "opacity",
-            fieldType: "input",
+            fieldType: "slider",
             isTransformation: true,
             transformationKey: "opacity",
             helpText: "Enter an opacity percentage between 0 and 100.",
             examples: ["50"],
+            fieldProps: {
+              min: 0,
+              max: 100,
+              step: 1,
+            },
           },
         ],
       },
