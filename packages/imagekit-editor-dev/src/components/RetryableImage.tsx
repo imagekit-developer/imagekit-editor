@@ -60,8 +60,8 @@ export default function RetryableImage(props: RetryableImageProps) {
   const [attempt, setAttempt] = useState<number>(0)
   const [displayedSrc, setDisplayedSrc] = useState<string | undefined>(
     undefined,
-  ) // last good
-  const [pendingSrc, setPendingSrc] = useState<string | undefined>(undefined) // hidden probe via <img>
+  )
+  const [probing, setProbing] = useState<boolean>(false)
 
   const currentSrcBase = useMemo(
     () => baseUrl(typeof src === "string" ? src : undefined),
@@ -101,7 +101,7 @@ export default function RetryableImage(props: RetryableImageProps) {
       setError(null)
     }
 
-    setPendingSrc(String(src))
+    setProbing(true)
   }, [currentSrcBase, src])
 
   useEffect(() => {
@@ -116,6 +116,7 @@ export default function RetryableImage(props: RetryableImageProps) {
       setLoading(false)
       setError({ message: "Image failed to load after retries." })
       onRetryExhausted?.()
+      setProbing(false)
       return
     }
     const next = attempt + 1
@@ -123,20 +124,21 @@ export default function RetryableImage(props: RetryableImageProps) {
     onRetry?.(next)
     retryTimeoutRef.current = window.setTimeout(() => {
       if (!mountedRef.current) return
-      beginLoad(next)
+      beginLoad()
     }, retryDelay)
   }, [attempt, maxRetries, onRetry, onRetryExhausted, retryDelay, beginLoad])
 
   const handleProbeLoad = () => {
-    if (!pendingSrc) return
-    setDisplayedSrc(pendingSrc)
-    setPendingSrc(undefined)
+    if (!src) return
+    setDisplayedSrc(String(src))
     setLoading(false)
     setError(null)
+    setProbing(false)
     lastSuccessBaseRef.current = currentSrcBase
   }
 
   const handleProbeError = () => {
+    setProbing(false)
     scheduleRetry()
   }
 
@@ -231,10 +233,9 @@ export default function RetryableImage(props: RetryableImageProps) {
             </Center>
           )}
 
-          {/* Hidden pending image that actually drives the new request */}
-          {pendingSrc && (
+          {probing && src && (
             <img
-              src={pendingSrc}
+              src={src}
               alt=""
               onLoad={handleProbeLoad}
               onError={handleProbeError}
