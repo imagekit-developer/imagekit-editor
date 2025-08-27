@@ -10,6 +10,10 @@
     "email": "developer@imagekit.io",
     "url": "https://imagekit.io"
   },
+  "repository": {
+    "url": "https://github.com/imagekit-developer/imagekit-editor",
+    "type": "git"
+  },
   "peerDependencies": {
     "@chakra-ui/icons": "1.1.1",
     "@chakra-ui/react": "~1.8.9",
