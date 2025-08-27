@@ -30,8 +30,6 @@ jobs:
 
           yarn build
 
-          npm config set registry https://registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN
-
           npm whoami
 
           VERSION=$(node -p "require('./packages/imagekit-editor/package.json').version" )
