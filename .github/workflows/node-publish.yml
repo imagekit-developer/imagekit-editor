@@ -34,7 +34,7 @@ jobs:
 
           npm whoami
 
-          VERSION=$(node -p "require('./package.json').version" )
+          VERSION=$(node -p "require('./packages/imagekit-editor/package.json').version" )
 
           # Only publish stable versions to the latest tag
           if [[ "$VERSION" =~ ^[^-]+$ ]]; then
