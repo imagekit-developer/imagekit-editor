@@ -22,6 +22,90 @@ import {
   widthValidator,
 } from "./transformation"
 
+// Based on ImageKit's supported object list
+export const DEFAULT_FOCUS_OBJECTS = [
+  "person",
+  "bicycle",
+  "car",
+  "motorcycle",
+  "airplane",
+  "bus",
+  "train",
+  "truck",
+  "boat",
+  "trafficLight",
+  "fireHydrant",
+  "stopSign",
+  "parkingMeter",
+  "bench",
+  "bird",
+  "cat",
+  "dog",
+  "horse",
+  "sheep",
+  "cow",
+  "elephant",
+  "bear",
+  "zebra",
+  "giraffe",
+  "backpack",
+  "umbrella",
+  "handbag",
+  "tie",
+  "suitcase",
+  "frisbee",
+  "skis",
+  "snowboard",
+  "sportsBall",
+  "kite",
+  "baseballBat",
+  "baseballGlove",
+  "skateboard",
+  "surfboard",
+  "tennisRacket",
+  "bottle",
+  "wineGlass",
+  "cup",
+  "fork",
+  "knife",
+  "spoon",
+  "bowl",
+  "banana",
+  "apple",
+  "sandwich",
+  "orange",
+  "broccoli",
+  "carrot",
+  "hotDog",
+  "pizza",
+  "donut",
+  "cake",
+  "chair",
+  "couch",
+  "pottedPlant",
+  "bed",
+  "diningTable",
+  "toilet",
+  "tv",
+  "laptop",
+  "mouse",
+  "remote",
+  "keyboard",
+  "cellPhone",
+  "microwave",
+  "oven",
+  "toaster",
+  "sink",
+  "refrigerator",
+  "book",
+  "clock",
+  "vase",
+  "scissors",
+  "teddyBear",
+  "hairDrier",
+  "toothbrush",
+] as const
+
 export interface TransformationItem {
   key: string
   name: string
@@ -48,6 +132,7 @@ export interface TransformationField {
       value: string
     }[]
     autoOption?: boolean
+    isCreatable?: boolean
     min?: number
     max?: number
     step?: number
@@ -404,9 +489,14 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Focus Object",
             name: "focusObject",
-            fieldType: "input",
+            fieldType: "select",
             isTransformation: true,
             transformationGroup: "focus",
+            fieldProps: {
+              isCreatable: false,
+            },
+            helpText:
+              "Select an object to focus on. The crop will center on this object.",
             isVisible: ({ focus }) => focus === "object",
           },
         ],
@@ -506,9 +596,14 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Focus Object",
             name: "focusObject",
-            fieldType: "input",
+            fieldType: "select",
             isTransformation: true,
             transformationGroup: "focus",
+            fieldProps: {
+              isCreatable: false,
+            },
+            helpText:
+              "Select an object to focus on. The crop will center on this object.",
             isVisible: ({ focus }) => focus === "object",
           },
         ],
@@ -706,6 +801,11 @@ export const transformationSchema: TransformationSchema[] = [
             focus: z.string().optional(),
             focusAnchor: z.string().optional(),
             focusObject: z.string().optional(),
+            coordinateMethod: z.string().optional(),
+            x: z.string().optional(),
+            y: z.string().optional(),
+            xc: z.string().optional(),
+            yc: z.string().optional(),
           })
           .refine(
             (val) => {
@@ -722,7 +822,53 @@ export const transformationSchema: TransformationSchema[] = [
               message: "At least one value is required",
               path: [],
             },
-          ),
+          )
+          .superRefine((val, ctx) => {
+            if (val.focus === "object" && !val.focusObject) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Focus object is required",
+                path: ["focusObject"],
+              })
+            }
+            if (val.focus === "anchor" && !val.focusAnchor) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Focus anchor is required",
+                path: ["focusAnchor"],
+              })
+            }
+            if (val.focus === "coordinates") {
+              const hasXY = val.x || val.y
+              const hasXCYC = val.xc || val.yc
+
+              if (hasXY && hasXCYC) {
+                ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  message: "Choose either x/y or xc/yc, not both",
+                  path: [],
+                })
+              }
+
+              if (val.coordinateMethod === "topleft") {
+                if (!val.x && !val.y) {
+                  ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "At least one coordinate (x or y) is required",
+                    path: [],
+                  })
+                }
+              } else if (val.coordinateMethod === "center") {
+                if (!val.xc && !val.yc) {
+                  ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "At least one coordinate (xc or yc) is required",
+                    path: [],
+                  })
+                }
+              }
+            }
+          }),
         transformations: [
           {
             label: "Width",
@@ -756,8 +902,12 @@ export const transformationSchema: TransformationSchema[] = [
                 { label: "Anchor", value: "anchor" },
                 { label: "Face", value: "face" },
                 { label: "Object", value: "object" },
+                { label: "Custom", value: "custom" },
+                { label: "Coordinates", value: "coordinates" },
               ],
             },
+            helpText:
+              "Choose how to position the extracted region. Custom uses a saved focus area from Media Library.",
           },
           {
             label: "Focus Anchor",
@@ -783,10 +933,80 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Focus Object",
             name: "focusObject",
+            fieldType: "select",
+            isTransformation: true,
+            transformationGroup: "focus",
+            fieldProps: {
+              isCreatable: false,
+            },
+            helpText:
+              "Select an object to focus on during extraction. The crop will center on this object.",
+            isVisible: ({ focus }) => focus === "object",
+          },
+          {
+            label: "Coordinate Method",
+            name: "coordinateMethod",
+            fieldType: "radio-card",
+            isTransformation: false,
+            transformationGroup: "focus",
+            fieldProps: {
+              options: [
+                { label: "Top-left (x, y)", value: "topleft" },
+                { label: "Center (xc, yc)", value: "center" },
+              ],
+              defaultValue: "topleft",
+            },
+            helpText:
+              "Choose whether coordinates are relative to the top-left corner or the center of the image.",
+            isVisible: ({ focus }) => focus === "coordinates",
+          },
+          {
+            label: "X (Horizontal)",
+            name: "x",
             fieldType: "input",
             isTransformation: true,
             transformationGroup: "focus",
-            isVisible: ({ focus }) => focus === "object",
+            helpText:
+              "Horizontal position from the top-left. Use an integer or expression (e.g., iw_mul_0.4).",
+            examples: ["100", "iw_mul_0.4"],
+            isVisible: ({ focus, coordinateMethod }) =>
+              focus === "coordinates" && coordinateMethod === "topleft",
+          },
+          {
+            label: "Y (Vertical)",
+            name: "y",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "focus",
+            helpText:
+              "Vertical position from the top-left. Use an integer or expression (e.g., ih_mul_0.4).",
+            examples: ["100", "ih_mul_0.4"],
+            isVisible: ({ focus, coordinateMethod }) =>
+              focus === "coordinates" && coordinateMethod === "topleft",
+          },
+          {
+            label: "XC (Horizontal Center)",
+            name: "xc",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "focus",
+            helpText:
+              "Horizontal center position. Use an integer or expression (e.g., iw_mul_0.5).",
+            examples: ["200", "iw_mul_0.5"],
+            isVisible: ({ focus, coordinateMethod }) =>
+              focus === "coordinates" && coordinateMethod === "center",
+          },
+          {
+            label: "YC (Vertical Center)",
+            name: "yc",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "focus",
+            helpText:
+              "Vertical center position. Use an integer or expression (e.g., ih_mul_0.5).",
+            examples: ["200", "ih_mul_0.5"],
+            isVisible: ({ focus, coordinateMethod }) =>
+              focus === "coordinates" && coordinateMethod === "center",
           },
         ],
       },
@@ -2527,7 +2747,7 @@ export const transformationFormatters: Record<
     }
   },
   focus: (values, transforms) => {
-    const { focus, focusAnchor, focusObject } = values
+    const { focus, focusAnchor, focusObject, x, y, xc, yc } = values
 
     if (focus === "auto" || focus === "face") {
       transforms.focus = focus
@@ -2535,6 +2755,15 @@ export const transformationFormatters: Record<
       transforms.focus = focusAnchor
     } else if (focus === "object") {
       transforms.focus = focusObject
+    } else if (focus === "custom") {
+      transforms.focus = "custom"
+    } else if (focus === "coordinates") {
+      // Handle coordinate-based focus
+      // x/y are top-left coordinates, xc/yc are center coordinates
+      if (x) transforms.x = x
+      if (y) transforms.y = y
+      if (xc) transforms.xc = xc
+      if (yc) transforms.yc = yc
     }
   },
   shadow: (values, transforms) => {

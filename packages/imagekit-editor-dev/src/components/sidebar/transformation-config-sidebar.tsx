@@ -37,13 +37,14 @@ import { PiArrowLeft } from "@react-icons/all-files/pi/PiArrowLeft"
 import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
 import { PiInfo } from "@react-icons/all-files/pi/PiInfo"
 import { PiX } from "@react-icons/all-files/pi/PiX"
+import startCase from "lodash/startCase"
 import { useEffect, useMemo } from "react"
 import { Controller, type SubmitHandler, useForm } from "react-hook-form"
 import Select from "react-select"
 import CreateableSelect from "react-select/creatable"
 import { z } from "zod/v3"
 import type { TransformationField } from "../../schema"
-import { transformationSchema } from "../../schema"
+import { DEFAULT_FOCUS_OBJECTS, transformationSchema } from "../../schema"
 import { useEditorStore } from "../../store"
 import { isStepAligned } from "../../utils"
 import AnchorField from "../common/AnchorField"
@@ -61,6 +62,7 @@ export const TransformationConfigSidebar: React.FC = () => {
     addTransformation,
     updateTransformation,
     imageList,
+    focusObjects,
     _setSidebarState,
     _internalState,
     _setTransformationToEdit,
@@ -296,40 +298,74 @@ export const TransformationConfigSidebar: React.FC = () => {
                 <Controller
                   name={field.name}
                   control={control}
-                  render={({ field: controllerField }) => (
-                    <Select
-                      id={field.name}
-                      placeholder="Select"
-                      menuPlacement="auto"
-                      options={field.fieldProps?.options?.map((option) => ({
-                        value: option.value,
-                        label: option.label,
-                      }))}
-                      value={field.fieldProps?.options?.find(
-                        (option) => option.value === controllerField.value,
-                      )}
-                      onChange={(selectedOption) =>
-                        controllerField.onChange(selectedOption?.value)
-                      }
-                      onBlur={controllerField.onBlur}
-                      styles={{
-                        control: (base) => ({
-                          ...base,
-                          fontSize: "12px",
-                          minHeight: "32px",
-                          borderColor: "#E2E8F0",
-                        }),
-                        menu: (base) => ({
-                          ...base,
-                          zIndex: 10,
-                        }),
-                        option: (base) => ({
-                          ...base,
-                          fontSize: "12px",
-                        }),
-                      }}
-                    />
-                  )}
+                  render={({ field: controllerField }) => {
+                    // For focusObject field, use focusObjects from store or default list
+                    const selectOptions =
+                      field.name === "focusObject"
+                        ? (focusObjects || DEFAULT_FOCUS_OBJECTS).map(
+                            (obj) => ({
+                              value: obj,
+                              label: startCase(obj),
+                            }),
+                          )
+                        : field.fieldProps?.options?.map((option) => ({
+                            value: option.value,
+                            label: option.label,
+                          }))
+
+                    const isCreatable = field.fieldProps?.isCreatable === true
+                    const SelectComponent = isCreatable
+                      ? CreateableSelect
+                      : Select
+
+                    // For creatable selects, find the value in options or create a custom one
+                    const selectedValue = isCreatable
+                      ? selectOptions?.find(
+                          (option) => option.value === controllerField.value,
+                        ) ||
+                        (controllerField.value
+                          ? {
+                              value: controllerField.value as string,
+                              label: startCase(controllerField.value as string),
+                            }
+                          : null)
+                      : selectOptions?.find(
+                          (option) => option.value === controllerField.value,
+                        )
+
+                    return (
+                      <SelectComponent
+                        id={field.name}
+                        formatCreateLabel={(inputValue) =>
+                          `Use "${inputValue}"`
+                        }
+                        placeholder="Select"
+                        menuPlacement="auto"
+                        options={selectOptions}
+                        value={selectedValue}
+                        onChange={(selectedOption) =>
+                          controllerField.onChange(selectedOption?.value)
+                        }
+                        onBlur={controllerField.onBlur}
+                        styles={{
+                          control: (base) => ({
+                            ...base,
+                            fontSize: "12px",
+                            minHeight: "32px",
+                            borderColor: "#E2E8F0",
+                          }),
+                          menu: (base) => ({
+                            ...base,
+                            zIndex: 10,
+                          }),
+                          option: (base) => ({
+                            ...base,
+                            fontSize: "12px",
+                          }),
+                        }}
+                      />
+                    )
+                  }}
                 />
               ) : null}
               {field.fieldType === "select-creatable" ? (

@@ -7,6 +7,7 @@ import {
 import { create } from "zustand"
 import { subscribeWithSelector } from "zustand/middleware"
 import {
+  type DEFAULT_FOCUS_OBJECTS,
   type TransformationField,
   transformationFormatters,
   transformationSchema,
@@ -71,6 +72,9 @@ export interface EditorState<
   signingAbortControllers: Record<string, AbortController>
   signedUrlCache: Record<string, string>
   currentTransformKey: string
+  focusObjects?: ReadonlyArray<
+    (typeof DEFAULT_FOCUS_OBJECTS)[number] | (string & {})
+  >
   _internalState: InternalState
 }
 
@@ -80,6 +84,9 @@ export type EditorActions<
   initialize: (initialData?: {
     imageList?: Array<string | FileElement<Metadata>>
     signer?: Signer<Metadata>
+    focusObjects?: ReadonlyArray<
+      (typeof DEFAULT_FOCUS_OBJECTS)[number] | (string & {})
+    >
   }) => void
   destroy: () => void
   setCurrentImage: (imageSrc: string | undefined) => void
@@ -155,6 +162,7 @@ const DEFAULT_STATE: EditorState = {
   signingAbortControllers: {},
   signedUrlCache: {},
   currentTransformKey: "",
+  focusObjects: undefined,
   _internalState: {
     sidebarState: "none",
     selectedTransformationKey: null,
@@ -176,6 +184,9 @@ const useEditorStore = create<EditorState & EditorActions>()(
       }
       if (initialData?.signer) {
         updates.signer = initialData.signer
+      }
+      if (initialData?.focusObjects) {
+        updates.focusObjects = initialData.focusObjects
       }
       if (Object.keys(updates).length > 0) {
         set(updates as EditorState)
