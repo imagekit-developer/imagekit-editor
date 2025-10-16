@@ -967,7 +967,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationGroup: "focus",
             helpText:
-              "Horizontal position from the top-left. Use an integer or expression (e.g., iw_mul_0.4).",
+              "Horizontal position from the top-left. Use an integer or expression.",
             examples: ["100", "iw_mul_0.4"],
             isVisible: ({ focus, coordinateMethod }) =>
               focus === "coordinates" && coordinateMethod === "topleft",
@@ -979,7 +979,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationGroup: "focus",
             helpText:
-              "Vertical position from the top-left. Use an integer or expression (e.g., ih_mul_0.4).",
+              "Vertical position from the top-left. Use an integer or expression.",
             examples: ["100", "ih_mul_0.4"],
             isVisible: ({ focus, coordinateMethod }) =>
               focus === "coordinates" && coordinateMethod === "topleft",
@@ -991,7 +991,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationGroup: "focus",
             helpText:
-              "Horizontal center position. Use an integer or expression (e.g., iw_mul_0.5).",
+              "Horizontal center position. Use an integer or expression.",
             examples: ["200", "iw_mul_0.5"],
             isVisible: ({ focus, coordinateMethod }) =>
               focus === "coordinates" && coordinateMethod === "center",
@@ -1002,8 +1002,7 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "input",
             isTransformation: true,
             transformationGroup: "focus",
-            helpText:
-              "Vertical center position. Use an integer or expression (e.g., ih_mul_0.5).",
+            helpText: "Vertical center position. Use an integer or expression.",
             examples: ["200", "ih_mul_0.5"],
             isVisible: ({ focus, coordinateMethod }) =>
               focus === "coordinates" && coordinateMethod === "center",
