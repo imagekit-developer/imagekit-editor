@@ -58,6 +58,10 @@ interface InternalState {
     | null
 }
 
+export type FocusObjects =
+  | (typeof DEFAULT_FOCUS_OBJECTS)[number]
+  | (string & {})
+
 export interface EditorState<
   Metadata extends RequiredMetadata = RequiredMetadata,
 > {
@@ -72,9 +76,7 @@ export interface EditorState<
   signingAbortControllers: Record<string, AbortController>
   signedUrlCache: Record<string, string>
   currentTransformKey: string
-  focusObjects?: ReadonlyArray<
-    (typeof DEFAULT_FOCUS_OBJECTS)[number] | (string & {})
-  >
+  focusObjects?: ReadonlyArray<FocusObjects>
   _internalState: InternalState
 }
 
@@ -84,9 +86,7 @@ export type EditorActions<
   initialize: (initialData?: {
     imageList?: Array<string | FileElement<Metadata>>
     signer?: Signer<Metadata>
-    focusObjects?: ReadonlyArray<
-      (typeof DEFAULT_FOCUS_OBJECTS)[number] | (string & {})
-    >
+    focusObjects?: ReadonlyArray<FocusObjects>
   }) => void
   destroy: () => void
   setCurrentImage: (imageSrc: string | undefined) => void

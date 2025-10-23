@@ -7,6 +7,7 @@ import type { HeaderProps } from "./components/header"
 import type { DEFAULT_FOCUS_OBJECTS } from "./schema"
 import {
   type FileElement,
+  type FocusObjects,
   type RequiredMetadata,
   type Signer,
   useEditorStore,
@@ -25,9 +26,7 @@ interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
   signer?: Signer<Metadata>
   onAddImage?: () => void
   exportOptions?: HeaderProps["exportOptions"]
-  focusObjects?: ReadonlyArray<
-    (typeof DEFAULT_FOCUS_OBJECTS)[number] | (string & {})
-  >
+  focusObjects?: ReadonlyArray<FocusObjects>
   onClose: (args: { dirty: boolean; destroy: () => void }) => void
 }
 
