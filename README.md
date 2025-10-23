@@ -130,6 +130,7 @@ export default ImageEditor;
 | `signer` | `Signer` | ❌ | Function to generate signed URLs for private images |
 | `onAddImage` | `() => void` | ❌ | Callback function for adding new images |
 | `exportOptions` | `ExportOptions` | ❌ | Configuration for export functionality |
+| `focusObjects` | `string[]` | ❌ | Custom list of selectable focus objects for object-based focus |
 
 ### ImageKitEditor Ref Methods
 
@@ -179,6 +180,19 @@ exportOptions={{
     }
   ]
 }}
+```
+
+### Focus Objects
+
+You can override the list of selectable focus objects used when a transformation's focus is set to "Object" (e.g., Maintain Aspect Ratio, Forced Crop, Extract). If not provided, the editor defaults to ImageKit's supported objects (e.g., person, bicycle, car, dog, etc.).
+
+See the supported object list in the ImageKit docs: https://imagekit.io/docs/image-resize-and-crop#supported-object-list
+
+```tsx
+<ImageKitEditor
+  focusObjects={["person", "cat", "car", "customObject"]}
+  // ... other props
+/>
 ```
 
 ### File Element Interface

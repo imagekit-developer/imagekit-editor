@@ -4,8 +4,10 @@ import merge from "lodash/merge"
 import React, { forwardRef, useImperativeHandle } from "react"
 import { EditorLayout, EditorWrapper } from "./components/editor"
 import type { HeaderProps } from "./components/header"
+import type { DEFAULT_FOCUS_OBJECTS } from "./schema"
 import {
   type FileElement,
+  type FocusObjects,
   type RequiredMetadata,
   type Signer,
   useEditorStore,
@@ -24,7 +26,7 @@ interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
   signer?: Signer<Metadata>
   onAddImage?: () => void
   exportOptions?: HeaderProps["exportOptions"]
-
+  focusObjects?: ReadonlyArray<FocusObjects>
   onClose: (args: { dirty: boolean; destroy: () => void }) => void
 }
 
@@ -32,7 +34,7 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
   props: EditorProps<M>,
   ref: React.Ref<ImageKitEditorRef>,
 ) {
-  const { theme, initialImages, signer } = props
+  const { theme, initialImages, signer, focusObjects } = props
   const {
     addImage,
     addImages,
@@ -62,8 +64,9 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     initialize({
       imageList: initialImages,
       signer,
+      focusObjects,
     })
-  }, [initialImages, signer, initialize])
+  }, [initialImages, signer, focusObjects, initialize])
 
   useImperativeHandle(
     ref,
