@@ -8,7 +8,7 @@ export function EditorWrapper({ children }: EditorWrapperProps) {
   return (
     <Box
       position="fixed"
-      zIndex="modal"
+      zIndex="2100"
       height="100vh"
       width="100vw"
       top={0}

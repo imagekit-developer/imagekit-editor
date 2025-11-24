@@ -57,13 +57,14 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
       alignItems="center"
       flexDirection="row"
       px="1rem"
+      paddingRight="0"
       borderBottomWidth="1px"
       borderBottomColor="editorBattleshipGrey.100"
-      gap="4"
       flexShrink={0}
     >
       <Icon
         boxSize={"5"}
+        mr="4"
         as={imageList.length === 1 ? PiImageSquare : PiImagesSquare}
       />
       <Text>{headerText}</Text>
@@ -87,6 +88,9 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
                 aria-label={exportOption.label}
                 variant="ghost"
                 fontWeight="normal"
+                height="full"
+                borderRadius="0"
+                px="8"
                 size="sm"
                 onClick={() => exportOption.onClick(imageList, currentImage)}
               >
@@ -94,16 +98,18 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
               </Button>
             ) : (
               <Menu key={`export-menu-${exportOption.label}`}>
-                <MenuButton>
-                  <Button
-                    leftIcon={exportOption.icon}
-                    aria-label={exportOption.label}
-                    variant="ghost"
-                    fontWeight="normal"
-                    size="sm"
-                  >
-                    {exportOption.label}
-                  </Button>
+                <MenuButton
+                  as={Button}
+                  leftIcon={exportOption.icon}
+                  aria-label={exportOption.label}
+                  variant="ghost"
+                  fontWeight="normal"
+                  height="full"
+                  borderRadius="0"
+                  px="8"
+                  size="sm"
+                >
+                  {exportOption.label}
                 </MenuButton>
                 <MenuList>
                   {exportOption.options
@@ -132,6 +138,9 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
         onClick={onClose}
         variant="ghost"
         fontWeight="normal"
+        height="full"
+        borderRadius="0"
+        px="8"
         size="sm"
       >
         Close
