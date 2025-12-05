@@ -4,7 +4,6 @@ import merge from "lodash/merge"
 import React, { forwardRef, useImperativeHandle } from "react"
 import { EditorLayout, EditorWrapper } from "./components/editor"
 import type { HeaderProps } from "./components/header"
-import type { DEFAULT_FOCUS_OBJECTS } from "./schema"
 import {
   type FileElement,
   type FocusObjects,
@@ -25,7 +24,7 @@ interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
   initialImages?: Array<string | FileElement<Metadata>>
   signer?: Signer<Metadata>
   onAddImage?: () => void
-  exportOptions?: HeaderProps["exportOptions"]
+  exportOptions?: HeaderProps<Metadata>["exportOptions"]
   focusObjects?: ReadonlyArray<FocusObjects>
   onClose: (args: { dirty: boolean; destroy: () => void }) => void
 }

@@ -28,6 +28,7 @@ export interface FileElement<
 > {
   url: string
   metadata: Metadata
+  imageDimensions: { width: number; height: number } | null
 }
 
 export interface SignerRequest<
@@ -90,6 +91,10 @@ export type EditorActions<
   }) => void
   destroy: () => void
   setCurrentImage: (imageSrc: string | undefined) => void
+  setImageDimensions: (
+    imageSrc: string,
+    dimensions: { width: number; height: number } | null,
+  ) => void
   addImage: (imageSrc: string | FileElement<Metadata>) => void
   addImages: (imageSrcs: Array<string | FileElement<Metadata>>) => void
   removeImage: (imageSrc: string) => void
@@ -137,6 +142,7 @@ function normalizeImage<Metadata extends RequiredMetadata = RequiredMetadata>(
     return {
       url: image,
       metadata: { requireSignedUrl: false } as Metadata,
+      imageDimensions: null,
     }
   }
   return {
@@ -147,6 +153,7 @@ function normalizeImage<Metadata extends RequiredMetadata = RequiredMetadata>(
           requireSignedUrl: image.metadata.requireSignedUrl ?? false,
         }
       : ({ requireSignedUrl: false } as Metadata),
+    imageDimensions: null,
   }
 }
 
@@ -200,6 +207,19 @@ const useEditorStore = create<EditorState & EditorActions>()(
     // Actions
     setCurrentImage: (imageSrc) => {
       set({ currentImage: imageSrc })
+    },
+
+    setImageDimensions: (imageSrc, imageDimensions) => {
+      set((state) => {
+        console.log(imageSrc, state.originalImageList)
+        const index = state.originalImageList.findIndex(
+          (img) => img.url === imageSrc,
+        )
+        if (index === -1) return state
+        const updatedImageList = [...state.originalImageList]
+        updatedImageList[index].imageDimensions = imageDimensions
+        return { originalImageList: updatedImageList }
+      })
     },
 
     addImage: (imageSrc) => {

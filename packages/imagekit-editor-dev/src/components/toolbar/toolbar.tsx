@@ -21,6 +21,7 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
     signingImages,
     setCurrentImage,
     removeImage,
+    setImageDimensions,
     _internalState,
   } = useEditorStore()
 
@@ -204,6 +205,12 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
                         </Center>
                       }
                       isLoading={isSigning}
+                      onLoad={(event) => {
+                        setImageDimensions(originalImageList[index]!.url, {
+                          width: event.currentTarget.naturalWidth,
+                          height: event.currentTarget.naturalHeight,
+                        })
+                      }}
                     />
                   </Box>
                 )}

@@ -11,6 +11,7 @@ import {
 } from "@chakra-ui/react"
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useVisibility } from "../hooks/useVisibility"
+import { useEditorStore } from "../store"
 
 export interface RetryableImageProps extends ImageProps {
   maxRetries?: number
@@ -144,7 +145,8 @@ export default function RetryableImage(props: RetryableImageProps) {
 
   const overlayActive = !!externalLoading || loading
 
-  const handleVisibleLoad = () => {
+  const handleVisibleLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
+    imgProps?.onLoad?.(event)
     setLoading(false)
     setError(null)
     lastSuccessBaseRef.current = currentSrcBase
