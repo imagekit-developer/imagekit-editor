@@ -31,6 +31,10 @@ export interface FileElement<
   imageDimensions: { width: number; height: number } | null
 }
 
+export type InputFileElement<
+  Metadata extends RequiredMetadata = RequiredMetadata,
+> = Omit<FileElement<Metadata>, "imageDimensions">
+
 export interface SignerRequest<
   Metadata extends RequiredMetadata = RequiredMetadata,
 > {
@@ -85,7 +89,7 @@ export type EditorActions<
   Metadata extends RequiredMetadata = RequiredMetadata,
 > = {
   initialize: (initialData?: {
-    imageList?: Array<string | FileElement<Metadata>>
+    imageList?: Array<string | InputFileElement<Metadata>>
     signer?: Signer<Metadata>
     focusObjects?: ReadonlyArray<FocusObjects>
   }) => void
@@ -95,8 +99,8 @@ export type EditorActions<
     imageSrc: string,
     dimensions: { width: number; height: number } | null,
   ) => void
-  addImage: (imageSrc: string | FileElement<Metadata>) => void
-  addImages: (imageSrcs: Array<string | FileElement<Metadata>>) => void
+  addImage: (imageSrc: string | InputFileElement<Metadata>) => void
+  addImages: (imageSrcs: Array<string | InputFileElement<Metadata>>) => void
   removeImage: (imageSrc: string) => void
   setTransformations: (transformations: Omit<Transformation, "id">[]) => void
   moveTransformation: (
@@ -136,7 +140,7 @@ function initTransformationStates(transformations: Transformation[]) {
 initTransformationStates(initialTransformations)
 
 function normalizeImage<Metadata extends RequiredMetadata = RequiredMetadata>(
-  image: string | FileElement<Metadata>,
+  image: string | InputFileElement<Metadata>,
 ): FileElement<Metadata> {
   if (typeof image === "string") {
     return {
@@ -211,7 +215,6 @@ const useEditorStore = create<EditorState & EditorActions>()(
 
     setImageDimensions: (imageSrc, imageDimensions) => {
       set((state) => {
-        console.log(imageSrc, state.originalImageList)
         const index = state.originalImageList.findIndex(
           (img) => img.url === imageSrc,
         )
