@@ -18,3 +18,4 @@ packages/imagekit-editor/*.tgz
 .turbo
 .yarn
 builds
+packages/imagekit-editor/README.md

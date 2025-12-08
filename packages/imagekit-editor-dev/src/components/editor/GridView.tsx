@@ -27,6 +27,7 @@ export const GridView: FC<GridViewProps> = ({ imageSize, onAddImage }) => {
     originalImageList,
     signingImages,
     removeImage,
+    setImageDimensions,
   } = useEditorStore()
   return (
     <Flex
@@ -157,6 +158,12 @@ export const GridView: FC<GridViewProps> = ({ imageSize, onAddImage }) => {
                         </Center>
                       }
                       isLoading={isSigning}
+                      onLoad={(event) => {
+                        setImageDimensions(originalImageList[index]!.url, {
+                          width: event.currentTarget.naturalWidth,
+                          height: event.currentTarget.naturalHeight,
+                        })
+                      }}
                     />
                   </Box>
                 )}

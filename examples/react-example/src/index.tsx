@@ -8,7 +8,9 @@ import ReactDOM from "react-dom"
 function App() {
   const [open, setOpen] = React.useState(true)
   const [editorProps, setEditorProps] =
-    React.useState<ImageKitEditorProps<{ requireSignedUrl: boolean }>>()
+    React.useState<
+      ImageKitEditorProps<{ requireSignedUrl: boolean; fileName: string }>
+    >()
   const ref = React.useRef<ImageKitEditorRef>(null)
 
   /**
@@ -28,18 +30,21 @@ function App() {
           url: "https://ik.imagekit.io/v3sxk1svj/white%20BMW%20car%20on%20street.jpg",
           metadata: {
             requireSignedUrl: false,
+            fileName: "white BMW car on street.jpg",
           },
         },
         {
           url: "https://ik.imagekit.io/v3sxk1svj/Young%20Living%20Patchouili%20bot....jpg",
           metadata: {
             requireSignedUrl: false,
+            fileName: "Young Living Patchouili bot.jpg",
           },
         },
         {
           url: "https://ik.imagekit.io/v3sxk1svj/brown%20bear%20plush%20toy%20on%20whi....jpg?updatedAt=1760432666859",
           metadata: {
             requireSignedUrl: false,
+            fileName: "brown bear plush toy on white.jpg",
           },
         },
         // ...Array.from({ length: 10000 }).map((_, i) => ({
@@ -57,26 +62,26 @@ function App() {
           label: "Export",
           icon: <Icon boxSize={"5"} as={PiDownload} />,
           isVisible: true,
-          onClick: (images) => {
-            console.log(images)
+          onClick: (images, currentImage) => {
+            console.log(images, currentImage)
           },
         },
-        {
-          type: "menu",
-          label: "Export",
-          icon: <Icon boxSize={"5"} as={PiDownload} />,
-          isVisible: true,
-          options: [
-            {
-              label: "Export",
-              icon: <Icon boxSize={"5"} as={PiDownload} />,
-              isVisible: true,
-              onClick: (images) => {
-                console.log(images)
-              },
-            },
-          ],
-        },
+        // {
+        //   type: "menu",
+        //   label: "Export",
+        //   icon: <Icon boxSize={"5"} as={PiDownload} />,
+        //   isVisible: true,
+        //   options: [
+        //     {
+        //       label: "Export",
+        //       icon: <Icon boxSize={"5"} as={PiDownload} />,
+        //       isVisible: true,
+        //       onClick: (images) => {
+        //         console.log(images)
+        //       },
+        //     },
+        //   ],
+        // },
       ],
       signer: async (request) => {
         console.log(request)

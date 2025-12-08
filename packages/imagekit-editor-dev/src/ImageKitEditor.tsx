@@ -4,10 +4,9 @@ import merge from "lodash/merge"
 import React, { forwardRef, useImperativeHandle } from "react"
 import { EditorLayout, EditorWrapper } from "./components/editor"
 import type { HeaderProps } from "./components/header"
-import type { DEFAULT_FOCUS_OBJECTS } from "./schema"
 import {
-  type FileElement,
   type FocusObjects,
+  type InputFileElement,
   type RequiredMetadata,
   type Signer,
   useEditorStore,
@@ -15,17 +14,17 @@ import {
 import { themeOverrides } from "./theme"
 
 export interface ImageKitEditorRef {
-  loadImage: (image: string | FileElement) => void
-  loadImages: (images: Array<string | FileElement>) => void
+  loadImage: (image: string | InputFileElement) => void
+  loadImages: (images: Array<string | InputFileElement>) => void
   setCurrentImage: (imageSrc: string) => void
 }
 
 interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
   theme?: Dict
-  initialImages?: Array<string | FileElement<Metadata>>
+  initialImages?: Array<string | InputFileElement<Metadata>>
   signer?: Signer<Metadata>
   onAddImage?: () => void
-  exportOptions?: HeaderProps["exportOptions"]
+  exportOptions?: HeaderProps<Metadata>["exportOptions"]
   focusObjects?: ReadonlyArray<FocusObjects>
   onClose: (args: { dirty: boolean; destroy: () => void }) => void
 }

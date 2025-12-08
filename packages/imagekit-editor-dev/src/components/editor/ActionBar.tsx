@@ -17,7 +17,7 @@ import {
 import { PiGridFour } from "@react-icons/all-files/pi/PiGridFour"
 import { PiImageSquare } from "@react-icons/all-files/pi/PiImageSquare"
 import { PiListBullets } from "@react-icons/all-files/pi/PiListBullets"
-import { type FC, useEffect, useState } from "react"
+import { type FC, useMemo } from "react"
 import { useEditorStore } from "../../store"
 
 interface ActionBarProps {
@@ -33,25 +33,19 @@ export const ActionBar: FC<ActionBarProps> = ({
   gridImageSize,
   setGridImageSize,
 }) => {
-  const { currentImage, showOriginal, setShowOriginal } = useEditorStore()
+  const {
+    currentImage,
+    imageList,
+    originalImageList,
+    showOriginal,
+    setShowOriginal,
+  } = useEditorStore()
 
-  const [imageDimensions, setImageDimensions] = useState<{
-    width: number
-    height: number
-  } | null>(null)
-
-  useEffect(() => {
-    if (currentImage) {
-      const img = new Image()
-      img.onload = () => {
-        setImageDimensions({
-          width: img.naturalWidth,
-          height: img.naturalHeight,
-        })
-      }
-      img.src = currentImage
-    }
-  }, [currentImage])
+  const imageDimensions = useMemo(() => {
+    const idx = imageList.findIndex((img) => img === currentImage)
+    if (idx === -1) return null
+    return originalImageList[idx].imageDimensions
+  }, [currentImage, imageList, originalImageList])
 
   return (
     <Box

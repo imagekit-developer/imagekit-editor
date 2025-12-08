@@ -15,6 +15,7 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
     imageList,
     originalImageList,
     signingImages,
+    setImageDimensions,
     _internalState,
   } = useEditorStore()
 
@@ -53,6 +54,16 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
               const originalUrl = originalImageList[idx]?.url
               return originalUrl ? signingImages[originalUrl] : false
             })()}
+            onLoad={(event) => {
+              console.log(event)
+              if (!currentImage) return
+              const idx = imageList.findIndex((img) => img === currentImage)
+              if (idx === -1) return
+              setImageDimensions(originalImageList[idx]!.url, {
+                width: event.currentTarget.naturalWidth,
+                height: event.currentTarget.naturalHeight,
+              })
+            }}
           />
         </Flex>
       </Flex>

@@ -17,8 +17,8 @@
     "start": "turbo run start",
     "build": "turbo run build",
     "version": "yarn workspace @imagekit/editor version",
-    "package": "yarn build && yarn workspace @imagekit/editor pack --out ../../builds/imagekit-editor-%v.tgz",
-    "release": "yarn build && yarn workspace @imagekit/editor pack --out ../../builds/imagekit-editor-%v.tgz && yarn workspace @imagekit/editor publish",
+    "package": "yarn build && shx cp README.md ./packages/imagekit-editor/ && yarn workspace @imagekit/editor pack --out ../../builds/imagekit-editor-%v.tgz",
+    "release": "yarn build && shx cp README.md ./packages/imagekit-editor/ && yarn workspace @imagekit/editor pack --out ../../builds/imagekit-editor-%v.tgz && yarn workspace @imagekit/editor publish",
     "prepare": "husky",
     "lint": "biome ci"
   },
@@ -26,6 +26,7 @@
     "@biomejs/biome": "2.1.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.1.2",
+    "shx": "^0.4.0",
     "turbo": "^2.0.1"
   },
   "packageManager": "yarn@4.9.2",

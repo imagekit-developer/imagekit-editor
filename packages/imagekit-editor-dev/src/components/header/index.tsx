@@ -14,31 +14,46 @@ import { PiImageSquare } from "@react-icons/all-files/pi/PiImageSquare"
 import { PiImagesSquare } from "@react-icons/all-files/pi/PiImagesSquare"
 import { PiX } from "@react-icons/all-files/pi/PiX"
 import React, { useMemo } from "react"
-import { useEditorStore } from "../../store"
+import {
+  type FileElement,
+  type RequiredMetadata,
+  useEditorStore,
+} from "../../store"
 
-interface ExportOptionButton {
+interface ExportOptionButton<
+  Metadata extends RequiredMetadata = RequiredMetadata,
+> {
   type: "button"
   label: string
   icon?: React.ReactElement
   isVisible: boolean | ((images: string[], currentImage?: string) => boolean)
-  onClick: (images: string[], currentImage?: string) => void
+  onClick: (
+    images: { url: string; file: FileElement<Metadata> }[],
+    currentImage?: { url: string; file: FileElement<Metadata> },
+  ) => void
 }
 
-interface ExportOptionMenu {
+interface ExportOptionMenu<
+  Metadata extends RequiredMetadata = RequiredMetadata,
+> {
   type: "menu"
   label: string
   icon?: React.ReactElement
   isVisible: boolean | ((images: string[], currentImage?: string) => boolean)
-  options: Array<Omit<ExportOptionButton, "type">>
+  options: Array<Omit<ExportOptionButton<Metadata>, "type">>
 }
 
-export interface HeaderProps {
+export interface HeaderProps<
+  Metadata extends RequiredMetadata = RequiredMetadata,
+> {
   onClose: () => void
-  exportOptions?: Array<ExportOptionButton | ExportOptionMenu>
+  exportOptions?: Array<
+    ExportOptionButton<Metadata> | ExportOptionMenu<Metadata>
+  >
 }
 
 export const Header = ({ onClose, exportOptions }: HeaderProps) => {
-  const { imageList, currentImage } = useEditorStore()
+  const { imageList, originalImageList, currentImage } = useEditorStore()
 
   const headerText = useMemo(() => {
     if (imageList.length === 1) {
@@ -92,7 +107,19 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
                 borderRadius="0"
                 px="8"
                 size="sm"
-                onClick={() => exportOption.onClick(imageList, currentImage)}
+                onClick={() => {
+                  const images = imageList.map((image, index) => ({
+                    url: image,
+                    file: originalImageList[index],
+                  }))
+                  const cImage = images.find(
+                    (image) => image.url === currentImage,
+                  )
+                  exportOption.onClick(images, {
+                    url: cImage!.url,
+                    file: cImage!.file,
+                  })
+                }}
               >
                 {exportOption.label}
               </Button>
@@ -121,7 +148,19 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
                     .map((option) => (
                       <MenuItem
                         key={`export-menu-option-${option.label}`}
-                        onClick={() => option.onClick(imageList, currentImage)}
+                        onClick={() => {
+                          const images = imageList.map((image, index) => ({
+                            url: image,
+                            file: originalImageList[index],
+                          }))
+                          const cImage = images.find(
+                            (image) => image.url === currentImage,
+                          )
+                          option.onClick(images, {
+                            url: cImage!.url,
+                            file: cImage!.file,
+                          })
+                        }}
                       >
                         {option.label}
                       </MenuItem>
