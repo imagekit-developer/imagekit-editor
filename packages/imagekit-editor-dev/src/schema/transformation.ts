@@ -78,10 +78,8 @@ export const aspectRatioValidator = z.any().superRefine((val, ctx) => {
 })
 
 const layerXNumber = z.coerce
-  .number({ invalid_type_error: "Should be a number." })
-  .min(0, {
-    message: "Layer X must be a positive number.",
-  })
+  .string()
+  .regex(/^[N-]?\d+(\.\d{1,2})?$/)
 
 const layerXExpr = z
   .string()
@@ -97,15 +95,13 @@ export const layerXValidator = z.any().superRefine((val, ctx) => {
   }
   ctx.addIssue({
     code: z.ZodIssueCode.custom,
-    message: "Layer X must be a positive number or a valid expression string.",
+    message: "Layer X must be a number or a valid expression string.",
   })
 })
 
 const layerYNumber = z.coerce
-  .number({ invalid_type_error: "Should be a number." })
-  .min(0, {
-    message: "Layer Y must be a positive number.",
-  })
+  .string()
+  .regex(/^[N-]?\d+(\.\d{1,2})?$/)
 
 const layerYExpr = z
   .string()
@@ -121,6 +117,6 @@ export const layerYValidator = z.any().superRefine((val, ctx) => {
   }
   ctx.addIssue({
     code: z.ZodIssueCode.custom,
-    message: "Layer Y must be a positive number or a valid expression string.",
+    message: "Layer Y must be a number or a valid expression string.",
   })
 })

@@ -2199,7 +2199,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "x",
             transformationGroup: "textLayer",
             helpText: "Specify horizontal offset for the text.",
-            examples: ["10", "bw_div_2"],
+            examples: ["10", "-20", "N30", "bw_div_2"],
           },
           {
             label: "Position Y",
@@ -2209,7 +2209,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "y",
             transformationGroup: "textLayer",
             helpText: "Specify vertical offset for the text.",
-            examples: ["10", "bh_div_2"],
+            examples: ["10", "-20", "N30", "bh_div_2"],
           },
           {
             label: "Font Size",
@@ -2517,7 +2517,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "x",
             transformationGroup: "imageLayer",
             helpText: "Specify the horizontal offset for the overlay image.",
-            examples: ["10"],
+            examples: ["10", "-20", "N30", "bw_div_2"],
           },
           {
             label: "Position Y",
@@ -2527,7 +2527,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "y",
             transformationGroup: "imageLayer",
             helpText: "Specify the vertical offset for the overlay image.",
-            examples: ["10"],
+            examples: ["10", "-20", "N30", "bh_div_2"],
           },
           {
             label: "Opacity",
@@ -2926,13 +2926,13 @@ export const transformationFormatters: Record<
       typeof values.positionX === "number" ||
       typeof values.positionX === "string"
     ) {
-      position.x = values.positionX
+      position.x = values.positionX.toString().replace(/^-/,"N")
     }
     if (
       typeof values.positionY === "number" ||
       typeof values.positionY === "string"
     ) {
-      position.y = values.positionY
+      position.y = values.positionY.toString().replace(/^-/,"N")
     }
     if (Object.keys(position).length > 0) {
       overlay.position = position
@@ -3032,10 +3032,10 @@ export const transformationFormatters: Record<
     // Positioning via x/y or focus anchor
     const position: Record<string, unknown> = {}
     if (values.positionX) {
-      position.x = values.positionX
+      position.x = values.positionX.toString().replace(/^-/,"N")
     }
     if (values.positionY) {
-      position.y = values.positionY
+      position.y = values.positionY.toString().replace(/^-/,"N")
     }
 
     if (Object.keys(position).length > 0) {
