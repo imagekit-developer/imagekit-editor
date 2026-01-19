@@ -83,13 +83,15 @@ export const TransformationConfigSidebar: React.FC = () => {
 
   const transformationToEdit = _internalState.transformationToEdit
 
-  const editedTransformationValue = useMemo(() => {
+  const editedTransformation = useMemo(() => {
     if (!transformationToEdit) return undefined
     return transformations.find(
       (transformation) =>
         transformation.id === transformationToEdit.transformationId,
-    )?.value as Record<string, unknown> | undefined
+    )
   }, [transformations, transformationToEdit])
+
+  const editedTransformationValue = editedTransformation?.value as Record<string, unknown> | undefined
 
   const defaultValues = useMemo(() => {
     if (
@@ -166,7 +168,7 @@ export const TransformationConfigSidebar: React.FC = () => {
     if (transformationToEdit && transformationToEdit.position === "inplace") {
       updateTransformation(transformationToEdit.transformationId, {
         type: "transformation",
-        name: selectedTransformation.name,
+        name: editedTransformation?.name ?? selectedTransformation.name,
         key: selectedTransformation.key,
         value: data,
       })

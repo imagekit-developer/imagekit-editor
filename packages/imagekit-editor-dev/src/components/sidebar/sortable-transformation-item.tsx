@@ -8,7 +8,10 @@ import {
   MenuList,
   Text,
   Tooltip,
+  Input,
+  Tag
 } from "@chakra-ui/react"
+import { useState, useEffect, useRef } from "react"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { PiArrowDown } from "@react-icons/all-files/pi/PiArrowDown"
@@ -21,6 +24,8 @@ import { PiPencilSimple } from "@react-icons/all-files/pi/PiPencilSimple"
 import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
 import { PiTrash } from "@react-icons/all-files/pi/PiTrash"
 import { RxTransform } from "@react-icons/all-files/rx/RxTransform"
+import { PiCopy } from "@react-icons/all-files/pi/PiCopy"
+import { PiCursorText } from "@react-icons/all-files/pi/PiCursorText"
 import { type Transformation, useEditorStore } from "../../store"
 import Hover from "../common/Hover"
 
@@ -54,6 +59,8 @@ export const SortableTransformationItem = ({
     _setSelectedTransformationKey,
     _setTransformationToEdit,
     _internalState,
+    addTransformation,
+    updateTransformation,
   } = useEditorStore()
 
   const style = transform
@@ -69,6 +76,27 @@ export const SortableTransformationItem = ({
   const isEditting =
     _internalState.transformationToEdit?.position === "inplace" &&
     _internalState.transformationToEdit?.transformationId === transformation.id
+
+  const [isRenaming, setIsRenaming] = useState(false);
+
+  const renamingBoxRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent): void => {
+      const renamingBox = renamingBoxRef.current
+      if (
+        renamingBox &&
+        !renamingBox.contains(event.target as Node)
+      ) {
+        setIsRenaming(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   return (
     <Hover display="flex">
@@ -87,7 +115,13 @@ export const SortableTransformationItem = ({
           minH="8"
           alignItems="center"
           style={style}
-          onClick={() => {
+          onClick={(e) => {
+            // Triple click to rename
+            if (e.detail === 3) {
+              e.stopPropagation()
+              setIsRenaming(true);
+              return
+            }
             _setSidebarState("config")
             _setSelectedTransformationKey(transformation.key)
             _setTransformationToEdit(transformation.id, "inplace")
@@ -116,9 +150,34 @@ export const SortableTransformationItem = ({
             </Box>
           )}
 
+          {isRenaming ? (
+            <Box ref={renamingBoxRef}>
+              <Input
+                autoFocus
+                type="text"
+                defaultValue={transformation.name}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const newName = e.target.value.trim()
+                    if (newName.length > 0) {
+                      updateTransformation(transformation.id, { ...transformation, name: newName });
+                    }
+                    setIsRenaming(false)
+                  } else if (e.key === "Escape") {
+                    setIsRenaming(false)
+                  }
+                }}
+              />
+              <Text fontSize="xs" color="gray.500" mt={1}>
+                Press <Tag size="sm">{
+                  navigator.platform.toLowerCase().includes('mac') ? 'Return' : 'Enter'
+                }</Tag> to save, <Tag size="sm">Esc</Tag> to cancel
+              </Text>
+            </Box>
+          ) : (
           <Text fontSize="md" opacity={isVisible ? 1 : 0.5}>
             {transformation.name}
-          </Text>
+          </Text>)}
           <Box flex={1} />
           {isHover && (
             <HStack spacing={2} color={"initial"}>
@@ -182,6 +241,22 @@ export const SortableTransformationItem = ({
                     Add transformation after
                   </MenuItem>
                   <MenuItem
+                    icon={<Icon as={PiCopy} />}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const currentIndex = transformations.findIndex(
+                        (t) => t.id === transformation.id,
+                      )
+                      const transformationId = addTransformation({
+                        ...transformation,
+                      }, currentIndex + 1);
+                      _setSidebarState("config")
+                      _setTransformationToEdit(transformationId, "inplace")
+                    }}
+                  >
+                    Duplicate
+                  </MenuItem>
+                  <MenuItem
                     icon={<Icon as={PiPencilSimple} />}
                     onClick={(e) => {
                       e.stopPropagation()
@@ -191,6 +266,18 @@ export const SortableTransformationItem = ({
                     }}
                   >
                     Edit transformation
+                  </MenuItem>
+                  <MenuItem
+                    icon={<Icon as={PiCursorText} />}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setIsRenaming(true);
+                      _setSidebarState("config")
+                      _setSelectedTransformationKey(transformation.key)
+                      _setTransformationToEdit(transformation.id, "inplace")
+                    }}
+                  >
+                    Rename
                   </MenuItem>
                   <MenuItem
                     icon={<Icon as={PiArrowUp} />}
