@@ -19,7 +19,6 @@ const Hover = ({
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleClickOutside = useCallback((event: MouseEvent): void => {
-    console.log('handleClickOutside called')
     const hoverArea = hoverAreaRef.current
     if (
       hoverArea &&
