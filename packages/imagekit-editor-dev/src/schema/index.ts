@@ -1575,6 +1575,76 @@ export const transformationSchema: TransformationSchema[] = [
           },
         ],
       },
+      {
+        key: "adjust-trim",
+        name: "Trim",
+        description:
+          "Trim solid or nearly solid backgrounds from the edges of the image, leaving only the central object.",
+        docsLink: "https://imagekit.io/docs/effects-and-enhancements",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            trimEnabled: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+            trim: z
+              .union([
+                z.literal("auto"),
+                z.coerce
+                  .number({
+                    invalid_type_error: "Should be a number.",
+                  })
+                  .int()
+                  .min(1)
+                  .max(99),
+              ])
+              .optional(),
+          })
+          .refine(
+            (val) => {
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
+          {
+            label: "Enable Trim",
+            name: "trimEnabled",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "trim",
+            helpText:
+              "Toggle to trim background edges for images with solid or near-solid backgrounds.",
+          },
+          {
+            label: "Threshold",
+            name: "trim",
+            fieldType: "slider",
+            isTransformation: false,
+            transformationGroup: "trim",
+            helpText:
+              "Trim edges for images with solid or near-solid backgrounds. Use a threshold between 1 and 99.",
+            fieldProps: {
+              defaultValue: "auto",
+              min: 1,
+              max: 99,
+              step: 1,
+              autoOption: true,
+            },
+            isVisible: ({ trimEnabled }) => trimEnabled === true,
+          },
+        ],
+      },
     ],
   },
   {
@@ -2795,10 +2865,11 @@ export const transformationFormatters: Record<
       shadowOffsetX !== null &&
       shadowOffsetX !== ""
     ) {
-      if (shadowOffsetX < 0) {
-        params.push(`x-N${Math.abs(shadowOffsetX)}`)
+      const offsetX = Number(shadowOffsetX)
+      if (!Number.isNaN(offsetX) && offsetX < 0) {
+        params.push(`x-N${Math.abs(offsetX)}`)
       } else {
-        params.push(`x-${shadowOffsetX}`)
+        params.push(`x-${offsetX}`)
       }
     }
     // Vertical offset; negative values should include N prefix as part of the value
@@ -2807,10 +2878,11 @@ export const transformationFormatters: Record<
       shadowOffsetY !== null &&
       shadowOffsetY !== ""
     ) {
-      if (shadowOffsetY < 0) {
-        params.push(`y-N${Math.abs(shadowOffsetY)}`)
+      const offsetY = Number(shadowOffsetY)
+      if (!Number.isNaN(offsetY) && offsetY < 0) {
+        params.push(`y-N${Math.abs(offsetY)}`)
       } else {
-        params.push(`y-${shadowOffsetY}`)
+        params.push(`y-${offsetY}`)
       }
     }
     // Compose the final transform string
@@ -3056,6 +3128,29 @@ export const transformationFormatters: Record<
       }
 
       transforms.flip = flip.join("_")
+    }
+  },
+  trim: (values, transforms) => {
+    const { trimEnabled, trim } = values as {
+      trimEnabled?: boolean
+      trim?: "auto" | number
+    }
+
+    // If not enabled, don't apply trim at all
+    if (!trimEnabled) return
+
+    // Auto mode (similar to rotate's "auto"): send boolean true
+    if (trim === "auto" || typeof trim === "undefined") {
+      transforms.trim = true
+      return
+    }
+
+    // Numeric threshold 1–99
+    if (typeof trim === "number") {
+      const threshold = Math.trunc(trim)
+      if (threshold >= 1 && threshold <= 99) {
+        transforms.trim = threshold
+      }
     }
   },
   aiChangeBackground: (values, transforms) => {
