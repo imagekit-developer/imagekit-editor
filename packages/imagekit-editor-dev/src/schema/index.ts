@@ -2122,11 +2122,35 @@ export const transformationSchema: TransformationSchema[] = [
             innerAlignment: z
               .enum(["left", "right", "center"])
               .default("center"),
-            padding: z.coerce
-              .number({
+            padding: z.union([
+              z.coerce.number({
                 invalid_type_error: "Should be a number.",
-              })
-              .optional(),
+              }).min(0, {
+                message: "Negative values are not allowed.",
+              }),
+              z.object({
+                top: z.coerce.number({
+                  invalid_type_error: "Should be a number.",
+                }).min(0, {
+                  message: "Negative values are not allowed.",
+                }),
+                right: z.coerce.number({
+                  invalid_type_error: "Should be a number.",
+                }).min(0, {
+                  message: "Negative values are not allowed.",
+                }),
+                bottom: z.coerce.number({
+                  invalid_type_error: "Should be a number.",
+                }).min(0, {
+                  message: "Negative values are not allowed.",
+                }),
+                left: z.coerce.number({
+                  invalid_type_error: "Should be a number.",
+                }).min(0, {
+                  message: "Negative values are not allowed.",
+                }),
+              }),
+            ]).optional(),
             opacity: z
               .union([
                 z.coerce
@@ -2317,7 +2341,7 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Padding",
             name: "padding",
-            fieldType: "input",
+            fieldType: "padding-input",
             isTransformation: true,
             transformationKey: "padding",
             transformationGroup: "textLayer",
@@ -2861,7 +2885,24 @@ export const transformationFormatters: Record<
       typeof values.padding === "string"
     ) {
       overlayTransform.padding = values.padding
+    } else if (typeof values.padding === "object" && values.padding !== null) {
+      const { top, right, bottom, left } = values.padding as {
+        top: number
+        right: number
+        bottom: number
+        left: number
+      }
+      let paddingString: string;
+      if (top === right && top === bottom && top === left) {
+        paddingString = String(top)
+      } else if (top === bottom && right === left) {
+        paddingString = `${top}_${right}`
+      } else {
+        paddingString = `${top}_${right}_${bottom}_${left}`
+      }
+      overlayTransform.padding = paddingString
     }
+
 
     if (Array.isArray(values.flip) && values.flip.length > 0) {
       const flip = []

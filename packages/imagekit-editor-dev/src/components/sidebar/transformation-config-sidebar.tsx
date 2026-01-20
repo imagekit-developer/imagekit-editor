@@ -55,6 +55,7 @@ import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
 import { SidebarRoot } from "./sidebar-root"
+import PaddingInputField from "../common/PaddingInput"
 
 export const TransformationConfigSidebar: React.FC = () => {
   const {
@@ -133,6 +134,7 @@ export const TransformationConfigSidebar: React.FC = () => {
     watch,
     setValue,
     control,
+    trigger,
   } = useForm<Record<string, unknown>>({
     resolver: zodResolver(selectedTransformation?.schema ?? z.object({})),
     defaultValues: defaultValues,
@@ -292,7 +294,7 @@ export const TransformationConfigSidebar: React.FC = () => {
             return true
           })
           .map((field: TransformationField) => (
-            <FormControl key={field.name} isInvalid={!!errors[field.name]}>
+            <FormControl key={field.name} isInvalid={!!errors[field.name] && field.fieldType !== "padding-input"}>
               <FormLabel htmlFor={field.name} fontSize="sm">
                 {field.label}
               </FormLabel>
@@ -557,6 +559,17 @@ export const TransformationConfigSidebar: React.FC = () => {
                   value={watch(field.name) as string[]}
                   options={field.fieldProps?.options ?? []}
                   onChange={(value) => setValue(field.name, value)}
+                  {...field.fieldProps}
+                />
+              ) : null}
+              {field.fieldType === "padding-input" ? (
+                <PaddingInputField
+                  onChange={(value) => {
+                    setValue(field.name, value)
+                    trigger(field.name)
+                  }}
+                  errors={errors}
+                  name={field.name}
                   {...field.fieldProps}
                 />
               ) : null}
