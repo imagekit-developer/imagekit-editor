@@ -839,17 +839,6 @@ export const transformationSchema: TransformationSchema[] = [
               })
             }
             if (val.focus === "coordinates") {
-              const hasXY = val.x || val.y
-              const hasXCYC = val.xc || val.yc
-
-              if (hasXY && hasXCYC) {
-                ctx.addIssue({
-                  code: z.ZodIssueCode.custom,
-                  message: "Choose either x/y or xc/yc, not both",
-                  path: [],
-                })
-              }
-
               if (val.coordinateMethod === "topleft") {
                 if (!val.x && !val.y) {
                   ctx.addIssue({
@@ -2470,6 +2459,14 @@ export const transformationSchema: TransformationSchema[] = [
                 invalid_type_error: "Should be a number.",
               })
               .optional(),
+            focus: z.string().optional(),
+            focusAnchor: z.string().optional(),
+            focusObject: z.string().optional(),
+            coordinateMethod: z.string().optional(),
+            x: z.string().optional(),
+            y: z.string().optional(),
+            xc: z.string().optional(),
+            yc: z.string().optional(),
           })
           .refine(
             (val) => {
@@ -2481,7 +2478,42 @@ export const transformationSchema: TransformationSchema[] = [
               message: "At least one value is required",
               path: [],
             },
-          ),
+          )
+          .superRefine((val, ctx) => {
+            if (val.focus === "object" && !val.focusObject) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Focus object is required",
+                path: ["focusObject"],
+              })
+            }
+            if (val.focus === "anchor" && !val.focusAnchor) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Focus anchor is required",
+                path: ["focusAnchor"],
+              })
+            }
+            if (val.focus === "coordinates") {
+              if (val.coordinateMethod === "topleft") {
+                if (!val.x && !val.y) {
+                  ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "At least one coordinate (x or y) is required",
+                    path: [],
+                  })
+                }
+              } else if (val.coordinateMethod === "center") {
+                if (!val.xc && !val.yc) {
+                  ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "At least one coordinate (xc or yc) is required",
+                    path: [],
+                  })
+                }
+              }
+            }
+          }),
         transformations: [
           {
             label: "Image URL",
@@ -2532,6 +2564,132 @@ export const transformationSchema: TransformationSchema[] = [
               ],
               defaultValue: "",
             },
+          },
+          {
+            label: "Focus",
+            name: "focus",
+            fieldType: "select",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              options: [
+                { label: "Select one", value: "" },
+                { label: "Auto", value: "auto" },
+                { label: "Anchor", value: "anchor" },
+                { label: "Face", value: "face" },
+                { label: "Object", value: "object" },
+                { label: "Custom", value: "custom" },
+                { label: "Coordinates", value: "coordinates" },
+              ],
+            },
+            helpText:
+              "Choose how to position the extracted region in overlay image. Custom uses a saved focus area from Media Library.",
+            isVisible: ({ crop }) => crop === "cm-extract",
+          },
+          // Only for extract crop mode
+          {
+            label: "Focus Anchor",
+            name: "focusAnchor",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              positions: [
+                "center", "top", "bottom", "left", "right", "top_left", "top_right", "bottom_left", "bottom_right",
+              ],
+            },
+            isVisible: ({ focus, crop }) => focus === "anchor" && crop === "cm-extract",
+          },
+          // Only for pad_resize crop mode
+          {
+            label: "Focus",
+            name: "focusAnchor",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              positions: [
+                "center", "top", "bottom", "left", "right",
+              ],
+            },
+            isVisible: ({ crop }) => crop === "cm-pad_resize",
+          },
+          {
+            label: "Focus Object",
+            name: "focusObject",
+            fieldType: "select",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              isCreatable: false,
+            },
+            helpText:
+              "Select an object to focus on in the overlay image during extraction. The crop will center on this object.",
+            isVisible: ({ focus }) => focus === "object",
+          },
+          {
+            label: "Coordinate Method",
+            name: "coordinateMethod",
+            fieldType: "radio-card",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              options: [
+                { label: "Top-left (x, y)", value: "topleft" },
+                { label: "Center (xc, yc)", value: "center" },
+              ],
+              defaultValue: "topleft",
+            },
+            helpText:
+              "Choose whether coordinates are relative to the top-left corner or the center of the overlay image.",
+            isVisible: ({ focus }) => focus === "coordinates",
+          },
+          {
+            label: "X (Horizontal)",
+            name: "x",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Horizontal position from the top-left of the overlay image. Use an integer or expression.",
+            examples: ["100", "iw_mul_0.4"],
+            isVisible: ({ focus, coordinateMethod }) =>
+              focus === "coordinates" && coordinateMethod === "topleft",
+          },
+          {
+            label: "Y (Vertical)",
+            name: "y",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Vertical position from the top-left of the overlay image. Use an integer or expression.",
+            examples: ["100", "ih_mul_0.4"],
+            isVisible: ({ focus, coordinateMethod }) =>
+              focus === "coordinates" && coordinateMethod === "topleft",
+          },
+          {
+            label: "XC (Horizontal Center)",
+            name: "xc",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Horizontal center position of the overlay image. Use an integer or expression.",
+            examples: ["200", "iw_mul_0.5"],
+            isVisible: ({ focus, coordinateMethod }) =>
+              focus === "coordinates" && coordinateMethod === "center",
+          },
+          {
+            label: "YC (Vertical Center)",
+            name: "yc",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText: "Vertical center position of the overlay image. Use an integer or expression.",
+            examples: ["200", "ih_mul_0.5"],
+            isVisible: ({ focus, coordinateMethod }) =>
+              focus === "coordinates" && coordinateMethod === "center",
           },
           {
             label: "Position X",
@@ -2770,7 +2928,7 @@ export const transformationFormatters: Record<
     }
   },
   focus: (values, transforms) => {
-    const { focus, focusAnchor, focusObject, x, y, xc, yc } = values
+    const { focus, focusAnchor, focusObject, x, y, xc, yc, coordinateMethod } = values
 
     if (focus === "auto" || focus === "face") {
       transforms.focus = focus
@@ -2783,10 +2941,13 @@ export const transformationFormatters: Record<
     } else if (focus === "coordinates") {
       // Handle coordinate-based focus
       // x/y are top-left coordinates, xc/yc are center coordinates
-      if (x) transforms.x = x
-      if (y) transforms.y = y
-      if (xc) transforms.xc = xc
-      if (yc) transforms.yc = yc
+      if (coordinateMethod === "topleft") {
+        if (x) transforms.x = x
+        if (y) transforms.y = y
+      } else if (coordinateMethod === "center") {
+        if (xc) transforms.xc = xc
+        if (yc) transforms.yc = yc
+      }
     }
   },
   shadow: (values, transforms) => {
@@ -3064,6 +3225,28 @@ export const transformationFormatters: Record<
 
     if (values.blur) {
       overlayTransform.blur = values.blur
+    }
+
+    const { focus, crop, focusAnchor, focusObject, x, y, xc, yc, coordinateMethod } = values
+
+    if (focus === "auto" || focus === "face") {
+      overlayTransform.focus = focus
+    } else if (focus === "anchor" || crop === "cm-pad_resize") {
+      overlayTransform.focus = focusAnchor
+    } else if (focus === "object") {
+      overlayTransform.focus = focusObject
+    } else if (focus === "custom") {
+      overlayTransform.focus = "custom"
+    } else if (focus === "coordinates") {
+      // Handle coordinate-based focus
+      // x/y are top-left coordinates, xc/yc are center coordinates
+      if (coordinateMethod === "topleft") {
+        if (x) overlayTransform.x = x
+        if (y) overlayTransform.y = y
+      } else if (coordinateMethod === "center") {
+        if (xc) overlayTransform.xc = xc
+        if (yc) overlayTransform.yc = yc
+      }
     }
 
     if (Object.keys(overlayTransform).length > 0) {

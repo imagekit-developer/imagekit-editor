@@ -78,7 +78,12 @@ const AnchorField: React.FC<AnchorFieldProps> = ({
                 minWidth="0"
                 p="0"
                 isDisabled={!positions.includes(position.value)}
-                onClick={() => onChange(position.value)}
+                onClick={() => {
+                  if (value === position.value) {
+                    return onChange("")
+                  }
+                  onChange(position.value)
+                }}
                 borderRadius="md"
                 border={
                   value === position.value
