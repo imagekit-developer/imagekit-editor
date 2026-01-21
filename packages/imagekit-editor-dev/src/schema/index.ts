@@ -1580,28 +1580,25 @@ export const transformationSchema: TransformationSchema[] = [
         name: "Trim",
         description:
           "Trim solid or nearly solid backgrounds from the edges of the image, leaving only the central object.",
-        docsLink: "https://imagekit.io/docs/effects-and-enhancements",
+        docsLink: "https://imagekit.io/docs/effects-and-enhancements#trim-edges---t",
         defaultTransformation: {},
         schema: z
-          .object({
-            trimEnabled: z.coerce
-              .boolean({
-                invalid_type_error: "Should be a boolean.",
-              })
-              .optional(),
-            trim: z
-              .union([
-                z.literal("auto"),
-                z.coerce
-                  .number({
-                    invalid_type_error: "Should be a number.",
-                  })
-                  .int()
-                  .min(1)
-                  .max(99),
-              ])
-              .optional(),
-          })
+        .object({
+          trimEnabled: z.coerce
+            .boolean({
+              invalid_type_error: "Should be a boolean.",
+            })
+            .optional(),
+          trim: 
+              z.coerce
+                .number({
+                  invalid_type_error: "Should be a number.",
+                })
+                .int()
+                .min(1)
+                .max(99)
+            .optional(),
+        })
           .refine(
             (val) => {
               if (
@@ -1635,11 +1632,10 @@ export const transformationSchema: TransformationSchema[] = [
             helpText:
               "Trim edges for images with solid or near-solid backgrounds. Use a threshold between 1 and 99.",
             fieldProps: {
-              defaultValue: "auto",
+              defaultValue: 10,
               min: 1,
               max: 99,
               step: 1,
-              autoOption: true,
             },
             isVisible: ({ trimEnabled }) => trimEnabled === true,
           },
@@ -3133,17 +3129,9 @@ export const transformationFormatters: Record<
   trim: (values, transforms) => {
     const { trimEnabled, trim } = values as {
       trimEnabled?: boolean
-      trim?: "auto" | number
+      trim?: "default" | number
     }
-
-    // If not enabled, don't apply trim at all
     if (!trimEnabled) return
-
-    // Auto mode (similar to rotate's "auto"): send boolean true
-    if (trim === "auto" || typeof trim === "undefined") {
-      transforms.trim = true
-      return
-    }
 
     // Numeric threshold 1–99
     if (typeof trim === "number") {
