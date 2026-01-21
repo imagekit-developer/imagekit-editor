@@ -245,7 +245,7 @@ export const PaddingInputField: React.FC<PaddingInputFieldProps> = ({
       <Box>
         <IconButton
           aria-label={paddingMode === "uniform" ? "Switch to individual padding" : "Switch to uniform padding"}
-          icon={paddingMode === "uniform" ? <TbBoxPadding /> : <MdOutlinePadding />}
+          icon={paddingMode === "uniform" ? <MdOutlinePadding /> : <TbBoxPadding />}
           onClick={() => {
             const newPaddingMode = paddingMode === "uniform" ? "individual" : "uniform"
             setPaddingValue(getUpdatedPaddingValue(
@@ -257,7 +257,7 @@ export const PaddingInputField: React.FC<PaddingInputFieldProps> = ({
             setPaddingMode(newPaddingMode)
           }}
           mb={2}
-          variant="ghost"
+          variant="outline"
         />
       </Box>
     </HStack>
