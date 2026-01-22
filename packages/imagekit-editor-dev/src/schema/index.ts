@@ -371,6 +371,7 @@ export const transformationSchema: TransformationSchema[] = [
             focus: z.string().optional(),
             focusAnchor: z.string().optional(),
             focusObject: z.string().optional(),
+            zoom: z.coerce.number().optional(),
           })
           .refine(
             (val) => {
@@ -499,6 +500,19 @@ export const transformationSchema: TransformationSchema[] = [
               "Select an object to focus on. The crop will center on this object.",
             isVisible: ({ focus }) => focus === "object",
           },
+          {
+            label: "Zoom",
+            name: "zoom",
+            fieldType: "zoom",
+            isTransformation: true,
+            transformationGroup: "focus",
+            fieldProps: {
+              isCreatable: false,
+            },
+            helpText:
+              "Select the zoom level for the focus area. Higher zoom levels crop closer to the focus point.",
+            isVisible: ({ focus }) => focus === "object" || focus === "face",
+          },
         ],
       },
       {
@@ -519,6 +533,7 @@ export const transformationSchema: TransformationSchema[] = [
             focus: z.string().optional(),
             focusAnchor: z.string().optional(),
             focusObject: z.string().optional(),
+            zoom: z.coerce.number().optional(),
           })
           .refine(
             (val) => {
@@ -604,6 +619,19 @@ export const transformationSchema: TransformationSchema[] = [
             },
             helpText:
               "Select an object to focus on. The crop will center on this object.",
+            isVisible: ({ focus }) => focus === "object",
+          },
+          {
+            label: "Zoom",
+            name: "zoom",
+            fieldType: "zoom",
+            isTransformation: true,
+            transformationGroup: "focus",
+            fieldProps: {
+              isCreatable: false,
+            },
+            helpText:
+              "Select the zoom level for the focus area. Higher zoom levels crop closer to the focus point.",
             isVisible: ({ focus }) => focus === "object",
           },
         ],
@@ -806,6 +834,7 @@ export const transformationSchema: TransformationSchema[] = [
             y: z.string().optional(),
             xc: z.string().optional(),
             yc: z.string().optional(),
+            zoom: z.coerce.number().optional(),
           })
           .refine(
             (val) => {
@@ -995,6 +1024,19 @@ export const transformationSchema: TransformationSchema[] = [
             examples: ["200", "ih_mul_0.5"],
             isVisible: ({ focus, coordinateMethod }) =>
               focus === "coordinates" && coordinateMethod === "center",
+          },
+          {
+            label: "Zoom",
+            name: "zoom",
+            fieldType: "zoom",
+            isTransformation: true,
+            transformationGroup: "focus",
+            fieldProps: {
+              isCreatable: false,
+            },
+            helpText:
+              "Select the zoom level for the focus area. Higher zoom levels crop closer to the focus point.",
+            isVisible: ({ focus }) => focus === "object" || focus === "face",
           },
         ],
       },
@@ -2467,6 +2509,7 @@ export const transformationSchema: TransformationSchema[] = [
             y: z.string().optional(),
             xc: z.string().optional(),
             yc: z.string().optional(),
+            zoom: z.coerce.number().optional(),
           })
           .refine(
             (val) => {
@@ -2690,6 +2733,19 @@ export const transformationSchema: TransformationSchema[] = [
             examples: ["200", "ih_mul_0.5"],
             isVisible: ({ focus, coordinateMethod }) =>
               focus === "coordinates" && coordinateMethod === "center",
+          },
+          {
+            label: "Zoom",
+            name: "zoom",
+            fieldType: "zoom",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              isCreatable: false,
+            },
+            helpText:
+              "Select the zoom level for the focus area. Higher zoom levels crop closer to the focus point.",
+            isVisible: ({ focus }) => focus === "object" || focus === "face",
           },
           {
             label: "Position X",
@@ -2928,7 +2984,7 @@ export const transformationFormatters: Record<
     }
   },
   focus: (values, transforms) => {
-    const { focus, focusAnchor, focusObject, x, y, xc, yc, coordinateMethod } = values
+    const { focus, focusAnchor, focusObject, x, y, xc, yc, coordinateMethod, zoom } = values
 
     if (focus === "auto" || focus === "face") {
       transforms.focus = focus
@@ -2948,6 +3004,9 @@ export const transformationFormatters: Record<
         if (xc) transforms.xc = xc
         if (yc) transforms.yc = yc
       }
+    }
+    if (zoom !== undefined && zoom !== null && !isNaN(Number(zoom)) && zoom !== 0) {
+      transforms.zoom = (zoom as number) / 100
     }
   },
   shadow: (values, transforms) => {
@@ -3227,7 +3286,7 @@ export const transformationFormatters: Record<
       overlayTransform.blur = values.blur
     }
 
-    const { focus, crop, focusAnchor, focusObject, x, y, xc, yc, coordinateMethod } = values
+    const { focus, crop, focusAnchor, focusObject, x, y, xc, yc, coordinateMethod, zoom } = values
 
     if (focus === "auto" || focus === "face") {
       overlayTransform.focus = focus
@@ -3247,6 +3306,10 @@ export const transformationFormatters: Record<
         if (xc) overlayTransform.xc = xc
         if (yc) overlayTransform.yc = yc
       }
+    }
+
+    if (zoom !== undefined && zoom !== null && !isNaN(Number(zoom)) && zoom !== 0) {
+      overlayTransform.zoom = (zoom as number) / 100
     }
 
     if (Object.keys(overlayTransform).length > 0) {

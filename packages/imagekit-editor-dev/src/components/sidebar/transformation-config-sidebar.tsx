@@ -56,6 +56,7 @@ import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
 import { SidebarRoot } from "./sidebar-root"
 import PaddingInputField from "../common/PaddingInput"
+import ZoomInputField from "../common/ZoomInput"
 
 export const TransformationConfigSidebar: React.FC = () => {
   const {
@@ -570,6 +571,14 @@ export const TransformationConfigSidebar: React.FC = () => {
                   }}
                   errors={errors}
                   name={field.name}
+                  {...field.fieldProps}
+                />
+              ) : null}
+              {field.fieldType === "zoom" ? (
+                <ZoomInputField
+                  value={watch(field.name) as string}
+                  onChange={(value) => setValue(field.name, value)}
+                  defaultValue={field.fieldProps?.defaultValue as number ?? 0}
                   {...field.fieldProps}
                 />
               ) : null}
