@@ -55,6 +55,7 @@ import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
 import { SidebarRoot } from "./sidebar-root"
+import { ColorPickerProps } from "react-best-gradient-color-picker"
 
 export const TransformationConfigSidebar: React.FC = () => {
   const {
@@ -533,6 +534,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                   fieldName={field.name}
                   value={watch(field.name) as string}
                   setValue={setValue}
+                  fieldProps={field.fieldProps as ColorPickerProps}
                 />
               ) : null}
               {field.fieldType === "anchor" ? (

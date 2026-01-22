@@ -1641,6 +1641,83 @@ export const transformationSchema: TransformationSchema[] = [
           },
         ],
       },
+      {
+        key: "adjust-color-replace",
+        name: "Color Replace",
+        description:
+          "Replace specific colors in the image with a new color, while preserving the original image's luminance and chroma relationships.",
+        docsLink: "https://imagekit.io/docs/effects-and-enhancements#color-replace---cr",
+        defaultTransformation: {},
+        schema: z
+        .object({
+          toColor: colorValidator,
+          tolerance: z.coerce
+            .number({
+              invalid_type_error: "Should be a number.",
+            })
+            .int()
+            .min(0)
+            .max(100)
+            .optional(),
+          fromColor: z.union([colorValidator, z.literal("")]).optional(),
+        })
+        .refine(
+          (val) => {
+            // At least toColor must be provided
+            return val.toColor !== undefined && val.toColor !== ""
+          },
+          {
+            message: "To Color is required",
+            path: ["toColor"],
+          },
+        ),
+        transformations: [
+          {
+            label: "To Color",
+            name: "toColor",
+            fieldType: "color-picker",
+            examples: ["FFFFFF", "FF0000"],
+            fieldProps:{
+              hideOpacity: true,
+              showHexAlpha: false,
+            },
+            isTransformation: false,
+            transformationGroup: "colorReplace",
+            helpText:
+              "Select the target color to replace with.",
+          },          {
+            label: "Tolerance",
+            name: "tolerance",
+            fieldType: "slider",
+            isTransformation: false,
+            transformationGroup: "colorReplace",
+            helpText:
+                "Set the tolerance for the color replacement. Use a number between 0 and 100. Lower values are more precise, but may not work for all colors. Higher values are more forgiving, but may introduce more color variations.",
+            fieldProps: {
+              defaultValue: 35,
+              min: 0,
+              max: 100,
+              step: 1,
+            },
+          },
+          {
+            label: "From Color",
+            examples: ["FFFFFF", "FF0000"],
+            name: "fromColor",
+            fieldType: "color-picker",
+            isTransformation: false,
+            fieldProps:{
+              hideOpacity: true,
+              showHexAlpha: false,
+            },
+            transformationGroup: "colorReplace",
+            helpText:
+              "Select the source color you want to replace (optional - if not specified, dominant color will be replaced).",
+          },
+          
+          
+        ],
+      },
     ],
   },
   {
@@ -3160,5 +3237,32 @@ export const transformationFormatters: Record<
     } else if (values.rotate === "auto") {
       transforms.rotation = "auto"
     }
+  },
+  colorReplace: (values, transforms) => {
+    const { fromColor, toColor, tolerance } = values as {
+      fromColor?: string
+      toColor?: string
+      tolerance?: number
+    }
+
+    // Color replace requires at least toColor
+    if (!toColor || toColor === "") return
+
+    const params: string[] = []
+    
+    // Remove # from colors if present
+    const cleanToColor = (toColor as string).replace(/^#/, "")
+    params.push(cleanToColor)
+    if (tolerance !== undefined && tolerance !== null) {
+      params.push(String(tolerance))
+    }
+    // Check if fromColor is provided and not empty
+    if (fromColor && fromColor !== "") {
+      const cleanFromColor = (fromColor as string).replace(/^#/, "")
+      params.push(cleanFromColor)
+    }
+   
+    
+    transforms.cr = params.join("_")
   },
 }
