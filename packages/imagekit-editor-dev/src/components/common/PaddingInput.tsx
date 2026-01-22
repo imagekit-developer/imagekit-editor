@@ -8,12 +8,13 @@ import {
   InputGroup,
   InputLeftElement,
   IconButton,
-  FormErrorMessage,
+  IconButtonProps,
   useColorModeValue,
+  Tooltip,
 } from "@chakra-ui/react"
 import { set } from "lodash"
 import type * as React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, forwardRef } from "react"
 import { LuArrowLeftToLine } from "@react-icons/all-files/lu/LuArrowLeftToLine"
 import { LuArrowRightToLine } from "@react-icons/all-files/lu/LuArrowRightToLine"
 import { LuArrowUpToLine } from "@react-icons/all-files/lu/LuArrowUpToLine"
@@ -21,7 +22,6 @@ import { LuArrowDownToLine } from "@react-icons/all-files/lu/LuArrowDownToLine"
 import { TbBoxPadding } from "@react-icons/all-files/tb/TbBoxPadding"
 import { MdOutlinePadding } from "@react-icons/all-files/md/MdOutlinePadding"
 import { FieldErrors } from "react-hook-form"
-
 
 type PaddingInputFieldProps = {
   id?: string
@@ -88,6 +88,8 @@ export const PaddingInputField: React.FC<PaddingInputFieldProps> = ({
   const [paddingMode, setPaddingMode] = useState<"uniform" | "individual">("uniform")
   const [paddingValue, setPaddingValue] = useState<number | PaddingObject | null | string>("")
   const errorRed = useColorModeValue("red.500", "red.300")
+  const activeColor = useColorModeValue("blue.500", "blue.600")
+  const inactiveColor = useColorModeValue("gray.600", "gray.400")
 
   useEffect(() => {
     const formatPaddingValue = (value: number | PaddingObject | null | string): string | PaddingObject => {
@@ -242,10 +244,25 @@ export const PaddingInputField: React.FC<PaddingInputFieldProps> = ({
           </>
         ) }
       </Flex>
-      <Box>
+      <Tooltip 
+        hasArrow
+        label={paddingMode === "uniform" ? "Enable individual padding" : "Disable individual padding"}
+        openDelay={200}
+        modifiers={[
+          {
+            name: 'zIndex',
+            enabled: true,
+            phase: 'write',
+            fn({ state }) {
+              state.elements.popper.style.zIndex = '2100';
+            },
+          },
+        ]}
+      >
         <IconButton
           aria-label={paddingMode === "uniform" ? "Switch to individual padding" : "Switch to uniform padding"}
-          icon={paddingMode === "uniform" ? <MdOutlinePadding /> : <TbBoxPadding />}
+          aria-pressed={paddingMode === "individual"}
+          icon={<TbBoxPadding size={20} />}
           onClick={() => {
             const newPaddingMode = paddingMode === "uniform" ? "individual" : "uniform"
             setPaddingValue(getUpdatedPaddingValue(
@@ -256,10 +273,10 @@ export const PaddingInputField: React.FC<PaddingInputFieldProps> = ({
             ))
             setPaddingMode(newPaddingMode)
           }}
-          mb={2}
           variant="outline"
+          color={paddingMode === "individual" ? activeColor : inactiveColor}
         />
-      </Box>
+      </Tooltip>
     </HStack>
   )
 }
