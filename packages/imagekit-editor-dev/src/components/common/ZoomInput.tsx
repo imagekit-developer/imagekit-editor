@@ -19,26 +19,15 @@ type ZoomInputFieldProps = {
   defaultValue?: number
 }
 
-/**
- * Calculate the step size based on the current zoom value
- * If zoom >= 100: step = 50
- * If zoom < 100: step = 10
- */
-function getStepSize(value: number, zoomMode: "in" | "out"): number {
-  if (zoomMode === "in") {
-    return value >= 100 ? 50 : 10
-  } else {
-    return value > 100 ? 50 : 10
-  }
-}
+const STEP_SIZE = 10
+
 
 /**
  * Calculate the next zoom value when zooming in
  * Rounds up to the next step value
  */
 function calculateZoomIn(currentValue: number): number {
-  const step = getStepSize(currentValue, "in")
-  return (Math.floor(currentValue / step) * step) + step
+  return (Math.floor(currentValue / STEP_SIZE) * STEP_SIZE) + STEP_SIZE
 }
 
 /**
@@ -46,11 +35,10 @@ function calculateZoomIn(currentValue: number): number {
  * Rounds down to the previous step value
  */
 function calculateZoomOut(currentValue: number): number {
-  const step = getStepSize(currentValue, "out")
-  return (Math.ceil(currentValue / step) * step) - step
+  return (Math.ceil(currentValue / STEP_SIZE) * STEP_SIZE) - STEP_SIZE
 }
 
-export const ZoomInputField: React.FC<ZoomInputFieldProps> = ({
+export const ZoomInput: React.FC<ZoomInputFieldProps> = ({
   id,
   onChange,
   defaultValue = 100,
@@ -138,4 +126,4 @@ export const ZoomInputField: React.FC<ZoomInputFieldProps> = ({
   )
 }
 
-export default ZoomInputField
+export default ZoomInput
