@@ -263,6 +263,7 @@ export const PaddingInputField: React.FC<PaddingInputFieldProps> = ({
           aria-label={paddingMode === "uniform" ? "Switch to individual padding" : "Switch to uniform padding"}
           aria-pressed={paddingMode === "individual"}
           icon={<TbBoxPadding size={20} />}
+          padding="0.05em"
           onClick={() => {
             const newPaddingMode = paddingMode === "uniform" ? "individual" : "uniform"
             setPaddingValue(getUpdatedPaddingValue(
