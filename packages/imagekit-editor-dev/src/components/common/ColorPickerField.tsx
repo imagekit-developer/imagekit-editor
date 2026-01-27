@@ -109,7 +109,7 @@ const ColorPickerField = ({
                 hideInputs
                 hideAdvancedSliders
                 hideColorGuide
-                // pass color picker props @ts-ignore
+                // @ts-expect-error - fieldProps may include props not declared in ColorPickerProps, but they are intentionally forwarded
                 {...fieldProps}
               />
             </PopoverBody>
