@@ -1750,7 +1750,7 @@ export const transformationSchema: TransformationSchema[] = [
             helpText:
               "Select the source color you want to replace (optional - if not specified, dominant color will be replaced).",
           },
-           {
+          {
             label: "Tolerance",
             name: "tolerance",
             fieldType: "slider",
