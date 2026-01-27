@@ -1580,7 +1580,8 @@ export const transformationSchema: TransformationSchema[] = [
         name: "Border",
         description:
           "Add a border to the image. Specify a border width and color.",
-        docsLink: "https://imagekit.io/docs/effects-and-enhancements#border---b",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#border---b",
         defaultTransformation: {},
         schema: z
           .object({
@@ -1591,7 +1592,7 @@ export const transformationSchema: TransformationSchema[] = [
               .int()
               .min(1)
               .optional(),
-            borderColor: colorValidator
+            borderColor: colorValidator,
           })
           .refine(
             (val) => {
@@ -1614,8 +1615,7 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "input",
             isTransformation: false,
             transformationGroup: "border",
-            helpText:
-              "Enter a border width",
+            helpText: "Enter a border width",
             fieldProps: {
               defaultValue: 1,
               min: 1,
@@ -1629,8 +1629,7 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "color-picker",
             isTransformation: false,
             transformationGroup: "border",
-            helpText:
-              "Select the color of the border.",
+            helpText: "Select the color of the border.",
             fieldProps: {
               hideOpacity: true,
               showHexAlpha: false,
@@ -1644,7 +1643,8 @@ export const transformationSchema: TransformationSchema[] = [
         name: "Trim",
         description:
           "Trim solid or nearly solid backgrounds from the edges of the image, leaving only the central object.",
-        docsLink: "https://imagekit.io/docs/effects-and-enhancements#trim-edges---t",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#trim-edges---t",
         defaultTransformation: {},
         schema: z
           .object({
@@ -1653,15 +1653,14 @@ export const transformationSchema: TransformationSchema[] = [
                 invalid_type_error: "Should be a boolean.",
               })
               .optional(),
-            trim:
-              z.coerce
-                .number({
-                  invalid_type_error: "Should be a number.",
-                })
-                .int()
-                .min(1)
-                .max(99)
-                .optional(),
+            trim: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .int()
+              .min(1)
+              .max(99)
+              .optional(),
           })
           .refine(
             (val) => {
@@ -1710,7 +1709,8 @@ export const transformationSchema: TransformationSchema[] = [
         name: "Color Replace",
         description:
           "Replace specific colors in the image with a new color, while preserving the original image's luminance and chroma relationships.",
-        docsLink: "https://imagekit.io/docs/effects-and-enhancements#color-replace---cr",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#color-replace---cr",
         defaultTransformation: {},
         schema: z
           .object({
@@ -1776,8 +1776,7 @@ export const transformationSchema: TransformationSchema[] = [
             },
             isTransformation: false,
             transformationGroup: "colorReplace",
-            helpText:
-              "Select the target color to replace with.",
+            helpText: "Select the target color to replace with.",
           },
         ],
       },
@@ -1786,7 +1785,8 @@ export const transformationSchema: TransformationSchema[] = [
         name: "Sharpen",
         description:
           "Sharpen the image to highlight the edges and finer details within an image.",
-        docsLink: "https://imagekit.io/docs/effects-and-enhancements#sharpen---e-sharpen",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#sharpen---e-sharpen",
         defaultTransformation: {},
         schema: z
           .object({
@@ -1795,15 +1795,14 @@ export const transformationSchema: TransformationSchema[] = [
                 invalid_type_error: "Should be a boolean.",
               })
               .optional(),
-            sharpen:
-              z.coerce
-                .number({
-                  invalid_type_error: "Should be a number.",
-                })
-                .int()
-                .min(1)
-                .max(99)
-                .optional(),
+            sharpen: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .int()
+              .min(1)
+              .max(99)
+              .optional(),
           })
           .refine(
             (val) => {
@@ -1852,374 +1851,375 @@ export const transformationSchema: TransformationSchema[] = [
   {
     key: "ai",
     name: "AI Transformations",
-    items: [{
-      key: "ai-removedotbg",
-      name: "Remove Background using Remove.bg",
-      description:
-        "Remove the background of the image using Remove.bg (external service). This isolates the subject and makes the background transparent.",
-      docsLink:
-        "https://imagekit.io/docs/ai-transformations#background-removal-e-removedotbg",
-      defaultTransformation: {},
-      schema: z
-        .object({
-          removedotbg: z.coerce
-            .boolean({
-              invalid_type_error: "Should be a boolean.",
-            })
-            .optional(),
-        })
-        .refine(
-          (val) => {
-            if (
-              Object.values(val).some((v) => v !== undefined && v !== null)
-            ) {
-              return true
-            }
-            return false
-          },
+    items: [
+      {
+        key: "ai-removedotbg",
+        name: "Remove Background using Remove.bg",
+        description:
+          "Remove the background of the image using Remove.bg (external service). This isolates the subject and makes the background transparent.",
+        docsLink:
+          "https://imagekit.io/docs/ai-transformations#background-removal-e-removedotbg",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            removedotbg: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+          })
+          .refine(
+            (val) => {
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
           {
-            message: "At least one value is required",
-            path: [],
+            label: "Remove Background using Remove.bg",
+            name: "removedotbg",
+            fieldType: "switch",
+            isTransformation: true,
+            transformationKey: "aiRemoveBackgroundExternal",
+            helpText:
+              "Toggle to remove the background using Remove.bg. Processing may take a few seconds depending on image complexity.",
           },
-        ),
-      transformations: [
-        {
-          label: "Remove Background using Remove.bg",
-          name: "removedotbg",
-          fieldType: "switch",
-          isTransformation: true,
-          transformationKey: "aiRemoveBackgroundExternal",
-          helpText:
-            "Toggle to remove the background using Remove.bg. Processing may take a few seconds depending on image complexity.",
+        ],
+        warning: {
+          heading: "This action consumes AI credits.",
+          message:
+            "You are about to apply Remove Background using Remove.bg to {imageList.length} items. ",
         },
-      ],
-      warning: {
-        heading: "This action consumes AI credits.",
-        message:
-          "You are about to apply Remove Background using Remove.bg to {imageList.length} items. ",
       },
-    },
-    {
-      key: "ai-bgremove",
-      name: "Remove Background using ImageKit AI",
-      description:
-        "Remove the background using ImageKit's built-in background removal model. This method is cost-effective compared to Remove.bg.",
-      docsLink:
-        "https://imagekit.io/docs/ai-transformations#imagekit-background-removal-e-bgremove",
-      defaultTransformation: {},
-      schema: z
-        .object({
-          bgremove: z.coerce
-            .boolean({
-              invalid_type_error: "Should be a boolean.",
-            })
-            .optional(),
-        })
-        .refine(
-          (val) => {
-            if (
-              Object.values(val).some((v) => v !== undefined && v !== null)
-            ) {
-              return true
-            }
-            return false
-          },
+      {
+        key: "ai-bgremove",
+        name: "Remove Background using ImageKit AI",
+        description:
+          "Remove the background using ImageKit's built-in background removal model. This method is cost-effective compared to Remove.bg.",
+        docsLink:
+          "https://imagekit.io/docs/ai-transformations#imagekit-background-removal-e-bgremove",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            bgremove: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+          })
+          .refine(
+            (val) => {
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
           {
-            message: "At least one value is required",
-            path: [],
+            label: "Remove Background using ImageKit AI",
+            name: "bgremove",
+            fieldType: "switch",
+            isTransformation: true,
+            transformationKey: "aiRemoveBackground",
+            helpText:
+              "Toggle to remove the background using ImageKit's own background removal.",
           },
-        ),
-      transformations: [
-        {
-          label: "Remove Background using ImageKit AI",
-          name: "bgremove",
-          fieldType: "switch",
-          isTransformation: true,
-          transformationKey: "aiRemoveBackground",
-          helpText:
-            "Toggle to remove the background using ImageKit's own background removal.",
+        ],
+        warning: {
+          heading: "This action consumes AI credits.",
+          message:
+            "You are about to apply Remove Background using ImageKit AI to {imageList.length} items. ",
         },
-      ],
-      warning: {
-        heading: "This action consumes AI credits.",
-        message:
-          "You are about to apply Remove Background using ImageKit AI to {imageList.length} items. ",
       },
-    },
-    {
-      key: "ai-changebg",
-      name: "Change Background",
-      description:
-        "Replace the background of the image with a new scene described by a text prompt. Use AI to generate a new background.",
-      docsLink:
-        "https://imagekit.io/docs/ai-transformations#change-background-e-changebg",
-      defaultTransformation: {},
-      schema: z
-        .object({
-          changebg: z.string().optional(),
-        })
-        .refine(
-          (val) => {
-            if (
-              Object.values(val).some((v) => v !== undefined && v !== null)
-            ) {
-              return true
-            }
-            return false
-          },
+      {
+        key: "ai-changebg",
+        name: "Change Background",
+        description:
+          "Replace the background of the image with a new scene described by a text prompt. Use AI to generate a new background.",
+        docsLink:
+          "https://imagekit.io/docs/ai-transformations#change-background-e-changebg",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            changebg: z.string().optional(),
+          })
+          .refine(
+            (val) => {
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
           {
-            message: "At least one value is required",
-            path: [],
+            label: "Change Background",
+            name: "changebg",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "aiChangeBackground",
+            transformationGroup: "aiChangeBackground",
+            helpText: "Enter a descriptive prompt for the new background.",
+            examples: ["snowy mountains", "sunset beach"],
           },
-        ),
-      transformations: [
-        {
-          label: "Change Background",
-          name: "changebg",
-          fieldType: "input",
-          isTransformation: true,
-          transformationKey: "aiChangeBackground",
-          transformationGroup: "aiChangeBackground",
-          helpText: "Enter a descriptive prompt for the new background.",
-          examples: ["snowy mountains", "sunset beach"],
+        ],
+        warning: {
+          heading: "This action consumes AI credits.",
+          message:
+            "You are about to apply Change Background to {imageList.length} items. ",
         },
-      ],
-      warning: {
-        heading: "This action consumes AI credits.",
-        message:
-          "You are about to apply Change Background to {imageList.length} items. ",
       },
-    },
-    {
-      key: "ai-edit",
-      name: "Edit Image using AI",
-      description:
-        "Use AI to modify the image based on a descriptive prompt. Add or remove objects or alter colors and textures.",
-      docsLink:
-        "https://imagekit.io/docs/ai-transformations#edit-image-e-edit",
-      defaultTransformation: {},
-      schema: z
-        .object({
-          edit: z.string().optional(),
-        })
-        .refine(
-          (val) => {
-            if (
-              Object.values(val).some((v) => v !== undefined && v !== null)
-            ) {
-              return true
-            }
-            return false
-          },
+      {
+        key: "ai-edit",
+        name: "Edit Image using AI",
+        description:
+          "Use AI to modify the image based on a descriptive prompt. Add or remove objects or alter colors and textures.",
+        docsLink:
+          "https://imagekit.io/docs/ai-transformations#edit-image-e-edit",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            edit: z.string().optional(),
+          })
+          .refine(
+            (val) => {
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
           {
-            message: "At least one value is required",
-            path: [],
+            label: "Edit Image using AI",
+            name: "edit",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "e-edit-prompt",
+            helpText: "Enter a prompt describing how to edit the image.",
+            examples: ["add sunglasses", "make the sky blue"],
           },
-        ),
-      transformations: [
-        {
-          label: "Edit Image using AI",
-          name: "edit",
-          fieldType: "input",
-          isTransformation: true,
-          transformationKey: "e-edit-prompt",
-          helpText: "Enter a prompt describing how to edit the image.",
-          examples: ["add sunglasses", "make the sky blue"],
+        ],
+        warning: {
+          heading: "This action consumes AI credits.",
+          message:
+            "You are about to apply Edit Image using AI to {imageList.length} items. ",
         },
-      ],
-      warning: {
-        heading: "This action consumes AI credits.",
-        message:
-          "You are about to apply Edit Image using AI to {imageList.length} items. ",
       },
-    },
-    {
-      key: "ai-dropshadow",
-      name: "Drop Shadow",
-      description:
-        "Add a realistic AI-generated drop shadow around the object. Requires a transparent background; remove the background first for best results.",
-      docsLink:
-        "https://imagekit.io/docs/ai-transformations#ai-drop-shadow-e-dropshadow",
-      defaultTransformation: {},
-      schema: z
-        .object({
-          dropshadow: z.coerce
-            .boolean({
-              invalid_type_error: "Should be a boolean.",
-            })
-            .optional(),
-        })
-        .refine(
-          (val) => {
-            if (
-              Object.values(val).some((v) => v !== undefined && v !== null)
-            ) {
-              return true
-            }
-            return false
-          },
+      {
+        key: "ai-dropshadow",
+        name: "Drop Shadow",
+        description:
+          "Add a realistic AI-generated drop shadow around the object. Requires a transparent background; remove the background first for best results.",
+        docsLink:
+          "https://imagekit.io/docs/ai-transformations#ai-drop-shadow-e-dropshadow",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            dropshadow: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+          })
+          .refine(
+            (val) => {
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
           {
-            message: "At least one value is required",
-            path: [],
+            label: "Drop Shadow",
+            name: "dropshadow",
+            fieldType: "switch",
+            isTransformation: true,
+            transformationKey: "aiDropShadow",
+            helpText:
+              "Toggle to add an AI-generated drop shadow. Requires transparent background.",
           },
-        ),
-      transformations: [
-        {
-          label: "Drop Shadow",
-          name: "dropshadow",
-          fieldType: "switch",
-          isTransformation: true,
-          transformationKey: "aiDropShadow",
-          helpText:
-            "Toggle to add an AI-generated drop shadow. Requires transparent background.",
+        ],
+        warning: {
+          heading: "This action consumes AI credits.",
+          message:
+            "You are about to apply Drop Shadow to {imageList.length} items. ",
         },
-      ],
-      warning: {
-        heading: "This action consumes AI credits.",
-        message:
-          "You are about to apply Drop Shadow to {imageList.length} items. ",
       },
-    },
-    {
-      key: "ai-retouch",
-      name: "Retouch",
-      description: "Improve the quality of the image using AI retouching.",
-      docsLink:
-        "https://imagekit.io/docs/ai-transformations#retouch-e-retouch",
-      defaultTransformation: {},
-      schema: z
-        .object({
-          retouch: z.coerce
-            .boolean({
-              invalid_type_error: "Should be a boolean.",
-            })
-            .optional(),
-        })
-        .refine(
-          (val) => {
-            if (
-              Object.values(val).some((v) => v !== undefined && v !== null)
-            ) {
-              return true
-            }
-            return false
-          },
+      {
+        key: "ai-retouch",
+        name: "Retouch",
+        description: "Improve the quality of the image using AI retouching.",
+        docsLink:
+          "https://imagekit.io/docs/ai-transformations#retouch-e-retouch",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            retouch: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+          })
+          .refine(
+            (val) => {
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
           {
-            message: "At least one value is required",
-            path: [],
+            label: "Retouch",
+            name: "retouch",
+            fieldType: "switch",
+            isTransformation: true,
+            transformationKey: "aiRetouch",
+            helpText:
+              "Toggle to apply AI retouching and enhance image quality.",
           },
-        ),
-      transformations: [
-        {
-          label: "Retouch",
-          name: "retouch",
-          fieldType: "switch",
-          isTransformation: true,
-          transformationKey: "aiRetouch",
-          helpText:
-            "Toggle to apply AI retouching and enhance image quality.",
+        ],
+        warning: {
+          heading: "This action consumes AI credits.",
+          message:
+            "You are about to apply Retouch to {imageList.length} items. ",
         },
-      ],
-      warning: {
-        heading: "This action consumes AI credits.",
-        message:
-          "You are about to apply Retouch to {imageList.length} items. ",
       },
-    },
-    {
-      key: "ai-upscale",
-      name: "Upscale",
-      description:
-        "Increase the resolution of low-resolution images using AI upscaling. The output can be up to 16 MP.",
-      docsLink:
-        "https://imagekit.io/docs/ai-transformations#upscale-e-upscale",
-      defaultTransformation: {},
-      schema: z
-        .object({
-          upscale: z.coerce
-            .boolean({
-              invalid_type_error: "Should be a boolean.",
-            })
-            .optional(),
-        })
-        .refine(
-          (val) => {
-            if (
-              Object.values(val).some((v) => v !== undefined && v !== null)
-            ) {
-              return true
-            }
-            return false
-          },
+      {
+        key: "ai-upscale",
+        name: "Upscale",
+        description:
+          "Increase the resolution of low-resolution images using AI upscaling. The output can be up to 16 MP.",
+        docsLink:
+          "https://imagekit.io/docs/ai-transformations#upscale-e-upscale",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            upscale: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+          })
+          .refine(
+            (val) => {
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
           {
-            message: "At least one value is required",
-            path: [],
+            label: "Upscale",
+            name: "upscale",
+            fieldType: "switch",
+            isTransformation: true,
+            transformationKey: "aiUpscale",
+            helpText:
+              "Toggle to increase resolution of the image using AI upscaling (max 16 MP input).",
           },
-        ),
-      transformations: [
-        {
-          label: "Upscale",
-          name: "upscale",
-          fieldType: "switch",
-          isTransformation: true,
-          transformationKey: "aiUpscale",
-          helpText:
-            "Toggle to increase resolution of the image using AI upscaling (max 16 MP input).",
+        ],
+        warning: {
+          heading: "This action consumes AI credits.",
+          message:
+            "You are about to apply Upscale to {imageList.length} items. ",
         },
-      ],
-      warning: {
-        heading: "This action consumes AI credits.",
-        message:
-          "You are about to apply Upscale to {imageList.length} items. ",
       },
-    },
-    {
-      key: "ai-genvar",
-      name: "Generate Variations",
-      description:
-        "Create a new variation of the original image using AI, altering colors and textures while preserving the structure.",
-      docsLink:
-        "https://imagekit.io/docs/ai-transformations#generate-variations-of-an-image-e-genvar",
-      defaultTransformation: {},
-      schema: z
-        .object({
-          genvar: z.coerce
-            .boolean({
-              invalid_type_error: "Should be a boolean.",
-            })
-            .optional(),
-        })
-        .refine(
-          (val) => {
-            if (
-              Object.values(val).some((v) => v !== undefined && v !== null)
-            ) {
-              return true
-            }
-            return false
-          },
+      {
+        key: "ai-genvar",
+        name: "Generate Variations",
+        description:
+          "Create a new variation of the original image using AI, altering colors and textures while preserving the structure.",
+        docsLink:
+          "https://imagekit.io/docs/ai-transformations#generate-variations-of-an-image-e-genvar",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            genvar: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+          })
+          .refine(
+            (val) => {
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
           {
-            message: "At least one value is required",
-            path: [],
+            label: "Generate Variations",
+            name: "genvar",
+            fieldType: "switch",
+            isTransformation: true,
+            transformationKey: "aiVariation",
+            helpText:
+              "Toggle to generate a new variation of the image using AI.",
           },
-        ),
-      transformations: [
-        {
-          label: "Generate Variations",
-          name: "genvar",
-          fieldType: "switch",
-          isTransformation: true,
-          transformationKey: "aiVariation",
-          helpText:
-            "Toggle to generate a new variation of the image using AI.",
+        ],
+        warning: {
+          heading: "This action consumes AI credits.",
+          message:
+            "You are about to generate variations of {imageList.length} items. ",
         },
-      ],
-      warning: {
-        heading: "This action consumes AI credits.",
-        message:
-          "You are about to generate variations of {imageList.length} items. ",
       },
-    },
     ],
   },
   {
@@ -2735,15 +2735,14 @@ export const transformationSchema: TransformationSchema[] = [
                 invalid_type_error: "Should be a boolean.",
               })
               .optional(),
-            sharpen:
-              z.coerce
-                .number({
-                  invalid_type_error: "Should be a number.",
-                })
-                .int()
-                .min(1)
-                .max(99)
-                .optional(),
+            sharpen: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .int()
+              .min(1)
+              .max(99)
+              .optional(),
           })
           .refine(
             (val) => {
@@ -2921,7 +2920,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "trimThreshold",
             transformationGroup: "imageLayer",
-            helpText: "Control the intensity of this effect using a threshold value between 1% and 99%.",
+            helpText:
+              "Control the intensity of this effect using a threshold value between 1% and 99%.",
             fieldProps: {
               min: 1,
               max: 99,
@@ -2970,8 +2970,7 @@ export const transformationSchema: TransformationSchema[] = [
             fieldProps: {
               defaultValue: 0,
             },
-            helpText:
-              "Enter the width of the border of the overlay image.",
+            helpText: "Enter the width of the border of the overlay image.",
           },
           {
             label: "Border Color",
@@ -2980,9 +2979,8 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: false,
             transformationKey: "borderColor",
             transformationGroup: "imageLayer",
-            isVisible: ({ borderWidth }) => borderWidth as number > 0,
-            helpText:
-              "Select the color of the border of the overlay image.",
+            isVisible: ({ borderWidth }) => (borderWidth as number) > 0,
+            helpText: "Select the color of the border of the overlay image.",
             fieldProps: {
               hideOpacity: true,
               showHexAlpha: false,
@@ -3018,7 +3016,7 @@ export const transformationSchema: TransformationSchema[] = [
               step: 1,
             },
             isVisible: ({ sharpenEnabled }) => sharpenEnabled === true,
-          }
+          },
         ],
       },
     ],
@@ -3387,7 +3385,10 @@ export const transformationFormatters: Record<
     if (values.rotation) {
       overlayTransform.rotation = values.rotation
     }
-    if (values.trimEnabled === true && typeof values.trimThreshold === "number") {
+    if (
+      values.trimEnabled === true &&
+      typeof values.trimThreshold === "number"
+    ) {
       overlayTransform.t = values.trimThreshold
     }
 
@@ -3406,7 +3407,13 @@ export const transformationFormatters: Record<
         overlayTransform.sharpen = values.sharpen
       }
     }
-    if ((values.borderWidth && typeof values.borderWidth === "number" && values.borderWidth > 0) && (values.borderColor && typeof values.borderColor === "string")) {
+    if (
+      values.borderWidth &&
+      typeof values.borderWidth === "number" &&
+      values.borderWidth > 0 &&
+      values.borderColor &&
+      typeof values.borderColor === "string"
+    ) {
       overlayTransform.b = `${values.borderWidth}_${values.borderColor.replace(/^#/, "")}`
     }
 
@@ -3501,7 +3508,6 @@ export const transformationFormatters: Record<
       const cleanFromColor = (fromColor as string).replace(/^#/, "")
       params.push(cleanFromColor)
     }
-
 
     transforms.cr = params.join("_")
   },
