@@ -1576,6 +1576,70 @@ export const transformationSchema: TransformationSchema[] = [
         ],
       },
       {
+        key: "adjust-border",
+        name: "Border",
+        description:
+          "Add a border to the image. Specify a border width and color.",
+        docsLink: "https://imagekit.io/docs/effects-and-enhancements#border---b",
+        defaultTransformation: {},
+        schema: z
+        .object({
+          borderWidth: z.coerce
+            .number({
+              invalid_type_error: "Should be a number.",
+            })
+            .int()
+            .min(1)
+            .optional(),
+          borderColor: colorValidator
+        })
+          .refine(
+            (val) => {
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "Border width and color are required",
+              path: [],
+            },
+          ),
+        transformations: [
+          {
+            label: "Border Width",
+            name: "borderWidth",
+            fieldType: "input",
+            isTransformation: false,
+            transformationGroup: "border",
+            helpText:
+              "Enter a border width",
+            fieldProps: {
+              defaultValue: 1,
+              min: 1,
+              max: 99,
+              step: 1,
+            },
+          },
+          {
+            label: "Border Color",
+            name: "borderColor",
+            fieldType: "color-picker",
+            isTransformation: false,
+            transformationGroup: "border",
+            helpText:
+              "Select the color of the border.",
+            fieldProps:{
+              hideOpacity: true,
+              showHexAlpha: false,
+              defaultValue: "#000000",
+            },
+          },
+        ],
+      },
+      {
         key: "adjust-trim",
         name: "Trim",
         description:
@@ -1713,9 +1777,77 @@ export const transformationSchema: TransformationSchema[] = [
             transformationGroup: "colorReplace",
             helpText:
               "Select the source color you want to replace (optional - if not specified, dominant color will be replaced).",
+          },       
+        ],
+      },
+      {
+        key: "adjust-sharpen",
+        name: "Sharpen",
+        description:
+          "Sharpen the image to highlight the edges and finer details within an image.",
+        docsLink: "https://imagekit.io/docs/effects-and-enhancements#sharpen---e-sharpen",
+        defaultTransformation: {},
+        schema: z
+        .object({
+          sharpenEnabled: z.coerce
+            .boolean({
+              invalid_type_error: "Should be a boolean.",
+            })
+            .optional(),
+          sharpen: 
+              z.union([
+                z.literal("auto"),
+                z.coerce
+                .number({
+                  invalid_type_error: "Should be a number.",
+                })
+                .int()
+                .min(1)
+                .max(99)
+              ])
+            .optional(),
+        })
+          .refine(
+            (val) => {
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
+          {
+            label: "Sharpen Image",
+            name: "sharpenEnabled",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "sharpen",
+            helpText:
+              "Toggle to sharpen the image to highlight the edges and finer details within an image.",
           },
-          
-          
+          {
+            label: "Threshold",
+            name: "sharpen",
+            fieldType: "slider",
+            isTransformation: false,
+            transformationGroup: "sharpen",
+            helpText:
+              "Sharpen the image to highlight the edges and finer details within an image. Use a threshold between 1 and 99.",
+            fieldProps: {
+              autoOption: true,
+              defaultValue: "auto",
+              min: 1,
+              max: 99,
+              step: 1,
+            },
+            isVisible: ({ sharpenEnabled }) => sharpenEnabled === true,
+          },
         ],
       },
     ],
@@ -1723,11 +1855,9 @@ export const transformationSchema: TransformationSchema[] = [
   {
     key: "ai",
     name: "AI Transformations",
-    items: [
-      {
+    items: [   {
         key: "ai-removedotbg",
         name: "Remove Background using Remove.bg",
-        // This option removes the background using the third-party remove.bg service.
         description:
           "Remove the background of the image using Remove.bg (external service). This isolates the subject and makes the background transparent.",
         docsLink:
@@ -2589,6 +2719,29 @@ export const transformationSchema: TransformationSchema[] = [
                 invalid_type_error: "Should be a number.",
               })
               .optional(),
+            borderWidth: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
+            borderColor: colorValidator.optional(),
+            sharpenEnabled: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+            sharpen: z
+              .union([
+                z.literal("auto"),
+                z.coerce
+                  .number({
+                    invalid_type_error: "Should be a number.",
+                  })
+                  .int()
+                  .min(1)
+                  .max(99),
+              ])
+              .optional(),
           })
           .refine(
             (val) => {
@@ -2789,6 +2942,66 @@ export const transformationSchema: TransformationSchema[] = [
               defaultValue: "0",
             },
           },
+          {
+            label: "Border Width",
+            name: "borderWidth",
+            fieldType: "input",
+            isTransformation: false,
+            transformationKey: "borderWidth",
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              defaultValue: 0,
+            },
+            helpText:
+              "Enter the width of the border of the overlay image.",
+          },
+          {
+            label: "Border Color",
+            name: "borderColor",
+            fieldType: "color-picker",
+            isTransformation: false,
+            transformationKey: "borderColor",
+            transformationGroup: "imageLayer",
+            isVisible: ({ borderWidth }) => borderWidth as number > 0,
+            helpText:
+              "Select the color of the border of the overlay image.",
+            fieldProps: {
+              hideOpacity: true,
+              showHexAlpha: false,
+              defaultValue: "#000000",
+            },
+          },
+          {
+            label: "Sharpen Overlay",
+            name: "sharpenEnabled",
+            fieldType: "switch",
+            isTransformation: true,
+            transformationKey: "sharpenEnabled",
+            transformationGroup: "imageLayer",
+            helpText:
+              "Toggle to sharpen the overlay image to highlight edges and fine details.",
+            fieldProps: {
+              defaultValue: false,
+            },
+          },
+          {
+            label: "Sharpen Threshold",
+            name: "sharpen",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationKey: "sharpen",
+            transformationGroup: "imageLayer",
+            helpText:
+              "Sharpen the overlay image. Use a threshold between 1 and 99 (or auto).",
+            fieldProps: {
+              autoOption: true,
+              defaultValue: "auto",
+              min: 1,
+              max: 99,
+              step: 1,
+            },
+            isVisible: ({ sharpenEnabled }) => sharpenEnabled === true,
+          }
         ],
       },
     ],
@@ -3170,6 +3383,18 @@ export const transformationFormatters: Record<
       overlayTransform.blur = values.blur
     }
 
+    // Sharpen overlay (same semantics as base-image sharpen: auto => empty string)
+    if (values.sharpenEnabled === true) {
+      if (values.sharpen === "auto") {
+        overlayTransform.sharpen = ""
+      } else if (typeof values.sharpen === "number") {
+        overlayTransform.sharpen = values.sharpen
+      }
+    }
+    if ((values.borderWidth && typeof values.borderWidth === "number" && values.borderWidth > 0) && (values.borderColor && typeof values.borderColor === "string")) {
+      overlayTransform.b = `${values.borderWidth}_${values.borderColor.replace(/^#/, "")}`
+    }
+
     if (Object.keys(overlayTransform).length > 0) {
       overlay.transformation = [overlayTransform]
     }
@@ -3264,5 +3489,26 @@ export const transformationFormatters: Record<
    
     
     transforms.cr = params.join("_")
+  },
+  border: (values, transforms) => {
+    const { borderWidth, borderColor } = values as {
+      borderWidth?: number
+      borderColor?: string
+    }
+    if(!borderWidth || !borderColor) return
+    const cleanBorderColor = borderColor.replace(/^#/, "")
+    transforms.b = `${borderWidth}_${cleanBorderColor}`
+  },
+  sharpen: (values, transforms) => {
+    const { sharpenEnabled, sharpen } = values as {
+      sharpenEnabled?: boolean
+      sharpen?: "auto" | number
+    }
+    if(!sharpenEnabled) return
+    if(sharpen === "auto") {
+      transforms.sharpen = ""
+    } else {
+      transforms.sharpen = sharpen
+    }
   },
 }
