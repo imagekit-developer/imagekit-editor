@@ -1371,12 +1371,12 @@ export const transformationSchema: TransformationSchema[] = [
               direction: z.union([
                 z.coerce.number({
                   invalid_type_error: "Should be a number.",
-                }),
+                }).min(0).max(359),
                 z.string(),
               ]).optional(),
               stopPoint: z.coerce.number({
                 invalid_type_error: "Should be a number.",
-              }).optional(),
+              }).min(1).max(100).optional(),
             }).optional(),
             gradientSwitch: z.coerce
               .boolean({
@@ -2584,19 +2584,19 @@ export const transformationSchema: TransformationSchema[] = [
             gradientSwitch: z.coerce
               .boolean({
                 invalid_type_error: "Should be a boolean.",
-              }),
+              }).optional(),
             gradient: z.object({
               from: z.string().optional(),
               to: z.string().optional(),
               direction: z.union([
                 z.coerce.number({
                   invalid_type_error: "Should be a number.",
-                }),
+                }).min(0).max(359),
                 z.string(),
               ]).optional(),
               stopPoint: z.coerce.number({
                 invalid_type_error: "Should be a number.",
-              }).optional(),
+              }).min(1).max(100).optional(),
             }).optional(),
           })
           .refine(

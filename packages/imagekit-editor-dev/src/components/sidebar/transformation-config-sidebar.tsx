@@ -296,7 +296,7 @@ export const TransformationConfigSidebar: React.FC = () => {
             return true
           })
           .map((field: TransformationField) => (
-            <FormControl key={field.name} isInvalid={!!errors[field.name] && field.fieldType !== "padding-input"}>
+            <FormControl key={field.name} isInvalid={!!errors[field.name] && !["gradient-picker", "padding-input"].includes(field.fieldType)}>
               <FormLabel htmlFor={field.name} fontSize="sm">
                 {field.label}
               </FormLabel>
@@ -546,6 +546,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                   fieldName={field.name}
                   value={watch(field.name) as GradientPickerState}
                   setValue={setValue}
+                  errors={errors}
                 />
               ) : null}
               {field.fieldType === "anchor" ? (

@@ -7,6 +7,8 @@ import {
   PopoverTrigger,
   FormLabel,
   Box,
+  Text,
+  useColorModeValue,
 } from "@chakra-ui/react";
 import { memo, useEffect, useState, useMemo } from "react";
 import ColorPicker, { useColorPicker } from "react-best-gradient-color-picker";
@@ -15,12 +17,13 @@ import AnchorField from "./AnchorField";
 import RadioCardField from "./RadioCardField";
 import { TbAngle } from "@react-icons/all-files/tb/TbAngle";
 import { BsArrowsMove } from "@react-icons/all-files/bs/BsArrowsMove";
+import { FieldErrors } from "react-hook-form";
 
 export type GradientPickerState = {
   from: string;
   to: string;
   direction: number | string;
-  stopPoint: number;
+  stopPoint: number | string;
 };
 
 type DirectionMode = "direction" | "degrees";
@@ -54,19 +57,26 @@ const GradientPickerField = ({
   fieldName,
   setValue,
   value,
+  errors,
 }: {
   fieldName: string;
   setValue: (name: string, value: GradientPickerState | string) => void;
   value?: GradientPickerState | null;
+  errors?: FieldErrors<Record<string, unknown>>;
 }) => {
   function getLinearGradientString(value: GradientPickerState): string {
     let direction = "";
-    if (typeof value.direction === "number") {
-      direction = `${value.direction}deg`;
+    const dirInt = Number(value.direction as string);
+    if (!isNaN(dirInt)) {
+      direction = `${dirInt}deg`;
     } else {
-      direction = `to ${value.direction.split("_").join(" ")}`;
+      direction = `to ${String(value.direction).split("_").join(" ")}`;
     }
-    return `linear-gradient(${direction}, ${value.from} 0%, ${value.to} ${value.stopPoint}%)`;
+    const stopPoint =
+      typeof value.stopPoint === "number"
+        ? value.stopPoint
+        : Number(value.stopPoint);
+    return `linear-gradient(${direction}, ${value.from} 0%, ${value.to} ${stopPoint}%)`;
   }
 
   const [localValue, setLocalValue] = useState<GradientPickerState>(
@@ -86,9 +96,10 @@ const GradientPickerField = ({
 
   const { getGradientObject } = useColorPicker(gradient, setGradient);
 
-  function getAngleValue(): number {
-    if (typeof localValue.direction === "number") {
-      return localValue.direction;
+  function getAngleValue(): number | string {
+    const dirInt = Number(localValue.direction as string);
+    if (!isNaN(dirInt)) {
+      return dirInt || "";
     }
     const direction = localValue.direction as string;
     const directionMap: Record<string, number> = {
@@ -101,15 +112,15 @@ const GradientPickerField = ({
       left: 270,
       top_left: 315,
     };
-    return directionMap[direction] || 180;
+    return directionMap[direction] || "";
   }
 
   function getDirectionValue(): string {
-    if (typeof localValue.direction === "string") {
-      return localValue.direction;
+    const dirInt = Number(localValue.direction as string);
+    if (isNaN(dirInt)) {
+      return String(localValue.direction);
     }
-    const angle = localValue.direction as number;
-    const nearestAngle = Math.round(angle / 45) * 45;
+    const nearestAngle = Math.round(dirInt / 45) * 45;
     const angleMap: Record<number, string> = {
       0: "top",
       45: "top_right",
@@ -126,21 +137,24 @@ const GradientPickerField = ({
   const debouncedValue = useDebounce<GradientPickerState>(localValue, 500);
 
   function handleGradientChange(gradientVal: string) {
-    const gradientObj = getGradientObject(gradientVal);
-    console.log("Gradient Object:", gradientObj);
-    console.log("Gradient String:", gradientVal);
+    const cleanedGradient = gradientVal.replace(/NaNdeg\s*,/, "");
+    let gradientObj;
+    try {
+      gradientObj = getGradientObject(cleanedGradient);
+    } catch (error) {
+      return;
+    }
 
     if (!gradientObj || !gradientObj.isGradient) return;
 
     const { colors } = gradientObj;
     if (colors.length !== 2) return;
     if (colors[0].left !== 0) return;
-    setGradient(gradientVal);
+    setGradient(cleanedGradient);
 
     const fromColor = rgbaToHex(colors[0].value).toUpperCase();
     const toColor = rgbaToHex(colors[1].value).toUpperCase();
     const stopPoint = colors[1].left;
-    console.log({ stopPoint, fromColor, toColor });
 
     if (
       fromColor !== localValue.from ||
@@ -165,6 +179,8 @@ const GradientPickerField = ({
   useEffect(() => {
     setValue(fieldName, debouncedValue);
   }, [debouncedValue, fieldName, setValue]);
+
+  const errorRed = useColorModeValue("red.500", "red.300");
 
   return (
     <Flex direction="column" gap="2">
@@ -225,6 +241,9 @@ const GradientPickerField = ({
           fontFamily="mono"
           borderRadius="4px"
         />
+        <Text fontSize="xs" color={errorRed}>
+          {errors?.[fieldName]?.from?.message}
+        </Text>
       </Box>
 
       <Box>
@@ -247,6 +266,9 @@ const GradientPickerField = ({
           fontFamily="mono"
           borderRadius="4px"
         />
+        <Text fontSize="xs" color={errorRed}>
+          {errors?.[fieldName]?.to?.message}
+        </Text>
       </Box>
 
       <Box>
@@ -296,17 +318,23 @@ const GradientPickerField = ({
             min={0}
             max={359}
             onChange={(e) => {
-              const newValue = e.target.value;
-              const intVal = newValue === "" ? 0 : Number(newValue);
+              const newValue = e.target.value.trim();
+              if (newValue === "") {
+                applyGradientInputChanges({ ...localValue, direction: "" });
+                return;
+              }
+              const intVal = Number(newValue);
               if (intVal < 0 || intVal > 359) return;
               applyGradientInputChanges({ ...localValue, direction: intVal });
             }}
             borderColor="gray.200"
-            placeholder="#FFFFFF"
-            fontFamily="mono"
+            placeholder="0"
             borderRadius="4px"
           />
         )}
+        <Text fontSize="xs" color={errorRed}>
+          {errors?.[fieldName]?.direction?.message}
+        </Text>
       </Box>
 
       <Box>
@@ -320,8 +348,12 @@ const GradientPickerField = ({
           min={1}
           max={100}
           onChange={(e) => {
-            const newValue = e.target.value;
-            const intVal = newValue === "" ? 1 : Number(newValue);
+            const newValue = e.target.value.trim();
+            if (newValue === "") {
+              applyGradientInputChanges({ ...localValue, stopPoint: "" });
+              return;
+            }
+            const intVal = Number(newValue);
             if (intVal < 1 || intVal > 100) return;
             applyGradientInputChanges({
               ...localValue,
@@ -329,10 +361,12 @@ const GradientPickerField = ({
             });
           }}
           borderColor="gray.200"
-          placeholder="#FFFFFF"
-          fontFamily="mono"
+          placeholder="100"
           borderRadius="4px"
         />
+        <Text fontSize="xs" color={errorRed}>
+          {errors?.[fieldName]?.stopPoint?.message}
+        </Text>
       </Box>
     </Flex>
   );
