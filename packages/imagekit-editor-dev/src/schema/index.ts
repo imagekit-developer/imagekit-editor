@@ -1585,13 +1585,7 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            borderWidth: z.coerce
-              .number({
-                invalid_type_error: "Should be a number.",
-              })
-              .int()
-              .min(1)
-              .optional(),
+            borderWidth: z.union([widthValidator, heightValidator]).optional(),
             borderColor: colorValidator,
           })
           .refine(
@@ -1608,6 +1602,7 @@ export const transformationSchema: TransformationSchema[] = [
               path: [],
             },
           ),
+        
         transformations: [
           {
             label: "Border Width",
@@ -2724,11 +2719,7 @@ export const transformationSchema: TransformationSchema[] = [
                 invalid_type_error: "Should be a number.",
               })
               .optional(),
-            borderWidth: z.coerce
-              .number({
-                invalid_type_error: "Should be a number.",
-              })
-              .optional(),
+            borderWidth: z.union([widthValidator, heightValidator]).optional(),
             borderColor: colorValidator.optional(),
             sharpenEnabled: z.coerce
               .boolean({
@@ -2968,9 +2959,10 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "borderWidth",
             transformationGroup: "imageLayer",
             fieldProps: {
-              defaultValue: 0,
+              defaultValue: "",
             },
-            helpText: "Enter the width of the border of the overlay image.",
+            helpText: "Enter the width of the border or expression of the overlay image.",
+            examples: ["10", "ch_div_2"],
           },
           {
             label: "Border Color",
@@ -2979,7 +2971,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: false,
             transformationKey: "borderColor",
             transformationGroup: "imageLayer",
-            isVisible: ({ borderWidth }) => (borderWidth as number) > 0,
+            isVisible: ({ borderWidth }) => (borderWidth as string) !== "",
             helpText: "Select the color of the border of the overlay image.",
             fieldProps: {
               hideOpacity: true,
@@ -3408,11 +3400,8 @@ export const transformationFormatters: Record<
       }
     }
     if (
-      values.borderWidth &&
-      typeof values.borderWidth === "number" &&
-      values.borderWidth > 0 &&
-      values.borderColor &&
-      typeof values.borderColor === "string"
+      values.borderWidth &&   
+      values.borderColor && typeof values.borderColor === "string"
     ) {
       overlayTransform.b = `${values.borderWidth}_${values.borderColor.replace(/^#/, "")}`
     }
@@ -3513,7 +3502,7 @@ export const transformationFormatters: Record<
   },
   border: (values, transforms) => {
     const { borderWidth, borderColor } = values as {
-      borderWidth?: number
+      borderWidth?: string
       borderColor?: string
     }
     if (!borderWidth || !borderColor) return
