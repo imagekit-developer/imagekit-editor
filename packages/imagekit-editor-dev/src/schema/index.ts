@@ -21,6 +21,7 @@ import {
   layerYValidator,
   widthValidator,
 } from "./transformation"
+import { GradientPickerState } from "../components/common/GradientPicker"
 
 // Based on ImageKit's supported object list
 export const DEFAULT_FOCUS_OBJECTS = [
@@ -1356,6 +1357,76 @@ export const transformationSchema: TransformationSchema[] = [
         ],
       },
       {
+        key: "adjust-gradient",
+        name: "Gradient",
+        description: "Add gradient overlay over the image.",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#gradient---e-gradient",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            gradient: z.object({
+              from: z.string().optional(),
+              to: z.string().optional(),
+              direction: z.union([
+                z.coerce.number({
+                  invalid_type_error: "Should be a number.",
+                }),
+                z.string(),
+              ]).optional(),
+              stopPoint: z.coerce.number({
+                invalid_type_error: "Should be a number.",
+              }).optional(),
+            }).optional(),
+            gradientSwitch: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+          })
+          .refine(
+            (val) => {
+              console.log("Received val", val);
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
+          {
+            label: "Gradient",
+            name: "gradientSwitch",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "gradient",
+            helpText: "Toggle to add a gradient overlay over the image.",
+          },
+          {
+            label: "Apply Gradient",
+            name: "gradient",
+            fieldType: "gradient-picker",
+            isTransformation: true,
+            transformationKey: "gradient",
+            transformationGroup: "gradient",
+            isVisible: ({ gradientSwitch }) => gradientSwitch === true,
+            fieldProps: {
+              defaultValue: {
+                from: "#FFFFFFFF",
+                to: "#00000000",
+                direction: "bottom",
+                stopPoint: 100,
+              }
+            }
+          },
+        ],
+      },
+      {
         key: "adjust-blur",
         name: "Blur",
         description:
@@ -2510,6 +2581,23 @@ export const transformationSchema: TransformationSchema[] = [
             xc: z.string().optional(),
             yc: z.string().optional(),
             zoom: z.coerce.number().optional(),
+            gradientSwitch: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              }),
+            gradient: z.object({
+              from: z.string().optional(),
+              to: z.string().optional(),
+              direction: z.union([
+                z.coerce.number({
+                  invalid_type_error: "Should be a number.",
+                }),
+                z.string(),
+              ]).optional(),
+              stopPoint: z.coerce.number({
+                invalid_type_error: "Should be a number.",
+              }).optional(),
+            }).optional(),
           })
           .refine(
             (val) => {
@@ -2883,6 +2971,31 @@ export const transformationSchema: TransformationSchema[] = [
               step: 1,
               defaultValue: "0",
             },
+          },
+          {
+            label: "Gradient",
+            name: "gradientSwitch",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            helpText: "Toggle to add a gradient overlay over the overlay image.",
+          },
+          {
+            label: "Apply Gradient",
+            name: "gradient",
+            fieldType: "gradient-picker",
+            isTransformation: true,
+            transformationKey: "gradient",
+            transformationGroup: "imageLayer",
+            isVisible: ({ gradientSwitch }) => gradientSwitch === true,
+            fieldProps: {
+              defaultValue: {
+                from: "#FFFFFFFF",
+                to: "#00000000",
+                direction: "bottom",
+                stopPoint: 100,
+              }
+            }
           },
         ],
       },
@@ -3308,6 +3421,8 @@ export const transformationFormatters: Record<
       }
     }
 
+    transformationFormatters.gradient(values, overlayTransform)
+
     if (zoom !== undefined && zoom !== null && !isNaN(Number(zoom)) && zoom !== 0) {
       overlayTransform.zoom = (zoom as number) / 100
     }
@@ -3365,4 +3480,24 @@ export const transformationFormatters: Record<
       transforms.rotation = "auto"
     }
   },
+  gradient: (values, transforms) => {
+    const { gradient, gradientSwitch } = values as { gradient: GradientPickerState; gradientSwitch: boolean }
+    console.log('gradient formatter called', values)
+    if (gradientSwitch && gradient) {
+      const { from, to, direction, stopPoint } = gradient
+      const isDefaultGradient = (from.toUpperCase() === "#FFFFFFFF" || from.toUpperCase() === "#FFFFFF") &&
+        (to.toUpperCase() === "#00000000") &&
+        (direction === "bottom" || direction === 180) &&
+        stopPoint === 100
+      if (isDefaultGradient) {
+        transforms.gradient = ""
+      } else {
+        const fromColor = from.replace("#", "")
+        const toColor = to.replace("#", "")
+        const stopPointDecimal = stopPoint / 100
+        let gradientStr = `ld-${direction}_from-${fromColor}_to-${toColor}_sp-${stopPointDecimal}`
+        transforms.gradient = gradientStr
+      }
+    }
+  }
 }

@@ -50,6 +50,7 @@ import { isStepAligned } from "../../utils"
 import AnchorField from "../common/AnchorField"
 import CheckboxCardField from "../common/CheckboxCardField"
 import ColorPickerField from "../common/ColorPickerField"
+import GradientPicker, { GradientPickerState } from "../common/GradientPicker"
 import RadioCardField from "../common/RadioCardField"
 import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
@@ -537,6 +538,13 @@ export const TransformationConfigSidebar: React.FC = () => {
                 <ColorPickerField
                   fieldName={field.name}
                   value={watch(field.name) as string}
+                  setValue={setValue}
+                />
+              ) : null}
+              {field.fieldType === "gradient-picker" ? (
+                <GradientPicker
+                  fieldName={field.name}
+                  value={watch(field.name) as GradientPickerState}
                   setValue={setValue}
                 />
               ) : null}
