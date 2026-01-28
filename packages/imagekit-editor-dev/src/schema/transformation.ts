@@ -124,3 +124,42 @@ export const layerYValidator = z.any().superRefine((val, ctx) => {
     message: "Layer Y must be a positive number or a valid expression string.",
   })
 })
+
+
+export const optionalPositiveFloatNumberValidator = z.preprocess(
+  (val) => (val === "" || val === undefined || val === null) ? undefined : val,
+  z.coerce.number().positive({ message: "Should be a positive floating point number." }).optional()
+)
+
+export const refineUnsharpenMask = (val: any, ctx: z.RefinementCtx) => {
+  if (val.unsharpenMask === true) {
+    if (!val.unsharpenMaskRadius) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Radius is required when Unsharpen Mask is enabled",
+        path: ["unsharpenMaskRadius"],
+      })
+    }
+    if (!val.unsharpenMaskSigma) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Sigma is required when Unsharpen Mask is enabled",
+        path: ["unsharpenMaskSigma"],
+      })
+    }
+    if (!val.unsharpenMaskAmount) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Amount is required when Unsharpen Mask is enabled",
+        path: ["unsharpenMaskAmount"],
+      })
+    }
+    if (!val.unsharpenMaskThreshold) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Threshold is required when Unsharpen Mask is enabled",
+        path: ["unsharpenMaskThreshold"],
+      })
+    }
+  }
+}

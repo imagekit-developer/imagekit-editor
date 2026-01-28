@@ -19,6 +19,8 @@ import {
   heightValidator,
   layerXValidator,
   layerYValidator,
+  optionalPositiveFloatNumberValidator,
+  refineUnsharpenMask,
   widthValidator,
 } from "./transformation"
 
@@ -1602,7 +1604,7 @@ export const transformationSchema: TransformationSchema[] = [
               path: [],
             },
           ),
-        
+
         transformations: [
           {
             label: "Border Width",
@@ -1841,6 +1843,82 @@ export const transformationSchema: TransformationSchema[] = [
           },
         ],
       },
+      {
+        key: "adjust-unsharpen-mask",
+        name: "Unsharpen Mask",
+        description:
+          "Image sharpening technique that enhances edge contrast to make details appear clearer. Amplifies differences between neighboring pixels without significantly affecting smooth areas.",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#unsharp-mask---e-usm",
+        defaultTransformation: {},
+        schema: z.object({
+          unsharpenMaskRadius: z.coerce.number().positive({ message: "Should be a positive floating point number." }),
+          unsharpenMaskSigma: z.coerce.number().positive({ message: "Should be a positive floating point number." }),
+          unsharpenMaskAmount: z.coerce.number().positive({ message: "Should be a positive floating point number." }),
+          unsharpenMaskThreshold: z.coerce.number().positive({ message: "Should be a positive floating point number." }),
+        })
+          .refine(
+            (val) => {
+              if (Object.values(val).some((v) => v !== undefined && v !== null)) {
+                return true
+              }
+              return false
+            }),
+        transformations: [
+          {
+            name: "unsharpenMaskRadius",
+            fieldType: "input",
+            label: "Radius",
+            isTransformation: false,
+            transformationGroup: "unsharpenMask",
+            helpText:
+              "Controls how wide the sharpening effect spreads from each edge. Larger values affect broader areas; smaller values focus on fine details.",
+            fieldProps: {
+              defaultValue: "",
+            },
+            examples: ["1", "8", "15"],
+          },
+          {
+            name: "unsharpenMaskSigma",
+            fieldType: "input",
+            label: "Sigma",
+            isTransformation: false,
+            transformationGroup: "unsharpenMask",
+            helpText:
+              "Defines the amount of blur used to detect edges before sharpening. Higher values smooth more before sharpening; lower values preserve fine textures.",
+            fieldProps: {
+              defaultValue: "",
+            },
+            examples: ["1", "5", "6"],
+          },
+          {
+            name: "unsharpenMaskAmount",
+            fieldType: "input",
+            label: "Amount",
+            isTransformation: false,
+            transformationGroup: "unsharpenMask",
+            helpText:
+              "Sets the strength of the sharpening effect.",
+            fieldProps: {
+              defaultValue: "",
+            },
+            examples: ["0.1", "2", "0.8"],
+          },
+          {
+            name: "unsharpenMaskThreshold",
+            fieldType: "input",
+            label: "Threshold",
+            isTransformation: false,
+            transformationGroup: "unsharpenMask",
+            helpText:
+              "Set the threshold value for the unsharpen mask.",
+            fieldProps: {
+              defaultValue: "",
+            },
+            examples: ["0.1", "2", "0.8"],
+          },
+        ]
+      }
     ],
   },
   {
@@ -2734,7 +2812,12 @@ export const transformationSchema: TransformationSchema[] = [
               .min(1)
               .max(99)
               .optional(),
-          })
+            unsharpenMask: z.coerce.boolean().optional(),
+            unsharpenMaskRadius: optionalPositiveFloatNumberValidator.optional(),
+            unsharpenMaskSigma: optionalPositiveFloatNumberValidator.optional(),
+            unsharpenMaskAmount: optionalPositiveFloatNumberValidator.optional(),
+            unsharpenMaskThreshold: optionalPositiveFloatNumberValidator.optional(),
+          }).superRefine(refineUnsharpenMask)
           .refine(
             (val) => {
               return Object.values(val).some(
@@ -3009,6 +3092,75 @@ export const transformationSchema: TransformationSchema[] = [
             },
             isVisible: ({ sharpenEnabled }) => sharpenEnabled === true,
           },
+          {
+            name: "unsharpenMask",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Toggle to unsharpen the overlay image to remove the edges and finer details within an image.",
+            fieldProps: {
+              defaultValue: false,
+            },
+            label: "Unsharpen Mask",
+          },
+          {
+            name: "unsharpenMaskRadius",
+            fieldType: "input",
+            label: "Radius",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Controls how wide the sharpening effect spreads from each edge. Larger values affect broader areas; smaller values focus on fine details.",
+            fieldProps: {
+              defaultValue: "",
+            },
+            examples: ["1", "8", "15"],
+            isVisible: ({ unsharpenMask }) => unsharpenMask === true,
+          },
+          {
+            name: "unsharpenMaskSigma",
+            fieldType: "input",
+            label: "Sigma",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Defines the amount of blur used to detect edges before sharpening. Higher values smooth more before sharpening; lower values preserve fine textures.",
+            fieldProps: {
+              defaultValue: "",
+            },
+            examples: ["1", "5", "6"],
+            isVisible: ({ unsharpenMask }) => unsharpenMask === true,
+          },
+          {
+            name: "unsharpenMaskAmount",
+            fieldType: "input",
+            label: "Amount",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Sets the strength of the sharpening effect.",
+            fieldProps: {
+              defaultValue: "",
+            },
+            examples: ["0.1", "2", "0.8"],
+            isVisible: ({ unsharpenMask }) => unsharpenMask === true,
+          },
+          {
+            name: "unsharpenMaskThreshold",
+            fieldType: "input",
+            label: "Threshold",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Set the threshold value for the unsharpen mask.",
+            fieldProps: {
+              defaultValue: "",
+            },
+            examples: ["0.1", "2", "0.8"],
+            isVisible: ({ unsharpenMask }) => unsharpenMask === true,
+          },
+
         ],
       },
     ],
@@ -3400,7 +3552,7 @@ export const transformationFormatters: Record<
       }
     }
     if (
-      values.borderWidth &&   
+      values.borderWidth &&
       values.borderColor && typeof values.borderColor === "string"
     ) {
       overlayTransform.b = `${values.borderWidth}_${values.borderColor.replace(/^#/, "")}`
@@ -3425,6 +3577,11 @@ export const transformationFormatters: Record<
 
     // Assign overlay to transforms
     transforms.overlay = overlay
+    if (values.unsharpenMask === true) {
+      overlayTransform["e-usm"] = `${values.unsharpenMaskRadius}-${values.unsharpenMaskSigma}-${values.unsharpenMaskAmount}-${values.unsharpenMaskThreshold}`
+    }
+
+
   },
   flip: (values, transforms) => {
     if ((values.flip as Array<string>)?.length) {
@@ -3520,5 +3677,14 @@ export const transformationFormatters: Record<
     } else {
       transforms.sharpen = sharpen
     }
+  },
+  unsharpenMask: (values, transforms) => {
+    const { unsharpenMaskRadius, unsharpenMaskSigma, unsharpenMaskAmount, unsharpenMaskThreshold } = values as {
+      unsharpenMaskRadius: number
+      unsharpenMaskSigma: number
+      unsharpenMaskAmount: number
+      unsharpenMaskThreshold: number
+    }
+    transforms["e-usm"] = `${unsharpenMaskRadius}-${unsharpenMaskSigma}-${unsharpenMaskAmount}-${unsharpenMaskThreshold}`
   },
 }
