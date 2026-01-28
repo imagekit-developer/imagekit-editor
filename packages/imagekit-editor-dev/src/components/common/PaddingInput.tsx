@@ -8,7 +8,6 @@ import {
   InputGroup,
   InputLeftElement,
   IconButton,
-  IconButtonProps,
   useColorModeValue,
   Tooltip,
 } from "@chakra-ui/react"
@@ -20,7 +19,6 @@ import { LuArrowRightToLine } from "@react-icons/all-files/lu/LuArrowRightToLine
 import { LuArrowUpToLine } from "@react-icons/all-files/lu/LuArrowUpToLine"
 import { LuArrowDownToLine } from "@react-icons/all-files/lu/LuArrowDownToLine"
 import { TbBoxPadding } from "@react-icons/all-files/tb/TbBoxPadding"
-import { MdOutlinePadding } from "@react-icons/all-files/md/MdOutlinePadding"
 import { FieldErrors } from "react-hook-form"
 
 type PaddingInputFieldProps = {
