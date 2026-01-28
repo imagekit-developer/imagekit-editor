@@ -2572,6 +2572,8 @@ export const transformationSchema: TransformationSchema[] = [
                 invalid_type_error: "Should be a number.",
               })
               .optional(),
+
+            // Focus + Zoom properties
             focus: z.string().optional(),
             focusAnchor: z.string().optional(),
             focusObject: z.string().optional(),
@@ -2581,6 +2583,8 @@ export const transformationSchema: TransformationSchema[] = [
             xc: z.string().optional(),
             yc: z.string().optional(),
             zoom: z.coerce.number().optional(),
+
+            // Gradient properties
             gradientSwitch: z.coerce
               .boolean({
                 invalid_type_error: "Should be a boolean.",
@@ -2598,6 +2602,40 @@ export const transformationSchema: TransformationSchema[] = [
                 invalid_type_error: "Should be a number.",
               }).min(1).max(100).optional(),
             }).optional(),
+
+            // Shadow properties
+            shadow: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+            shadowBlur: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
+            shadowSaturation: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
+            shadowOffsetX: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
+            shadowOffsetY: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
+
+            // Grayscale
+            grayscale: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
           })
           .refine(
             (val) => {
@@ -2997,6 +3035,88 @@ export const transformationSchema: TransformationSchema[] = [
               }
             }
           },
+          {
+            label: "Shadow",
+            name: "shadow",
+            fieldType: "switch",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Toggle to add a non-AI shadow under objects in the overlay image.",
+          },
+          {
+            label: "Blur",
+            name: "shadowBlur",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Set the blur radius for the shadow. Higher values create a softer shadow.",
+            fieldProps: {
+              min: 0,
+              max: 15,
+              step: 1,
+              defaultValue: 10,
+            },
+            isVisible: ({ shadow }) => shadow === true,
+          },
+          {
+            label: "Saturation",
+            name: "shadowSaturation",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Adjust the saturation of the shadow. Higher values produce a darker shadow.",
+            fieldProps: {
+              min: 0,
+              max: 100,
+              step: 1,
+              defaultValue: 30,
+            },
+            isVisible: ({ shadow }) => shadow === true,
+          },
+          {
+            label: "X Offset",
+            name: "shadowOffsetX",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Enter the horizontal offset as a percentage of the overlay image width.",
+            isVisible: ({ shadow }) => shadow === true,
+            fieldProps: {
+              min: -100,
+              max: 100,
+              step: 1,
+              defaultValue: 2,
+            },
+          },
+          {
+            label: "Y Offset",
+            name: "shadowOffsetY",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Enter the vertical offset as a percentage of the overlay image height.",
+            isVisible: ({ shadow }) => shadow === true,
+            fieldProps: {
+              min: -100,
+              max: 100,
+              step: 1,
+              defaultValue: 2,
+            },
+          },
+          {
+            label: "Grayscale",
+            name: "grayscale",
+            fieldType: "switch",
+            isTransformation: true,
+            transformationKey: "grayscale",
+            transformationGroup: "imageLayer",
+            helpText: "Toggle to convert the overlay image to grayscale.",
+          },
         ],
       },
     ],
@@ -3150,7 +3270,8 @@ export const transformationFormatters: Record<
     if (
       shadowOffsetX !== undefined &&
       shadowOffsetX !== null &&
-      shadowOffsetX !== ""
+      shadowOffsetX !== "" &&
+      typeof shadowOffsetX === "number"
     ) {
       if (shadowOffsetX < 0) {
         params.push(`x-N${Math.abs(shadowOffsetX)}`)
@@ -3162,7 +3283,8 @@ export const transformationFormatters: Record<
     if (
       shadowOffsetY !== undefined &&
       shadowOffsetY !== null &&
-      shadowOffsetY !== ""
+      shadowOffsetY !== "" &&
+      typeof shadowOffsetY === "number"
     ) {
       if (shadowOffsetY < 0) {
         params.push(`y-N${Math.abs(shadowOffsetY)}`)
@@ -3399,32 +3521,18 @@ export const transformationFormatters: Record<
       overlayTransform.blur = values.blur
     }
 
-    const { focus, crop, focusAnchor, focusObject, x, y, xc, yc, coordinateMethod, zoom } = values
+    const { crop, focusAnchor } = values
 
-    if (focus === "auto" || focus === "face") {
-      overlayTransform.focus = focus
-    } else if (focus === "anchor" || crop === "cm-pad_resize") {
+    transformationFormatters.focus(values, overlayTransform)
+    if (crop === "cm-pad_resize") {
       overlayTransform.focus = focusAnchor
-    } else if (focus === "object") {
-      overlayTransform.focus = focusObject
-    } else if (focus === "custom") {
-      overlayTransform.focus = "custom"
-    } else if (focus === "coordinates") {
-      // Handle coordinate-based focus
-      // x/y are top-left coordinates, xc/yc are center coordinates
-      if (coordinateMethod === "topleft") {
-        if (x) overlayTransform.x = x
-        if (y) overlayTransform.y = y
-      } else if (coordinateMethod === "center") {
-        if (xc) overlayTransform.xc = xc
-        if (yc) overlayTransform.yc = yc
-      }
     }
 
     transformationFormatters.gradient(values, overlayTransform)
+    transformationFormatters.shadow(values, overlayTransform)
 
-    if (zoom !== undefined && zoom !== null && !isNaN(Number(zoom)) && zoom !== 0) {
-      overlayTransform.zoom = (zoom as number) / 100
+    if (values.grayscale) {
+      overlayTransform.grayscale = true
     }
 
     if (Object.keys(overlayTransform).length > 0) {
