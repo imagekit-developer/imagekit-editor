@@ -3529,6 +3529,10 @@ export const transformationFormatters: Record<
     if (values.rotation) {
       overlayTransform.rotation = values.rotation
     }
+       
+    if (values.unsharpenMask === true) {
+      overlayTransform["e-usm"] = `${values.unsharpenMaskRadius}-${values.unsharpenMaskSigma}-${values.unsharpenMaskAmount}-${values.unsharpenMaskThreshold}`
+    }
     if (
       values.trimEnabled === true &&
       typeof values.trimThreshold === "number"
@@ -3577,11 +3581,6 @@ export const transformationFormatters: Record<
 
     // Assign overlay to transforms
     transforms.overlay = overlay
-    if (values.unsharpenMask === true) {
-      overlayTransform["e-usm"] = `${values.unsharpenMaskRadius}-${values.unsharpenMaskSigma}-${values.unsharpenMaskAmount}-${values.unsharpenMaskThreshold}`
-    }
-
-
   },
   flip: (values, transforms) => {
     if ((values.flip as Array<string>)?.length) {
