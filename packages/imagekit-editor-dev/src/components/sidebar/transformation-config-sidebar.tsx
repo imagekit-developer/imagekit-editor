@@ -581,6 +581,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                   errors={errors}
                   name={field.name}
                   {...field.fieldProps}
+                  value={watch(field.name) as string | number | PaddingObject | null}
                 />
               ) : null}
               {field.fieldType === "zoom" ? (

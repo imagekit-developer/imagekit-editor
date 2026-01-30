@@ -21,14 +21,22 @@ import { LuArrowDownToLine } from "@react-icons/all-files/lu/LuArrowDownToLine"
 import { TbBoxPadding } from "@react-icons/all-files/tb/TbBoxPadding"
 import { FieldErrors } from "react-hook-form"
 
-type PaddingInputFieldProps = {
-  id?: string
-  onChange: (value: number | PaddingObject | string) => void
-  errors?: FieldErrors<Record<string, unknown>>
-  name: string
+type PaddingMode = "uniform" | "individual"
+
+type PaddingState = {
+  mode: PaddingMode
+  padding: number | PaddingObject | null | string
 }
 
-type PaddingObject = {
+type PaddingInputFieldProps = {
+  id?: string
+  onChange: (value: PaddingState) => void
+  errors?: FieldErrors<Record<string, unknown>>
+  name: string,
+  value?: Partial<PaddingState>
+}
+
+export type PaddingObject = {
   top: number | null
   right: number | null
   bottom: number | null
@@ -82,9 +90,10 @@ export const PaddingInputField: React.FC<PaddingInputFieldProps> = ({
   onChange,
   errors,
   name: propertyName,
+  value
 }) => {
-  const [paddingMode, setPaddingMode] = useState<"uniform" | "individual">("uniform")
-  const [paddingValue, setPaddingValue] = useState<number | PaddingObject | null | string>("")
+  const [paddingMode, setPaddingMode] = useState<PaddingMode>(value?.mode ?? "uniform")
+  const [paddingValue, setPaddingValue] = useState<number | PaddingObject | null | string>(value?.padding ?? "")
   const errorRed = useColorModeValue("red.500", "red.300")
   const activeColor = useColorModeValue("blue.500", "blue.600")
   const inactiveColor = useColorModeValue("gray.600", "gray.400")
@@ -101,8 +110,8 @@ export const PaddingInputField: React.FC<PaddingInputFieldProps> = ({
       }
     }
     const formattedValue = formatPaddingValue(paddingValue)
-    onChange(formattedValue)
-  }, [paddingValue])
+    onChange({ mode: paddingMode, padding: formattedValue })
+  }, [paddingValue, paddingMode])
    
 
   return (

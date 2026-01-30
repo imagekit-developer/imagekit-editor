@@ -1385,7 +1385,6 @@ export const transformationSchema: TransformationSchema[] = [
           })
           .refine(
             (val) => {
-              console.log("Received val", val);
               if (
                 Object.values(val).some((v) => v !== undefined && v !== null)
               ) {
@@ -2224,35 +2223,39 @@ export const transformationSchema: TransformationSchema[] = [
             innerAlignment: z
               .enum(["left", "right", "center"])
               .default("center"),
-            padding: z.union([
-              z.coerce.number({
-                invalid_type_error: "Should be a number.",
-              }).min(0, {
-                message: "Negative values are not allowed.",
-              }),
-              z.object({
-                top: z.coerce.number({
+            padding: z.object({
+              mode: z.enum(["uniform", "individual"]).optional(),
+              padding: z.union([
+                z.coerce.number({
                   invalid_type_error: "Should be a number.",
                 }).min(0, {
                   message: "Negative values are not allowed.",
                 }),
-                right: z.coerce.number({
-                  invalid_type_error: "Should be a number.",
-                }).min(0, {
-                  message: "Negative values are not allowed.",
+                z.object({
+                  top: z.coerce.number({
+                    invalid_type_error: "Should be a number.",
+                  }).min(0, {
+                    message: "Negative values are not allowed.",
+                  }),
+                  right: z.coerce.number({
+                    invalid_type_error: "Should be a number.",
+                  }).min(0, {
+                    message: "Negative values are not allowed.",
+                  }),
+                  bottom: z.coerce.number({
+                    invalid_type_error: "Should be a number.",
+                  }).min(0, {
+                    message: "Negative values are not allowed.",
+                  }),
+                  left: z.coerce.number({
+                    invalid_type_error: "Should be a number.",
+                  }).min(0, {
+                    message: "Negative values are not allowed.",
+                  }),
                 }),
-                bottom: z.coerce.number({
-                  invalid_type_error: "Should be a number.",
-                }).min(0, {
-                  message: "Negative values are not allowed.",
-                }),
-                left: z.coerce.number({
-                  invalid_type_error: "Should be a number.",
-                }).min(0, {
-                  message: "Negative values are not allowed.",
-                }),
-              }),
-            ]).optional(),
+              ]).optional(),
+            })
+            .optional(),
             opacity: z
               .union([
                 z.coerce
@@ -3335,13 +3338,15 @@ export const transformationFormatters: Record<
       const bg = (values.backgroundColor as string).replace(/^#/, "")
       overlayTransform.background = bg
     }
+    const { padding, mode } = values.padding as Record<string, unknown>
     if (
-      typeof values.padding === "number" ||
-      typeof values.padding === "string"
+      mode === "uniform" &&
+      (typeof padding === "number" ||
+      typeof padding === "string")
     ) {
-      overlayTransform.padding = values.padding
-    } else if (typeof values.padding === "object" && values.padding !== null) {
-      const { top, right, bottom, left } = values.padding as {
+      overlayTransform.padding = padding
+    } else if (mode === "individual" && typeof padding === "object" && padding !== null) {
+      const { top, right, bottom, left } = padding as {
         top: number
         right: number
         bottom: number
