@@ -1690,14 +1690,51 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            radius: z.union([
-              z.literal("max"),
-              z.coerce
-                .number({
+            radius: z.object({
+              mode: z.enum(["uniform", "individual"]).optional(),
+              radius: z.union([
+                z.literal("max"),
+                z.coerce.number({
                   invalid_type_error: "Should be a number.",
-                })
-                .min(0),
-            ]),
+                }).min(0, {
+                  message: "Negative values are not allowed.",
+                }),
+                z.object({
+                  topLeft: z.union([
+                    z.literal("max"),
+                    z.coerce.number({
+                      invalid_type_error: "Should be a number.",
+                    }).min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                  ]),
+                  topRight: z.union([
+                    z.literal("max"),
+                    z.coerce.number({
+                      invalid_type_error: "Should be a number.",
+                    }).min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                  ]),
+                  bottomRight: z.union([
+                    z.literal("max"),
+                    z.coerce.number({
+                      invalid_type_error: "Should be a number.",
+                    }).min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                  ]),
+                  bottomLeft: z.union([
+                    z.literal("max"),
+                    z.coerce.number({
+                      invalid_type_error: "Should be a number.",
+                    }).min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                  ]),
+                }),
+              ]).optional(),
+            }).optional(),
           })
           .refine(
             (val) => {
@@ -1717,12 +1754,15 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Radius",
             name: "radius",
-            fieldType: "input",
+            fieldType: "radius-input",
             isTransformation: true,
-            transformationKey: "r",
+            transformationGroup: "radius",
             helpText:
               "Enter a positive integer for rounded corners or 'max' for a fully circular output.",
             examples: ["10", "max"],
+            fieldProps: {
+              defaultValue: {}
+            }
           },
         ],
       },
@@ -2639,16 +2679,6 @@ export const transformationSchema: TransformationSchema[] = [
               })
               .optional(),
             backgroundColor: z.string().optional(),
-            radius: z
-              .union([
-                z.literal("max"),
-                z.coerce
-                  .number({
-                    invalid_type_error: "Should be a number.",
-                  })
-                  .min(0),
-              ])
-              .optional(),
             flip: z
               .array(z.enum(["horizontal", "vertical"]).optional())
               .optional(),
@@ -2751,6 +2781,53 @@ export const transformationSchema: TransformationSchema[] = [
               y4: z.union([z.literal(""), z.coerce.number()]),
             }).optional(),
             distortArcDegree: z.coerce.number().min(-359).max(359).optional(),
+
+            // Radius
+            radius: z.object({
+              mode: z.enum(["uniform", "individual"]).optional(),
+              radius: z.union([
+                z.literal("max"),
+                z.coerce.number({
+                  invalid_type_error: "Should be a number.",
+                }).min(0, {
+                  message: "Negative values are not allowed.",
+                }),
+                z.object({
+                  topLeft: z.union([
+                    z.literal("max"),
+                    z.coerce.number({
+                      invalid_type_error: "Should be a number.",
+                    }).min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                  ]),
+                  topRight: z.union([
+                    z.literal("max"),
+                    z.coerce.number({
+                      invalid_type_error: "Should be a number.",
+                    }).min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                  ]),
+                  bottomRight: z.union([
+                    z.literal("max"),
+                    z.coerce.number({
+                      invalid_type_error: "Should be a number.",
+                    }).min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                  ]),
+                  bottomLeft: z.union([
+                    z.literal("max"),
+                    z.coerce.number({
+                      invalid_type_error: "Should be a number.",
+                    }).min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                  ]),
+                }),
+              ]).optional(),
+            }).optional(),
           })
           .refine(
             (val) => {
@@ -3036,12 +3113,15 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Radius",
             name: "radius",
-            fieldType: "input",
+            fieldType: "radius-input",
             isTransformation: true,
-            transformationKey: "radius",
             transformationGroup: "imageLayer",
             helpText:
               "Set the corner radius for the overlay image. Use 'max' for a circle or oval.",
+            examples: ["10", "max"],
+            fieldProps: {
+              defaultValue: {}
+            }
           },
           {
             label: "Flip",
@@ -3288,7 +3368,7 @@ export const transformationSchema: TransformationSchema[] = [
               type: "number",
               placeholder: "Arc Degrees",
             }
-          }
+          },
         ],
       },
     ],
@@ -3653,12 +3733,6 @@ export const transformationFormatters: Record<
       overlayTransform.background = values.backgroundColor.replace(/^#/, "")
     }
 
-    if (values.radius === "max") {
-      overlayTransform.radius = "max"
-    } else if (values.radius as number) {
-      overlayTransform.radius = values.radius as number
-    }
-
     if ((values.flip as Array<string>)?.length) {
       const flip = []
       if ((values.flip as Array<string>).includes("horizontal")) {
@@ -3705,6 +3779,7 @@ export const transformationFormatters: Record<
     transformationFormatters.gradient(values, overlayTransform)
     transformationFormatters.shadow(values, overlayTransform)
     transformationFormatters.distort(values, overlayTransform)
+    transformationFormatters.radius(values, overlayTransform)
 
     if (values.grayscale) {
       overlayTransform.grayscale = true
@@ -3792,6 +3867,26 @@ export const transformationFormatters: Record<
         transforms["e-distort"] = `${distortPrefix}-${formattedCoords.join("_")}`
       } else if (distortType === "arc" && distortArcDegree !== undefined && distortArcDegree !== null) {
         transforms["e-distort"] = `${distortPrefix}-${distortArcDegree.toString().replace(/^-/,"N")}`
+      }
+    }
+  },
+  radius: (values, transforms) => {
+    if (values.radius) {
+      const { radius, mode } = values.radius as Record<string, unknown>
+      if (mode === "uniform" && (typeof radius === "number" || typeof radius === "string")) {
+        transforms.radius = radius
+      } else if (mode === "individual" && typeof radius === "object" && radius !== null) {
+        const { topLeft, topRight, bottomRight, bottomLeft } = radius as {
+          topLeft: number | "max"
+          topRight: number | "max"
+          bottomRight: number | "max"
+          bottomLeft: number | "max"
+        }
+        if (topLeft === topRight && topLeft === bottomRight && topLeft === bottomLeft) {
+          transforms.radius = topLeft
+        } else {
+          transforms.radius = `${topLeft}_${topRight}_${bottomRight}_${bottomLeft}`
+        }
       }
     }
   }

@@ -59,6 +59,7 @@ import { SidebarRoot } from "./sidebar-root"
 import PaddingInputField, { PaddingState } from "../common/PaddingInput"
 import ZoomInput from "../common/ZoomInput"
 import DistortPerspectiveInput, { PerspectiveObject } from "../common/DistortPerspectiveInput"
+import RadiusInputField, { RadiusState } from "../common/CornerRadiusInput"
 
 export const TransformationConfigSidebar: React.FC = () => {
   const {
@@ -603,6 +604,18 @@ export const TransformationConfigSidebar: React.FC = () => {
                   errors={errors}
                   name={field.name}
                   value={watch(field.name) as PerspectiveObject}
+                  {...field.fieldProps}
+                />
+              ) : null}
+              {field.fieldType === "radius-input" ? (
+                <RadiusInputField
+                  onChange={(value) => {
+                    setValue(field.name, value)
+                    trigger(field.name)
+                  }}
+                  errors={errors}
+                  name={field.name}
+                  value={watch(field.name) as Partial<RadiusState>}
                   {...field.fieldProps}
                 />
               ) : null}
