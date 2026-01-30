@@ -16,7 +16,9 @@ import { SIMPLE_OVERLAY_TEXT_REGEX, safeBtoa } from "../utils"
 import {
   aspectRatioValidator,
   colorValidator,
+  commonNumberAndExpressionValidator,
   heightValidator,
+  overlayBlockExprValidator,
   layerXValidator,
   layerYValidator,
   optionalPositiveFloatNumberValidator,
@@ -1587,7 +1589,7 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            borderWidth: z.union([widthValidator, heightValidator]).optional(),
+            borderWidth: commonNumberAndExpressionValidator.optional(),
             borderColor: colorValidator,
           })
           .refine(
@@ -2396,11 +2398,15 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            dpr: z.coerce
-              .number({
-                invalid_type_error: "Should be a number.",
-              })
-              .optional(),
+            dpr: 
+            z.union([
+              z.coerce
+                .number({
+                  invalid_type_error: "Should be a number.",
+                })
+                .optional(),
+              z.literal("auto"),
+            ]).optional(),
           })
           .refine(
             (val) => {
@@ -2427,6 +2433,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "dpr",
             fieldProps: {
               defaultValue: 1,
+              autoOption: true,
               min: 0.1,
               max: 5,
               step: 0.1,
@@ -2470,6 +2477,7 @@ export const transformationSchema: TransformationSchema[] = [
                 invalid_type_error: "Should be a number.",
               })
               .optional(),
+            lineHeight: overlayBlockExprValidator.optional(),
             opacity: z
               .union([
                 z.coerce
@@ -2668,6 +2676,16 @@ export const transformationSchema: TransformationSchema[] = [
             examples: ["10", "20"],
           },
           {
+            label: "Line Height",
+            name: "lineHeight",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "lineHeight",
+            transformationGroup: "textLayer",
+            helpText: "Specify the line height for the text overlay.",
+            examples: ["1.5", "bh_div_2"],
+          },
+          {
             label: "Opacity",
             name: "opacity",
             fieldType: "slider",
@@ -2756,6 +2774,14 @@ export const transformationSchema: TransformationSchema[] = [
               })
               .optional(),
             backgroundColor: z.string().optional(),
+            dprEnabled: z.boolean().optional(),
+            dpr:z.union([
+              z.coerce
+                .number({
+                invalid_type_error: "Should be a number.",
+              }),
+              z.literal("auto"),
+            ]).optional(),
             radius: z
               .union([
                 z.literal("max"),
@@ -2797,7 +2823,7 @@ export const transformationSchema: TransformationSchema[] = [
                 invalid_type_error: "Should be a number.",
               })
               .optional(),
-            borderWidth: z.union([widthValidator, heightValidator]).optional(),
+            borderWidth: commonNumberAndExpressionValidator.optional(),
             borderColor: colorValidator.optional(),
             sharpenEnabled: z.coerce
               .boolean({
@@ -2899,6 +2925,36 @@ export const transformationSchema: TransformationSchema[] = [
             transformationGroup: "imageLayer",
             helpText: "Specify the vertical offset for the overlay image.",
             examples: ["10"],
+          },
+          {
+            label: "Adjust DPR",
+            name: "dprEnabled",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            transformationKey: "dprEnabled",
+            helpText: "Adjust the DPR of the overlay image.",
+            fieldProps: {
+              defaultValue: false,
+            },
+          },
+          {
+            label: "DPR",
+            name: "dpr",
+            helpText:
+              "Set this value to deliver images optimised for high-resolution displays. The value can be between 0.1 and 5.",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            transformationKey: "dpr",
+            fieldProps: {
+              defaultValue: "auto",
+              autoOption: true,
+              min: 0.1,
+              max: 5,
+              step: 0.1,
+            },
+            isVisible: ({ dprEnabled }) => dprEnabled === true,
           },
           {
             label: "Opacity",
@@ -3379,6 +3435,9 @@ export const transformationFormatters: Record<
     ) {
       overlayTransform.padding = values.padding
     }
+    if ( typeof values.lineHeight === "number" || typeof values.lineHeight === "string" ) {
+      overlayTransform.lineHeight = values.lineHeight
+    }
 
     if (Array.isArray(values.flip) && values.flip.length > 0) {
       const flip = []
@@ -3539,7 +3598,10 @@ export const transformationFormatters: Record<
     ) {
       overlayTransform.t = values.trimThreshold
     }
-
+    console.log({values, overlayTransform})
+    if (values.dpr && values.dprEnabled === true) {
+      overlayTransform.dpr = values.dpr
+    }
     if (values.quality) {
       overlayTransform.quality = values.quality
     }
