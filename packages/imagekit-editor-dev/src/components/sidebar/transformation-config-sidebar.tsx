@@ -56,7 +56,7 @@ import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
 import { SidebarRoot } from "./sidebar-root"
-import PaddingInputField, { PaddingObject } from "../common/PaddingInput"
+import PaddingInputField, { PaddingState } from "../common/PaddingInput"
 import ZoomInput from "../common/ZoomInput"
 import DistortPerspectiveInput, { PerspectiveObject } from "../common/DistortPerspectiveInput"
 
@@ -583,7 +583,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                   errors={errors}
                   name={field.name}
                   {...field.fieldProps}
-                  value={watch(field.name) as string | number | PaddingObject | null}
+                  value={watch(field.name) as Partial<PaddingState>}
                 />
               ) : null}
               {field.fieldType === "zoom" ? (

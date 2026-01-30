@@ -23,7 +23,9 @@ import { FieldErrors } from "react-hook-form"
 
 type PaddingMode = "uniform" | "individual"
 
-type PaddingState = {
+type PaddingDirection = "top" | "right" | "bottom" | "left"
+
+export type PaddingState = {
   mode: PaddingMode
   padding: number | PaddingObject | null | string
 }
@@ -45,7 +47,7 @@ export type PaddingObject = {
 
 function getUpdatedPaddingValue(
   current: number | PaddingObject | null | string,
-  side: "top" | "right" | "bottom" | "left" | "all",
+  side: PaddingDirection | "all",
   value: string,
   mode: "uniform" | "individual"
 ): number | PaddingObject | null | string {
@@ -112,7 +114,7 @@ export const PaddingInputField: React.FC<PaddingInputFieldProps> = ({
     const formattedValue = formatPaddingValue(paddingValue)
     onChange({ mode: paddingMode, padding: formattedValue })
   }, [paddingValue, paddingMode])
-   
+
 
   return (
     <HStack
@@ -124,7 +126,7 @@ export const PaddingInputField: React.FC<PaddingInputFieldProps> = ({
       justifyContent="space-between"
     >
       <Flex direction="row" flex="1" flexWrap="wrap" gap={2}>
-        { paddingMode === "uniform" ? (
+        {paddingMode === "uniform" ? (
           <Box flex="1">
             <Input
               type="number"
@@ -140,118 +142,50 @@ export const PaddingInputField: React.FC<PaddingInputFieldProps> = ({
               }}
               value={["number", "string"].includes(typeof paddingValue) ? paddingValue : ""}
               placeholder="Uniform Padding"
-              isInvalid={!!errors?.[propertyName]}
+              isInvalid={!!errors?.[propertyName]?.padding}
+              fontSize="sm"
             />
-            <Text fontSize='xs' color={errorRed}>{errors?.[propertyName]?.message}</Text>
+            <Text fontSize='xs' color={errorRed}>{errors?.[propertyName]?.padding?.message}</Text>
           </Box>
         ) : (
           <>
-            <Box flex="1 1 calc(50% - 4px)">
-              <InputGroup>
-                <InputLeftElement pointerEvents="none" fontSize="0.7em">
-                  <Icon as={LuArrowUpToLine} color="gray.500" />
-                </InputLeftElement>
-                <Input
-                  type="number"
-                  min={0}
-                  onChange={(e) => {
-                    const val = e.target.value
-                    setPaddingValue(getUpdatedPaddingValue(
-                      paddingValue,
-                      "top",
-                      val,
-                      paddingMode
-                    ))
-                  }}
-                  value={typeof paddingValue === "object" ? paddingValue?.top ?? "" : ""}
-                  placeholder="Top"
-                  isInvalid={!!errors?.[propertyName]?.top}
-                />
-              </InputGroup>
-              <Text fontSize='xs' color={errorRed}>{errors?.[propertyName]?.top?.message}</Text>
-            </Box>
-
-            <Box flex="1 1 calc(50% - 4px)">
-              <InputGroup>
-                <InputLeftElement pointerEvents="none" fontSize="0.7em">
-                  <Icon as={LuArrowRightToLine} color="gray.500" />
-                </InputLeftElement>
-                <Input
-                  type="number"
-                  min={0}
-                  onChange={(e) => {
-                    const val = e.target.value
-                    setPaddingValue(getUpdatedPaddingValue(
-                      paddingValue,
-                      "right",
-                      val,
-                      paddingMode
-                    ))
-                  }}
-                  value={typeof paddingValue === "object" ? paddingValue?.right ?? "" : ""}
-                  placeholder="Right"
-                  isInvalid={!!errors?.[propertyName]?.right}
-                />
-              </InputGroup>
-              <Text fontSize='xs' color={errorRed}>{errors?.[propertyName]?.right?.message}</Text>
-            </Box>
-
-            <Box flex="1 1 calc(50% - 4px)">
-              <InputGroup>
-                <InputLeftElement pointerEvents="none" fontSize="0.7em">
-                  <Icon as={LuArrowDownToLine} color="gray.500" />
-                </InputLeftElement>
-                <Input
-                  type="number"
-                  min={0}
-                  flex="1 1 calc(50% - 4px)"
-                  onChange={(e) => {
-                    const val = e.target.value
-                    setPaddingValue(getUpdatedPaddingValue(
-                      paddingValue,
-                      "bottom",
-                      val,
-                      paddingMode
-                    ))
-                  }}
-                  value={typeof paddingValue === "object" ? paddingValue?.bottom ?? "" : ""}
-                  placeholder="Bottom"
-                  isInvalid={!!errors?.[propertyName]?.bottom}
-                />
-              </InputGroup>
-              <Text fontSize='xs' color={errorRed}>{errors?.[propertyName]?.bottom?.message}</Text>
-            </Box>
-
-            <Box flex="1 1 calc(50% - 4px)">
-              <InputGroup>
-                <InputLeftElement pointerEvents="none" fontSize="0.7em">
-                  <Icon as={LuArrowLeftToLine} color="gray.500" />
-                </InputLeftElement>
-                <Input
-                  type="number"
-                  min={0}
-                  flex="1 1 calc(50% - 4px)"
-                  onChange={(e) => {
-                    const val = e.target.value
-                    setPaddingValue(getUpdatedPaddingValue(
-                      paddingValue,
-                      "left",
-                      val,
-                      paddingMode
-                    ))
-                  }}
-                  value={typeof paddingValue === "object" ? paddingValue?.left ?? "" : ""}
-                  placeholder="Left"
-                  isInvalid={!!errors?.[propertyName]?.left}
-                />
-              </InputGroup>
-              <Text fontSize='xs' color={errorRed}>{errors?.[propertyName]?.left?.message}</Text>
-            </Box>
-
+            {[
+              { name: "top", label: "Top", icon: LuArrowUpToLine },
+              { name: "right", label: "Right", icon: LuArrowRightToLine },
+              { name: "bottom", label: "Bottom", icon: LuArrowDownToLine },
+              { name: "left", label: "Left", icon: LuArrowLeftToLine },
+            ].map(({ name, label, icon }) => (
+              <Box flex="1 1 calc(50% - 4px)">
+                <InputGroup>
+                  <InputLeftElement pointerEvents="none" fontSize="0.7em">
+                    <Icon as={icon} color="gray.500" />
+                  </InputLeftElement>
+                  <Input
+                    type="number"
+                    min={0}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setPaddingValue(getUpdatedPaddingValue(
+                        paddingValue,
+                        name as PaddingDirection,
+                        val,
+                        paddingMode
+                      ))
+                    }}
+                    value={typeof paddingValue === "object" ? paddingValue?.[name as PaddingDirection] ?? "" : ""}
+                    placeholder={label}
+                    isInvalid={!!errors?.[propertyName]?.padding?.[name as PaddingDirection]}
+                    fontSize="sm"
+                  />
+                </InputGroup>
+                <Text fontSize='xs' color={errorRed}>{errors?.[propertyName]?.padding?.[name as PaddingDirection]?.message}</Text>
+              </Box>
+            ))
+            }
           </>
-        ) }
+        )}
       </Flex>
-      <Tooltip 
+      <Tooltip
         hasArrow
         label={paddingMode === "uniform" ? "Enable individual padding" : "Disable individual padding"}
         openDelay={200}
