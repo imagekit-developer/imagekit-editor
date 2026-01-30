@@ -1426,6 +1426,103 @@ export const transformationSchema: TransformationSchema[] = [
         ],
       },
       {
+        key: "adjust-distort",
+        name: "Distort",
+        description: "Distort the image.",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#distort---e-distort",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            distort: z.coerce.boolean(),
+            distortType: z.enum(["perspective", "arc"]).optional(),
+            distortPerspective: z.object({
+              x1: z.union([z.literal(""), z.coerce.number()]),
+              y1: z.union([z.literal(""), z.coerce.number()]),
+              x2: z.union([z.literal(""), z.coerce.number()]),
+              y2: z.union([z.literal(""), z.coerce.number()]),
+              x3: z.union([z.literal(""), z.coerce.number()]),
+              y3: z.union([z.literal(""), z.coerce.number()]),
+              x4: z.union([z.literal(""), z.coerce.number()]),
+              y4: z.union([z.literal(""), z.coerce.number()]),
+            }).optional(),
+            distortArcDegree: z.coerce.number().min(-359).max(359).optional(),
+          })
+          .refine(
+            (val) => {
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
+          {
+            label: "Distort",
+            name: "distort",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "distort",
+            helpText: "Toggle to apply distortion to the image.",
+          },
+          {
+            label: "Distortion Type",
+            name: "distortType",
+            fieldType: "radio-card",
+            isTransformation: false,
+            transformationGroup: "distort",
+            isVisible: ({ distort }) => distort === true,
+            fieldProps: {
+              options: [
+                { label: "Perspective", value: "perspective" },
+                { label: "Arc", value: "arc" },
+              ],
+              defaultValue: "perspective",
+            },
+          },
+          {
+            label: "Distortion Perspective",
+            name: "distortPerspective",
+            fieldType: "distort-perspective-input",
+            isTransformation: false,
+            transformationGroup: "distort",
+            isVisible: ({ distort, distortType }) => distort === true && distortType === "perspective",
+            fieldProps: {
+              defaultValue: {
+                x1: "",
+                y1: "",
+                x2: "",
+                y2: "",
+                x3: "",
+                y3: "",
+                x4: "",
+                y4: "",
+              }
+            }
+          },
+          {
+            label: "Distortion Arc Degrees",
+            name: "distortArcDegree",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "distort",
+            isVisible: ({ distort, distortType }) => distort === true && distortType === "arc",
+            helpText: "Enter the arc degree for the arc distortion effect.",
+            examples: ["15", "30", "45"],
+            fieldProps: {
+              type: "number",
+              placeholder: "Arc Degrees",
+            }
+          }
+        ],
+      },
+      {
         key: "adjust-blur",
         name: "Blur",
         description:
@@ -2639,6 +2736,21 @@ export const transformationSchema: TransformationSchema[] = [
                 invalid_type_error: "Should be a boolean.",
               })
               .optional(),
+
+            // Distort
+            distort: z.coerce.boolean(),
+            distortType: z.enum(["perspective", "arc"]).optional(),
+            distortPerspective: z.object({
+              x1: z.union([z.literal(""), z.coerce.number()]),
+              y1: z.union([z.literal(""), z.coerce.number()]),
+              x2: z.union([z.literal(""), z.coerce.number()]),
+              y2: z.union([z.literal(""), z.coerce.number()]),
+              x3: z.union([z.literal(""), z.coerce.number()]),
+              y3: z.union([z.literal(""), z.coerce.number()]),
+              x4: z.union([z.literal(""), z.coerce.number()]),
+              y4: z.union([z.literal(""), z.coerce.number()]),
+            }).optional(),
+            distortArcDegree: z.coerce.number().min(-359).max(359).optional(),
           })
           .refine(
             (val) => {
@@ -3120,6 +3232,63 @@ export const transformationSchema: TransformationSchema[] = [
             transformationGroup: "imageLayer",
             helpText: "Toggle to convert the overlay image to grayscale.",
           },
+          {
+            label: "Distort",
+            name: "distort",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            helpText: "Toggle to apply distortion to the overlay image.",
+          },
+          {
+            label: "Distortion Type",
+            name: "distortType",
+            fieldType: "radio-card",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            isVisible: ({ distort }) => distort === true,
+            fieldProps: {
+              options: [
+                { label: "Perspective", value: "perspective" },
+                { label: "Arc", value: "arc" },
+              ],
+              defaultValue: "perspective",
+            },
+          },
+          {
+            label: "Distortion Perspective",
+            name: "distortPerspective",
+            fieldType: "distort-perspective-input",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            isVisible: ({ distort, distortType }) => distort === true && distortType === "perspective",
+            fieldProps: {
+              defaultValue: {
+                x1: "",
+                y1: "",
+                x2: "",
+                y2: "",
+                x3: "",
+                y3: "",
+                x4: "",
+                y4: "",
+              }
+            }
+          },
+          {
+            label: "Distortion Arc Degrees",
+            name: "distortArcDegree",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            isVisible: ({ distort, distortType }) => distort === true && distortType === "arc",
+            helpText: "Enter the arc degree for the arc distortion effect.",
+            examples: ["15", "30", "45"],
+            fieldProps: {
+              type: "number",
+              placeholder: "Arc Degrees",
+            }
+          }
         ],
       },
     ],
@@ -3535,6 +3704,7 @@ export const transformationFormatters: Record<
 
     transformationFormatters.gradient(values, overlayTransform)
     transformationFormatters.shadow(values, overlayTransform)
+    transformationFormatters.distort(values, overlayTransform)
 
     if (values.grayscale) {
       overlayTransform.grayscale = true
@@ -3595,7 +3765,6 @@ export const transformationFormatters: Record<
   },
   gradient: (values, transforms) => {
     const { gradient, gradientSwitch } = values as { gradient: GradientPickerState; gradientSwitch: boolean }
-    console.log('gradient formatter called', values)
     if (gradientSwitch && gradient) {
       const { from, to, direction, stopPoint } = gradient
       const isDefaultGradient = (from.toUpperCase() === "#FFFFFFFF" || from.toUpperCase() === "#FFFFFF") &&
@@ -3607,9 +3776,22 @@ export const transformationFormatters: Record<
       } else {
         const fromColor = from.replace("#", "")
         const toColor = to.replace("#", "")
-        const stopPointDecimal = stopPoint / 100
+        const stopPointDecimal = (stopPoint as number) / 100
         let gradientStr = `ld-${direction}_from-${fromColor}_to-${toColor}_sp-${stopPointDecimal}`
         transforms.gradient = gradientStr
+      }
+    }
+  },
+  distort: (values, transforms) => {
+    if (values.distort) {
+      const { distortType, distortPerspective, distortArcDegree } = values
+      const distortPrefix = distortType === "perspective" ? "p" : "a"
+      if (distortType === "perspective" && distortPerspective) {
+        const { x1, y1, x2, y2, x3, y3, x4, y4 } = distortPerspective as Record<string, number>
+        const formattedCoords = [x1, y1, x2, y2, x3, y3, x4, y4].map(coord => coord.toString().replace(/^-/,"N"))
+        transforms["e-distort"] = `${distortPrefix}-${formattedCoords.join("_")}`
+      } else if (distortType === "arc" && distortArcDegree !== undefined && distortArcDegree !== null) {
+        transforms["e-distort"] = `${distortPrefix}-${distortArcDegree.toString().replace(/^-/,"N")}`
       }
     }
   }

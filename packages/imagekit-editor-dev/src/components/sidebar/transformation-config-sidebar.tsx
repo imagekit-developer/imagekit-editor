@@ -56,8 +56,9 @@ import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
 import { SidebarRoot } from "./sidebar-root"
-import PaddingInputField from "../common/PaddingInput"
+import PaddingInputField, { PaddingObject } from "../common/PaddingInput"
 import ZoomInput from "../common/ZoomInput"
+import DistortPerspectiveInput, { PerspectiveObject } from "../common/DistortPerspectiveInput"
 
 export const TransformationConfigSidebar: React.FC = () => {
   const {
@@ -419,6 +420,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                   id={field.name}
                   fontSize="sm"
                   {...register(field.name)}
+                  {...(field.fieldProps ?? {})}
                 />
               ) : null}
               {field.fieldType === "textarea" ? (
@@ -589,6 +591,18 @@ export const TransformationConfigSidebar: React.FC = () => {
                   value={watch(field.name) as number}
                   onChange={(value) => setValue(field.name, value)}
                   defaultValue={field.fieldProps?.defaultValue as number ?? 100}
+                  {...field.fieldProps}
+                />
+              ) : null}
+              {field.fieldType === "distort-perspective-input" ? (
+                <DistortPerspectiveInput
+                  onChange={(value) => {
+                    setValue(field.name, value)
+                    trigger(field.name)
+                  }}
+                  errors={errors}
+                  name={field.name}
+                  value={watch(field.name) as PerspectiveObject}
                   {...field.fieldProps}
                 />
               ) : null}
