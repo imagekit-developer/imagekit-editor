@@ -17,6 +17,7 @@ type ZoomInputFieldProps = {
   id?: string
   onChange: (value: number) => void
   defaultValue?: number
+  value?: number
 }
 
 const STEP_SIZE = 10
@@ -42,9 +43,10 @@ export const ZoomInput: React.FC<ZoomInputFieldProps> = ({
   id,
   onChange,
   defaultValue = 100,
+  value,
 }) => {
-  const [zoomValue, setZoomValue] = useState<number>(defaultValue)
-  const [inputValue, setInputValue] = useState<string>(defaultValue.toString())
+  const [zoomValue, setZoomValue] = useState<number>(value ?? defaultValue)
+  const [inputValue, setInputValue] = useState<string>((value ?? defaultValue).toString())
 
   useEffect(() => {
     onChange(zoomValue)

@@ -586,7 +586,7 @@ export const TransformationConfigSidebar: React.FC = () => {
               ) : null}
               {field.fieldType === "zoom" ? (
                 <ZoomInput
-                  value={watch(field.name) as string}
+                  value={watch(field.name) as number}
                   onChange={(value) => setValue(field.name, value)}
                   defaultValue={field.fieldProps?.defaultValue as number ?? 100}
                   {...field.fieldProps}
