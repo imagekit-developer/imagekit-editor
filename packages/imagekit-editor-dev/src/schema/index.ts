@@ -3035,7 +3035,7 @@ export const transformationSchema: TransformationSchema[] = [
             label: "Trim",
             name: "trimEnabled",
             fieldType: "switch",
-            isTransformation: true,
+            isTransformation: false,
             transformationKey: "trimEnabled",
             transformationGroup: "imageLayer",
             helpText: "Control trimming of the overlay image.",
@@ -3598,7 +3598,6 @@ export const transformationFormatters: Record<
     ) {
       overlayTransform.t = values.trimThreshold
     }
-    console.log({values, overlayTransform})
     if (values.dpr && values.dprEnabled === true) {
       overlayTransform.dpr = values.dpr
     }
