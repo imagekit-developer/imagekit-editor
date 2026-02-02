@@ -50,11 +50,16 @@ import { isStepAligned } from "../../utils"
 import AnchorField from "../common/AnchorField"
 import CheckboxCardField from "../common/CheckboxCardField"
 import ColorPickerField from "../common/ColorPickerField"
+import GradientPicker, { GradientPickerState } from "../common/GradientPicker"
 import RadioCardField from "../common/RadioCardField"
 import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
 import { SidebarRoot } from "./sidebar-root"
+import PaddingInputField, { PaddingState } from "../common/PaddingInput"
+import ZoomInput from "../common/ZoomInput"
+import DistortPerspectiveInput, { PerspectiveObject } from "../common/DistortPerspectiveInput"
+import RadiusInputField, { RadiusState } from "../common/CornerRadiusInput"
 
 export const TransformationConfigSidebar: React.FC = () => {
   const {
@@ -83,13 +88,15 @@ export const TransformationConfigSidebar: React.FC = () => {
 
   const transformationToEdit = _internalState.transformationToEdit
 
-  const editedTransformationValue = useMemo(() => {
+  const editedTransformation = useMemo(() => {
     if (!transformationToEdit) return undefined
     return transformations.find(
       (transformation) =>
         transformation.id === transformationToEdit.transformationId,
-    )?.value as Record<string, unknown> | undefined
+    )
   }, [transformations, transformationToEdit])
+
+  const editedTransformationValue = editedTransformation?.value as Record<string, unknown> | undefined
 
   const defaultValues = useMemo(() => {
     if (
@@ -131,6 +138,7 @@ export const TransformationConfigSidebar: React.FC = () => {
     watch,
     setValue,
     control,
+    trigger,
   } = useForm<Record<string, unknown>>({
     resolver: zodResolver(selectedTransformation?.schema ?? z.object({})),
     defaultValues: defaultValues,
@@ -166,7 +174,7 @@ export const TransformationConfigSidebar: React.FC = () => {
     if (transformationToEdit && transformationToEdit.position === "inplace") {
       updateTransformation(transformationToEdit.transformationId, {
         type: "transformation",
-        name: selectedTransformation.name,
+        name: editedTransformation?.name ?? selectedTransformation.name,
         key: selectedTransformation.key,
         value: data,
       })
@@ -290,7 +298,7 @@ export const TransformationConfigSidebar: React.FC = () => {
             return true
           })
           .map((field: TransformationField) => (
-            <FormControl key={field.name} isInvalid={!!errors[field.name]}>
+            <FormControl key={field.name} isInvalid={!!errors[field.name] && !["gradient-picker", "padding-input"].includes(field.fieldType)}>
               <FormLabel htmlFor={field.name} fontSize="sm">
                 {field.label}
               </FormLabel>
@@ -413,6 +421,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                   id={field.name}
                   fontSize="sm"
                   {...register(field.name)}
+                  {...(field.fieldProps ?? {})}
                 />
               ) : null}
               {field.fieldType === "textarea" ? (
@@ -535,6 +544,14 @@ export const TransformationConfigSidebar: React.FC = () => {
                   setValue={setValue}
                 />
               ) : null}
+              {field.fieldType === "gradient-picker" ? (
+                <GradientPicker
+                  fieldName={field.name}
+                  value={watch(field.name) as GradientPickerState}
+                  setValue={setValue}
+                  errors={errors}
+                />
+              ) : null}
               {field.fieldType === "anchor" ? (
                 <AnchorField
                   value={watch(field.name) as string}
@@ -555,6 +572,50 @@ export const TransformationConfigSidebar: React.FC = () => {
                   value={watch(field.name) as string[]}
                   options={field.fieldProps?.options ?? []}
                   onChange={(value) => setValue(field.name, value)}
+                  {...field.fieldProps}
+                />
+              ) : null}
+              {field.fieldType === "padding-input" ? (
+                <PaddingInputField
+                  onChange={(value) => {
+                    setValue(field.name, value)
+                    trigger(field.name)
+                  }}
+                  errors={errors}
+                  name={field.name}
+                  {...field.fieldProps}
+                  value={watch(field.name) as Partial<PaddingState>}
+                />
+              ) : null}
+              {field.fieldType === "zoom" ? (
+                <ZoomInput
+                  value={watch(field.name) as number}
+                  onChange={(value) => setValue(field.name, value)}
+                  defaultValue={field.fieldProps?.defaultValue as number ?? 100}
+                  {...field.fieldProps}
+                />
+              ) : null}
+              {field.fieldType === "distort-perspective-input" ? (
+                <DistortPerspectiveInput
+                  onChange={(value) => {
+                    setValue(field.name, value)
+                    trigger(field.name)
+                  }}
+                  errors={errors}
+                  name={field.name}
+                  value={watch(field.name) as PerspectiveObject}
+                  {...field.fieldProps}
+                />
+              ) : null}
+              {field.fieldType === "radius-input" ? (
+                <RadiusInputField
+                  onChange={(value) => {
+                    setValue(field.name, value)
+                    trigger(field.name)
+                  }}
+                  errors={errors}
+                  name={field.name}
+                  value={watch(field.name) as Partial<RadiusState>}
                   {...field.fieldProps}
                 />
               ) : null}
