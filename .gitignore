@@ -19,3 +19,4 @@ packages/imagekit-editor/*.tgz
 .yarn
 builds
 packages/imagekit-editor/README.md
+.cursor
