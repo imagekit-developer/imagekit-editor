@@ -7,17 +7,19 @@ import {
   PopoverTrigger,
 } from "@chakra-ui/react"
 import { memo, useEffect, useState } from "react"
-import ColorPicker from "react-best-gradient-color-picker"
+import ColorPicker, { ColorPickerProps } from "react-best-gradient-color-picker"
 import { useDebounce } from "../../hooks/useDebounce"
 
 const ColorPickerField = ({
   fieldName,
   value,
   setValue,
+  fieldProps,
 }: {
   fieldName: string
   value: string
   setValue: (name: string, value: string) => void
+  fieldProps?: ColorPickerProps
 }) => {
   const [localValue, setLocalValue] = useState<string>(value)
 
@@ -35,7 +37,7 @@ const ColorPickerField = ({
       .map((v) => v.toString(16).padStart(2, "0"))
       .join("")
 
-    if (a === undefined) {
+    if (fieldProps?.hideOpacity === true || a === undefined) {
       setLocalValue(`#${rgbHex}`)
     } else {
       const alphaDec = a > 1 ? a / 100 : a
@@ -107,6 +109,8 @@ const ColorPickerField = ({
                 hideInputs
                 hideAdvancedSliders
                 hideColorGuide
+                // @ts-expect-error - fieldProps may include props not declared in ColorPickerProps, but they are intentionally forwarded
+                {...fieldProps}
               />
             </PopoverBody>
           </PopoverContent>
