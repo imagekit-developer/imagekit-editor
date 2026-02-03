@@ -25,6 +25,7 @@ import {
   refineUnsharpenMask,
   widthValidator,
 } from "./transformation"
+import { GradientPickerState } from "../components/common/GradientPicker"
 
 // Based on ImageKit's supported object list
 export const DEFAULT_FOCUS_OBJECTS = [
@@ -375,6 +376,7 @@ export const transformationSchema: TransformationSchema[] = [
             focus: z.string().optional(),
             focusAnchor: z.string().optional(),
             focusObject: z.string().optional(),
+            zoom: z.coerce.number().optional(),
           })
           .refine(
             (val) => {
@@ -503,6 +505,19 @@ export const transformationSchema: TransformationSchema[] = [
               "Select an object to focus on. The crop will center on this object.",
             isVisible: ({ focus }) => focus === "object",
           },
+          {
+            label: "Zoom",
+            name: "zoom",
+            fieldType: "zoom",
+            isTransformation: true,
+            transformationGroup: "focus",
+            fieldProps: {
+              isCreatable: false,
+            },
+            helpText:
+              "Select the zoom level for the focus area. Higher zoom levels crop closer to the focus point.",
+            isVisible: ({ focus }) => focus === "object" || focus === "face",
+          },
         ],
       },
       {
@@ -523,6 +538,7 @@ export const transformationSchema: TransformationSchema[] = [
             focus: z.string().optional(),
             focusAnchor: z.string().optional(),
             focusObject: z.string().optional(),
+            zoom: z.coerce.number().optional(),
           })
           .refine(
             (val) => {
@@ -608,6 +624,19 @@ export const transformationSchema: TransformationSchema[] = [
             },
             helpText:
               "Select an object to focus on. The crop will center on this object.",
+            isVisible: ({ focus }) => focus === "object",
+          },
+          {
+            label: "Zoom",
+            name: "zoom",
+            fieldType: "zoom",
+            isTransformation: true,
+            transformationGroup: "focus",
+            fieldProps: {
+              isCreatable: false,
+            },
+            helpText:
+              "Select the zoom level for the focus area. Higher zoom levels crop closer to the focus point.",
             isVisible: ({ focus }) => focus === "object",
           },
         ],
@@ -810,6 +839,7 @@ export const transformationSchema: TransformationSchema[] = [
             y: z.string().optional(),
             xc: z.string().optional(),
             yc: z.string().optional(),
+            zoom: z.coerce.number().optional(),
           })
           .refine(
             (val) => {
@@ -843,17 +873,6 @@ export const transformationSchema: TransformationSchema[] = [
               })
             }
             if (val.focus === "coordinates") {
-              const hasXY = val.x || val.y
-              const hasXCYC = val.xc || val.yc
-
-              if (hasXY && hasXCYC) {
-                ctx.addIssue({
-                  code: z.ZodIssueCode.custom,
-                  message: "Choose either x/y or xc/yc, not both",
-                  path: [],
-                })
-              }
-
               if (val.coordinateMethod === "topleft") {
                 if (!val.x && !val.y) {
                   ctx.addIssue({
@@ -1010,6 +1029,19 @@ export const transformationSchema: TransformationSchema[] = [
             examples: ["200", "ih_mul_0.5"],
             isVisible: ({ focus, coordinateMethod }) =>
               focus === "coordinates" && coordinateMethod === "center",
+          },
+          {
+            label: "Zoom",
+            name: "zoom",
+            fieldType: "zoom",
+            isTransformation: true,
+            transformationGroup: "focus",
+            fieldProps: {
+              isCreatable: false,
+            },
+            helpText:
+              "Select the zoom level for the focus area. Higher zoom levels crop closer to the focus point.",
+            isVisible: ({ focus }) => focus === "object" || focus === "face",
           },
         ],
       },
@@ -1329,6 +1361,172 @@ export const transformationSchema: TransformationSchema[] = [
         ],
       },
       {
+        key: "adjust-gradient",
+        name: "Gradient",
+        description: "Add gradient overlay over the image.",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#gradient---e-gradient",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            gradient: z.object({
+              from: z.string().optional(),
+              to: z.string().optional(),
+              direction: z.union([
+                z.coerce.number({
+                  invalid_type_error: "Should be a number.",
+                }).min(0).max(359),
+                z.string(),
+              ]).optional(),
+              stopPoint: z.coerce.number({
+                invalid_type_error: "Should be a number.",
+              }).min(1).max(100).optional(),
+            }).optional(),
+            gradientSwitch: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+          })
+          .refine(
+            (val) => {
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
+          {
+            label: "Gradient",
+            name: "gradientSwitch",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "gradient",
+            helpText: "Toggle to add a gradient overlay over the image.",
+          },
+          {
+            label: "Apply Gradient",
+            name: "gradient",
+            fieldType: "gradient-picker",
+            isTransformation: true,
+            transformationKey: "gradient",
+            transformationGroup: "gradient",
+            isVisible: ({ gradientSwitch }) => gradientSwitch === true,
+            fieldProps: {
+              defaultValue: {
+                from: "#FFFFFFFF",
+                to: "#00000000",
+                direction: "bottom",
+                stopPoint: 100,
+              }
+            }
+          },
+        ],
+      },
+      {
+        key: "adjust-distort",
+        name: "Distort",
+        description: "Distort the image.",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#distort---e-distort",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            distort: z.coerce.boolean(),
+            distortType: z.enum(["perspective", "arc"]).optional(),
+            distortPerspective: z.object({
+              x1: z.union([z.literal(""), z.coerce.number()]),
+              y1: z.union([z.literal(""), z.coerce.number()]),
+              x2: z.union([z.literal(""), z.coerce.number()]),
+              y2: z.union([z.literal(""), z.coerce.number()]),
+              x3: z.union([z.literal(""), z.coerce.number()]),
+              y3: z.union([z.literal(""), z.coerce.number()]),
+              x4: z.union([z.literal(""), z.coerce.number()]),
+              y4: z.union([z.literal(""), z.coerce.number()]),
+            }).optional(),
+            distortArcDegree: z.coerce.number().min(-359).max(359).optional(),
+          })
+          .refine(
+            (val) => {
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
+          {
+            label: "Distort",
+            name: "distort",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "distort",
+            helpText: "Toggle to apply distortion to the image.",
+          },
+          {
+            label: "Distortion Type",
+            name: "distortType",
+            fieldType: "radio-card",
+            isTransformation: false,
+            transformationGroup: "distort",
+            isVisible: ({ distort }) => distort === true,
+            fieldProps: {
+              options: [
+                { label: "Perspective", value: "perspective" },
+                { label: "Arc", value: "arc" },
+              ],
+              defaultValue: "perspective",
+            },
+          },
+          {
+            label: "Distortion Perspective",
+            name: "distortPerspective",
+            fieldType: "distort-perspective-input",
+            isTransformation: false,
+            transformationGroup: "distort",
+            isVisible: ({ distort, distortType }) => distort === true && distortType === "perspective",
+            fieldProps: {
+              defaultValue: {
+                x1: "",
+                y1: "",
+                x2: "",
+                y2: "",
+                x3: "",
+                y3: "",
+                x4: "",
+                y4: "",
+              }
+            }
+          },
+          {
+            label: "Distortion Arc Degrees",
+            name: "distortArcDegree",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "distort",
+            isVisible: ({ distort, distortType }) => distort === true && distortType === "arc",
+            helpText: "Enter the arc degree for the arc distortion effect.",
+            examples: ["15", "30", "45"],
+            fieldProps: {
+              type: "number",
+              placeholder: "Arc Degrees",
+            }
+          }
+        ],
+      },
+      {
         key: "adjust-blur",
         name: "Blur",
         description:
@@ -1496,14 +1694,51 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            radius: z.union([
-              z.literal("max"),
-              z.coerce
-                .number({
+            radius: z.object({
+              mode: z.enum(["uniform", "individual"]).optional(),
+              radius: z.union([
+                z.literal("max"),
+                z.coerce.number({
                   invalid_type_error: "Should be a number.",
-                })
-                .min(0),
-            ]),
+                }).min(0, {
+                  message: "Negative values are not allowed.",
+                }),
+                z.object({
+                  topLeft: z.union([
+                    z.literal("max"),
+                    z.coerce.number({
+                      invalid_type_error: "Should be a number.",
+                    }).min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                  ]),
+                  topRight: z.union([
+                    z.literal("max"),
+                    z.coerce.number({
+                      invalid_type_error: "Should be a number.",
+                    }).min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                  ]),
+                  bottomRight: z.union([
+                    z.literal("max"),
+                    z.coerce.number({
+                      invalid_type_error: "Should be a number.",
+                    }).min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                  ]),
+                  bottomLeft: z.union([
+                    z.literal("max"),
+                    z.coerce.number({
+                      invalid_type_error: "Should be a number.",
+                    }).min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                  ]),
+                }),
+              ]).optional(),
+            }).optional(),
           })
           .refine(
             (val) => {
@@ -1523,12 +1758,15 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Radius",
             name: "radius",
-            fieldType: "input",
+            fieldType: "radius-input",
             isTransformation: true,
-            transformationKey: "r",
+            transformationGroup: "radius",
             helpText:
               "Enter a positive integer for rounded corners or 'max' for a fully circular output.",
             examples: ["10", "max"],
+            fieldProps: {
+              defaultValue: {}
+            }
           },
         ],
       },
@@ -2398,15 +2636,15 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            dpr: 
-            z.union([
-              z.coerce
-                .number({
-                  invalid_type_error: "Should be a number.",
-                })
-                .optional(),
-              z.literal("auto"),
-            ]).optional(),
+            dpr:
+              z.union([
+                z.coerce
+                  .number({
+                    invalid_type_error: "Should be a number.",
+                  })
+                  .optional(),
+                z.literal("auto"),
+              ]).optional(),
           })
           .refine(
             (val) => {
@@ -2472,12 +2710,39 @@ export const transformationSchema: TransformationSchema[] = [
             innerAlignment: z
               .enum(["left", "right", "center"])
               .default("center"),
-            padding: z.coerce
-              .number({
-                invalid_type_error: "Should be a number.",
-              })
+            padding: z.object({
+              mode: z.enum(["uniform", "individual"]).optional(),
+              padding: z.union([
+                z.coerce.number({
+                  invalid_type_error: "Should be a number.",
+                }).min(0, {
+                  message: "Negative values are not allowed.",
+                }),
+                z.object({
+                  top: z.coerce.number({
+                    invalid_type_error: "Should be a number.",
+                  }).min(0, {
+                    message: "Negative values are not allowed.",
+                  }),
+                  right: z.coerce.number({
+                    invalid_type_error: "Should be a number.",
+                  }).min(0, {
+                    message: "Negative values are not allowed.",
+                  }),
+                  bottom: z.coerce.number({
+                    invalid_type_error: "Should be a number.",
+                  }).min(0, {
+                    message: "Negative values are not allowed.",
+                  }),
+                  left: z.coerce.number({
+                    invalid_type_error: "Should be a number.",
+                  }).min(0, {
+                    message: "Negative values are not allowed.",
+                  }),
+                }),
+              ]).optional(),
+            })
               .optional(),
-            lineHeight: overlayBlockExprValidator.optional(),
             opacity: z
               .union([
                 z.coerce
@@ -2550,7 +2815,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "x",
             transformationGroup: "textLayer",
             helpText: "Specify horizontal offset for the text.",
-            examples: ["10", "bw_div_2"],
+            examples: ["10", "-20", "N30", "bw_div_2"],
           },
           {
             label: "Position Y",
@@ -2560,7 +2825,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "y",
             transformationGroup: "textLayer",
             helpText: "Specify vertical offset for the text.",
-            examples: ["10", "bh_div_2"],
+            examples: ["10", "-20", "N30", "bh_div_2"],
           },
           {
             label: "Font Size",
@@ -2668,7 +2933,7 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Padding",
             name: "padding",
-            fieldType: "input",
+            fieldType: "padding-input",
             isTransformation: true,
             transformationKey: "padding",
             transformationGroup: "textLayer",
@@ -2775,23 +3040,13 @@ export const transformationSchema: TransformationSchema[] = [
               .optional(),
             backgroundColor: z.string().optional(),
             dprEnabled: z.boolean().optional(),
-            dpr:z.union([
+            dpr: z.union([
               z.coerce
                 .number({
-                invalid_type_error: "Should be a number.",
-              }),
+                  invalid_type_error: "Should be a number.",
+                }),
               z.literal("auto"),
             ]).optional(),
-            radius: z
-              .union([
-                z.literal("max"),
-                z.coerce
-                  .number({
-                    invalid_type_error: "Should be a number.",
-                  })
-                  .min(0),
-              ])
-              .optional(),
             flip: z
               .array(z.enum(["horizontal", "vertical"]).optional())
               .optional(),
@@ -2825,6 +3080,130 @@ export const transformationSchema: TransformationSchema[] = [
               .optional(),
             borderWidth: commonNumberAndExpressionValidator.optional(),
             borderColor: colorValidator.optional(),
+            // Focus + Zoom properties
+            focus: z.string().optional(),
+            focusAnchor: z.string().optional(),
+            focusObject: z.string().optional(),
+            coordinateMethod: z.string().optional(),
+            x: z.string().optional(),
+            y: z.string().optional(),
+            xc: z.string().optional(),
+            yc: z.string().optional(),
+            zoom: z.coerce.number().optional(),
+
+            // Gradient properties
+            gradientSwitch: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              }).optional(),
+            gradient: z.object({
+              from: z.string().optional(),
+              to: z.string().optional(),
+              direction: z.union([
+                z.coerce.number({
+                  invalid_type_error: "Should be a number.",
+                }).min(0).max(359),
+                z.string(),
+              ]).optional(),
+              stopPoint: z.coerce.number({
+                invalid_type_error: "Should be a number.",
+              }).min(1).max(100).optional(),
+            }).optional(),
+
+            // Shadow properties
+            shadow: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+            shadowBlur: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
+            shadowSaturation: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
+            shadowOffsetX: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
+            shadowOffsetY: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
+
+            // Grayscale
+            grayscale: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+
+            // Distort
+            distort: z.coerce.boolean(),
+            distortType: z.enum(["perspective", "arc"]).optional(),
+            distortPerspective: z.object({
+              x1: z.union([z.literal(""), z.coerce.number()]),
+              y1: z.union([z.literal(""), z.coerce.number()]),
+              x2: z.union([z.literal(""), z.coerce.number()]),
+              y2: z.union([z.literal(""), z.coerce.number()]),
+              x3: z.union([z.literal(""), z.coerce.number()]),
+              y3: z.union([z.literal(""), z.coerce.number()]),
+              x4: z.union([z.literal(""), z.coerce.number()]),
+              y4: z.union([z.literal(""), z.coerce.number()]),
+            }).optional(),
+            distortArcDegree: z.coerce.number().min(-359).max(359).optional(),
+            // Radius
+            radius: z.object({
+              mode: z.enum(["uniform", "individual"]).optional(),
+              radius: z.union([
+                z.literal("max"),
+                z.coerce.number({
+                  invalid_type_error: "Should be a number.",
+                }).min(0, {
+                  message: "Negative values are not allowed.",
+                }),
+                z.object({
+                  topLeft: z.union([
+                    z.literal("max"),
+                    z.coerce.number({
+                      invalid_type_error: "Should be a number.",
+                    }).min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                  ]),
+                  topRight: z.union([
+                    z.literal("max"),
+                    z.coerce.number({
+                      invalid_type_error: "Should be a number.",
+                    }).min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                  ]),
+                  bottomRight: z.union([
+                    z.literal("max"),
+                    z.coerce.number({
+                      invalid_type_error: "Should be a number.",
+                    }).min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                  ]),
+                  bottomLeft: z.union([
+                    z.literal("max"),
+                    z.coerce.number({
+                      invalid_type_error: "Should be a number.",
+                    }).min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                  ]),
+                }),
+              ]).optional(),
+            }).optional(),
             sharpenEnabled: z.coerce
               .boolean({
                 invalid_type_error: "Should be a boolean.",
@@ -2854,7 +3233,42 @@ export const transformationSchema: TransformationSchema[] = [
               message: "At least one value is required",
               path: [],
             },
-          ),
+          )
+          .superRefine((val, ctx) => {
+            if (val.focus === "object" && !val.focusObject) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Focus object is required",
+                path: ["focusObject"],
+              })
+            }
+            if (val.focus === "anchor" && !val.focusAnchor) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Focus anchor is required",
+                path: ["focusAnchor"],
+              })
+            }
+            if (val.focus === "coordinates") {
+              if (val.coordinateMethod === "topleft") {
+                if (!val.x && !val.y) {
+                  ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "At least one coordinate (x or y) is required",
+                    path: [],
+                  })
+                }
+              } else if (val.coordinateMethod === "center") {
+                if (!val.xc && !val.yc) {
+                  ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "At least one coordinate (xc or yc) is required",
+                    path: [],
+                  })
+                }
+              }
+            }
+          }),
         transformations: [
           {
             label: "Image URL",
@@ -2907,6 +3321,145 @@ export const transformationSchema: TransformationSchema[] = [
             },
           },
           {
+            label: "Focus",
+            name: "focus",
+            fieldType: "select",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              options: [
+                { label: "Select one", value: "" },
+                { label: "Auto", value: "auto" },
+                { label: "Anchor", value: "anchor" },
+                { label: "Face", value: "face" },
+                { label: "Object", value: "object" },
+                { label: "Custom", value: "custom" },
+                { label: "Coordinates", value: "coordinates" },
+              ],
+            },
+            helpText:
+              "Choose how to position the extracted region in overlay image. Custom uses a saved focus area from Media Library.",
+            isVisible: ({ crop }) => crop === "cm-extract",
+          },
+          // Only for extract crop mode
+          {
+            label: "Focus Anchor",
+            name: "focusAnchor",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              positions: [
+                "center", "top", "bottom", "left", "right", "top_left", "top_right", "bottom_left", "bottom_right",
+              ],
+            },
+            isVisible: ({ focus, crop }) => focus === "anchor" && crop === "cm-extract",
+          },
+          // Only for pad_resize crop mode
+          {
+            label: "Focus",
+            name: "focusAnchor",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              positions: [
+                "center", "top", "bottom", "left", "right",
+              ],
+            },
+            isVisible: ({ crop }) => crop === "cm-pad_resize",
+          },
+          {
+            label: "Focus Object",
+            name: "focusObject",
+            fieldType: "select",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              isCreatable: false,
+            },
+            helpText:
+              "Select an object to focus on in the overlay image during extraction. The crop will center on this object.",
+            isVisible: ({ focus }) => focus === "object",
+          },
+          {
+            label: "Coordinate Method",
+            name: "coordinateMethod",
+            fieldType: "radio-card",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              options: [
+                { label: "Top-left (x, y)", value: "topleft" },
+                { label: "Center (xc, yc)", value: "center" },
+              ],
+              defaultValue: "topleft",
+            },
+            helpText:
+              "Choose whether coordinates are relative to the top-left corner or the center of the overlay image.",
+            isVisible: ({ focus }) => focus === "coordinates",
+          },
+          {
+            label: "X (Horizontal)",
+            name: "x",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Horizontal position from the top-left of the overlay image. Use an integer or expression.",
+            examples: ["100", "iw_mul_0.4"],
+            isVisible: ({ focus, coordinateMethod }) =>
+              focus === "coordinates" && coordinateMethod === "topleft",
+          },
+          {
+            label: "Y (Vertical)",
+            name: "y",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Vertical position from the top-left of the overlay image. Use an integer or expression.",
+            examples: ["100", "ih_mul_0.4"],
+            isVisible: ({ focus, coordinateMethod }) =>
+              focus === "coordinates" && coordinateMethod === "topleft",
+          },
+          {
+            label: "XC (Horizontal Center)",
+            name: "xc",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Horizontal center position of the overlay image. Use an integer or expression.",
+            examples: ["200", "iw_mul_0.5"],
+            isVisible: ({ focus, coordinateMethod }) =>
+              focus === "coordinates" && coordinateMethod === "center",
+          },
+          {
+            label: "YC (Vertical Center)",
+            name: "yc",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText: "Vertical center position of the overlay image. Use an integer or expression.",
+            examples: ["200", "ih_mul_0.5"],
+            isVisible: ({ focus, coordinateMethod }) =>
+              focus === "coordinates" && coordinateMethod === "center",
+          },
+          {
+            label: "Zoom",
+            name: "zoom",
+            fieldType: "zoom",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              isCreatable: false,
+            },
+            helpText:
+              "Select the zoom level for the focus area. Higher zoom levels crop closer to the focus point.",
+            isVisible: ({ focus }) => focus === "object" || focus === "face",
+          },
+          {
             label: "Position X",
             name: "positionX",
             fieldType: "input",
@@ -2914,7 +3467,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "x",
             transformationGroup: "imageLayer",
             helpText: "Specify the horizontal offset for the overlay image.",
-            examples: ["10"],
+            examples: ["10", "-20", "N30", "bw_div_2"],
           },
           {
             label: "Position Y",
@@ -2924,7 +3477,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "y",
             transformationGroup: "imageLayer",
             helpText: "Specify the vertical offset for the overlay image.",
-            examples: ["10"],
+            examples: ["10", "-20", "N30", "bh_div_2"],
           },
           {
             label: "Adjust DPR",
@@ -2984,12 +3537,15 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Radius",
             name: "radius",
-            fieldType: "input",
+            fieldType: "radius-input",
             isTransformation: true,
-            transformationKey: "radius",
             transformationGroup: "imageLayer",
             helpText:
               "Set the corner radius for the overlay image. Use 'max' for a circle or oval.",
+            examples: ["10", "max"],
+            fieldProps: {
+              defaultValue: {}
+            }
           },
           {
             label: "Flip",
@@ -3217,6 +3773,170 @@ export const transformationSchema: TransformationSchema[] = [
             isVisible: ({ unsharpenMask }) => unsharpenMask === true,
           },
 
+          {
+            label: "Gradient",
+            name: "gradientSwitch",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            helpText: "Toggle to add a gradient overlay over the overlay image.",
+          },
+          {
+            label: "Apply Gradient",
+            name: "gradient",
+            fieldType: "gradient-picker",
+            isTransformation: true,
+            transformationKey: "gradient",
+            transformationGroup: "imageLayer",
+            isVisible: ({ gradientSwitch }) => gradientSwitch === true,
+            fieldProps: {
+              defaultValue: {
+                from: "#FFFFFFFF",
+                to: "#00000000",
+                direction: "bottom",
+                stopPoint: 100,
+              }
+            }
+          },
+          {
+            label: "Shadow",
+            name: "shadow",
+            fieldType: "switch",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Toggle to add a non-AI shadow under objects in the overlay image.",
+          },
+          {
+            label: "Blur",
+            name: "shadowBlur",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Set the blur radius for the shadow. Higher values create a softer shadow.",
+            fieldProps: {
+              min: 0,
+              max: 15,
+              step: 1,
+              defaultValue: 10,
+            },
+            isVisible: ({ shadow }) => shadow === true,
+          },
+          {
+            label: "Saturation",
+            name: "shadowSaturation",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Adjust the saturation of the shadow. Higher values produce a darker shadow.",
+            fieldProps: {
+              min: 0,
+              max: 100,
+              step: 1,
+              defaultValue: 30,
+            },
+            isVisible: ({ shadow }) => shadow === true,
+          },
+          {
+            label: "X Offset",
+            name: "shadowOffsetX",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Enter the horizontal offset as a percentage of the overlay image width.",
+            isVisible: ({ shadow }) => shadow === true,
+            fieldProps: {
+              min: -100,
+              max: 100,
+              step: 1,
+              defaultValue: 2,
+            },
+          },
+          {
+            label: "Y Offset",
+            name: "shadowOffsetY",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Enter the vertical offset as a percentage of the overlay image height.",
+            isVisible: ({ shadow }) => shadow === true,
+            fieldProps: {
+              min: -100,
+              max: 100,
+              step: 1,
+              defaultValue: 2,
+            },
+          },
+          {
+            label: "Grayscale",
+            name: "grayscale",
+            fieldType: "switch",
+            isTransformation: true,
+            transformationKey: "grayscale",
+            transformationGroup: "imageLayer",
+            helpText: "Toggle to convert the overlay image to grayscale.",
+          },
+          {
+            label: "Distort",
+            name: "distort",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            helpText: "Toggle to apply distortion to the overlay image.",
+          },
+          {
+            label: "Distortion Type",
+            name: "distortType",
+            fieldType: "radio-card",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            isVisible: ({ distort }) => distort === true,
+            fieldProps: {
+              options: [
+                { label: "Perspective", value: "perspective" },
+                { label: "Arc", value: "arc" },
+              ],
+              defaultValue: "perspective",
+            },
+          },
+          {
+            label: "Distortion Perspective",
+            name: "distortPerspective",
+            fieldType: "distort-perspective-input",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            isVisible: ({ distort, distortType }) => distort === true && distortType === "perspective",
+            fieldProps: {
+              defaultValue: {
+                x1: "",
+                y1: "",
+                x2: "",
+                y2: "",
+                x3: "",
+                y3: "",
+                x4: "",
+                y4: "",
+              }
+            }
+          },
+          {
+            label: "Distortion Arc Degrees",
+            name: "distortArcDegree",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            isVisible: ({ distort, distortType }) => distort === true && distortType === "arc",
+            helpText: "Enter the arc degree for the arc distortion effect.",
+            examples: ["15", "30", "45"],
+            fieldProps: {
+              type: "number",
+              placeholder: "Arc Degrees",
+            }
+          },
         ],
       },
     ],
@@ -3317,7 +4037,7 @@ export const transformationFormatters: Record<
     }
   },
   focus: (values, transforms) => {
-    const { focus, focusAnchor, focusObject, x, y, xc, yc } = values
+    const { focus, focusAnchor, focusObject, x, y, xc, yc, coordinateMethod, zoom } = values
 
     if (focus === "auto" || focus === "face") {
       transforms.focus = focus
@@ -3330,10 +4050,16 @@ export const transformationFormatters: Record<
     } else if (focus === "coordinates") {
       // Handle coordinate-based focus
       // x/y are top-left coordinates, xc/yc are center coordinates
-      if (x) transforms.x = x
-      if (y) transforms.y = y
-      if (xc) transforms.xc = xc
-      if (yc) transforms.yc = yc
+      if (coordinateMethod === "topleft") {
+        if (x) transforms.x = x
+        if (y) transforms.y = y
+      } else if (coordinateMethod === "center") {
+        if (xc) transforms.xc = xc
+        if (yc) transforms.yc = yc
+      }
+    }
+    if (zoom !== undefined && zoom !== null && !isNaN(Number(zoom)) && zoom !== 0) {
+      transforms.zoom = (zoom as number) / 100
     }
   },
   shadow: (values, transforms) => {
@@ -3364,7 +4090,8 @@ export const transformationFormatters: Record<
     if (
       shadowOffsetX !== undefined &&
       shadowOffsetX !== null &&
-      shadowOffsetX !== ""
+      shadowOffsetX !== "" &&
+      typeof shadowOffsetX === "number"
     ) {
       const offsetX = Number(shadowOffsetX)
       if (!Number.isNaN(offsetX) && offsetX < 0) {
@@ -3377,7 +4104,8 @@ export const transformationFormatters: Record<
     if (
       shadowOffsetY !== undefined &&
       shadowOffsetY !== null &&
-      shadowOffsetY !== ""
+      shadowOffsetY !== "" &&
+      typeof shadowOffsetY === "number"
     ) {
       const offsetY = Number(shadowOffsetY)
       if (!Number.isNaN(offsetY) && offsetY < 0) {
@@ -3429,15 +4157,34 @@ export const transformationFormatters: Record<
       const bg = (values.backgroundColor as string).replace(/^#/, "")
       overlayTransform.background = bg
     }
+    const { padding, mode } = values.padding as Record<string, unknown>
     if (
-      typeof values.padding === "number" ||
-      typeof values.padding === "string"
+      mode === "uniform" &&
+      (typeof padding === "number" ||
+        typeof padding === "string")
     ) {
-      overlayTransform.padding = values.padding
+      overlayTransform.padding = padding
+    } else if (mode === "individual" && typeof padding === "object" && padding !== null) {
+      const { top, right, bottom, left } = padding as {
+        top: number
+        right: number
+        bottom: number
+        left: number
+      }
+      let paddingString: string;
+      if (top === right && top === bottom && top === left) {
+        paddingString = String(top)
+      } else if (top === bottom && right === left) {
+        paddingString = `${top}_${right}`
+      } else {
+        paddingString = `${top}_${right}_${bottom}_${left}`
+      }
+      overlayTransform.padding = paddingString
     }
-    if ( typeof values.lineHeight === "number" || typeof values.lineHeight === "string" ) {
+    if (typeof values.lineHeight === "number" || typeof values.lineHeight === "string") {
       overlayTransform.lineHeight = values.lineHeight
     }
+
 
     if (Array.isArray(values.flip) && values.flip.length > 0) {
       const flip = []
@@ -3502,13 +4249,13 @@ export const transformationFormatters: Record<
       typeof values.positionX === "number" ||
       typeof values.positionX === "string"
     ) {
-      position.x = values.positionX
+      position.x = values.positionX.toString().replace(/^-/, "N")
     }
     if (
       typeof values.positionY === "number" ||
       typeof values.positionY === "string"
     ) {
-      position.y = values.positionY
+      position.y = values.positionY.toString().replace(/^-/, "N")
     }
     if (Object.keys(position).length > 0) {
       overlay.position = position
@@ -3559,12 +4306,6 @@ export const transformationFormatters: Record<
       overlayTransform.background = values.backgroundColor.replace(/^#/, "")
     }
 
-    if (values.radius === "max") {
-      overlayTransform.radius = "max"
-    } else if (values.radius as number) {
-      overlayTransform.radius = values.radius as number
-    }
-
     if ((values.flip as Array<string>)?.length) {
       const flip = []
       if ((values.flip as Array<string>).includes("horizontal")) {
@@ -3588,7 +4329,7 @@ export const transformationFormatters: Record<
     if (values.rotation) {
       overlayTransform.rotation = values.rotation
     }
-       
+
     if (values.unsharpenMask === true) {
       overlayTransform["e-usm"] = `${values.unsharpenMaskRadius}-${values.unsharpenMaskSigma}-${values.unsharpenMaskAmount}-${values.unsharpenMaskThreshold}`
     }
@@ -3622,6 +4363,21 @@ export const transformationFormatters: Record<
     ) {
       overlayTransform.b = `${values.borderWidth}_${values.borderColor.replace(/^#/, "")}`
     }
+    const { crop, focusAnchor } = values
+
+    transformationFormatters.focus(values, overlayTransform)
+    if (crop === "cm-pad_resize") {
+      overlayTransform.focus = focusAnchor
+    }
+
+    transformationFormatters.gradient(values, overlayTransform)
+    transformationFormatters.shadow(values, overlayTransform)
+    transformationFormatters.distort(values, overlayTransform)
+    transformationFormatters.radius(values, overlayTransform)
+
+    if (values.grayscale) {
+      overlayTransform.grayscale = true
+    }
 
     if (Object.keys(overlayTransform).length > 0) {
       overlay.transformation = [overlayTransform]
@@ -3630,10 +4386,10 @@ export const transformationFormatters: Record<
     // Positioning via x/y or focus anchor
     const position: Record<string, unknown> = {}
     if (values.positionX) {
-      position.x = values.positionX
+      position.x = values.positionX.toString().replace(/^-/, "N")
     }
     if (values.positionY) {
-      position.y = values.positionY
+      position.y = values.positionY.toString().replace(/^-/, "N")
     }
 
     if (Object.keys(position).length > 0) {
@@ -3747,4 +4503,56 @@ export const transformationFormatters: Record<
     }
     transforms["e-usm"] = `${unsharpenMaskRadius}-${unsharpenMaskSigma}-${unsharpenMaskAmount}-${unsharpenMaskThreshold}`
   },
+  gradient: (values, transforms) => {
+    const { gradient, gradientSwitch } = values as { gradient: GradientPickerState; gradientSwitch: boolean }
+    if (gradientSwitch && gradient) {
+      const { from, to, direction, stopPoint } = gradient
+      const isDefaultGradient = (from.toUpperCase() === "#FFFFFFFF" || from.toUpperCase() === "#FFFFFF") &&
+        (to.toUpperCase() === "#00000000") &&
+        (direction === "bottom" || direction === 180) &&
+        stopPoint === 100
+      if (isDefaultGradient) {
+        transforms.gradient = ""
+      } else {
+        const fromColor = from.replace("#", "")
+        const toColor = to.replace("#", "")
+        const stopPointDecimal = (stopPoint as number) / 100
+        let gradientStr = `ld-${direction}_from-${fromColor}_to-${toColor}_sp-${stopPointDecimal}`
+        transforms.gradient = gradientStr
+      }
+    }
+  },
+  distort: (values, transforms) => {
+    if (values.distort) {
+      const { distortType, distortPerspective, distortArcDegree } = values
+      const distortPrefix = distortType === "perspective" ? "p" : "a"
+      if (distortType === "perspective" && distortPerspective) {
+        const { x1, y1, x2, y2, x3, y3, x4, y4 } = distortPerspective as Record<string, number>
+        const formattedCoords = [x1, y1, x2, y2, x3, y3, x4, y4].map(coord => coord.toString().replace(/^-/, "N"))
+        transforms["e-distort"] = `${distortPrefix}-${formattedCoords.join("_")}`
+      } else if (distortType === "arc" && distortArcDegree !== undefined && distortArcDegree !== null) {
+        transforms["e-distort"] = `${distortPrefix}-${distortArcDegree.toString().replace(/^-/, "N")}`
+      }
+    }
+  },
+  radius: (values, transforms) => {
+    if (values.radius) {
+      const { radius, mode } = values.radius as Record<string, unknown>
+      if (mode === "uniform" && (typeof radius === "number" || typeof radius === "string")) {
+        transforms.radius = radius
+      } else if (mode === "individual" && typeof radius === "object" && radius !== null) {
+        const { topLeft, topRight, bottomRight, bottomLeft } = radius as {
+          topLeft: number | "max"
+          topRight: number | "max"
+          bottomRight: number | "max"
+          bottomLeft: number | "max"
+        }
+        if (topLeft === topRight && topLeft === bottomRight && topLeft === bottomLeft) {
+          transforms.radius = topLeft
+        } else {
+          transforms.radius = `${topLeft}_${topRight}_${bottomRight}_${bottomLeft}`
+        }
+      }
+    }
+  }
 }
