@@ -120,3 +120,91 @@ export const layerYValidator = z.any().superRefine((val, ctx) => {
     message: "Layer Y must be a number or a valid expression string.",
   })
 })
+
+
+const commonNumber = z.coerce
+  .number({ invalid_type_error: "Should be a number." })
+  .min(0, {
+    message: "Must be a positive number.",
+  })
+const commonExpr = z
+  .string()
+  .regex(/^(?:ih|bh|ch|iw|bw|cw)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/, {
+    message: "String must be a valid expression string.",
+  })
+
+
+export const commonNumberAndExpressionValidator = z.any().superRefine((val, ctx) => {
+  if (commonNumber.safeParse(val).success) {
+    return
+  }
+  if (commonExpr.safeParse(val).success) {
+    return
+  }
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: "Must be a positive number or a valid expression string.",
+  })
+})
+
+
+const overlayBlockExpr = z
+  .string()
+  .regex(/^(?:bh|bw|bar)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/, {
+    message: "String must be a valid expression string.",
+  })
+
+
+export const overlayBlockExprValidator = z.any().superRefine((val, ctx) => {
+  if (commonNumber.safeParse(val).success) {
+    return
+  }
+  if (overlayBlockExpr.safeParse(val).success) {
+    return
+  }
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: "Must be a positive number or a valid expression string.",
+  })
+})
+
+
+
+
+export const optionalPositiveFloatNumberValidator = z.preprocess(
+  (val) => (val === "" || val === undefined || val === null) ? undefined : val,
+  z.coerce.number().positive({ message: "Should be a positive floating point number." }).optional()
+)
+
+export const refineUnsharpenMask = (val: any, ctx: z.RefinementCtx) => {
+  if (val.unsharpenMask === true) {
+    if (!val.unsharpenMaskRadius) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Radius is required when Unsharpen Mask is enabled",
+        path: ["unsharpenMaskRadius"],
+      })
+    }
+    if (!val.unsharpenMaskSigma) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Sigma is required when Unsharpen Mask is enabled",
+        path: ["unsharpenMaskSigma"],
+      })
+    }
+    if (!val.unsharpenMaskAmount) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Amount is required when Unsharpen Mask is enabled",
+        path: ["unsharpenMaskAmount"],
+      })
+    }
+    if (!val.unsharpenMaskThreshold) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Threshold is required when Unsharpen Mask is enabled",
+        path: ["unsharpenMaskThreshold"],
+      })
+    }
+  }
+}
