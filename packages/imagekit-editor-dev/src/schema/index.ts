@@ -11,7 +11,7 @@ import { RxFontItalic } from "@react-icons/all-files/rx/RxFontItalic"
 import { RxTextAlignCenter } from "@react-icons/all-files/rx/RxTextAlignCenter"
 import { RxTextAlignLeft } from "@react-icons/all-files/rx/RxTextAlignLeft"
 import { RxTextAlignRight } from "@react-icons/all-files/rx/RxTextAlignRight"
-import { z } from "zod/v3"
+import { RefinementCtx, z } from "zod/v3"
 import { SIMPLE_OVERLAY_TEXT_REGEX, safeBtoa } from "../utils"
 import {
   aspectRatioValidator,
@@ -22,6 +22,7 @@ import {
   widthValidator,
 } from "./transformation"
 import { GradientPickerState } from "../components/common/GradientPicker"
+import { PerspectiveObject } from "../components/common/DistortPerspectiveInput"
 
 // Based on ImageKit's supported object list
 export const DEFAULT_FOCUS_OBJECTS = [
@@ -1437,16 +1438,16 @@ export const transformationSchema: TransformationSchema[] = [
             distort: z.coerce.boolean(),
             distortType: z.enum(["perspective", "arc"]).optional(),
             distortPerspective: z.object({
-              x1: z.union([z.literal(""), z.coerce.number()]),
-              y1: z.union([z.literal(""), z.coerce.number()]),
-              x2: z.union([z.literal(""), z.coerce.number()]),
-              y2: z.union([z.literal(""), z.coerce.number()]),
-              x3: z.union([z.literal(""), z.coerce.number()]),
-              y3: z.union([z.literal(""), z.coerce.number()]),
-              x4: z.union([z.literal(""), z.coerce.number()]),
-              y4: z.union([z.literal(""), z.coerce.number()]),
+              x1: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+              y1: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+              x2: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+              y2: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+              x3: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+              y3: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+              x4: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+              y4: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
             }).optional(),
-            distortArcDegree: z.coerce.number().min(-359).max(359).optional(),
+            distortArcDegree: z.string().regex(/^[-N]?\d+$/).optional(),
           })
           .refine(
             (val) => {
@@ -1461,7 +1462,10 @@ export const transformationSchema: TransformationSchema[] = [
               message: "At least one value is required",
               path: [],
             },
-          ),
+          )
+          .superRefine((val, ctx) => {
+            validatePerspectiveDistort(val, ctx);
+          }),
         transformations: [
           {
             label: "Distort",
@@ -1509,15 +1513,19 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Distortion Arc Degrees",
             name: "distortArcDegree",
-            fieldType: "input",
+            fieldType: "slider",
             isTransformation: true,
             transformationGroup: "distort",
             isVisible: ({ distort, distortType }) => distort === true && distortType === "arc",
             helpText: "Enter the arc degree for the arc distortion effect.",
-            examples: ["15", "30", "45"],
+            examples: ["15", "30", "-45", "N50"],
             fieldProps: {
-              type: "number",
-              placeholder: "Arc Degrees",
+              min: -360,
+              max: 360,
+              step: 5,
+              defaultValue: "0",
+              inputType: "text",
+              skipStepCheck: true,
             }
           }
         ],
@@ -2771,16 +2779,16 @@ export const transformationSchema: TransformationSchema[] = [
             distort: z.coerce.boolean(),
             distortType: z.enum(["perspective", "arc"]).optional(),
             distortPerspective: z.object({
-              x1: z.union([z.literal(""), z.coerce.number()]),
-              y1: z.union([z.literal(""), z.coerce.number()]),
-              x2: z.union([z.literal(""), z.coerce.number()]),
-              y2: z.union([z.literal(""), z.coerce.number()]),
-              x3: z.union([z.literal(""), z.coerce.number()]),
-              y3: z.union([z.literal(""), z.coerce.number()]),
-              x4: z.union([z.literal(""), z.coerce.number()]),
-              y4: z.union([z.literal(""), z.coerce.number()]),
+              x1: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+              y1: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+              x2: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+              y2: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+              x3: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+              y3: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+              x4: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+              y4: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
             }).optional(),
-            distortArcDegree: z.coerce.number().min(-359).max(359).optional(),
+            distortArcDegree: z.string().regex(/^[-N]?\d+$/).optional(),
 
             // Radius
             radius: z.object({
@@ -2874,6 +2882,8 @@ export const transformationSchema: TransformationSchema[] = [
                 }
               }
             }
+
+            validatePerspectiveDistort(val, ctx);
           }),
         transformations: [
           {
@@ -3358,15 +3368,19 @@ export const transformationSchema: TransformationSchema[] = [
           {
             label: "Distortion Arc Degrees",
             name: "distortArcDegree",
-            fieldType: "input",
+            fieldType: "slider",
             isTransformation: true,
             transformationGroup: "imageLayer",
             isVisible: ({ distort, distortType }) => distort === true && distortType === "arc",
             helpText: "Enter the arc degree for the arc distortion effect.",
-            examples: ["15", "30", "45"],
+            examples: ["15", "30", "-45", "N50"],
             fieldProps: {
-              type: "number",
-              placeholder: "Arc Degrees",
+              min: -360,
+              max: 360,
+              step: 5,
+              defaultValue: "0",
+              inputType: "text",
+              skipStepCheck: true,
             }
           },
         ],
@@ -3862,7 +3876,7 @@ export const transformationFormatters: Record<
       const { distortType, distortPerspective, distortArcDegree } = values
       const distortPrefix = distortType === "perspective" ? "p" : "a"
       if (distortType === "perspective" && distortPerspective) {
-        const { x1, y1, x2, y2, x3, y3, x4, y4 } = distortPerspective as Record<string, number>
+        const { x1, y1, x2, y2, x3, y3, x4, y4 } = distortPerspective as Record<string, string>
         const formattedCoords = [x1, y1, x2, y2, x3, y3, x4, y4].map(coord => coord.toString().replace(/^-/,"N"))
         transforms["e-distort"] = `${distortPrefix}-${formattedCoords.join("_")}`
       } else if (distortType === "arc" && distortArcDegree !== undefined && distortArcDegree !== null) {
@@ -3887,6 +3901,38 @@ export const transformationFormatters: Record<
         } else {
           transforms.radius = `${topLeft}_${topRight}_${bottomRight}_${bottomLeft}`
         }
+      }
+    }
+  }
+}
+
+
+function validatePerspectiveDistort(value: {distortPerspective: PerspectiveObject, distort: boolean, distortType: string} & any, ctx: RefinementCtx) {
+  const {distort, distortType, distortPerspective} = value;
+  if (distort && distortType === "perspective" && distortPerspective) {
+    const perspective: PerspectiveObject = structuredClone(distortPerspective);
+    let { x1, y1, x2, y2, x3, y3, x4, y4 } = Object.keys(perspective).reduce((acc, key) => {
+      const value = perspective[key as keyof typeof perspective];
+      if (!value) {
+        acc[key as keyof PerspectiveObject] = value;
+      }
+      const numString = value.toUpperCase().replace(/^N/, "-");
+      acc[key as keyof PerspectiveObject] = parseInt(numString as string, 10);
+      return acc;
+    }, {} as Record<keyof PerspectiveObject, any>);
+    const allValuesProvided = [x1, y1, x2, y2, x3, y3, x4, y4].every(v => v === 0 || Boolean(v));
+    if (allValuesProvided) {
+      const isTopLeftValid = x1 < x2 && x1 < x3 && y1 < y3 && y1 < y4;
+      const isTopRightValid = x2 > x1 && x2 > x4 && y2 < y3 && y2 < y4;
+      const isBottomRightValid = x3 > x4 && x3 > x1 && y3 > y1 && y3 > y2;
+      const isBottomLeftValid = x4 < x3 && x4 < x2 && y4 > y1 && y4 > y2;
+      let isValid = isTopLeftValid && isTopRightValid && isBottomRightValid && isBottomLeftValid;
+      if (!isValid) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Perspective coordinates are invalid.",
+          path: ["distortPerspective"]
+        });
       }
     }
   }

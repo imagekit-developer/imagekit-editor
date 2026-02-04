@@ -1,16 +1,15 @@
 import {
   Box,
-  Flex,
   HStack,
   VStack,
   Icon,
   Text,
   Input,
   InputGroup,
-  InputLeftElement,
-  IconButton,
+
   useColorModeValue,
-  Tooltip,
+  InputLeftAddon,
+  FormLabel,
 } from "@chakra-ui/react";
 import type * as React from "react";
 import { useState, useEffect } from "react";
@@ -64,7 +63,7 @@ export const DistortPerspectiveInput: React.FC<DistorPerspectiveFieldProps> = ({
       const val = e.target.value.trim();
       setPerspective((prev) => ({
         ...prev,
-        [fieldName]: val,
+        [fieldName]: val?.toUpperCase(),
       }));
     };
   }
@@ -74,170 +73,94 @@ export const DistortPerspectiveInput: React.FC<DistorPerspectiveFieldProps> = ({
   }, [perspective]);
 
   return (
-    <VStack as="fieldset" id={id} role="group" spacing={2} alignItems="stretch">
-      <HStack spacing={0}>
-        <InputGroup flex="1.52">
-          <InputLeftElement
-            pointerEvents="none"
-            background={leftAccessoryBackground}
-            borderLeftRadius="md"
-          >
-            <Icon as={RxArrowTopLeft} color="gray.500" />
-          </InputLeftElement>
-          <Input
-            fontSize="sm"
-            type="number"
-            value={perspective.x1 ?? ""}
-            placeholder="X1"
-            isInvalid={!!errors?.[propertyName]?.x1}
-            onChange={handleFieldChange("x1")}
-            borderRightRadius={0}
-          />
-        </InputGroup>
-        <Input
-          fontSize="sm"
-          type="number"
-          value={perspective.y1 ?? ""}
-          placeholder="Y1"
-          flex="1"
-          isInvalid={!!errors?.[propertyName]?.y1}
-          onChange={handleFieldChange("y1")}
-          borderLeftRadius={0}
-          borderLeft={0}
-          paddingInlineStart="0.1em"
-        />
-        <Text fontSize="xs" color={errorRed}>
-          {[
-            errors?.[propertyName]?.x1?.message,
-            errors?.[propertyName]?.y1?.message,
-          ]
-            .filter(Boolean)
-            .join(". ")}
-        </Text>
-      </HStack>
+    <VStack as="fieldset" id={id} role="group" spacing={3} alignItems="stretch">
+      {[
+        {
+          label: "Top left",
+          name: "topLeft",
+          icon: RxArrowTopLeft,
+          x: "x1",
+          y: "y1",
+        },
+        {
+          label: "Top right",
+          name: "topRight",
+          icon: RxArrowTopRight,
+          x: "x2",
+          y: "y2",
+        },
+        {
+          label: "Bottom right",
+          name: "bottomRight",
+          icon: RxArrowBottomRight,
+          x: "x3",
+          y: "y3",
+        },
+        {
+          label: "Bottom left",
+          name: "bottomLeft",
+          icon: RxArrowBottomLeft,
+          x: "x4",
+          y: "y4",
+        },
+      ].map(({ label, name, icon, x, y }) => (
+        <VStack alignItems="stretch" key={name} spacing={1}>
+          <HStack spacing={1}>
+            <Box
+              padding="0.2em"
+              border="1px"
+              borderColor="gray.300"
+              borderRadius="md"
+              background={leftAccessoryBackground}
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Icon as={icon} color="gray.500" />
+            </Box>
+            <FormLabel htmlFor={name} fontSize="sm">
+              {label} corner coordinates
+            </FormLabel>
+          </HStack>
+          <HStack alignItems="flex-start">
+            <VStack spacing={1} alignItems="flex-start">
+              <InputGroup>
+                <InputLeftAddon
+                  children={x.toUpperCase()}
+                  fontSize="sm"
+                />
+                <Input
+                  fontSize="sm"
+                  value={perspective[x as keyof PerspectiveObject] ?? ""}
+                  isInvalid={!!errors?.[propertyName]?.[x]}
+                  onChange={handleFieldChange(x)}
+                />
+              </InputGroup>
+              <Text fontSize="xs" color={errorRed}>
+                {errors?.[propertyName]?.[x]?.message}
+              </Text>
+            </VStack>
 
-      <HStack spacing={0}>
-        <InputGroup flex="1.52">
-          <InputLeftElement
-            pointerEvents="none"
-            background={leftAccessoryBackground}
-            borderLeftRadius="md"
-          >
-            <Icon as={RxArrowTopRight} color="gray.500" />
-          </InputLeftElement>
-          <Input
-            fontSize="sm"
-            type="number"
-            value={perspective.x2 ?? ""}
-            placeholder="X2"
-            isInvalid={!!errors?.[propertyName]?.x2}
-            onChange={handleFieldChange("x2")}
-            borderRightRadius={0}
-          />
-        </InputGroup>
-        <Input
-          fontSize="sm"
-          type="number"
-          value={perspective.y2 ?? ""}
-          placeholder="Y2"
-          flex="1"
-          isInvalid={!!errors?.[propertyName]?.y2}
-          onChange={handleFieldChange("y2")}
-          borderLeftRadius={0}
-          borderLeft={0}
-          paddingInlineStart="0.1em"
-        />
-        <Text fontSize="xs" color={errorRed}>
-          {[
-            errors?.[propertyName]?.x2?.message,
-            errors?.[propertyName]?.y2?.message,
-          ]
-            .filter(Boolean)
-            .join(". ")}
-        </Text>
-      </HStack>
-
-      <HStack spacing={0}>
-        <InputGroup flex="1.52">
-          <InputLeftElement
-            pointerEvents="none"
-            background={leftAccessoryBackground}
-            borderLeftRadius="md"
-          >
-            <Icon as={RxArrowBottomRight} color="gray.500" />
-          </InputLeftElement>
-          <Input
-            fontSize="sm"
-            type="number"
-            value={perspective.x3 ?? ""}
-            placeholder="X3"
-            isInvalid={!!errors?.[propertyName]?.x3}
-            onChange={handleFieldChange("x3")}
-            borderRightRadius={0}
-          />
-        </InputGroup>
-        <Input
-          fontSize="sm"
-          type="number"
-          value={perspective.y3 ?? ""}
-          placeholder="Y3"
-          flex="1"
-          isInvalid={!!errors?.[propertyName]?.y3}
-          onChange={handleFieldChange("y3")}
-          borderLeftRadius={0}
-          borderLeft={0}
-          paddingInlineStart="0.1em"
-        />
-        <Text fontSize="xs" color={errorRed}>
-          {[
-            errors?.[propertyName]?.x3?.message,
-            errors?.[propertyName]?.y3?.message,
-          ]
-            .filter(Boolean)
-            .join(". ")}
-        </Text>
-      </HStack>
-
-      <HStack spacing={0}>
-        <InputGroup flex="1.52">
-          <InputLeftElement
-            pointerEvents="none"
-            background={leftAccessoryBackground}
-            borderLeftRadius="md"
-          >
-            <Icon as={RxArrowBottomLeft} color="gray.500" />
-          </InputLeftElement>
-          <Input
-            fontSize="sm"
-            type="number"
-            value={perspective.x4 ?? ""}
-            placeholder="X4"
-            isInvalid={!!errors?.[propertyName]?.x4}
-            onChange={handleFieldChange("x4")}
-            borderRightRadius={0}
-          />
-        </InputGroup>
-        <Input
-          fontSize="sm"
-          type="number"
-          value={perspective.y4 ?? ""}
-          placeholder="Y4"
-          flex="1"
-          isInvalid={!!errors?.[propertyName]?.y4}
-          onChange={handleFieldChange("y4")}
-          borderLeftRadius={0}
-          borderLeft={0}
-          paddingInlineStart="0.1em"
-        />
-        <Text fontSize="xs" color={errorRed}>
-          {[
-            errors?.[propertyName]?.x4?.message,
-            errors?.[propertyName]?.y4?.message,
-          ]
-            .filter(Boolean)
-            .join(". ")}
-        </Text>
-      </HStack>
+            <VStack spacing={1}>
+              <InputGroup>
+                <InputLeftAddon
+                  children={y.toUpperCase()}
+                  fontSize="sm"
+                />
+                <Input
+                  fontSize="sm"
+                  value={perspective[y as keyof PerspectiveObject] ?? ""}
+                  isInvalid={!!errors?.[propertyName]?.[y]}
+                  onChange={handleFieldChange(y)}
+                />
+              </InputGroup>
+              <Text fontSize="xs" color={errorRed}>
+                {errors?.[propertyName]?.[y]?.message}
+              </Text>
+            </VStack>
+          </HStack>
+        </VStack>
+      ))}
     </VStack>
   );
 };
