@@ -16,9 +16,13 @@ import { SIMPLE_OVERLAY_TEXT_REGEX, safeBtoa } from "../utils"
 import {
   aspectRatioValidator,
   colorValidator,
+  commonNumberAndExpressionValidator,
   heightValidator,
+  overlayBlockExprValidator,
   layerXValidator,
   layerYValidator,
+  optionalPositiveFloatNumberValidator,
+  refineUnsharpenMask,
   widthValidator,
 } from "./transformation"
 import { GradientPickerState } from "../components/common/GradientPicker"
@@ -1821,6 +1825,348 @@ export const transformationSchema: TransformationSchema[] = [
           },
         ],
       },
+      {
+        key: "adjust-border",
+        name: "Border",
+        description:
+          "Add a border to the image. Specify a border width and color.",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#border---b",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            borderWidth: commonNumberAndExpressionValidator.optional(),
+            borderColor: colorValidator,
+          })
+          .refine(
+            (val) => {
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "Border width and color are required",
+              path: [],
+            },
+          ),
+
+        transformations: [
+          {
+            label: "Border Width",
+            name: "borderWidth",
+            fieldType: "input",
+            isTransformation: false,
+            transformationGroup: "border",
+            helpText: "Enter a border width",
+            fieldProps: {
+              defaultValue: 1,
+              min: 1,
+              max: 99,
+              step: 1,
+            },
+          },
+          {
+            label: "Border Color",
+            name: "borderColor",
+            fieldType: "color-picker",
+            isTransformation: false,
+            transformationGroup: "border",
+            helpText: "Select the color of the border.",
+            fieldProps: {
+              hideOpacity: true,
+              showHexAlpha: false,
+              defaultValue: "#000000",
+            },
+          },
+        ],
+      },
+      {
+        key: "adjust-trim",
+        name: "Trim",
+        description:
+          "Trim solid or nearly solid backgrounds from the edges of the image, leaving only the central object.",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#trim-edges---t",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            trimEnabled: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+            trim: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .int()
+              .min(1)
+              .max(99)
+              .optional(),
+          })
+          .refine(
+            (val) => {
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
+          {
+            label: "Enable Trim",
+            name: "trimEnabled",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "trim",
+            helpText:
+              "Toggle to trim background edges for images with solid or near-solid backgrounds.",
+          },
+          {
+            label: "Threshold",
+            name: "trim",
+            fieldType: "slider",
+            isTransformation: false,
+            transformationGroup: "trim",
+            helpText:
+              "Trim edges for images with solid or near-solid backgrounds. Use a threshold between 1 and 99.",
+            fieldProps: {
+              defaultValue: 10,
+              min: 1,
+              max: 99,
+              step: 1,
+            },
+            isVisible: ({ trimEnabled }) => trimEnabled === true,
+          },
+        ],
+      },
+      {
+        key: "adjust-color-replace",
+        name: "Color Replace",
+        description:
+          "Replace specific colors in the image with a new color, while preserving the original image's luminance and chroma relationships.",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#color-replace---cr",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            toColor: colorValidator,
+            tolerance: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .int()
+              .min(0)
+              .max(100)
+              .optional(),
+            fromColor: z.union([colorValidator, z.literal("")]).optional(),
+          })
+          .refine(
+            (val) => {
+              // At least toColor must be provided
+              return val.toColor !== undefined && val.toColor !== ""
+            },
+            {
+              message: "To Color is required",
+              path: ["toColor"],
+            },
+          ),
+        transformations: [
+          {
+            label: "From Color",
+            examples: ["FFFFFF", "FF0000"],
+            name: "fromColor",
+            fieldType: "color-picker",
+            isTransformation: false,
+            fieldProps: {
+              hideOpacity: true,
+              showHexAlpha: false,
+            },
+            transformationGroup: "colorReplace",
+            helpText:
+              "Select the source color you want to replace (optional - if not specified, dominant color will be replaced).",
+          },
+          {
+            label: "Tolerance",
+            name: "tolerance",
+            fieldType: "slider",
+            isTransformation: false,
+            transformationGroup: "colorReplace",
+            helpText:
+              "Set the tolerance for the color replacement. Use a number between 0 and 100. Lower values are more precise, but may not work for all colors. Higher values are more forgiving, but may introduce more color variations.",
+            fieldProps: {
+              defaultValue: 35,
+              min: 0,
+              max: 100,
+              step: 1,
+            },
+          },
+          {
+            label: "To Color",
+            name: "toColor",
+            fieldType: "color-picker",
+            examples: ["FFFFFF", "FF0000"],
+            fieldProps: {
+              hideOpacity: true,
+              showHexAlpha: false,
+            },
+            isTransformation: false,
+            transformationGroup: "colorReplace",
+            helpText: "Select the target color to replace with.",
+          },
+        ],
+      },
+      {
+        key: "adjust-sharpen",
+        name: "Sharpen",
+        description:
+          "Sharpen the image to highlight the edges and finer details within an image.",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#sharpen---e-sharpen",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            sharpenEnabled: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+            sharpen: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .int()
+              .min(1)
+              .max(99)
+              .optional(),
+          })
+          .refine(
+            (val) => {
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
+          {
+            label: "Sharpen Image",
+            name: "sharpenEnabled",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "sharpen",
+            helpText:
+              "Toggle to sharpen the image to highlight the edges and finer details within an image.",
+          },
+          {
+            label: "Threshold",
+            name: "sharpen",
+            fieldType: "slider",
+            isTransformation: false,
+            transformationGroup: "sharpen",
+            helpText:
+              "Sharpen the image to highlight the edges and finer details within an image. Control the intensity of this effect using a threshold value between 1% and 99%.",
+            fieldProps: {
+              min: 1,
+              max: 99,
+              step: 1,
+              defaultValue: 50,
+            },
+            isVisible: ({ sharpenEnabled }) => sharpenEnabled === true,
+          },
+        ],
+      },
+      {
+        key: "adjust-unsharpen-mask",
+        name: "Unsharpen Mask",
+        description:
+          "Image sharpening technique that enhances edge contrast to make details appear clearer. Amplifies differences between neighboring pixels without significantly affecting smooth areas.",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#unsharp-mask---e-usm",
+        defaultTransformation: {},
+        schema: z.object({
+          unsharpenMaskRadius: z.coerce.number().positive({ message: "Should be a positive floating point number." }),
+          unsharpenMaskSigma: z.coerce.number().positive({ message: "Should be a positive floating point number." }),
+          unsharpenMaskAmount: z.coerce.number().positive({ message: "Should be a positive floating point number." }),
+          unsharpenMaskThreshold: z.coerce.number().positive({ message: "Should be a positive floating point number." }),
+        })
+          .refine(
+            (val) => {
+              if (Object.values(val).some((v) => v !== undefined && v !== null)) {
+                return true
+              }
+              return false
+            }),
+        transformations: [
+          {
+            name: "unsharpenMaskRadius",
+            fieldType: "input",
+            label: "Radius",
+            isTransformation: false,
+            transformationGroup: "unsharpenMask",
+            helpText:
+              "Controls how wide the sharpening effect spreads from each edge. Larger values affect broader areas; smaller values focus on fine details.",
+            fieldProps: {
+              defaultValue: "",
+            },
+            examples: ["1", "8", "15"],
+          },
+          {
+            name: "unsharpenMaskSigma",
+            fieldType: "input",
+            label: "Sigma",
+            isTransformation: false,
+            transformationGroup: "unsharpenMask",
+            helpText:
+              "Defines the amount of blur used to detect edges before sharpening. Higher values smooth more before sharpening; lower values preserve fine textures.",
+            fieldProps: {
+              defaultValue: "",
+            },
+            examples: ["1", "5", "6"],
+          },
+          {
+            name: "unsharpenMaskAmount",
+            fieldType: "input",
+            label: "Amount",
+            isTransformation: false,
+            transformationGroup: "unsharpenMask",
+            helpText:
+              "Sets the strength of the sharpening effect.",
+            fieldProps: {
+              defaultValue: "",
+            },
+            examples: ["0.1", "2", "0.8"],
+          },
+          {
+            name: "unsharpenMaskThreshold",
+            fieldType: "input",
+            label: "Threshold",
+            isTransformation: false,
+            transformationGroup: "unsharpenMask",
+            helpText:
+              "Set the threshold value for the unsharpen mask.",
+            fieldProps: {
+              defaultValue: "",
+            },
+            examples: ["0.1", "2", "0.8"],
+          },
+        ]
+      }
     ],
   },
   {
@@ -1830,7 +2176,6 @@ export const transformationSchema: TransformationSchema[] = [
       {
         key: "ai-removedotbg",
         name: "Remove Background using Remove.bg",
-        // This option removes the background using the third-party remove.bg service.
         description:
           "Remove the background of the image using Remove.bg (external service). This isolates the subject and makes the background transparent.",
         docsLink:
@@ -2299,11 +2644,15 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            dpr: z.coerce
-              .number({
-                invalid_type_error: "Should be a number.",
-              })
-              .optional(),
+            dpr:
+              z.union([
+                z.coerce
+                  .number({
+                    invalid_type_error: "Should be a number.",
+                  })
+                  .optional(),
+                z.literal("auto"),
+              ]).optional(),
           })
           .refine(
             (val) => {
@@ -2330,6 +2679,7 @@ export const transformationSchema: TransformationSchema[] = [
             transformationKey: "dpr",
             fieldProps: {
               defaultValue: 1,
+              autoOption: true,
               min: 0.1,
               max: 5,
               step: 0.1,
@@ -2400,7 +2750,7 @@ export const transformationSchema: TransformationSchema[] = [
                 }),
               ]).optional(),
             })
-            .optional(),
+              .optional(),
             opacity: z
               .union([
                 z.coerce
@@ -2599,6 +2949,16 @@ export const transformationSchema: TransformationSchema[] = [
             examples: ["10", "20"],
           },
           {
+            label: "Line Height",
+            name: "lineHeight",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "lineHeight",
+            transformationGroup: "textLayer",
+            helpText: "Specify the line height for the text overlay.",
+            examples: ["1.5", "bh_div_2"],
+          },
+          {
             label: "Opacity",
             name: "opacity",
             fieldType: "slider",
@@ -2687,6 +3047,14 @@ export const transformationSchema: TransformationSchema[] = [
               })
               .optional(),
             backgroundColor: z.string().optional(),
+            dprEnabled: z.boolean().optional(),
+            dpr: z.union([
+              z.coerce
+                .number({
+                  invalid_type_error: "Should be a number.",
+                }),
+              z.literal("auto"),
+            ]).optional(),
             flip: z
               .array(z.enum(["horizontal", "vertical"]).optional())
               .optional(),
@@ -2695,10 +3063,18 @@ export const transformationSchema: TransformationSchema[] = [
                 invalid_type_error: "Should be a number.",
               })
               .optional(),
-            trim: z.coerce
+            trimEnabled: z.coerce
               .boolean({
                 invalid_type_error: "Should be a boolean.",
               })
+              .optional(),
+            trimThreshold: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .int()
+              .min(1)
+              .max(99)
               .optional(),
             quality: z.coerce
               .number({
@@ -2710,7 +3086,8 @@ export const transformationSchema: TransformationSchema[] = [
                 invalid_type_error: "Should be a number.",
               })
               .optional(),
-
+            borderWidth: commonNumberAndExpressionValidator.optional(),
+            borderColor: colorValidator.optional(),
             // Focus + Zoom properties
             focus: z.string().optional(),
             focusAnchor: z.string().optional(),
@@ -2836,7 +3213,25 @@ export const transformationSchema: TransformationSchema[] = [
                 }),
               ]).optional(),
             }).optional(),
-          })
+            sharpenEnabled: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+            sharpen: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .int()
+              .min(1)
+              .max(99)
+              .optional(),
+            unsharpenMask: z.coerce.boolean().optional(),
+            unsharpenMaskRadius: optionalPositiveFloatNumberValidator.optional(),
+            unsharpenMaskSigma: optionalPositiveFloatNumberValidator.optional(),
+            unsharpenMaskAmount: optionalPositiveFloatNumberValidator.optional(),
+            unsharpenMaskThreshold: optionalPositiveFloatNumberValidator.optional(),
+          }).superRefine(refineUnsharpenMask)
           .refine(
             (val) => {
               return Object.values(val).some(
@@ -3096,6 +3491,36 @@ export const transformationSchema: TransformationSchema[] = [
             examples: ["10", "-20", "N30", "bh_div_2"],
           },
           {
+            label: "Adjust DPR",
+            name: "dprEnabled",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            transformationKey: "dprEnabled",
+            helpText: "Adjust the DPR of the overlay image.",
+            fieldProps: {
+              defaultValue: false,
+            },
+          },
+          {
+            label: "DPR",
+            name: "dpr",
+            helpText:
+              "Set this value to deliver images optimised for high-resolution displays. The value can be between 0.1 and 5.",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            transformationKey: "dpr",
+            fieldProps: {
+              defaultValue: "auto",
+              autoOption: true,
+              min: 0.1,
+              max: 5,
+              step: 0.1,
+            },
+            isVisible: ({ dprEnabled }) => dprEnabled === true,
+          },
+          {
             label: "Opacity",
             name: "opacity",
             fieldType: "slider",
@@ -3175,15 +3600,32 @@ export const transformationSchema: TransformationSchema[] = [
           },
           {
             label: "Trim",
-            name: "trim",
+            name: "trimEnabled",
             fieldType: "switch",
-            isTransformation: true,
-            transformationKey: "trim",
+            isTransformation: false,
+            transformationKey: "trimEnabled",
             transformationGroup: "imageLayer",
             helpText: "Control trimming of the overlay image.",
             fieldProps: {
               defaultValue: true,
             },
+          },
+          {
+            label: "Trim Threshold",
+            name: "trimThreshold",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationKey: "trimThreshold",
+            transformationGroup: "imageLayer",
+            helpText:
+              "Control the intensity of this effect using a threshold value between 1% and 99%.",
+            fieldProps: {
+              min: 1,
+              max: 99,
+              step: 1,
+              defaultValue: 10,
+            },
+            isVisible: ({ trimEnabled }) => trimEnabled === true,
           },
           {
             label: "Quality",
@@ -3215,6 +3657,133 @@ export const transformationSchema: TransformationSchema[] = [
               defaultValue: "0",
             },
           },
+          {
+            label: "Border Width",
+            name: "borderWidth",
+            fieldType: "input",
+            isTransformation: false,
+            transformationKey: "borderWidth",
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              defaultValue: "",
+            },
+            helpText: "Enter the width of the border or expression of the overlay image.",
+            examples: ["10", "ch_div_2"],
+          },
+          {
+            label: "Border Color",
+            name: "borderColor",
+            fieldType: "color-picker",
+            isTransformation: false,
+            transformationKey: "borderColor",
+            transformationGroup: "imageLayer",
+            isVisible: ({ borderWidth }) => (borderWidth as string) !== "",
+            helpText: "Select the color of the border of the overlay image.",
+            fieldProps: {
+              hideOpacity: true,
+              showHexAlpha: false,
+              defaultValue: "#000000",
+            },
+          },
+          {
+            label: "Sharpen Overlay",
+            name: "sharpenEnabled",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationKey: "sharpenEnabled",
+            transformationGroup: "imageLayer",
+            helpText:
+              "Toggle to sharpen the overlay image to highlight edges and fine details.",
+            fieldProps: {
+              defaultValue: false,
+            },
+          },
+          {
+            label: "Sharpen Threshold",
+            name: "sharpen",
+            fieldType: "slider",
+            isTransformation: false,
+            transformationKey: "sharpen",
+            transformationGroup: "imageLayer",
+            helpText:
+              "Sharpen the overlay image. Control the intensity of this effect using a threshold value between 1% and 99%.",
+            fieldProps: {
+              min: 1,
+              defaultValue: 50,
+              max: 99,
+              step: 1,
+            },
+            isVisible: ({ sharpenEnabled }) => sharpenEnabled === true,
+          },
+          {
+            name: "unsharpenMask",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Toggle to unsharpen the overlay image to remove the edges and finer details within an image.",
+            fieldProps: {
+              defaultValue: false,
+            },
+            label: "Unsharpen Mask",
+          },
+          {
+            name: "unsharpenMaskRadius",
+            fieldType: "input",
+            label: "Radius",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Controls how wide the sharpening effect spreads from each edge. Larger values affect broader areas; smaller values focus on fine details.",
+            fieldProps: {
+              defaultValue: "",
+            },
+            examples: ["1", "8", "15"],
+            isVisible: ({ unsharpenMask }) => unsharpenMask === true,
+          },
+          {
+            name: "unsharpenMaskSigma",
+            fieldType: "input",
+            label: "Sigma",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Defines the amount of blur used to detect edges before sharpening. Higher values smooth more before sharpening; lower values preserve fine textures.",
+            fieldProps: {
+              defaultValue: "",
+            },
+            examples: ["1", "5", "6"],
+            isVisible: ({ unsharpenMask }) => unsharpenMask === true,
+          },
+          {
+            name: "unsharpenMaskAmount",
+            fieldType: "input",
+            label: "Amount",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Sets the strength of the sharpening effect.",
+            fieldProps: {
+              defaultValue: "",
+            },
+            examples: ["0.1", "2", "0.8"],
+            isVisible: ({ unsharpenMask }) => unsharpenMask === true,
+          },
+          {
+            name: "unsharpenMaskThreshold",
+            fieldType: "input",
+            label: "Threshold",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Set the threshold value for the unsharpen mask.",
+            fieldProps: {
+              defaultValue: "",
+            },
+            examples: ["0.1", "2", "0.8"],
+            isVisible: ({ unsharpenMask }) => unsharpenMask === true,
+          },
+
           {
             label: "Gradient",
             name: "gradientSwitch",
@@ -3539,10 +4108,11 @@ export const transformationFormatters: Record<
       shadowOffsetX !== "" &&
       typeof shadowOffsetX === "number"
     ) {
-      if (shadowOffsetX < 0) {
-        params.push(`x-N${Math.abs(shadowOffsetX)}`)
+      const offsetX = Number(shadowOffsetX)
+      if (!Number.isNaN(offsetX) && offsetX < 0) {
+        params.push(`x-N${Math.abs(offsetX)}`)
       } else {
-        params.push(`x-${shadowOffsetX}`)
+        params.push(`x-${offsetX}`)
       }
     }
     // Vertical offset; negative values should include N prefix as part of the value
@@ -3552,10 +4122,11 @@ export const transformationFormatters: Record<
       shadowOffsetY !== "" &&
       typeof shadowOffsetY === "number"
     ) {
-      if (shadowOffsetY < 0) {
-        params.push(`y-N${Math.abs(shadowOffsetY)}`)
+      const offsetY = Number(shadowOffsetY)
+      if (!Number.isNaN(offsetY) && offsetY < 0) {
+        params.push(`y-N${Math.abs(offsetY)}`)
       } else {
-        params.push(`y-${shadowOffsetY}`)
+        params.push(`y-${offsetY}`)
       }
     }
     // Compose the final transform string
@@ -3605,7 +4176,7 @@ export const transformationFormatters: Record<
     if (
       mode === "uniform" &&
       (typeof padding === "number" ||
-      typeof padding === "string")
+        typeof padding === "string")
     ) {
       overlayTransform.padding = padding
     } else if (mode === "individual" && typeof padding === "object" && padding !== null) {
@@ -3624,6 +4195,9 @@ export const transformationFormatters: Record<
         paddingString = `${top}_${right}_${bottom}_${left}`
       }
       overlayTransform.padding = paddingString
+    }
+    if (typeof values.lineHeight === "number" || typeof values.lineHeight === "string") {
+      overlayTransform.lineHeight = values.lineHeight
     }
 
 
@@ -3690,13 +4264,13 @@ export const transformationFormatters: Record<
       typeof values.positionX === "number" ||
       typeof values.positionX === "string"
     ) {
-      position.x = values.positionX.toString().replace(/^-/,"N")
+      position.x = values.positionX.toString().replace(/^-/, "N")
     }
     if (
       typeof values.positionY === "number" ||
       typeof values.positionY === "string"
     ) {
-      position.y = values.positionY.toString().replace(/^-/,"N")
+      position.y = values.positionY.toString().replace(/^-/, "N")
     }
     if (Object.keys(position).length > 0) {
       overlay.position = position
@@ -3771,10 +4345,18 @@ export const transformationFormatters: Record<
       overlayTransform.rotation = values.rotation
     }
 
-    if (typeof values.trim === "boolean") {
-      overlayTransform.trim = values.trim
+    if (values.unsharpenMask === true) {
+      overlayTransform["e-usm"] = `${values.unsharpenMaskRadius}-${values.unsharpenMaskSigma}-${values.unsharpenMaskAmount}-${values.unsharpenMaskThreshold}`
     }
-
+    if (
+      values.trimEnabled === true &&
+      typeof values.trimThreshold === "number"
+    ) {
+      overlayTransform.t = values.trimThreshold
+    }
+    if (values.dpr && values.dprEnabled === true) {
+      overlayTransform.dpr = values.dpr
+    }
     if (values.quality) {
       overlayTransform.quality = values.quality
     }
@@ -3783,6 +4365,19 @@ export const transformationFormatters: Record<
       overlayTransform.blur = values.blur
     }
 
+    if (values.sharpenEnabled === true) {
+      if (values.sharpen === 50) {
+        overlayTransform.sharpen = ""
+      } else {
+        overlayTransform.sharpen = values.sharpen
+      }
+    }
+    if (
+      values.borderWidth &&
+      values.borderColor && typeof values.borderColor === "string"
+    ) {
+      overlayTransform.b = `${values.borderWidth}_${values.borderColor.replace(/^#/, "")}`
+    }
     const { crop, focusAnchor } = values
 
     transformationFormatters.focus(values, overlayTransform)
@@ -3806,10 +4401,10 @@ export const transformationFormatters: Record<
     // Positioning via x/y or focus anchor
     const position: Record<string, unknown> = {}
     if (values.positionX) {
-      position.x = values.positionX.toString().replace(/^-/,"N")
+      position.x = values.positionX.toString().replace(/^-/, "N")
     }
     if (values.positionY) {
-      position.y = values.positionY.toString().replace(/^-/,"N")
+      position.y = values.positionY.toString().replace(/^-/, "N")
     }
 
     if (Object.keys(position).length > 0) {
@@ -3832,6 +4427,21 @@ export const transformationFormatters: Record<
       transforms.flip = flip.join("_")
     }
   },
+  trim: (values, transforms) => {
+    const { trimEnabled, trim } = values as {
+      trimEnabled?: boolean
+      trim?: "default" | number
+    }
+    if (!trimEnabled) return
+
+    // Numeric threshold 1–99
+    if (typeof trim === "number") {
+      const threshold = Math.trunc(trim)
+      if (threshold >= 1 && threshold <= 99) {
+        transforms.trim = threshold
+      }
+    }
+  },
   aiChangeBackground: (values, transforms) => {
     if (values.changebg) {
       if (SIMPLE_OVERLAY_TEXT_REGEX.test(values.changebg as string)) {
@@ -3851,6 +4461,62 @@ export const transformationFormatters: Record<
     } else if (values.rotate === "auto") {
       transforms.rotation = "auto"
     }
+  },
+  colorReplace: (values, transforms) => {
+    const { fromColor, toColor, tolerance } = values as {
+      fromColor?: string
+      toColor?: string
+      tolerance?: number
+    }
+
+    // Color replace requires at least toColor
+    if (!toColor || toColor === "") return
+
+    const params: string[] = []
+
+    // Remove # from colors if present
+    const cleanToColor = (toColor as string).replace(/^#/, "")
+    params.push(cleanToColor)
+    if (tolerance !== undefined && tolerance !== null) {
+      params.push(String(tolerance))
+    }
+    // Check if fromColor is provided and not empty
+    if (fromColor && fromColor !== "") {
+      const cleanFromColor = (fromColor as string).replace(/^#/, "")
+      params.push(cleanFromColor)
+    }
+
+    transforms.cr = params.join("_")
+  },
+  border: (values, transforms) => {
+    const { borderWidth, borderColor } = values as {
+      borderWidth?: string
+      borderColor?: string
+    }
+    if (!borderWidth || !borderColor) return
+    const cleanBorderColor = borderColor.replace(/^#/, "")
+    transforms.b = `${borderWidth}_${cleanBorderColor}`
+  },
+  sharpen: (values, transforms) => {
+    const { sharpenEnabled, sharpen } = values as {
+      sharpenEnabled?: boolean
+      sharpen: number
+    }
+    if (!sharpenEnabled) return
+    if (sharpen === 50) {
+      transforms.sharpen = ""
+    } else {
+      transforms.sharpen = sharpen
+    }
+  },
+  unsharpenMask: (values, transforms) => {
+    const { unsharpenMaskRadius, unsharpenMaskSigma, unsharpenMaskAmount, unsharpenMaskThreshold } = values as {
+      unsharpenMaskRadius: number
+      unsharpenMaskSigma: number
+      unsharpenMaskAmount: number
+      unsharpenMaskThreshold: number
+    }
+    transforms["e-usm"] = `${unsharpenMaskRadius}-${unsharpenMaskSigma}-${unsharpenMaskAmount}-${unsharpenMaskThreshold}`
   },
   gradient: (values, transforms) => {
     const { gradient, gradientSwitch } = values as { gradient: GradientPickerState; gradientSwitch: boolean }
@@ -3880,7 +4546,7 @@ export const transformationFormatters: Record<
         const formattedCoords = [x1, y1, x2, y2, x3, y3, x4, y4].map(coord => coord.toString().replace(/^-/,"N"))
         transforms["e-distort"] = `${distortPrefix}-${formattedCoords.join("_")}`
       } else if (distortType === "arc" && distortArcDegree !== undefined && distortArcDegree !== null) {
-        transforms["e-distort"] = `${distortPrefix}-${distortArcDegree.toString().replace(/^-/,"N")}`
+        transforms["e-distort"] = `${distortPrefix}-${distortArcDegree.toString().replace(/^-/, "N")}`
       }
     }
   },
