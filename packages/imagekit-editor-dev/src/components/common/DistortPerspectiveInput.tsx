@@ -1,42 +1,50 @@
 import {
   Box,
+  FormLabel,
   HStack,
-  VStack,
   Icon,
-  Text,
   Input,
   InputGroup,
-
-  useColorModeValue,
   InputLeftAddon,
-  FormLabel,
-} from "@chakra-ui/react";
-import type * as React from "react";
-import { useState, useEffect } from "react";
-import { RxArrowTopLeft } from "@react-icons/all-files/rx/RxArrowTopLeft";
-import { RxArrowTopRight } from "@react-icons/all-files/rx/RxArrowTopRight";
-import { RxArrowBottomRight } from "@react-icons/all-files/rx/RxArrowBottomRight";
-import { RxArrowBottomLeft } from "@react-icons/all-files/rx/RxArrowBottomLeft";
-import { FieldErrors } from "react-hook-form";
-
-type DistorPerspectiveFieldProps = {
-  name: string;
-  id?: string;
-  onChange: (value: PerspectiveObject) => void;
-  errors?: FieldErrors<Record<string, unknown>>;
-  value?: PerspectiveObject;
-};
+  Text,
+  useColorModeValue,
+  VStack,
+} from "@chakra-ui/react"
+import { RxArrowBottomLeft } from "@react-icons/all-files/rx/RxArrowBottomLeft"
+import { RxArrowBottomRight } from "@react-icons/all-files/rx/RxArrowBottomRight"
+import { RxArrowTopLeft } from "@react-icons/all-files/rx/RxArrowTopLeft"
+import { RxArrowTopRight } from "@react-icons/all-files/rx/RxArrowTopRight"
+import type * as React from "react"
+import { useEffect, useState } from "react"
 
 export type PerspectiveObject = {
-  x1: string;
-  y1: string;
-  x2: string;
-  y2: string;
-  x3: string;
-  y3: string;
-  x4: string;
-  y4: string;
-};
+  x1: string
+  y1: string
+  x2: string
+  y2: string
+  x3: string
+  y3: string
+  x4: string
+  y4: string
+}
+
+type ErrorObject = {
+  message: string
+}
+
+type PerspectiveErrors = {
+  [key in keyof PerspectiveObject]?: ErrorObject
+} & ErrorObject
+
+type AllErrors = Record<string, PerspectiveErrors>
+
+type DistorPerspectiveFieldProps = {
+  name: string
+  id?: string
+  onChange: (value: PerspectiveObject) => void
+  errors?: AllErrors
+  value?: PerspectiveObject
+}
 
 export const DistortPerspectiveInput: React.FC<DistorPerspectiveFieldProps> = ({
   id,
@@ -45,32 +53,34 @@ export const DistortPerspectiveInput: React.FC<DistorPerspectiveFieldProps> = ({
   name: propertyName,
   value,
 }) => {
-  const [perspective, setPerspective] = useState<PerspectiveObject>(value ?? {
-    x1: "",
-    y1: "",
-    x2: "",
-    y2: "",
-    x3: "",
-    y3: "",
-    x4: "",
-    y4: "",
-  });
-  const errorRed = useColorModeValue("red.500", "red.300");
-  const leftAccessoryBackground = useColorModeValue("gray.100", "gray.700");
+  const [perspective, setPerspective] = useState<PerspectiveObject>(
+    value ?? {
+      x1: "",
+      y1: "",
+      x2: "",
+      y2: "",
+      x3: "",
+      y3: "",
+      x4: "",
+      y4: "",
+    },
+  )
+  const errorRed = useColorModeValue("red.500", "red.300")
+  const leftAccessoryBackground = useColorModeValue("gray.100", "gray.700")
 
   function handleFieldChange(fieldName: string) {
     return (e: React.ChangeEvent<HTMLInputElement>) => {
-      const val = e.target.value.trim();
+      const val = e.target.value.trim()
       setPerspective((prev) => ({
         ...prev,
         [fieldName]: val?.toUpperCase(),
-      }));
-    };
+      }))
+    }
   }
 
   useEffect(() => {
-    onChange(perspective);
-  }, [perspective]);
+    onChange(perspective)
+  }, [perspective])
 
   return (
     <VStack as="fieldset" id={id} role="group" spacing={3} alignItems="stretch">
@@ -125,44 +135,38 @@ export const DistortPerspectiveInput: React.FC<DistorPerspectiveFieldProps> = ({
           <HStack alignItems="flex-start">
             <VStack spacing={1} alignItems="flex-start">
               <InputGroup>
-                <InputLeftAddon
-                  children={x.toUpperCase()}
-                  fontSize="sm"
-                />
+                <InputLeftAddon fontSize="sm">{x.toUpperCase()}</InputLeftAddon>
                 <Input
                   fontSize="sm"
                   value={perspective[x as keyof PerspectiveObject] ?? ""}
-                  isInvalid={!!errors?.[propertyName]?.[x]}
+                  isInvalid={!!errors?.[propertyName]?.[x as keyof PerspectiveObject]}
                   onChange={handleFieldChange(x)}
                 />
               </InputGroup>
               <Text fontSize="xs" color={errorRed}>
-                {errors?.[propertyName]?.[x]?.message}
+                {errors?.[propertyName]?.[x as keyof PerspectiveObject  ]?.message}
               </Text>
             </VStack>
 
             <VStack spacing={1}>
               <InputGroup>
-                <InputLeftAddon
-                  children={y.toUpperCase()}
-                  fontSize="sm"
-                />
+                <InputLeftAddon fontSize="sm">{y.toUpperCase()}</InputLeftAddon>
                 <Input
                   fontSize="sm"
                   value={perspective[y as keyof PerspectiveObject] ?? ""}
-                  isInvalid={!!errors?.[propertyName]?.[y]}
+                  isInvalid={!!errors?.[propertyName]?.[y as keyof PerspectiveObject]}
                   onChange={handleFieldChange(y)}
                 />
               </InputGroup>
               <Text fontSize="xs" color={errorRed}>
-                {errors?.[propertyName]?.[y]?.message}
+                {errors?.[propertyName]?.[y as keyof PerspectiveObject]?.message}
               </Text>
             </VStack>
           </HStack>
         </VStack>
       ))}
     </VStack>
-  );
-};
+  )
+}
 
-export default DistortPerspectiveInput;
+export default DistortPerspectiveInput

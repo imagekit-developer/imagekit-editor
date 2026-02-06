@@ -1,17 +1,16 @@
 import {
+  ButtonGroup,
   HStack,
+  IconButton,
   Input,
   InputGroup,
   InputRightElement,
-  IconButton,
-  ButtonGroup,
   Text,
-  useColorModeValue,
 } from "@chakra-ui/react"
-import type * as React from "react"
-import { useState, useEffect } from "react"
-import { AiOutlinePlus } from "@react-icons/all-files/ai/AiOutlinePlus"
 import { AiOutlineMinus } from "@react-icons/all-files/ai/AiOutlineMinus"
+import { AiOutlinePlus } from "@react-icons/all-files/ai/AiOutlinePlus"
+import type * as React from "react"
+import { useEffect, useState } from "react"
 
 type ZoomInputFieldProps = {
   id?: string
@@ -22,13 +21,12 @@ type ZoomInputFieldProps = {
 
 const STEP_SIZE = 10
 
-
 /**
  * Calculate the next zoom value when zooming in
  * Rounds up to the next step value
  */
 function calculateZoomIn(currentValue: number): number {
-  return (Math.floor(currentValue / STEP_SIZE) * STEP_SIZE) + STEP_SIZE
+  return Math.floor(currentValue / STEP_SIZE) * STEP_SIZE + STEP_SIZE
 }
 
 /**
@@ -36,7 +34,7 @@ function calculateZoomIn(currentValue: number): number {
  * Rounds down to the previous step value
  */
 function calculateZoomOut(currentValue: number): number {
-  return (Math.ceil(currentValue / STEP_SIZE) * STEP_SIZE) - STEP_SIZE
+  return Math.ceil(currentValue / STEP_SIZE) * STEP_SIZE - STEP_SIZE
 }
 
 export const ZoomInput: React.FC<ZoomInputFieldProps> = ({
@@ -46,7 +44,9 @@ export const ZoomInput: React.FC<ZoomInputFieldProps> = ({
   value,
 }) => {
   const [zoomValue, setZoomValue] = useState<number>(value ?? defaultValue)
-  const [inputValue, setInputValue] = useState<string>((value ?? defaultValue).toString())
+  const [inputValue, setInputValue] = useState<string>(
+    (value ?? defaultValue).toString(),
+  )
 
   useEffect(() => {
     onChange(zoomValue)
@@ -56,9 +56,9 @@ export const ZoomInput: React.FC<ZoomInputFieldProps> = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setInputValue(value)
-    
+
     const numValue = Number(value)
-    if (!isNaN(numValue) && numValue >= 0) {
+    if (!Number.isNaN(numValue) && numValue >= 0) {
       setZoomValue(numValue)
     }
   }
@@ -87,13 +87,7 @@ export const ZoomInput: React.FC<ZoomInputFieldProps> = ({
   }
 
   return (
-    <HStack
-      as="fieldset"
-      id={id}
-      role="group"
-      spacing={2}
-      alignItems="stretch"
-    > 
+    <HStack as="fieldset" id={id} role="group" spacing={2} alignItems="stretch">
       <InputGroup maxWidth="120px">
         <Input
           type="number"
@@ -123,7 +117,6 @@ export const ZoomInput: React.FC<ZoomInputFieldProps> = ({
           onClick={handleZoomIn}
         />
       </ButtonGroup>
-
     </HStack>
   )
 }
