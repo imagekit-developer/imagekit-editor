@@ -25,6 +25,7 @@ jobs:
       - name: 📦  Install deps, build, pack
         run: |
           yarn install --frozen-lockfile
+          yarn lint
           yarn package
         env:
           CI: true

@@ -22,11 +22,13 @@ jobs:
         with:
           node-version: 20.x
           cache: yarn
-          registry-url: 'https://registry.npmjs.org'
+          registry-url: "https://registry.npmjs.org"
 
       - name: Build and Publish
         run: |
           yarn install --frozen-lockfile
+
+          yarn lint
 
           yarn build
 
