@@ -176,7 +176,13 @@ export const optionalPositiveFloatNumberValidator = z.preprocess(
   z.coerce.number().positive({ message: "Should be a positive floating point number." }).optional()
 )
 
-export const refineUnsharpenMask = (val: any, ctx: z.RefinementCtx) => {
+export const refineUnsharpenMask = (val: {
+  unsharpenMask?: boolean
+  unsharpenMaskRadius?: number
+  unsharpenMaskSigma?: number
+  unsharpenMaskAmount?: number
+  unsharpenMaskThreshold?: number
+}, ctx: z.RefinementCtx) => {
   if (val.unsharpenMask === true) {
     if (!val.unsharpenMaskRadius) {
       ctx.addIssue({

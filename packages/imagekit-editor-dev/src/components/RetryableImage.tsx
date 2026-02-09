@@ -11,7 +11,6 @@ import {
 } from "@chakra-ui/react"
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useVisibility } from "../hooks/useVisibility"
-import { useEditorStore } from "../store"
 
 export interface RetryableImageProps extends ImageProps {
   maxRetries?: number
@@ -105,11 +104,12 @@ export default function RetryableImage(props: RetryableImageProps) {
     setProbing(true)
   }, [currentSrcBase, src])
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <not needed>
   useEffect(() => {
     if (!src) return
     if (lazy && !visible) return
     setAttempt(0)
-    beginLoad(0)
+    beginLoad()
   }, [src, visible, lazy])
 
   const scheduleRetry = useCallback(() => {
@@ -156,7 +156,7 @@ export default function RetryableImage(props: RetryableImageProps) {
   }
 
   return (
-    <Box ref={rootRef as any} position="relative" display="inline-block">
+    <Box ref={rootRef as React.RefObject<HTMLDivElement>} position="relative" display="inline-block">
       {error ? (
         <Center
           w={imgProps.width || "full"}

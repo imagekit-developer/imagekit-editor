@@ -7,7 +7,7 @@ import {
   PopoverTrigger,
 } from "@chakra-ui/react"
 import { memo, useEffect, useState } from "react"
-import ColorPicker, { ColorPickerProps } from "react-best-gradient-color-picker"
+import ColorPicker, { type ColorPickerProps } from "react-best-gradient-color-picker"
 import { useDebounce } from "../../hooks/useDebounce"
 
 const ColorPickerField = ({

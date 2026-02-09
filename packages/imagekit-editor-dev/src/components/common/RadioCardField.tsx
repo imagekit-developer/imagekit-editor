@@ -58,6 +58,7 @@ export const RadioCardField: React.FC<RadioCardFieldProps> = ({
       {options.map((opt) => {
         const isSelected = value === opt.value
         return (
+          // biome-ignore lint/a11y/useSemanticElements: <needed by chakra>
           <Box
             key={opt.value}
             role="radio"
@@ -79,7 +80,7 @@ export const RadioCardField: React.FC<RadioCardFieldProps> = ({
             }}
           >
             <Flex align="center" gap="2">
-              {opt.icon ? <Icon as={opt.icon as any} boxSize="16px" /> : null}
+              {opt.icon ? <Icon as={opt.icon as As} boxSize="16px" /> : null}
               <Text fontSize="sm" noOfLines={1}>
                 {opt.label}
               </Text>

@@ -3317,7 +3317,7 @@ export const transformationSchema: TransformationSchema[] = [
             unsharpenMaskThreshold:
               optionalPositiveFloatNumberValidator.optional(),
           })
-          .superRefine(refineUnsharpenMask)
+          .superRefine((val, ctx) => refineUnsharpenMask(val, ctx))
           .refine(
             (val) => {
               return Object.values(val).some(

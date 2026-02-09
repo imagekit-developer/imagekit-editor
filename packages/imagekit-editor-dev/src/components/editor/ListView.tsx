@@ -59,6 +59,7 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
               if (!currentImage) return
               const idx = imageList.findIndex((img) => img === currentImage)
               if (idx === -1) return
+              // biome-ignore lint/style/noNonNullAssertion: <required here>
               setImageDimensions(originalImageList[idx]!.url, {
                 width: event.currentTarget.naturalWidth,
                 height: event.currentTarget.naturalHeight,
