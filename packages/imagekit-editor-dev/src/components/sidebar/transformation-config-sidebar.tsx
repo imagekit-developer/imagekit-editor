@@ -448,7 +448,11 @@ export const TransformationConfigSidebar: React.FC = () => {
                   {...register(field.name)}
                   {...(field.fieldProps ?? {})}
                   defaultValue={
-                    field.fieldProps?.defaultValue as string | number | readonly string[] | undefined
+                    field.fieldProps?.defaultValue as
+                      | string
+                      | number
+                      | readonly string[]
+                      | undefined
                   }
                 />
               ) : null}

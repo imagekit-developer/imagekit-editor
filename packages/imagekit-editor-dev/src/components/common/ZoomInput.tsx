@@ -43,7 +43,9 @@ export const ZoomInput: React.FC<ZoomInputFieldProps> = ({
   defaultValue = 100,
   value,
 }) => {
-  const [zoomValue, setZoomValue] = useState<number>(value ?? (defaultValue as number))
+  const [zoomValue, setZoomValue] = useState<number>(
+    value ?? (defaultValue as number),
+  )
   const [inputValue, setInputValue] = useState<string>(
     (value ?? (defaultValue as number)).toString(),
   )

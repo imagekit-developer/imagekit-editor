@@ -156,7 +156,11 @@ export default function RetryableImage(props: RetryableImageProps) {
   }
 
   return (
-    <Box ref={rootRef as React.RefObject<HTMLDivElement>} position="relative" display="inline-block">
+    <Box
+      ref={rootRef as React.RefObject<HTMLDivElement>}
+      position="relative"
+      display="inline-block"
+    >
       {error ? (
         <Center
           w={imgProps.width || "full"}
