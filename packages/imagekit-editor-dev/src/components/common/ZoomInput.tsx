@@ -15,7 +15,7 @@ import { useEffect, useState } from "react"
 type ZoomInputFieldProps = {
   id?: string
   onChange: (value: number) => void
-  defaultValue?: number
+  defaultValue?: number | unknown
   value?: number
 }
 
@@ -43,11 +43,12 @@ export const ZoomInput: React.FC<ZoomInputFieldProps> = ({
   defaultValue = 100,
   value,
 }) => {
-  const [zoomValue, setZoomValue] = useState<number>(value ?? defaultValue)
+  const [zoomValue, setZoomValue] = useState<number>(value ?? (defaultValue as number))
   const [inputValue, setInputValue] = useState<string>(
-    (value ?? defaultValue).toString(),
+    (value ?? (defaultValue as number)).toString(),
   )
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <causes re-render loop if added>
   useEffect(() => {
     onChange(zoomValue)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -87,6 +88,7 @@ export const ZoomInput: React.FC<ZoomInputFieldProps> = ({
   }
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: <role used to concur to chakra standard>
     <HStack as="fieldset" id={id} role="group" spacing={2} alignItems="stretch">
       <InputGroup maxWidth="120px">
         <Input

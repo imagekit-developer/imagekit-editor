@@ -11,22 +11,21 @@ import { RxFontItalic } from "@react-icons/all-files/rx/RxFontItalic"
 import { RxTextAlignCenter } from "@react-icons/all-files/rx/RxTextAlignCenter"
 import { RxTextAlignLeft } from "@react-icons/all-files/rx/RxTextAlignLeft"
 import { RxTextAlignRight } from "@react-icons/all-files/rx/RxTextAlignRight"
-import { RefinementCtx, z } from "zod/v3"
+import { type RefinementCtx, z } from "zod/v3"
+import type { PerspectiveObject } from "../components/common/DistortPerspectiveInput"
+import type { GradientPickerState } from "../components/common/GradientPicker"
 import { SIMPLE_OVERLAY_TEXT_REGEX, safeBtoa } from "../utils"
 import {
   aspectRatioValidator,
   colorValidator,
   commonNumberAndExpressionValidator,
   heightValidator,
-  overlayBlockExprValidator,
   layerXValidator,
   layerYValidator,
   optionalPositiveFloatNumberValidator,
   refineUnsharpenMask,
   widthValidator,
 } from "./transformation"
-import { GradientPickerState } from "../components/common/GradientPicker"
-import { PerspectiveObject } from "../components/common/DistortPerspectiveInput"
 
 // Based on ImageKit's supported object list
 export const DEFAULT_FOCUS_OBJECTS = [
@@ -513,7 +512,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationGroup: "focus",
             fieldProps: {
-              isCreatable: false,
+              defaultValue: 100,
             },
             helpText:
               "Select the zoom level for the focus area. Higher zoom levels crop closer to the focus point.",
@@ -634,7 +633,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationGroup: "focus",
             fieldProps: {
-              isCreatable: false,
+              defaultValue: 100,
             },
             helpText:
               "Select the zoom level for the focus area. Higher zoom levels crop closer to the focus point.",
@@ -1038,7 +1037,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationGroup: "focus",
             fieldProps: {
-              isCreatable: false,
+              defaultValue: 100,
             },
             helpText:
               "Select the zoom level for the focus area. Higher zoom levels crop closer to the focus point.",
@@ -1370,23 +1369,33 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            gradient: z.object({
-              from: z.string().optional(),
-              to: z.string().optional(),
-              direction: z.union([
-                z.coerce.number({
-                  invalid_type_error: "Should be a number.",
-                }).min(0).max(359),
-                z.string(),
-              ]).optional(),
-              stopPoint: z.coerce.number({
-                invalid_type_error: "Should be a number.",
-              }).min(1).max(100).optional(),
-            }).optional(),
-            gradientSwitch: z.coerce
-              .boolean({
-                invalid_type_error: "Should be a boolean.",
+            gradient: z
+              .object({
+                from: z.string().optional(),
+                to: z.string().optional(),
+                direction: z
+                  .union([
+                    z.coerce
+                      .number({
+                        invalid_type_error: "Should be a number.",
+                      })
+                      .min(0)
+                      .max(359),
+                    z.string(),
+                  ])
+                  .optional(),
+                stopPoint: z.coerce
+                  .number({
+                    invalid_type_error: "Should be a number.",
+                  })
+                  .min(1)
+                  .max(100)
+                  .optional(),
               })
+              .optional(),
+            gradientSwitch: z.coerce.boolean({
+              invalid_type_error: "Should be a boolean.",
+            }),
           })
           .refine(
             (val) => {
@@ -1425,8 +1434,8 @@ export const transformationSchema: TransformationSchema[] = [
                 to: "#00000000",
                 direction: "bottom",
                 stopPoint: 100,
-              }
-            }
+              },
+            },
           },
         ],
       },
@@ -1441,17 +1450,22 @@ export const transformationSchema: TransformationSchema[] = [
           .object({
             distort: z.coerce.boolean(),
             distortType: z.enum(["perspective", "arc"]).optional(),
-            distortPerspective: z.object({
-              x1: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-              y1: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-              x2: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-              y2: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-              x3: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-              y3: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-              x4: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-              y4: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-            }).optional(),
-            distortArcDegree: z.string().regex(/^[-N]?\d+$/).optional(),
+            distortPerspective: z
+              .object({
+                x1: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+                y1: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+                x2: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+                y2: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+                x3: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+                y3: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+                x4: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+                y4: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+              })
+              .optional(),
+            distortArcDegree: z
+              .string()
+              .regex(/^[-N]?\d+$/)
+              .optional(),
           })
           .refine(
             (val) => {
@@ -1468,7 +1482,7 @@ export const transformationSchema: TransformationSchema[] = [
             },
           )
           .superRefine((val, ctx) => {
-            validatePerspectiveDistort(val, ctx);
+            validatePerspectiveDistort(val, ctx)
           }),
         transformations: [
           {
@@ -1500,7 +1514,8 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "distort-perspective-input",
             isTransformation: false,
             transformationGroup: "distort",
-            isVisible: ({ distort, distortType }) => distort === true && distortType === "perspective",
+            isVisible: ({ distort, distortType }) =>
+              distort === true && distortType === "perspective",
             fieldProps: {
               defaultValue: {
                 x1: "",
@@ -1511,8 +1526,8 @@ export const transformationSchema: TransformationSchema[] = [
                 y3: "",
                 x4: "",
                 y4: "",
-              }
-            }
+              },
+            },
           },
           {
             label: "Distortion Arc Degrees",
@@ -1520,7 +1535,8 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "slider",
             isTransformation: true,
             transformationGroup: "distort",
-            isVisible: ({ distort, distortType }) => distort === true && distortType === "arc",
+            isVisible: ({ distort, distortType }) =>
+              distort === true && distortType === "arc",
             helpText: "Enter the arc degree for the arc distortion effect.",
             examples: ["15", "30", "-45", "N50"],
             fieldProps: {
@@ -1530,8 +1546,8 @@ export const transformationSchema: TransformationSchema[] = [
               defaultValue: "0",
               inputType: "text",
               skipStepCheck: true,
-            }
-          }
+            },
+          },
         ],
       },
       {
@@ -1702,51 +1718,65 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            radius: z.object({
-              mode: z.enum(["uniform", "individual"]).optional(),
-              radius: z.union([
-                z.literal("max"),
-                z.coerce.number({
-                  invalid_type_error: "Should be a number.",
-                }).min(0, {
-                  message: "Negative values are not allowed.",
-                }),
-                z.object({
-                  topLeft: z.union([
+            radius: z
+              .object({
+                mode: z.enum(["uniform", "individual"]).optional(),
+                radius: z
+                  .union([
                     z.literal("max"),
-                    z.coerce.number({
-                      invalid_type_error: "Should be a number.",
-                    }).min(0, {
-                      message: "Negative values are not allowed.",
+                    z.coerce
+                      .number({
+                        invalid_type_error: "Should be a number.",
+                      })
+                      .min(0, {
+                        message: "Negative values are not allowed.",
+                      }),
+                    z.object({
+                      topLeft: z.union([
+                        z.literal("max"),
+                        z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
+                      ]),
+                      topRight: z.union([
+                        z.literal("max"),
+                        z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
+                      ]),
+                      bottomRight: z.union([
+                        z.literal("max"),
+                        z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
+                      ]),
+                      bottomLeft: z.union([
+                        z.literal("max"),
+                        z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
+                      ]),
                     }),
-                  ]),
-                  topRight: z.union([
-                    z.literal("max"),
-                    z.coerce.number({
-                      invalid_type_error: "Should be a number.",
-                    }).min(0, {
-                      message: "Negative values are not allowed.",
-                    }),
-                  ]),
-                  bottomRight: z.union([
-                    z.literal("max"),
-                    z.coerce.number({
-                      invalid_type_error: "Should be a number.",
-                    }).min(0, {
-                      message: "Negative values are not allowed.",
-                    }),
-                  ]),
-                  bottomLeft: z.union([
-                    z.literal("max"),
-                    z.coerce.number({
-                      invalid_type_error: "Should be a number.",
-                    }).min(0, {
-                      message: "Negative values are not allowed.",
-                    }),
-                  ]),
-                }),
-              ]).optional(),
-            }).optional(),
+                  ])
+                  .optional(),
+              })
+              .optional(),
           })
           .refine(
             (val) => {
@@ -1773,8 +1803,8 @@ export const transformationSchema: TransformationSchema[] = [
               "Enter a positive integer for rounded corners or 'max' for a fully circular output.",
             examples: ["10", "max"],
             fieldProps: {
-              defaultValue: {}
-            }
+              defaultValue: {},
+            },
           },
         ],
       },
@@ -2099,19 +2129,27 @@ export const transformationSchema: TransformationSchema[] = [
         docsLink:
           "https://imagekit.io/docs/effects-and-enhancements#unsharp-mask---e-usm",
         defaultTransformation: {},
-        schema: z.object({
-          unsharpenMaskRadius: z.coerce.number().positive({ message: "Should be a positive floating point number." }),
-          unsharpenMaskSigma: z.coerce.number().positive({ message: "Should be a positive floating point number." }),
-          unsharpenMaskAmount: z.coerce.number().positive({ message: "Should be a positive floating point number." }),
-          unsharpenMaskThreshold: z.coerce.number().positive({ message: "Should be a positive floating point number." }),
-        })
-          .refine(
-            (val) => {
-              if (Object.values(val).some((v) => v !== undefined && v !== null)) {
-                return true
-              }
-              return false
+        schema: z
+          .object({
+            unsharpenMaskRadius: z.coerce.number().positive({
+              message: "Should be a positive floating point number.",
             }),
+            unsharpenMaskSigma: z.coerce.number().positive({
+              message: "Should be a positive floating point number.",
+            }),
+            unsharpenMaskAmount: z.coerce.number().positive({
+              message: "Should be a positive floating point number.",
+            }),
+            unsharpenMaskThreshold: z.coerce.number().positive({
+              message: "Should be a positive floating point number.",
+            }),
+          })
+          .refine((val) => {
+            if (Object.values(val).some((v) => v !== undefined && v !== null)) {
+              return true
+            }
+            return false
+          }),
         transformations: [
           {
             name: "unsharpenMaskRadius",
@@ -2145,8 +2183,7 @@ export const transformationSchema: TransformationSchema[] = [
             label: "Amount",
             isTransformation: false,
             transformationGroup: "unsharpenMask",
-            helpText:
-              "Sets the strength of the sharpening effect.",
+            helpText: "Sets the strength of the sharpening effect.",
             fieldProps: {
               defaultValue: "",
             },
@@ -2158,15 +2195,14 @@ export const transformationSchema: TransformationSchema[] = [
             label: "Threshold",
             isTransformation: false,
             transformationGroup: "unsharpenMask",
-            helpText:
-              "Set the threshold value for the unsharpen mask.",
+            helpText: "Set the threshold value for the unsharpen mask.",
             fieldProps: {
               defaultValue: "",
             },
             examples: ["0.1", "2", "0.8"],
           },
-        ]
-      }
+        ],
+      },
     ],
   },
   {
@@ -2644,15 +2680,16 @@ export const transformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            dpr:
-              z.union([
+            dpr: z
+              .union([
                 z.coerce
                   .number({
                     invalid_type_error: "Should be a number.",
                   })
                   .optional(),
                 z.literal("auto"),
-              ]).optional(),
+              ])
+              .optional(),
           })
           .refine(
             (val) => {
@@ -2718,38 +2755,51 @@ export const transformationSchema: TransformationSchema[] = [
             innerAlignment: z
               .enum(["left", "right", "center"])
               .default("center"),
-            padding: z.object({
-              mode: z.enum(["uniform", "individual"]).optional(),
-              padding: z.union([
-                z.coerce.number({
-                  invalid_type_error: "Should be a number.",
-                }).min(0, {
-                  message: "Negative values are not allowed.",
-                }),
-                z.object({
-                  top: z.coerce.number({
-                    invalid_type_error: "Should be a number.",
-                  }).min(0, {
-                    message: "Negative values are not allowed.",
-                  }),
-                  right: z.coerce.number({
-                    invalid_type_error: "Should be a number.",
-                  }).min(0, {
-                    message: "Negative values are not allowed.",
-                  }),
-                  bottom: z.coerce.number({
-                    invalid_type_error: "Should be a number.",
-                  }).min(0, {
-                    message: "Negative values are not allowed.",
-                  }),
-                  left: z.coerce.number({
-                    invalid_type_error: "Should be a number.",
-                  }).min(0, {
-                    message: "Negative values are not allowed.",
-                  }),
-                }),
-              ]).optional(),
-            })
+            padding: z
+              .object({
+                mode: z.enum(["uniform", "individual"]).optional(),
+                padding: z
+                  .union([
+                    z.coerce
+                      .number({
+                        invalid_type_error: "Should be a number.",
+                      })
+                      .min(0, {
+                        message: "Negative values are not allowed.",
+                      }),
+                    z.object({
+                      top: z.coerce
+                        .number({
+                          invalid_type_error: "Should be a number.",
+                        })
+                        .min(0, {
+                          message: "Negative values are not allowed.",
+                        }),
+                      right: z.coerce
+                        .number({
+                          invalid_type_error: "Should be a number.",
+                        })
+                        .min(0, {
+                          message: "Negative values are not allowed.",
+                        }),
+                      bottom: z.coerce
+                        .number({
+                          invalid_type_error: "Should be a number.",
+                        })
+                        .min(0, {
+                          message: "Negative values are not allowed.",
+                        }),
+                      left: z.coerce
+                        .number({
+                          invalid_type_error: "Should be a number.",
+                        })
+                        .min(0, {
+                          message: "Negative values are not allowed.",
+                        }),
+                    }),
+                  ])
+                  .optional(),
+              })
               .optional(),
             opacity: z
               .union([
@@ -3048,13 +3098,14 @@ export const transformationSchema: TransformationSchema[] = [
               .optional(),
             backgroundColor: z.string().optional(),
             dprEnabled: z.boolean().optional(),
-            dpr: z.union([
-              z.coerce
-                .number({
+            dpr: z
+              .union([
+                z.coerce.number({
                   invalid_type_error: "Should be a number.",
                 }),
-              z.literal("auto"),
-            ]).optional(),
+                z.literal("auto"),
+              ])
+              .optional(),
             flip: z
               .array(z.enum(["horizontal", "vertical"]).optional())
               .optional(),
@@ -3103,20 +3154,32 @@ export const transformationSchema: TransformationSchema[] = [
             gradientSwitch: z.coerce
               .boolean({
                 invalid_type_error: "Should be a boolean.",
-              }).optional(),
-            gradient: z.object({
-              from: z.string().optional(),
-              to: z.string().optional(),
-              direction: z.union([
-                z.coerce.number({
-                  invalid_type_error: "Should be a number.",
-                }).min(0).max(359),
-                z.string(),
-              ]).optional(),
-              stopPoint: z.coerce.number({
-                invalid_type_error: "Should be a number.",
-              }).min(1).max(100).optional(),
-            }).optional(),
+              })
+              .optional(),
+            gradient: z
+              .object({
+                from: z.string().optional(),
+                to: z.string().optional(),
+                direction: z
+                  .union([
+                    z.coerce
+                      .number({
+                        invalid_type_error: "Should be a number.",
+                      })
+                      .min(0)
+                      .max(359),
+                    z.string(),
+                  ])
+                  .optional(),
+                stopPoint: z.coerce
+                  .number({
+                    invalid_type_error: "Should be a number.",
+                  })
+                  .min(1)
+                  .max(100)
+                  .optional(),
+              })
+              .optional(),
 
             // Shadow properties
             shadow: z.coerce
@@ -3155,64 +3218,83 @@ export const transformationSchema: TransformationSchema[] = [
             // Distort
             distort: z.coerce.boolean(),
             distortType: z.enum(["perspective", "arc"]).optional(),
-            distortPerspective: z.object({
-              x1: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-              y1: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-              x2: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-              y2: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-              x3: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-              y3: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-              x4: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-              y4: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-            }).optional(),
-            distortArcDegree: z.string().regex(/^[-N]?\d+$/).optional(),
+            distortPerspective: z
+              .object({
+                x1: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+                y1: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+                x2: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+                y2: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+                x3: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+                y3: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+                x4: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+                y4: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+              })
+              .optional(),
+            distortArcDegree: z
+              .string()
+              .regex(/^[-N]?\d+$/)
+              .optional(),
 
             // Radius
-            radius: z.object({
-              mode: z.enum(["uniform", "individual"]).optional(),
-              radius: z.union([
-                z.literal("max"),
-                z.coerce.number({
-                  invalid_type_error: "Should be a number.",
-                }).min(0, {
-                  message: "Negative values are not allowed.",
-                }),
-                z.object({
-                  topLeft: z.union([
+            radius: z
+              .object({
+                mode: z.enum(["uniform", "individual"]).optional(),
+                radius: z
+                  .union([
                     z.literal("max"),
-                    z.coerce.number({
-                      invalid_type_error: "Should be a number.",
-                    }).min(0, {
-                      message: "Negative values are not allowed.",
+                    z.coerce
+                      .number({
+                        invalid_type_error: "Should be a number.",
+                      })
+                      .min(0, {
+                        message: "Negative values are not allowed.",
+                      }),
+                    z.object({
+                      topLeft: z.union([
+                        z.literal("max"),
+                        z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
+                      ]),
+                      topRight: z.union([
+                        z.literal("max"),
+                        z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
+                      ]),
+                      bottomRight: z.union([
+                        z.literal("max"),
+                        z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
+                      ]),
+                      bottomLeft: z.union([
+                        z.literal("max"),
+                        z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
+                      ]),
                     }),
-                  ]),
-                  topRight: z.union([
-                    z.literal("max"),
-                    z.coerce.number({
-                      invalid_type_error: "Should be a number.",
-                    }).min(0, {
-                      message: "Negative values are not allowed.",
-                    }),
-                  ]),
-                  bottomRight: z.union([
-                    z.literal("max"),
-                    z.coerce.number({
-                      invalid_type_error: "Should be a number.",
-                    }).min(0, {
-                      message: "Negative values are not allowed.",
-                    }),
-                  ]),
-                  bottomLeft: z.union([
-                    z.literal("max"),
-                    z.coerce.number({
-                      invalid_type_error: "Should be a number.",
-                    }).min(0, {
-                      message: "Negative values are not allowed.",
-                    }),
-                  ]),
-                }),
-              ]).optional(),
-            }).optional(),
+                  ])
+                  .optional(),
+              })
+              .optional(),
             sharpenEnabled: z.coerce
               .boolean({
                 invalid_type_error: "Should be a boolean.",
@@ -3227,11 +3309,15 @@ export const transformationSchema: TransformationSchema[] = [
               .max(99)
               .optional(),
             unsharpenMask: z.coerce.boolean().optional(),
-            unsharpenMaskRadius: optionalPositiveFloatNumberValidator.optional(),
+            unsharpenMaskRadius:
+              optionalPositiveFloatNumberValidator.optional(),
             unsharpenMaskSigma: optionalPositiveFloatNumberValidator.optional(),
-            unsharpenMaskAmount: optionalPositiveFloatNumberValidator.optional(),
-            unsharpenMaskThreshold: optionalPositiveFloatNumberValidator.optional(),
-          }).superRefine(refineUnsharpenMask)
+            unsharpenMaskAmount:
+              optionalPositiveFloatNumberValidator.optional(),
+            unsharpenMaskThreshold:
+              optionalPositiveFloatNumberValidator.optional(),
+          })
+          .superRefine(refineUnsharpenMask)
           .refine(
             (val) => {
               return Object.values(val).some(
@@ -3278,7 +3364,7 @@ export const transformationSchema: TransformationSchema[] = [
               }
             }
 
-            validatePerspectiveDistort(val, ctx);
+            validatePerspectiveDistort(val, ctx)
           }),
         transformations: [
           {
@@ -3361,10 +3447,19 @@ export const transformationSchema: TransformationSchema[] = [
             transformationGroup: "imageLayer",
             fieldProps: {
               positions: [
-                "center", "top", "bottom", "left", "right", "top_left", "top_right", "bottom_left", "bottom_right",
+                "center",
+                "top",
+                "bottom",
+                "left",
+                "right",
+                "top_left",
+                "top_right",
+                "bottom_left",
+                "bottom_right",
               ],
             },
-            isVisible: ({ focus, crop }) => focus === "anchor" && crop === "cm-extract",
+            isVisible: ({ focus, crop }) =>
+              focus === "anchor" && crop === "cm-extract",
           },
           // Only for pad_resize crop mode
           {
@@ -3374,9 +3469,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationGroup: "imageLayer",
             fieldProps: {
-              positions: [
-                "center", "top", "bottom", "left", "right",
-              ],
+              positions: ["center", "top", "bottom", "left", "right"],
             },
             isVisible: ({ crop }) => crop === "cm-pad_resize",
           },
@@ -3452,7 +3545,8 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "input",
             isTransformation: true,
             transformationGroup: "imageLayer",
-            helpText: "Vertical center position of the overlay image. Use an integer or expression.",
+            helpText:
+              "Vertical center position of the overlay image. Use an integer or expression.",
             examples: ["200", "ih_mul_0.5"],
             isVisible: ({ focus, coordinateMethod }) =>
               focus === "coordinates" && coordinateMethod === "center",
@@ -3464,7 +3558,7 @@ export const transformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationGroup: "imageLayer",
             fieldProps: {
-              isCreatable: false,
+              defaultValue: 100,
             },
             helpText:
               "Select the zoom level for the focus area. Higher zoom levels crop closer to the focus point.",
@@ -3555,8 +3649,8 @@ export const transformationSchema: TransformationSchema[] = [
               "Set the corner radius for the overlay image. Use 'max' for a circle or oval.",
             examples: ["10", "max"],
             fieldProps: {
-              defaultValue: {}
-            }
+              defaultValue: {},
+            },
           },
           {
             label: "Flip",
@@ -3667,7 +3761,8 @@ export const transformationSchema: TransformationSchema[] = [
             fieldProps: {
               defaultValue: "",
             },
-            helpText: "Enter the width of the border or expression of the overlay image.",
+            helpText:
+              "Enter the width of the border or expression of the overlay image.",
             examples: ["10", "ch_div_2"],
           },
           {
@@ -3761,8 +3856,7 @@ export const transformationSchema: TransformationSchema[] = [
             label: "Amount",
             isTransformation: false,
             transformationGroup: "imageLayer",
-            helpText:
-              "Sets the strength of the sharpening effect.",
+            helpText: "Sets the strength of the sharpening effect.",
             fieldProps: {
               defaultValue: "",
             },
@@ -3775,8 +3869,7 @@ export const transformationSchema: TransformationSchema[] = [
             label: "Threshold",
             isTransformation: false,
             transformationGroup: "imageLayer",
-            helpText:
-              "Set the threshold value for the unsharpen mask.",
+            helpText: "Set the threshold value for the unsharpen mask.",
             fieldProps: {
               defaultValue: "",
             },
@@ -3790,7 +3883,8 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "switch",
             isTransformation: false,
             transformationGroup: "imageLayer",
-            helpText: "Toggle to add a gradient overlay over the overlay image.",
+            helpText:
+              "Toggle to add a gradient overlay over the overlay image.",
           },
           {
             label: "Apply Gradient",
@@ -3806,8 +3900,8 @@ export const transformationSchema: TransformationSchema[] = [
                 to: "#00000000",
                 direction: "bottom",
                 stopPoint: 100,
-              }
-            }
+              },
+            },
           },
           {
             label: "Shadow",
@@ -3920,7 +4014,8 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "distort-perspective-input",
             isTransformation: false,
             transformationGroup: "imageLayer",
-            isVisible: ({ distort, distortType }) => distort === true && distortType === "perspective",
+            isVisible: ({ distort, distortType }) =>
+              distort === true && distortType === "perspective",
             fieldProps: {
               defaultValue: {
                 x1: "",
@@ -3931,8 +4026,8 @@ export const transformationSchema: TransformationSchema[] = [
                 y3: "",
                 x4: "",
                 y4: "",
-              }
-            }
+              },
+            },
           },
           {
             label: "Distortion Arc Degrees",
@@ -3940,7 +4035,8 @@ export const transformationSchema: TransformationSchema[] = [
             fieldType: "slider",
             isTransformation: true,
             transformationGroup: "imageLayer",
-            isVisible: ({ distort, distortType }) => distort === true && distortType === "arc",
+            isVisible: ({ distort, distortType }) =>
+              distort === true && distortType === "arc",
             helpText: "Enter the arc degree for the arc distortion effect.",
             examples: ["15", "30", "-45", "N50"],
             fieldProps: {
@@ -3950,7 +4046,7 @@ export const transformationSchema: TransformationSchema[] = [
               defaultValue: "0",
               inputType: "text",
               skipStepCheck: true,
-            }
+            },
           },
         ],
       },
@@ -4052,7 +4148,17 @@ export const transformationFormatters: Record<
     }
   },
   focus: (values, transforms) => {
-    const { focus, focusAnchor, focusObject, x, y, xc, yc, coordinateMethod, zoom } = values
+    const {
+      focus,
+      focusAnchor,
+      focusObject,
+      x,
+      y,
+      xc,
+      yc,
+      coordinateMethod,
+      zoom,
+    } = values
 
     if (focus === "auto" || focus === "face") {
       transforms.focus = focus
@@ -4073,7 +4179,12 @@ export const transformationFormatters: Record<
         if (yc) transforms.yc = yc
       }
     }
-    if (zoom !== undefined && zoom !== null && !isNaN(Number(zoom)) && zoom !== 0) {
+    if (
+      zoom !== undefined &&
+      zoom !== null &&
+      !Number.isNaN(Number(zoom)) &&
+      zoom !== 0
+    ) {
       transforms.zoom = (zoom as number) / 100
     }
   },
@@ -4175,18 +4286,21 @@ export const transformationFormatters: Record<
     const { padding, mode } = values.padding as Record<string, unknown>
     if (
       mode === "uniform" &&
-      (typeof padding === "number" ||
-        typeof padding === "string")
+      (typeof padding === "number" || typeof padding === "string")
     ) {
       overlayTransform.padding = padding
-    } else if (mode === "individual" && typeof padding === "object" && padding !== null) {
+    } else if (
+      mode === "individual" &&
+      typeof padding === "object" &&
+      padding !== null
+    ) {
       const { top, right, bottom, left } = padding as {
         top: number
         right: number
         bottom: number
         left: number
       }
-      let paddingString: string;
+      let paddingString: string
       if (top === right && top === bottom && top === left) {
         paddingString = String(top)
       } else if (top === bottom && right === left) {
@@ -4196,10 +4310,12 @@ export const transformationFormatters: Record<
       }
       overlayTransform.padding = paddingString
     }
-    if (typeof values.lineHeight === "number" || typeof values.lineHeight === "string") {
+    if (
+      typeof values.lineHeight === "number" ||
+      typeof values.lineHeight === "string"
+    ) {
       overlayTransform.lineHeight = values.lineHeight
     }
-
 
     if (Array.isArray(values.flip) && values.flip.length > 0) {
       const flip = []
@@ -4346,7 +4462,8 @@ export const transformationFormatters: Record<
     }
 
     if (values.unsharpenMask === true) {
-      overlayTransform["e-usm"] = `${values.unsharpenMaskRadius}-${values.unsharpenMaskSigma}-${values.unsharpenMaskAmount}-${values.unsharpenMaskThreshold}`
+      overlayTransform["e-usm"] =
+        `${values.unsharpenMaskRadius}-${values.unsharpenMaskSigma}-${values.unsharpenMaskAmount}-${values.unsharpenMaskThreshold}`
     }
     if (
       values.trimEnabled === true &&
@@ -4374,7 +4491,8 @@ export const transformationFormatters: Record<
     }
     if (
       values.borderWidth &&
-      values.borderColor && typeof values.borderColor === "string"
+      values.borderColor &&
+      typeof values.borderColor === "string"
     ) {
       overlayTransform.b = `${values.borderWidth}_${values.borderColor.replace(/^#/, "")}`
     }
@@ -4510,20 +4628,31 @@ export const transformationFormatters: Record<
     }
   },
   unsharpenMask: (values, transforms) => {
-    const { unsharpenMaskRadius, unsharpenMaskSigma, unsharpenMaskAmount, unsharpenMaskThreshold } = values as {
+    const {
+      unsharpenMaskRadius,
+      unsharpenMaskSigma,
+      unsharpenMaskAmount,
+      unsharpenMaskThreshold,
+    } = values as {
       unsharpenMaskRadius: number
       unsharpenMaskSigma: number
       unsharpenMaskAmount: number
       unsharpenMaskThreshold: number
     }
-    transforms["e-usm"] = `${unsharpenMaskRadius}-${unsharpenMaskSigma}-${unsharpenMaskAmount}-${unsharpenMaskThreshold}`
+    transforms["e-usm"] =
+      `${unsharpenMaskRadius}-${unsharpenMaskSigma}-${unsharpenMaskAmount}-${unsharpenMaskThreshold}`
   },
   gradient: (values, transforms) => {
-    const { gradient, gradientSwitch } = values as { gradient: GradientPickerState; gradientSwitch: boolean }
+    const { gradient, gradientSwitch } = values as {
+      gradient: GradientPickerState
+      gradientSwitch: boolean
+    }
     if (gradientSwitch && gradient) {
       const { from, to, direction, stopPoint } = gradient
-      const isDefaultGradient = (from.toUpperCase() === "#FFFFFFFF" || from.toUpperCase() === "#FFFFFF") &&
-        (to.toUpperCase() === "#00000000") &&
+      const isDefaultGradient =
+        (from.toUpperCase() === "#FFFFFFFF" ||
+          from.toUpperCase() === "#FFFFFF") &&
+        to.toUpperCase() === "#00000000" &&
         (direction === "bottom" || direction === 180) &&
         stopPoint === 100
       if (isDefaultGradient) {
@@ -4532,7 +4661,7 @@ export const transformationFormatters: Record<
         const fromColor = from.replace("#", "")
         const toColor = to.replace("#", "")
         const stopPointDecimal = (stopPoint as number) / 100
-        let gradientStr = `ld-${direction}_from-${fromColor}_to-${toColor}_sp-${stopPointDecimal}`
+        const gradientStr = `ld-${direction}_from-${fromColor}_to-${toColor}_sp-${stopPointDecimal}`
         transforms.gradient = gradientStr
       }
     }
@@ -4542,63 +4671,104 @@ export const transformationFormatters: Record<
       const { distortType, distortPerspective, distortArcDegree } = values
       const distortPrefix = distortType === "perspective" ? "p" : "a"
       if (distortType === "perspective" && distortPerspective) {
-        const { x1, y1, x2, y2, x3, y3, x4, y4 } = distortPerspective as Record<string, string>
-        const formattedCoords = [x1, y1, x2, y2, x3, y3, x4, y4].map(coord => coord.toString().replace(/^-/,"N"))
-        transforms["e-distort"] = `${distortPrefix}-${formattedCoords.join("_")}`
-      } else if (distortType === "arc" && distortArcDegree !== undefined && distortArcDegree !== null) {
-        transforms["e-distort"] = `${distortPrefix}-${distortArcDegree.toString().replace(/^-/, "N")}`
+        const { x1, y1, x2, y2, x3, y3, x4, y4 } = distortPerspective as Record<
+          string,
+          string
+        >
+        const formattedCoords = [x1, y1, x2, y2, x3, y3, x4, y4].map((coord) =>
+          coord.toString().replace(/^-/, "N"),
+        )
+        transforms["e-distort"] =
+          `${distortPrefix}-${formattedCoords.join("_")}`
+      } else if (
+        distortType === "arc" &&
+        distortArcDegree !== undefined &&
+        distortArcDegree !== null
+      ) {
+        transforms["e-distort"] =
+          `${distortPrefix}-${distortArcDegree.toString().replace(/^-/, "N")}`
       }
     }
   },
   radius: (values, transforms) => {
     if (values.radius) {
       const { radius, mode } = values.radius as Record<string, unknown>
-      if (mode === "uniform" && (typeof radius === "number" || typeof radius === "string")) {
+      if (
+        mode === "uniform" &&
+        (typeof radius === "number" || typeof radius === "string")
+      ) {
         transforms.radius = radius
-      } else if (mode === "individual" && typeof radius === "object" && radius !== null) {
+      } else if (
+        mode === "individual" &&
+        typeof radius === "object" &&
+        radius !== null
+      ) {
         const { topLeft, topRight, bottomRight, bottomLeft } = radius as {
           topLeft: number | "max"
           topRight: number | "max"
           bottomRight: number | "max"
           bottomLeft: number | "max"
         }
-        if (topLeft === topRight && topLeft === bottomRight && topLeft === bottomLeft) {
+        if (
+          topLeft === topRight &&
+          topLeft === bottomRight &&
+          topLeft === bottomLeft
+        ) {
           transforms.radius = topLeft
         } else {
           transforms.radius = `${topLeft}_${topRight}_${bottomRight}_${bottomLeft}`
         }
       }
     }
-  }
+  },
 }
 
-
-function validatePerspectiveDistort(value: {distortPerspective: PerspectiveObject, distort: boolean, distortType: string} & any, ctx: RefinementCtx) {
-  const {distort, distortType, distortPerspective} = value;
+function validatePerspectiveDistort(
+  value: {
+    distortPerspective?: PerspectiveObject
+    distort?: boolean
+    distortType?: string
+  } & Record<string, unknown>,
+  ctx: RefinementCtx,
+) {
+  const { distort, distortType, distortPerspective } = value
   if (distort && distortType === "perspective" && distortPerspective) {
-    const perspective: PerspectiveObject = structuredClone(distortPerspective);
-    let { x1, y1, x2, y2, x3, y3, x4, y4 } = Object.keys(perspective).reduce((acc, key) => {
-      const value = perspective[key as keyof typeof perspective];
-      if (!value) {
-        acc[key as keyof PerspectiveObject] = value;
-      }
-      const numString = value.toUpperCase().replace(/^N/, "-");
-      acc[key as keyof PerspectiveObject] = parseInt(numString as string, 10);
-      return acc;
-    }, {} as Record<keyof PerspectiveObject, any>);
-    const allValuesProvided = [x1, y1, x2, y2, x3, y3, x4, y4].every(v => v === 0 || Boolean(v));
+    const perspective: PerspectiveObject = structuredClone(distortPerspective)
+    const coords = Object.keys(perspective).reduce(
+      (acc, key) => {
+        const value = perspective[key as keyof typeof perspective]
+        if (!value) {
+          acc[key as keyof PerspectiveObject] = value
+        }
+        const numString = value.toUpperCase().replace(/^N/, "-")
+        acc[key as keyof PerspectiveObject] = parseInt(numString as string, 10)
+        return acc
+      },
+      {} as Record<keyof PerspectiveObject, unknown>,
+    )
+    const allValuesProvided = Object.values(coords).every(
+      (v) => typeof v === "number" && !Number.isNaN(v),
+    )
     if (allValuesProvided) {
-      const isTopLeftValid = x1 < x2 && x1 < x3 && y1 < y3 && y1 < y4;
-      const isTopRightValid = x2 > x1 && x2 > x4 && y2 < y3 && y2 < y4;
-      const isBottomRightValid = x3 > x4 && x3 > x1 && y3 > y1 && y3 > y2;
-      const isBottomLeftValid = x4 < x3 && x4 < x2 && y4 > y1 && y4 > y2;
-      let isValid = isTopLeftValid && isTopRightValid && isBottomRightValid && isBottomLeftValid;
+      const { x1, y1, x2, y2, x3, y3, x4, y4 } = coords as Record<
+        keyof PerspectiveObject,
+        number
+      >
+      const isTopLeftValid = x1 < x2 && x1 < x3 && y1 < y3 && y1 < y4
+      const isTopRightValid = x2 > x1 && x2 > x4 && y2 < y3 && y2 < y4
+      const isBottomRightValid = x3 > x4 && x3 > x1 && y3 > y1 && y3 > y2
+      const isBottomLeftValid = x4 < x3 && x4 < x2 && y4 > y1 && y4 > y2
+      const isValid =
+        isTopLeftValid &&
+        isTopRightValid &&
+        isBottomRightValid &&
+        isBottomLeftValid
       if (!isValid) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "Perspective coordinates are invalid.",
-          path: ["distortPerspective"]
-        });
+          path: ["distortPerspective"],
+        })
       }
     }
   }

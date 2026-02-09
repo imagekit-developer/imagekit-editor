@@ -3,37 +3,28 @@ import {
   Flex,
   HStack,
   Icon,
-  Text,
+  IconButton,
   Input,
   InputGroup,
   InputLeftElement,
-  IconButton,
-  useColorModeValue,
+  Text,
   Tooltip,
+  useColorModeValue,
 } from "@chakra-ui/react"
-import { set } from "lodash"
-import type * as React from "react"
-import { useState, useEffect, forwardRef } from "react"
+import { RxCornerBottomLeft } from "@react-icons/all-files/rx/RxCornerBottomLeft"
+import { RxCornerBottomRight } from "@react-icons/all-files/rx/RxCornerBottomRight"
 import { RxCornerTopLeft } from "@react-icons/all-files/rx/RxCornerTopLeft"
 import { RxCornerTopRight } from "@react-icons/all-files/rx/RxCornerTopRight"
-import { RxCornerBottomRight } from "@react-icons/all-files/rx/RxCornerBottomRight"
-import { RxCornerBottomLeft } from "@react-icons/all-files/rx/RxCornerBottomLeft"
 import { TbBorderCorners } from "@react-icons/all-files/tb/TbBorderCorners"
-import { FieldErrors } from "react-hook-form"
+import { set } from "lodash"
+import type * as React from "react"
+import { useEffect, useState } from "react"
 
 type RadiusMode = "uniform" | "individual"
 
 export type RadiusState = {
   mode: RadiusMode
   radius: RadiusObject | string
-}
-
-type RadiusInputFieldProps = {
-  id?: string
-  onChange: (value: RadiusState) => void
-  errors?: FieldErrors<Record<string, unknown>>
-  name: string,
-  value?: Partial<RadiusState>
 }
 
 export type RadiusObject = {
@@ -43,13 +34,36 @@ export type RadiusObject = {
   bottomLeft: string | "max"
 }
 
+type ErrorObject = {
+  message: string
+}
+
+type CornerErrors = {
+  [key in keyof RadiusObject]?: ErrorObject
+} & ErrorObject
+
+export type RadiusErrors = Record<
+  string,
+  {
+    radius?: CornerErrors
+  }
+>
+
+type RadiusInputFieldProps = {
+  id?: string
+  onChange: (value: RadiusState) => void
+  errors?: RadiusErrors
+  name: string
+  value?: Partial<RadiusState>
+}
+
 type RadiusDirection = "topLeft" | "topRight" | "bottomRight" | "bottomLeft"
 
 function getUpdatedRadiusValue(
   current: RadiusObject | string,
   corner: RadiusDirection | "all",
   value: string,
-  mode: "uniform" | "individual"
+  mode: "uniform" | "individual",
 ): RadiusObject | string {
   let inputValue: RadiusObject | number | string
   try {
@@ -60,14 +74,21 @@ function getUpdatedRadiusValue(
   if (mode === "uniform") {
     if (inputValue === "") {
       return ""
-    } else if (typeof inputValue === "string" || typeof inputValue === "number") {
+    } else if (
+      typeof inputValue === "string" ||
+      typeof inputValue === "number"
+    ) {
       return inputValue.toString()
     } else {
       const { topLeft, topRight, bottomRight, bottomLeft } = inputValue
-      if (topLeft === topRight && topLeft === bottomRight && topLeft === bottomLeft) {
+      if (
+        topLeft === topRight &&
+        topLeft === bottomRight &&
+        topLeft === bottomLeft
+      ) {
         return topLeft
       } else {
-        return "";
+        return ""
       }
     }
   } else {
@@ -75,9 +96,15 @@ function getUpdatedRadiusValue(
     if (typeof inputValue === "string" || typeof inputValue === "number") {
       commonValue = inputValue.toString()
     }
-    const updatedRadius = current && typeof current === "object"
-      ? { ...current }
-      : { topLeft: commonValue, topRight: commonValue, bottomRight: commonValue, bottomLeft: commonValue }
+    const updatedRadius =
+      current && typeof current === "object"
+        ? { ...current }
+        : {
+            topLeft: commonValue,
+            topRight: commonValue,
+            bottomRight: commonValue,
+            bottomLeft: commonValue,
+          }
     if (corner !== "all") {
       set(updatedRadius, corner, inputValue.toString())
     }
@@ -90,29 +117,36 @@ export const RadiusInputField: React.FC<RadiusInputFieldProps> = ({
   onChange,
   errors,
   name: propertyName,
-  value
+  value,
 }) => {
-  const [radiusMode, setRadiusMode] = useState<RadiusMode>(value?.mode ?? "uniform")
-  const [radiusValue, setRadiusValue] = useState<RadiusObject | string>(value?.radius ?? "")
+  const [radiusMode, setRadiusMode] = useState<RadiusMode>(
+    value?.mode ?? "uniform",
+  )
+  const [radiusValue, setRadiusValue] = useState<RadiusObject | string>(
+    value?.radius ?? "",
+  )
   const errorRed = useColorModeValue("red.500", "red.300")
   const activeColor = useColorModeValue("blue.500", "blue.600")
   const inactiveColor = useColorModeValue("gray.600", "gray.400")
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <causes re-render loop if added>
   useEffect(() => {
-    const formatRadiusValue = (value: RadiusObject | string): string | RadiusObject => {
+    const formatRadiusValue = (
+      value: RadiusObject | string,
+    ): string | RadiusObject => {
       if (value === "") return ""
       if (typeof value === "string") {
         return value
       } else {
-        return value;
+        return value
       }
     }
     const formattedValue = formatRadiusValue(radiusValue)
     onChange({ mode: radiusMode, radius: formattedValue })
   }, [radiusValue, radiusMode])
 
-
   return (
+    // biome-ignore lint/a11y/useSemanticElements: <role used to concur to chakra standard>
     <HStack
       as="fieldset"
       id={id}
@@ -127,27 +161,35 @@ export const RadiusInputField: React.FC<RadiusInputFieldProps> = ({
             <Input
               onChange={(e) => {
                 const val = e.target.value
-                setRadiusValue(getUpdatedRadiusValue(
-                  radiusValue,
-                  "all",
-                  val,
-                  radiusMode
-                ))
+                setRadiusValue(
+                  getUpdatedRadiusValue(radiusValue, "all", val, radiusMode),
+                )
               }}
               value={typeof radiusValue === "string" ? radiusValue : ""}
               placeholder="Uniform Radius"
               isInvalid={!!errors?.[propertyName]?.radius}
               fontSize="sm"
             />
-            <Text fontSize='xs' color={errorRed}>{errors?.[propertyName]?.radius?.message}</Text>
+            <Text fontSize="xs" color={errorRed}>
+              {errors?.[propertyName]?.radius?.message}
+            </Text>
           </Box>
         ) : (
+          // biome-ignore lint/complexity/noUselessFragments: <fragment is required otherwise syntax breaks>
           <>
             {[
               { name: "topLeft", label: "Top Left", icon: RxCornerTopLeft },
               { name: "topRight", label: "Top Right", icon: RxCornerTopRight },
-              { name: "bottomLeft", label: "Bottom Left", icon: RxCornerBottomLeft },
-              { name: "bottomRight", label: "Bottom Right", icon: RxCornerBottomRight },
+              {
+                name: "bottomLeft",
+                label: "Bottom Left",
+                icon: RxCornerBottomLeft,
+              },
+              {
+                name: "bottomRight",
+                label: "Bottom Right",
+                icon: RxCornerBottomRight,
+              },
             ].map(({ name, label, icon }) => (
               <Box flex="1 1 calc(50% - 4px)" key={name}>
                 <InputGroup>
@@ -157,20 +199,35 @@ export const RadiusInputField: React.FC<RadiusInputFieldProps> = ({
                   <Input
                     onChange={(e) => {
                       const val = e.target.value
-                      setRadiusValue(getUpdatedRadiusValue(
-                        radiusValue,
-                        name as RadiusDirection,
-                        val,
-                        radiusMode
-                      ))
+                      setRadiusValue(
+                        getUpdatedRadiusValue(
+                          radiusValue,
+                          name as RadiusDirection,
+                          val,
+                          radiusMode,
+                        ),
+                      )
                     }}
-                    value={typeof radiusValue === "object" ? radiusValue?.[name as RadiusDirection] ?? "" : ""}
+                    value={
+                      typeof radiusValue === "object"
+                        ? (radiusValue?.[name as RadiusDirection] ?? "")
+                        : ""
+                    }
                     placeholder={label}
-                    isInvalid={!!errors?.[propertyName]?.radius?.[name as RadiusDirection]}
+                    isInvalid={
+                      !!errors?.[propertyName]?.radius?.[
+                        name as RadiusDirection
+                      ]
+                    }
                     fontSize="sm"
                   />
                 </InputGroup>
-                <Text fontSize='xs' color={errorRed}>{errors?.[propertyName]?.radius?.[name as RadiusDirection]?.message}</Text>
+                <Text fontSize="xs" color={errorRed}>
+                  {
+                    errors?.[propertyName]?.radius?.[name as RadiusDirection]
+                      ?.message
+                  }
+                </Text>
               </Box>
             ))}
           </>
@@ -178,32 +235,43 @@ export const RadiusInputField: React.FC<RadiusInputFieldProps> = ({
       </Flex>
       <Tooltip
         hasArrow
-        label={radiusMode === "uniform" ? "Enable individual radius" : "Disable individual radius"}
+        label={
+          radiusMode === "uniform"
+            ? "Enable individual radius"
+            : "Disable individual radius"
+        }
         openDelay={200}
         modifiers={[
           {
-            name: 'zIndex',
+            name: "zIndex",
             enabled: true,
-            phase: 'write',
+            phase: "write",
             fn({ state }) {
-              state.elements.popper.style.zIndex = '2100';
+              state.elements.popper.style.zIndex = "2100"
             },
           },
         ]}
       >
         <IconButton
-          aria-label={radiusMode === "uniform" ? "Switch to individual radius" : "Switch to uniform radius"}
+          aria-label={
+            radiusMode === "uniform"
+              ? "Switch to individual radius"
+              : "Switch to uniform radius"
+          }
           aria-pressed={radiusMode === "individual"}
           icon={<TbBorderCorners size={20} />}
           padding="0.05em"
           onClick={() => {
-            const newRadiusMode = radiusMode === "uniform" ? "individual" : "uniform"
-            setRadiusValue(getUpdatedRadiusValue(
-              radiusValue,
-              "all",
-              JSON.stringify(radiusValue),
-              newRadiusMode
-            ))
+            const newRadiusMode =
+              radiusMode === "uniform" ? "individual" : "uniform"
+            setRadiusValue(
+              getUpdatedRadiusValue(
+                radiusValue,
+                "all",
+                JSON.stringify(radiusValue),
+                newRadiusMode,
+              ),
+            )
             setRadiusMode(newRadiusMode)
           }}
           variant="outline"

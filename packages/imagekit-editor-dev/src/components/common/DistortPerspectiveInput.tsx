@@ -32,17 +32,17 @@ type ErrorObject = {
   message: string
 }
 
-type PerspectiveErrors = {
+type CornerErrors = {
   [key in keyof PerspectiveObject]?: ErrorObject
 } & ErrorObject
 
-type AllErrors = Record<string, PerspectiveErrors>
+export type PerspectiveErrors = Record<string, CornerErrors>
 
 type DistorPerspectiveFieldProps = {
   name: string
   id?: string
   onChange: (value: PerspectiveObject) => void
-  errors?: AllErrors
+  errors?: PerspectiveErrors
   value?: PerspectiveObject
 }
 
@@ -78,11 +78,13 @@ export const DistortPerspectiveInput: React.FC<DistorPerspectiveFieldProps> = ({
     }
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <causes re-render loop if added>
   useEffect(() => {
     onChange(perspective)
   }, [perspective])
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: <role used to concur to chakra standard>
     <VStack as="fieldset" id={id} role="group" spacing={3} alignItems="stretch">
       {[
         {
@@ -139,12 +141,17 @@ export const DistortPerspectiveInput: React.FC<DistorPerspectiveFieldProps> = ({
                 <Input
                   fontSize="sm"
                   value={perspective[x as keyof PerspectiveObject] ?? ""}
-                  isInvalid={!!errors?.[propertyName]?.[x as keyof PerspectiveObject]}
+                  isInvalid={
+                    !!errors?.[propertyName]?.[x as keyof PerspectiveObject]
+                  }
                   onChange={handleFieldChange(x)}
                 />
               </InputGroup>
               <Text fontSize="xs" color={errorRed}>
-                {errors?.[propertyName]?.[x as keyof PerspectiveObject  ]?.message}
+                {
+                  errors?.[propertyName]?.[x as keyof PerspectiveObject]
+                    ?.message
+                }
               </Text>
             </VStack>
 
@@ -154,12 +161,17 @@ export const DistortPerspectiveInput: React.FC<DistorPerspectiveFieldProps> = ({
                 <Input
                   fontSize="sm"
                   value={perspective[y as keyof PerspectiveObject] ?? ""}
-                  isInvalid={!!errors?.[propertyName]?.[y as keyof PerspectiveObject]}
+                  isInvalid={
+                    !!errors?.[propertyName]?.[y as keyof PerspectiveObject]
+                  }
                   onChange={handleFieldChange(y)}
                 />
               </InputGroup>
               <Text fontSize="xs" color={errorRed}>
-                {errors?.[propertyName]?.[y as keyof PerspectiveObject]?.message}
+                {
+                  errors?.[propertyName]?.[y as keyof PerspectiveObject]
+                    ?.message
+                }
               </Text>
             </VStack>
           </HStack>

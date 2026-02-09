@@ -40,18 +40,21 @@ type ErrorObject = {
   message: string
 }
 
-type PaddingErrors = {
+type SidesErrors = {
   [key in keyof PaddingObject]?: ErrorObject
 } & ErrorObject
 
-type AllErrors = Record<string, {
-  padding?: PaddingErrors
-}>
+export type PaddingErrors = Record<
+  string,
+  {
+    padding?: SidesErrors
+  }
+>
 
 type PaddingInputFieldProps = {
   id?: string
   onChange: (value: PaddingState) => void
-  errors?: AllErrors
+  errors?: PaddingErrors
   name: string
   value?: Partial<PaddingState>
 }
@@ -121,6 +124,7 @@ export const PaddingInputField: React.FC<PaddingInputFieldProps> = ({
   const activeColor = useColorModeValue("blue.500", "blue.600")
   const inactiveColor = useColorModeValue("gray.600", "gray.400")
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <causes re-render loop if added>
   useEffect(() => {
     const formatPaddingValue = (
       value: number | PaddingObject | null | string,
@@ -139,6 +143,7 @@ export const PaddingInputField: React.FC<PaddingInputFieldProps> = ({
   }, [paddingValue, paddingMode])
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: <role used to concur to chakra standard>
     <HStack
       as="fieldset"
       id={id}
@@ -173,6 +178,7 @@ export const PaddingInputField: React.FC<PaddingInputFieldProps> = ({
             </Text>
           </Box>
         ) : (
+          // biome-ignore lint/complexity/noUselessFragments: <fragment is required otherwise syntax breaks>
           <>
             {[
               { name: "top", label: "Top", icon: LuArrowUpToLine },
