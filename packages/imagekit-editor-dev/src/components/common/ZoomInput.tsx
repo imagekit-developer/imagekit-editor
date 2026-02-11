@@ -15,7 +15,7 @@ import { useEffect, useState } from "react"
 type ZoomInputFieldProps = {
   id?: string
   onChange: (value: number) => void
-  defaultValue?: number | unknown
+  defaultValue?: number
   value?: number
 }
 
