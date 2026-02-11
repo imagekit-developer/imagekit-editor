@@ -4733,7 +4733,7 @@ function validatePerspectiveDistort(
 ) {
   const { distort, distortType, distortPerspective } = value
   if (distort && distortType === "perspective" && distortPerspective) {
-    const perspective: PerspectiveObject = structuredClone(distortPerspective)
+    const perspective: PerspectiveObject = JSON.parse(JSON.stringify(distortPerspective))
     const coords = Object.keys(perspective).reduce(
       (acc, key) => {
         const value = perspective[key as keyof typeof perspective]
