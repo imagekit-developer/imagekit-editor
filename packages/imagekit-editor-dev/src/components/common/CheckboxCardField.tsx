@@ -1,4 +1,5 @@
 import {
+  type As,
   Box,
   Flex,
   HStack,
@@ -67,6 +68,7 @@ export const CheckboxCardField: React.FC<CheckboxCardFieldProps> = ({
   }
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: <role used to concur to chakra standard>
     <HStack
       as="fieldset"
       id={id}
@@ -85,6 +87,7 @@ export const CheckboxCardField: React.FC<CheckboxCardFieldProps> = ({
         const isChecked = value.includes(opt.value)
         const disabled = opt.isDisabled || (!isChecked && isMaxed)
         return (
+          // biome-ignore lint/a11y/useSemanticElements: <role used to concur to chakra standard>
           <Box
             key={opt.value}
             data-checkbox-card
@@ -114,7 +117,7 @@ export const CheckboxCardField: React.FC<CheckboxCardFieldProps> = ({
             }}
           >
             <Flex align="center" gap="2">
-              {opt.icon ? <Icon as={opt.icon as any} boxSize="16px" /> : null}
+              {opt.icon ? <Icon as={opt.icon as As} boxSize="16px" /> : null}
               <Text fontSize="sm" noOfLines={1}>
                 {opt.label}
               </Text>

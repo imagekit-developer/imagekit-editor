@@ -39,6 +39,7 @@ import { PiInfo } from "@react-icons/all-files/pi/PiInfo"
 import { PiX } from "@react-icons/all-files/pi/PiX"
 import startCase from "lodash/startCase"
 import { useEffect, useMemo } from "react"
+import type { ColorPickerProps } from "react-best-gradient-color-picker"
 import { Controller, type SubmitHandler, useForm } from "react-hook-form"
 import Select from "react-select"
 import CreateableSelect from "react-select/creatable"
@@ -50,17 +51,27 @@ import { isStepAligned } from "../../utils"
 import AnchorField from "../common/AnchorField"
 import CheckboxCardField from "../common/CheckboxCardField"
 import ColorPickerField from "../common/ColorPickerField"
-import GradientPicker, { GradientPickerState } from "../common/GradientPicker"
+import RadiusInputField, {
+  type RadiusErrors,
+  type RadiusState,
+} from "../common/CornerRadiusInput"
+import DistortPerspectiveInput, {
+  type PerspectiveErrors,
+  type PerspectiveObject,
+} from "../common/DistortPerspectiveInput"
+import GradientPicker, {
+  type GradientPickerState,
+} from "../common/GradientPicker"
+import PaddingInputField, {
+  type PaddingErrors,
+  type PaddingState,
+} from "../common/PaddingInput"
 import RadioCardField from "../common/RadioCardField"
+import ZoomInput from "../common/ZoomInput"
 import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
 import { SidebarRoot } from "./sidebar-root"
-import { ColorPickerProps } from "react-best-gradient-color-picker"
-import PaddingInputField, { PaddingState } from "../common/PaddingInput"
-import ZoomInput from "../common/ZoomInput"
-import DistortPerspectiveInput, { PerspectiveObject } from "../common/DistortPerspectiveInput"
-import RadiusInputField, { RadiusState } from "../common/CornerRadiusInput"
 
 export const TransformationConfigSidebar: React.FC = () => {
   const {
@@ -87,7 +98,10 @@ export const TransformationConfigSidebar: React.FC = () => {
       )
   }, [_internalState.selectedTransformationKey])
 
-  const transformationToEdit = _internalState.transformationToEdit
+  const transformationToEdit = _internalState.transformationToEdit as {
+    transformationId: string
+    position: "inplace"
+  }
 
   const editedTransformation = useMemo(() => {
     if (!transformationToEdit) return undefined
@@ -97,7 +111,9 @@ export const TransformationConfigSidebar: React.FC = () => {
     )
   }, [transformations, transformationToEdit])
 
-  const editedTransformationValue = editedTransformation?.value as Record<string, unknown> | undefined
+  const editedTransformationValue = editedTransformation?.value as
+    | Record<string, unknown>
+    | undefined
 
   const defaultValues = useMemo(() => {
     if (
@@ -299,7 +315,15 @@ export const TransformationConfigSidebar: React.FC = () => {
             return true
           })
           .map((field: TransformationField) => (
-            <FormControl key={field.name} isInvalid={!!errors[field.name] && !["gradient-picker", "padding-input"].includes(field.fieldType)}>
+            <FormControl
+              key={field.name}
+              isInvalid={
+                !!errors[field.name] &&
+                !["gradient-picker", "padding-input"].some(
+                  (type) => field.fieldType === type,
+                )
+              }
+            >
               <FormLabel htmlFor={field.name} fontSize="sm">
                 {field.label}
               </FormLabel>
@@ -423,6 +447,13 @@ export const TransformationConfigSidebar: React.FC = () => {
                   fontSize="sm"
                   {...register(field.name)}
                   {...(field.fieldProps ?? {})}
+                  defaultValue={
+                    field.fieldProps?.defaultValue as
+                      | string
+                      | number
+                      | readonly string[]
+                      | undefined
+                  }
                 />
               ) : null}
               {field.fieldType === "textarea" ? (
@@ -445,30 +476,51 @@ export const TransformationConfigSidebar: React.FC = () => {
                   <Flex justify="space-between" mb={1}>
                     <Input
                       id={`${field.name}-input`}
-                      type={field.fieldProps?.autoOption ? "text" : "number"}
+                      type={
+                        field.fieldProps?.inputType ||
+                        field.fieldProps?.autoOption
+                          ? "text"
+                          : "number"
+                      }
                       fontSize="sm"
                       width="80px"
                       value={(watch(field.name) as string) ?? ""}
                       defaultValue={field.fieldProps?.defaultValue as number}
                       onBlur={() => {
                         const raw = watch(field.name)
-                        const n = Number(raw)
+                        const n = Number(
+                          String(raw).toUpperCase().replace(/^N/, "-"),
+                        )
+                        const isNumberWithN =
+                          typeof raw === "string" &&
+                          !Number.isNaN(n) &&
+                          raw.toUpperCase().startsWith("N")
                         if (!Number.isFinite(n)) return
 
-                        const { step, min, max } = field.fieldProps ?? {}
+                        const { step, min, max, skipStepCheck } =
+                          field.fieldProps ?? {}
                         let v = n
 
                         if (min !== undefined) v = Math.max(v, min)
                         if (max !== undefined) v = Math.min(v, max)
-                        if (step) {
+                        if (!skipStepCheck && step) {
                           v = Math.round(v / step) * step
                           const dp = (String(step).split(".")[1] || "").length
                           v = Number(v.toFixed(dp))
                         }
-                        setValue(field.name, String(v))
+                        const finalValue =
+                          v < 0 && isNumberWithN ? `N${Math.abs(v)}` : String(v)
+                        setValue(field.name, finalValue)
                       }}
                       onChange={(e) => {
                         const val = e.target.value
+                        const numSafeVal = String(val)
+                          .toUpperCase()
+                          .replace(/^N/, "-")
+                        const isNumberWithN =
+                          typeof val === "string" &&
+                          !Number.isNaN(Number(numSafeVal)) &&
+                          val.toUpperCase().startsWith("N")
 
                         if (val === "") {
                           setValue(field.name, "")
@@ -486,18 +538,23 @@ export const TransformationConfigSidebar: React.FC = () => {
                         ) {
                           setValue(field.name, "auto")
                         } else if (
+                          !field.fieldProps?.skipStepCheck &&
                           field.fieldProps?.step &&
                           !isStepAligned(val, field.fieldProps?.step)
                         ) {
                           return
                         } else if (
                           field.fieldProps?.min !== undefined &&
-                          Number(val) < field.fieldProps.min
+                          Number(numSafeVal) < field.fieldProps.min
                         ) {
-                          setValue(field.name, field.fieldProps.min)
+                          const finalVal =
+                            field.fieldProps.min < 0 && isNumberWithN
+                              ? `N${Math.abs(field.fieldProps.min)}`
+                              : String(field.fieldProps.min)
+                          setValue(field.name, finalVal)
                         } else if (
                           field.fieldProps?.max !== undefined &&
-                          Number(val) > field.fieldProps.max
+                          Number(numSafeVal) > field.fieldProps.max
                         ) {
                           setValue(field.name, field.fieldProps.max)
                         } else {
@@ -523,9 +580,19 @@ export const TransformationConfigSidebar: React.FC = () => {
                     max={field.fieldProps?.max || 100}
                     step={field.fieldProps?.step || 1}
                     value={
-                      Number.isNaN(Number(watch(field.name)))
+                      Number.isNaN(
+                        Number(
+                          String(watch(field.name))
+                            .toUpperCase()
+                            .replace(/^N/, "-"),
+                        ),
+                      )
                         ? 0
-                        : Number(watch(field.name))
+                        : Number(
+                            String(watch(field.name))
+                              .toUpperCase()
+                              .replace(/^N/, "-"),
+                          )
                     }
                     defaultValue={field.fieldProps?.defaultValue as number}
                     onChange={(val) => setValue(field.name, val.toString())}
@@ -534,7 +601,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                     <SliderTrack>
                       <SliderFilledTrack />
                     </SliderTrack>
-                    <SliderThumb />
+                    <SliderThumb borderColor="blue.500" border="1px" />
                   </Slider>
                 </Box>
               ) : null}
@@ -583,7 +650,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                     setValue(field.name, value)
                     trigger(field.name)
                   }}
-                  errors={errors}
+                  errors={errors as PaddingErrors}
                   name={field.name}
                   {...field.fieldProps}
                   value={watch(field.name) as Partial<PaddingState>}
@@ -593,7 +660,6 @@ export const TransformationConfigSidebar: React.FC = () => {
                 <ZoomInput
                   value={watch(field.name) as number}
                   onChange={(value) => setValue(field.name, value)}
-                  defaultValue={field.fieldProps?.defaultValue as number ?? 100}
                   {...field.fieldProps}
                 />
               ) : null}
@@ -603,7 +669,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                     setValue(field.name, value)
                     trigger(field.name)
                   }}
-                  errors={errors}
+                  errors={errors as PerspectiveErrors}
                   name={field.name}
                   value={watch(field.name) as PerspectiveObject}
                   {...field.fieldProps}
@@ -615,7 +681,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                     setValue(field.name, value)
                     trigger(field.name)
                   }}
-                  errors={errors}
+                  errors={errors as RadiusErrors}
                   name={field.name}
                   value={watch(field.name) as Partial<RadiusState>}
                   {...field.fieldProps}
