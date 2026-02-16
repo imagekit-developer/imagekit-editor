@@ -11,7 +11,9 @@ import {
   type TransformationField,
   transformationFormatters,
   transformationSchema,
+  getDefaultTransformationFromMode,
 } from "./schema"
+import { extractImagePath } from "./utils"
 
 export interface Transformation {
   id: string
@@ -461,6 +463,21 @@ const useEditorStore = create<EditorState & EditorActions>()(
   })),
 )
 
+const replaceImagePathPlaceholders = (
+  transformations: IKTransformation[],
+  imagePath: string,
+): IKTransformation[] => {
+  return transformations.map((transformation) => {
+    const clonedTransformation = { ...transformation }
+    
+    if (typeof clonedTransformation.raw === 'string' && clonedTransformation.raw.includes('__IMAGE_PATH__')) {
+      clonedTransformation.raw = clonedTransformation.raw.replace(/__IMAGE_PATH__/g, imagePath)
+    }
+    
+    return clonedTransformation
+  })
+}
+
 const calculateImageList = (
   imageList: FileElement[],
   transformations: Transformation[],
@@ -558,8 +575,20 @@ const calculateImageList = (
         }
       }
 
+      // Special handling for resize_and_crop transformation
+      let defaultTransformation: any = t?.defaultTransformation || {}
+      if (transformation.key === "resize_and_crop-resize_and_crop") {
+        const value = transformation.value as Record<string, unknown>
+        // Only add crop/cropMode when both width and height and mode are set
+        if (value.width && value.height && value.mode) {
+          defaultTransformation = getDefaultTransformationFromMode(value.mode as string)
+        } else {
+          defaultTransformation = {}
+        }
+      }
+
       return {
-        ...t?.defaultTransformation,
+        ...defaultTransformation,
         ...transforms,
       }
     })
@@ -576,9 +605,15 @@ const calculateImageList = (
   }> = []
 
   imageList.forEach((img, index) => {
+    // Replace any __IMAGE_PATH__ placeholders with actual image path for this specific image
+    const imagePath = extractImagePath(img.url)
+    const transformationsForImage = showOriginal 
+      ? [] 
+      : replaceImagePathPlaceholders(IKTransformations, imagePath)
+    
     const req = {
       url: img.url,
-      transformation: showOriginal ? [] : IKTransformations,
+      transformation: transformationsForImage,
       metadata: img.metadata,
     }
 
@@ -588,7 +623,8 @@ const calculateImageList = (
     }
 
     if (req.metadata.requireSignedUrl && signer) {
-      const cacheKey = `${req.url}::${transformKey}`
+      const imageTransformKey = JSON.stringify(req.transformation)
+      const cacheKey = `${req.url}::${imageTransformKey}`
       const cached = signedUrlCache[cacheKey]
       if (cached) {
         imgs[index] = cached

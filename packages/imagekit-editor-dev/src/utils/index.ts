@@ -45,3 +45,48 @@ export const isStepAligned = (raw: string, step: number) => {
   const s = Math.round(step * m)
   return s !== 0 && v % s === 0
 }
+
+/**
+ * Extracts the image path from a URL for use in ImageKit layer syntax (i- parameter).
+ * Removes ImageKit ID and converts folder paths to use @@ separator.
+ * @param imageUrl - The image URL (e.g., "https://ik.imagekit.io/cr29v1rbc/pikachu.png" or "https://ik.imagekit.io/cr29v1rbc/folder-name/pikachu.png")
+ * @returns The path for use in i- parameter (e.g., "pikachu.png" or "folder-name@@pikachu.png")
+ */
+export const extractImagePath = (imageUrl: string): string => {
+  try {
+    const urlWithoutQuery = imageUrl.split('?')[0]
+    
+    if (urlWithoutQuery.startsWith('http://') || urlWithoutQuery.startsWith('https://')) {
+      const url = new URL(urlWithoutQuery)
+      const pathname = url.pathname.replace(/^\//, '')
+      
+      const segments = pathname.split('/')
+      
+      if (segments.length > 1) {
+        const pathWithoutImageKitId = segments.slice(1).join('/')
+        return pathWithoutImageKitId.replace(/\//g, '@@')
+      }
+      
+      return segments[0] || ''
+    }
+    
+    const cleanPath = urlWithoutQuery.replace(/^\//, '')
+    const segments = cleanPath.split('/')
+    
+    if (segments.length > 1) {
+      const pathWithoutFirstSegment = segments.slice(1).join('/')
+      return pathWithoutFirstSegment.replace(/\//g, '@@')
+    }
+    
+    return segments[0] || ''
+  } catch (error) {
+    const cleanPath = imageUrl.split('?')[0].replace(/^\//, '')
+    const segments = cleanPath.split('/')
+    
+    if (segments.length > 1) {
+      return segments.slice(1).join('/').replace(/\//g, '@@')
+    }
+    
+    return segments[0] || ''
+  }
+}

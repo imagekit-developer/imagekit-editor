@@ -116,7 +116,9 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
                     (image) => image.url === currentImage,
                   )
                   exportOption.onClick(images, {
+                    // biome-ignore lint/style/noNonNullAssertion: <required here>
                     url: cImage!.url,
+                    // biome-ignore lint/style/noNonNullAssertion: <required here>
                     file: cImage!.file,
                   })
                 }}
@@ -157,7 +159,9 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
                             (image) => image.url === currentImage,
                           )
                           option.onClick(images, {
+                            // biome-ignore lint/style/noNonNullAssertion: <required here>
                             url: cImage!.url,
+                            // biome-ignore lint/style/noNonNullAssertion: <required here>
                             file: cImage!.file,
                           })
                         }}
