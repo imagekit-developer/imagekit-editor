@@ -11,6 +11,7 @@ import {
   type TransformationField,
   transformationFormatters,
   transformationSchema,
+  getDefaultTransformationFromMode,
 } from "./schema"
 import { extractImagePath } from "./utils"
 
@@ -574,8 +575,20 @@ const calculateImageList = (
         }
       }
 
+      // Special handling for resize_and_crop transformation
+      let defaultTransformation: any = t?.defaultTransformation || {}
+      if (transformation.key === "resize_and_crop-resize_and_crop") {
+        const value = transformation.value as Record<string, unknown>
+        // Only add crop/cropMode when both width and height and mode are set
+        if (value.width && value.height && value.mode) {
+          defaultTransformation = getDefaultTransformationFromMode(value.mode as string)
+        } else {
+          defaultTransformation = {}
+        }
+      }
+
       return {
-        ...t?.defaultTransformation,
+        ...defaultTransformation,
         ...transforms,
       }
     })
