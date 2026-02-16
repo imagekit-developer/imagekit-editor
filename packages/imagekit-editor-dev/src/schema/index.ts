@@ -26,6 +26,7 @@ import {
   refineUnsharpenMask,
   widthValidator,
 } from "./transformation"
+import { background } from "./background"
 
 // Based on ImageKit's supported object list
 export const DEFAULT_FOCUS_OBJECTS = [
@@ -138,6 +139,7 @@ export interface TransformationField {
     }[]
     autoOption?: boolean
     isCreatable?: boolean
+    isClearable?: boolean
     min?: number
     max?: number
     step?: number
@@ -178,22 +180,7 @@ export const transformationSchema: TransformationSchema[] = [
           .object({
             width: widthValidator.optional(),
             height: heightValidator.optional(),
-            backgroundType: z.string().optional(),
-            background: z
-              .union([z.literal("").transform(() => ""), colorValidator])
-              .optional(),
-            backgroundBlurIntensity: z.coerce
-              .string({
-                invalid_type_error:
-                  "Should be a number between 1 and 100 or auto.",
-              })
-              .optional(),
-            backgroundBlurBrightness: z.coerce
-              .string({
-                invalid_type_error: "Should be a number between -255 and 255.",
-              })
-              .optional(),
-            backgroundGenerativeFill: z.string().optional(),
+            ...background.getPropsFor("pad_resize").schema,
             focus: z.string().optional(),
           })
           .refine(
@@ -274,75 +261,7 @@ export const transformationSchema: TransformationSchema[] = [
               "Specify the output height. Use a decimal between 0 and 1, an integer greater than 1, or an expression.",
             examples: ["0.5", "300", "ih_div_2"],
           },
-          {
-            label: "Background Type",
-            name: "backgroundType",
-            fieldType: "select",
-            isTransformation: false,
-            transformationGroup: "background",
-            fieldProps: {
-              options: [
-                { label: "Color", value: "color" },
-                { label: "Blurred", value: "blurred" },
-                { label: "Generative Fill", value: "generative_fill" },
-              ],
-            },
-          },
-          {
-            label: "Background Color",
-            name: "background",
-            fieldType: "color-picker",
-            transformationGroup: "background",
-            isTransformation: true,
-            isVisible: ({ backgroundType }) => backgroundType === "color",
-          },
-          {
-            label: "Background Blur Intensity",
-            name: "backgroundBlurIntensity",
-            fieldType: "slider",
-            helpText:
-              "For blurred backgrounds, choose a blur radius or select 'auto' for a smart default. Width and height are required when using a blurred background.",
-            examples: ["auto", "30"],
-            isTransformation: true,
-            transformationKey: "background",
-            transformationGroup: "background",
-            fieldProps: {
-              defaultValue: "auto",
-              min: 0,
-              max: 100,
-              step: 1,
-              autoOption: true,
-            },
-            isVisible: ({ backgroundType }) => backgroundType === "blurred",
-          },
-          {
-            label: "Background Blur Brightness",
-            name: "backgroundBlurBrightness",
-            fieldType: "slider",
-            helpText:
-              "Adjust the brightness of a blurred background. Use a number between −255 (darker) and 255 (brighter).",
-            isTransformation: false,
-            transformationGroup: "background",
-            fieldProps: {
-              defaultValue: "0",
-              min: -255,
-              max: 255,
-              step: 5,
-            },
-            isVisible: ({ backgroundType }) => backgroundType === "blurred",
-          },
-          {
-            label: "Background Generative Fill",
-            name: "backgroundGenerativeFill",
-            fieldType: "input",
-            helpText:
-              "When using a generative fill background, enter an optional text prompt describing what should fill the padded area. Width and height are required for generative fill.",
-            examples: ["snowy forest"],
-            isTransformation: true,
-            transformationGroup: "background",
-            isVisible: ({ backgroundType }) =>
-              backgroundType === "generative_fill",
-          },
+          ...background.getPropsFor("pad_resize").transformations({ transformationGroup: "background" }),
           {
             label: "Focus",
             name: "focus",
@@ -1061,11 +980,7 @@ export const transformationSchema: TransformationSchema[] = [
           .object({
             width: widthValidator.optional(),
             height: heightValidator.optional(),
-            backgroundType: z.string().optional(),
-            background: z
-              .union([z.literal("").transform(() => ""), colorValidator])
-              .optional(),
-            backgroundGenerativeFill: z.string().optional(),
+            ...background.getPropsFor("pad_extract").schema,
           })
           .refine(
             (val) => {
@@ -1104,41 +1019,7 @@ export const transformationSchema: TransformationSchema[] = [
               "Specify the height of the extracted region. If the region is smaller than this height, padding will be added. Use a percentage, pixels, or an expression.",
             examples: ["0.5", "300", "ih_div_2"],
           },
-          {
-            label: "Background Type",
-            name: "backgroundType",
-            fieldType: "select",
-            isTransformation: false,
-            transformationGroup: "background",
-            fieldProps: {
-              options: [
-                { label: "Color", value: "color" },
-                { label: "Generative Fill", value: "generative_fill" },
-              ],
-            },
-          },
-          {
-            label: "Background Color",
-            name: "background",
-            fieldType: "color-picker",
-            transformationGroup: "background",
-            isTransformation: true,
-            helpText: "When using color padding, enter a hex code.",
-            examples: ["FFFFFF", "FF0000"],
-            isVisible: ({ backgroundType }) => backgroundType === "color",
-          },
-          {
-            label: "Background Generative Fill",
-            name: "backgroundGenerativeFill",
-            fieldType: "input",
-            transformationGroup: "background",
-            isTransformation: true,
-            helpText:
-              "When using AI generative padding, provide a text prompt describing the fill.",
-            examples: ["mountain landscape"],
-            isVisible: ({ backgroundType }) =>
-              backgroundType === "generative_fill",
-          },
+          ...background.getPropsFor("pad_extract").transformations({ transformationGroup: "background" }),
         ],
       },
     ],
@@ -1147,6 +1028,19 @@ export const transformationSchema: TransformationSchema[] = [
     key: "adjust",
     name: "Adjust",
     items: [
+      {
+        key: "adjust-background",
+        name: "Background",
+        description: "Apply a solid color or a gradient background to the image.",
+        docsLink: "https://imagekit.io/docs/effects-and-enhancements#background---bg",
+        defaultTransformation: {},
+        schema: z.object({
+          ...background.getPropsFor("root_image").schema,
+        }),
+        transformations: [
+          ...background.getPropsFor("root_image").transformations({ transformationGroup: "background" }),
+        ],
+      },
       {
         key: "adjust-contrast",
         name: "Contrast",
@@ -4105,15 +3999,40 @@ export const transformationFormatters: Record<
   ) => void
 > = {
   background: (values, transforms) => {
-    let { backgroundType, backgroundBlurIntensity, backgroundBlurBrightness } =
-      values as Record<string, string>
+    let { backgroundType, backgroundBlurIntensity, backgroundBlurBrightness, backgroundDominantAuto, backgroundGradientAutoDominant, backgroundGradientMode, backgroundGradientPaletteSize, backgroundGradient } =
+      values as Record<string, string | boolean | GradientPickerState>
 
-    if (backgroundBlurBrightness?.startsWith("-")) {
-      backgroundBlurBrightness = backgroundBlurBrightness.replace("-", "N")
+    if (backgroundBlurBrightness?.startsWith?.("-")) {
+      backgroundBlurBrightness = (backgroundBlurBrightness as string).replace("-", "N")
     }
 
-    if (backgroundType === "color" && values.background) {
-      transforms.background = (values.background as string).replace("#", "")
+    if (backgroundType === "color") {
+      if (backgroundDominantAuto) {
+        transforms.background = "dominant"
+      } else if (values.background) {
+        transforms.background = (values.background as string).replace("#", "")
+      }
+    } else if (backgroundType === "gradient") {
+      if (backgroundGradientAutoDominant) {
+        // Use gradient with dominant color detection
+        const paletteSize = backgroundGradientPaletteSize || "2"
+        const mode = backgroundGradientMode || "dominant"
+        transforms.background = `gradient_${mode}_${paletteSize}`
+      } else if (backgroundGradient) {
+        // Manual gradient using full layer syntax approach
+        const gradient = backgroundGradient as GradientPickerState
+        const { from, to, direction, stopPoint } = gradient
+        
+        // Build the gradient parameters
+        const fromColor = from?.replace("#", "") || "FFFFFF"
+        const toColor = to?.replace("#", "") || "000000"
+        const gradientDirection = direction || "bottom"
+        const stopPointDecimal = (stopPoint || 100) / 100
+        
+        // Create the full layer syntax with placeholder for image path
+        // This will be replaced with actual image path in the store per image
+        transforms.raw = `e-gradient-ld-${gradientDirection}_from-${fromColor}_to-${toColor}_sp-${stopPointDecimal}:l-image,i-__IMAGE_PATH__,t-false,l-end`
+      }
     } else if (backgroundType === "blurred") {
       if (backgroundBlurIntensity === "auto" && !backgroundBlurBrightness) {
         transforms.background = "blurred_auto"

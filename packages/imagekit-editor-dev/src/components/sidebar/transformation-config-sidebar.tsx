@@ -347,6 +347,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                           }))
 
                     const isCreatable = field.fieldProps?.isCreatable === true
+                    const isClearable: boolean = field.fieldProps?.isClearable ?? false
                     const SelectComponent = isCreatable
                       ? CreateableSelect
                       : Select
@@ -372,6 +373,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                         formatCreateLabel={(inputValue) =>
                           `Use "${inputValue}"`
                         }
+                        isClearable={isClearable}
                         placeholder="Select"
                         menuPlacement="auto"
                         options={selectOptions}
