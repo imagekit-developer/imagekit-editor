@@ -3313,11 +3313,10 @@ export const transformationSchema: TransformationSchema[] = [
             fieldProps: {
               options: [
                 { label: "Select one", value: "" },
-                { label: "Force", value: "c-force" },
-                { label: "At max", value: "c-at_max" },
-                { label: "At least", value: "c-at_least" },
-                { label: "Extract", value: "cm-extract" },
-                { label: "Pad Resize", value: "cm-pad_resize" },
+                ...RESIZE_CROP_MODES.map((mode) => ({
+                  label: `${mode.label} (${mode.paramLabel})`,
+                  value: mode.value,
+                })),
               ],
               defaultValue: "",
             },
