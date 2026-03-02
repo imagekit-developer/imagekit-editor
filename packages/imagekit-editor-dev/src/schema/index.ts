@@ -4661,47 +4661,114 @@ function validatePerspectiveDistort(
   } & Record<string, unknown>,
   ctx: RefinementCtx,
 ) {
-  const { distort, distortType, distortPerspective } = value
-  if (distort && distortType === "perspective" && distortPerspective) {
-    const perspective: PerspectiveObject = JSON.parse(
-      JSON.stringify(distortPerspective),
+  const { distort, distortType } = value
+
+  // If distort is not enabled, skip all additional validation
+  if (!distort) {
+    return
+  }
+
+  // Perspective distortion: require all coordinates and ensure they are valid
+  if (distortType === "perspective") {
+    const distortPerspective = value
+      .distortPerspective as PerspectiveObject | undefined
+
+    if (!distortPerspective) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Perspective coordinates are required.",
+        path: ["distortPerspective"],
+      })
+      return
+    }
+
+    const entries = Object.entries(
+      distortPerspective as Record<string, unknown>,
     )
-    const coords = Object.keys(perspective).reduce(
-      (acc, key) => {
-        const value = perspective[key as keyof typeof perspective]
-        if (!value) {
-          acc[key as keyof PerspectiveObject] = value
+
+    const allNonEmpty = entries.every(([, v]) => v !== "" && v != null)
+
+    if (!allNonEmpty) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "All perspective coordinates are required.",
+        path: ["distortPerspective"],
+      })
+      return
+    }
+
+    const coords = entries.reduce(
+      (acc, [key, raw]) => {
+        const numString = String(raw).toUpperCase().replace(/^N/, "-")
+        const parsed = Number.parseInt(numString, 10)
+
+        if (!Number.isFinite(parsed)) {
+          acc.__invalid = true
+          return acc
         }
-        const numString = value.toUpperCase().replace(/^N/, "-")
-        acc[key as keyof PerspectiveObject] = parseInt(numString as string, 10)
+
+        ;(acc as Record<string, number>)[key] = parsed
         return acc
       },
-      {} as Record<keyof PerspectiveObject, unknown>,
+      {} as Record<string, number> & { __invalid?: boolean },
     )
-    const allValuesProvided = Object.values(coords).every(
-      (v) => typeof v === "number" && !Number.isNaN(v),
-    )
-    if (allValuesProvided) {
-      const { x1, y1, x2, y2, x3, y3, x4, y4 } = coords as Record<
-        keyof PerspectiveObject,
-        number
-      >
-      const isTopLeftValid = x1 < x2 && x1 < x3 && y1 < y3 && y1 < y4
-      const isTopRightValid = x2 > x1 && x2 > x4 && y2 < y3 && y2 < y4
-      const isBottomRightValid = x3 > x4 && x3 > x1 && y3 > y1 && y3 > y2
-      const isBottomLeftValid = x4 < x3 && x4 < x2 && y4 > y1 && y4 > y2
-      const isValid =
-        isTopLeftValid &&
-        isTopRightValid &&
-        isBottomRightValid &&
-        isBottomLeftValid
-      if (!isValid) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Perspective coordinates are invalid.",
-          path: ["distortPerspective"],
-        })
-      }
+
+    if (coords.__invalid) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Perspective coordinates must be valid integers.",
+        path: ["distortPerspective"],
+      })
+      return
+    }
+
+    const { x1, y1, x2, y2, x3, y3, x4, y4 } = coords as unknown as Record<
+      keyof PerspectiveObject,
+      number
+    >
+
+    const isTopLeftValid = x1 < x2 && x1 < x3 && y1 < y3 && y1 < y4
+    const isTopRightValid = x2 > x1 && x2 > x4 && y2 < y3 && y2 < y4
+    const isBottomRightValid = x3 > x4 && x3 > x1 && y3 > y1 && y3 > y2
+    const isBottomLeftValid = x4 < x3 && x4 < x2 && y4 > y1 && y4 > y2
+
+    const isValid =
+      isTopLeftValid &&
+      isTopRightValid &&
+      isBottomRightValid &&
+      isBottomLeftValid
+
+    if (!isValid) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Perspective coordinates are invalid.",
+        path: ["distortPerspective"],
+      })
+    }
+  }
+
+  // Arc distortion: require a non-zero degree value
+  if (distortType === "arc") {
+    const rawDegree = (value as Record<string, unknown>).distortArcDegree
+
+    if (rawDegree === undefined || rawDegree === null || rawDegree === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Arc degree is required.",
+        path: ["distortArcDegree"],
+      })
+      return
+    }
+
+    const numString = String(rawDegree).toUpperCase().replace(/^N/, "-")
+    const degree = Number.parseInt(numString, 10)
+
+    if (!Number.isFinite(degree) || degree === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Arc degree must be a non-zero value.",
+        path: ["distortArcDegree"],
+      })
     }
   }
 }
