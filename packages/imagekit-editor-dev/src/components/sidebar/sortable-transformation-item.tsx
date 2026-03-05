@@ -291,6 +291,9 @@ export const SortableTransformationItem = ({
                       const transformationId = addTransformation(
                         {
                           ...transformation,
+                          name: transformation.name
+                            ? `${transformation.name} (Copy)`
+                            : transformation.name,
                         },
                         currentIndex + 1,
                       )
