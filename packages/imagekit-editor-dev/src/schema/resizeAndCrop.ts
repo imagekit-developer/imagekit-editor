@@ -309,7 +309,7 @@ export const resizeAndCropTransformations: TransformationField[] = [
 
   // 4. Mode dropdown (visible only when both dimensions are set)
   {
-    label: "What kind of output?",
+    label: "Crop Mode",
     name: "mode",
     fieldType: "select",
     isTransformation: false,

@@ -2435,7 +2435,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               dprEnabled === true && !!(width || height),
           },
           {
-            label: "Crop",
+            label: "Crop Mode",
             name: "crop",
             fieldType: "select",
             isTransformation: true,
@@ -2444,13 +2444,13 @@ const baseTransformationSchema: TransformationSchema[] = [
             helpText: "Crop the overlay image.",
             fieldProps: {
               options: [
-                { label: "Select one", value: "" },
                 ...RESIZE_CROP_MODES.map((mode) => ({
                   label: `${mode.label} (${mode.paramLabel})`,
                   value: mode.value,
                 })),
               ],
               defaultValue: "",
+              isClearable: true,
             },
           },
           {
