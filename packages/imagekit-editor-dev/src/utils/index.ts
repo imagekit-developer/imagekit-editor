@@ -54,39 +54,42 @@ export const isStepAligned = (raw: string, step: number) => {
  */
 export const extractImagePath = (imageUrl: string): string => {
   try {
-    const urlWithoutQuery = imageUrl.split('?')[0]
-    
-    if (urlWithoutQuery.startsWith('http://') || urlWithoutQuery.startsWith('https://')) {
+    const urlWithoutQuery = imageUrl.split("?")[0]
+
+    if (
+      urlWithoutQuery.startsWith("http://") ||
+      urlWithoutQuery.startsWith("https://")
+    ) {
       const url = new URL(urlWithoutQuery)
-      const pathname = url.pathname.replace(/^\//, '')
-      
-      const segments = pathname.split('/')
-      
+      const pathname = url.pathname.replace(/^\//, "")
+
+      const segments = pathname.split("/")
+
       if (segments.length > 1) {
-        const pathWithoutImageKitId = segments.slice(1).join('/')
-        return pathWithoutImageKitId.replace(/\//g, '@@')
+        const pathWithoutImageKitId = segments.slice(1).join("/")
+        return pathWithoutImageKitId.replace(/\//g, "@@")
       }
-      
-      return segments[0] || ''
+
+      return segments[0] || ""
     }
-    
-    const cleanPath = urlWithoutQuery.replace(/^\//, '')
-    const segments = cleanPath.split('/')
-    
+
+    const cleanPath = urlWithoutQuery.replace(/^\//, "")
+    const segments = cleanPath.split("/")
+
     if (segments.length > 1) {
-      const pathWithoutFirstSegment = segments.slice(1).join('/')
-      return pathWithoutFirstSegment.replace(/\//g, '@@')
+      const pathWithoutFirstSegment = segments.slice(1).join("/")
+      return pathWithoutFirstSegment.replace(/\//g, "@@")
     }
-    
-    return segments[0] || ''
-  } catch (error) {
-    const cleanPath = imageUrl.split('?')[0].replace(/^\//, '')
-    const segments = cleanPath.split('/')
-    
+
+    return segments[0] || ""
+  } catch (_error) {
+    const cleanPath = imageUrl.split("?")[0].replace(/^\//, "")
+    const segments = cleanPath.split("/")
+
     if (segments.length > 1) {
-      return segments.slice(1).join('/').replace(/\//g, '@@')
+      return segments.slice(1).join("/").replace(/\//g, "@@")
     }
-    
-    return segments[0] || ''
+
+    return segments[0] || ""
   }
 }

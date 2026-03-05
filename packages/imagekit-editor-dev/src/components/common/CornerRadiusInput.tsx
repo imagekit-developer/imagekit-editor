@@ -129,6 +129,7 @@ export const RadiusInputField: React.FC<RadiusInputFieldProps> = ({
   const activeColor = useColorModeValue("blue.500", "blue.600")
   const inactiveColor = useColorModeValue("gray.600", "gray.400")
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <causes re-render loop if added>
   useEffect(() => {
     if (!value) {
       setRadiusMode("uniform")

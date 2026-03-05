@@ -8,10 +8,10 @@ import { create } from "zustand"
 import { subscribeWithSelector } from "zustand/middleware"
 import {
   type DEFAULT_FOCUS_OBJECTS,
+  getDefaultTransformationFromMode,
   type TransformationField,
   transformationFormatters,
   transformationSchema,
-  getDefaultTransformationFromMode,
 } from "./schema"
 import { extractImagePath } from "./utils"
 
@@ -469,11 +469,17 @@ const replaceImagePathPlaceholders = (
 ): IKTransformation[] => {
   return transformations.map((transformation) => {
     const clonedTransformation = { ...transformation }
-    
-    if (typeof clonedTransformation.raw === 'string' && clonedTransformation.raw.includes('__IMAGE_PATH__')) {
-      clonedTransformation.raw = clonedTransformation.raw.replace(/__IMAGE_PATH__/g, imagePath)
+
+    if (
+      typeof clonedTransformation.raw === "string" &&
+      clonedTransformation.raw.includes("__IMAGE_PATH__")
+    ) {
+      clonedTransformation.raw = clonedTransformation.raw.replace(
+        /__IMAGE_PATH__/g,
+        imagePath,
+      )
     }
-    
+
     return clonedTransformation
   })
 }
@@ -576,12 +582,14 @@ const calculateImageList = (
       }
 
       // Special handling for resize_and_crop transformation
-      let defaultTransformation: any = t?.defaultTransformation || {}
+      let defaultTransformation = t?.defaultTransformation || {}
       if (transformation.key === "resize_and_crop-resize_and_crop") {
         const value = transformation.value as Record<string, unknown>
         // Only add crop/cropMode when both width and height and mode are set
         if (value.width && value.height && value.mode) {
-          defaultTransformation = getDefaultTransformationFromMode(value.mode as string)
+          defaultTransformation = getDefaultTransformationFromMode(
+            value.mode as string,
+          )
         } else {
           defaultTransformation = {}
         }
@@ -607,10 +615,10 @@ const calculateImageList = (
   imageList.forEach((img, index) => {
     // Replace any __IMAGE_PATH__ placeholders with actual image path for this specific image
     const imagePath = extractImagePath(img.url)
-    const transformationsForImage = showOriginal 
-      ? [] 
+    const transformationsForImage = showOriginal
+      ? []
       : replaceImagePathPlaceholders(IKTransformations, imagePath)
-    
+
     const req = {
       url: img.url,
       transformation: transformationsForImage,

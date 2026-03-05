@@ -15,8 +15,14 @@ import { type RefinementCtx, z } from "zod/v3"
 import type { PerspectiveObject } from "../components/common/DistortPerspectiveInput"
 import type { GradientPickerState } from "../components/common/GradientPicker"
 import { SIMPLE_OVERLAY_TEXT_REGEX, safeBtoa } from "../utils"
+import { background } from "./background"
 import {
-  aspectRatioValidator,
+  getDefaultTransformationFromMode,
+  RESIZE_CROP_HELP_TEXT,
+  RESIZE_CROP_MODES,
+  resizeAndCropCategory,
+} from "./resizeAndCrop"
+import {
   colorValidator,
   commonNumberAndExpressionValidator,
   heightValidator,
@@ -26,16 +32,13 @@ import {
   refineUnsharpenMask,
   widthValidator,
 } from "./transformation"
-import { background } from "./background"
-import { 
-  resizeAndCropCategory,
+
+// Re-export for use by store and components
+export {
   RESIZE_CROP_MODES,
   RESIZE_CROP_HELP_TEXT,
   getDefaultTransformationFromMode,
-} from "./resizeAndCrop"
-
-// Re-export for use by store and components
-export { RESIZE_CROP_MODES, RESIZE_CROP_HELP_TEXT, getDefaultTransformationFromMode }
+}
 
 // Based on ImageKit's supported object list
 export const DEFAULT_FOCUS_OBJECTS = [
@@ -168,873 +171,7 @@ export interface TransformationSchema {
 }
 
 const baseTransformationSchema: TransformationSchema[] = [
-  // Unified Resize and Crop transformation
   resizeAndCropCategory,
-  // {
-  //   key: "resize",
-  //   name: "Resize",
-  //   items: [
-  //     {
-  //       key: "resize-pad_resize",
-  //       name: "Pad Resize",
-  //       // When using the pad resize crop strategy, ImageKit resizes the image to the
-  //       // requested width and/or height while preserving the original aspect ratio.
-  //       // Any remaining space is filled with a background, which can be a solid
-  //       // color, a blurred version of the image or a generative fill. This
-  //       // strategy never crops the image content.
-  //       description:
-  //         "Resize an image to fit within the specified width and height while preserving its aspect ratio. Any extra space is padded with a background color, a blurred version of the image, or an AI-generated fill.",
-  //       docsLink:
-  //         "https://imagekit.io/docs/image-resize-and-crop#pad-resize-crop-strategy---cm-pad_resize",
-  //       defaultTransformation: { cropMode: "pad_resize" },
-  //       schema: z
-  //         .object({
-  //           width: widthValidator.optional(),
-  //           height: heightValidator.optional(),
-  //           ...background.getPropsFor("pad_resize").schema,
-  //           focus: z.string().optional(),
-  //         })
-  //         .refine(
-  //           (val) => {
-  //             if (
-  //               Object.values(val).some(
-  //                 (v) => v !== undefined && v !== null && v !== "",
-  //               )
-  //             ) {
-  //               return true
-  //             }
-  //             return false
-  //           },
-  //           {
-  //             message: "At least one value is required",
-  //             path: [],
-  //           },
-  //         )
-  //         .superRefine((val, ctx) => {
-  //           if (
-  //             val.backgroundType === "blurred" &&
-  //             (!val.width || !val.height)
-  //           ) {
-  //             if (!val.width) {
-  //               ctx.addIssue({
-  //                 code: z.ZodIssueCode.custom,
-  //                 message: "Required for blurred background",
-  //                 path: ["width"],
-  //               })
-  //             }
-  //             if (!val.height) {
-  //               ctx.addIssue({
-  //                 code: z.ZodIssueCode.custom,
-  //                 message: "Required for blurred background",
-  //                 path: ["height"],
-  //               })
-  //             }
-  //           }
-
-  //           if (
-  //             val.backgroundType === "generative_fill" &&
-  //             (!val.width || !val.height)
-  //           ) {
-  //             if (!val.width) {
-  //               ctx.addIssue({
-  //                 code: z.ZodIssueCode.custom,
-  //                 message: "Required for generative fill background",
-  //                 path: ["width"],
-  //               })
-  //             }
-  //             if (!val.height) {
-  //               ctx.addIssue({
-  //                 code: z.ZodIssueCode.custom,
-  //                 message: "Required for generative fill background",
-  //                 path: ["height"],
-  //               })
-  //             }
-  //           }
-  //         }),
-  //       transformations: [
-  //         {
-  //           label: "Width",
-  //           name: "width",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationKey: "width",
-  //           helpText:
-  //             "Specify the output width. Use a decimal between 0 and 1, an integer greater than 1 for pixel units, or an expression.",
-  //           examples: ["0.5 (50%)", "300", "iw_div_2"],
-  //         },
-  //         {
-  //           label: "Height",
-  //           name: "height",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationKey: "height",
-  //           helpText:
-  //             "Specify the output height. Use a decimal between 0 and 1, an integer greater than 1, or an expression.",
-  //           examples: ["0.5", "300", "ih_div_2"],
-  //         },
-  //         ...background.getPropsFor("pad_resize").transformations({ transformationGroup: "background" }),
-  //         {
-  //           label: "Focus",
-  //           name: "focus",
-  //           fieldType: "anchor",
-  //           isTransformation: true,
-  //           transformationKey: "focus",
-  //           fieldProps: {
-  //             positions: ["center", "top", "bottom", "left", "right"],
-  //           },
-  //         },
-  //       ],
-  //     },
-  //     {
-  //       key: "resize-maintain_aspect_ratio",
-  //       name: "Maintain Aspect Ratio",
-  //       // This strategy resizes and crops the image to fit the requested box while
-  //       // preserving the original aspect ratio. It may crop parts of the image
-  //       // (default centre crop) to achieve the final size. You can specify only
-  //       // one dimension (width or height) or an aspect ratio. Focus settings can
-  //       // be used to keep important content in view.
-  //       description:
-  //         "Resize an image to the requested dimensions while preserving its aspect ratio. The image is scaled and cropped as necessary; specify width, height or an aspect ratio, and optionally set a focus area.",
-  //       docsLink:
-  //         "https://imagekit.io/docs/image-resize-and-crop#maintain-ratio-crop-strategy---c-maintain_ratio",
-  //       defaultTransformation: { crop: "maintain_ratio" },
-  //       schema: z
-  //         .object({
-  //           width: widthValidator.optional(),
-  //           height: heightValidator.optional(),
-  //           aspectRatio: aspectRatioValidator.optional(),
-  //           focus: z.string().optional(),
-  //           focusAnchor: z.string().optional(),
-  //           focusObject: z.string().optional(),
-  //           zoom: z.coerce.number().optional(),
-  //         })
-  //         .refine(
-  //           (val) => {
-  //             if (
-  //               Object.values(val).some(
-  //                 (v) => v !== undefined && v !== null && v !== "",
-  //               )
-  //             ) {
-  //               return true
-  //             }
-  //             return false
-  //           },
-  //           {
-  //             message: "At least one value is required",
-  //             path: [],
-  //           },
-  //         )
-  //         .superRefine((val, ctx) => {
-  //           if (val.width && val.height) {
-  //             ctx.addIssue({
-  //               code: z.ZodIssueCode.custom,
-  //               message: "Width and height cannot be used together",
-  //               path: [],
-  //             })
-  //           }
-  //           if (val.width && val.height && val.aspectRatio) {
-  //             ctx.addIssue({
-  //               code: z.ZodIssueCode.custom,
-  //               message:
-  //                 "Width, height and aspect ratio cannot be used together",
-  //               path: [],
-  //             })
-  //           }
-  //           if (val.focus === "object" && !val.focusObject) {
-  //             ctx.addIssue({
-  //               code: z.ZodIssueCode.custom,
-  //               message: "Focus object is required",
-  //               path: ["focusObject"],
-  //             })
-  //           }
-  //           if (val.focus === "anchor" && !val.focusAnchor) {
-  //             ctx.addIssue({
-  //               code: z.ZodIssueCode.custom,
-  //               message: "Focus anchor is required",
-  //               path: ["focusAnchor"],
-  //             })
-  //           }
-  //         }),
-  //       transformations: [
-  //         {
-  //           label: "Width",
-  //           name: "width",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationKey: "width",
-  //           helpText:
-  //             "Specify the target width. Width and height cannot be used together. Use a decimal, an integer, or an expression.",
-  //           examples: ["0.5", "300", "iw_div_2"],
-  //         },
-  //         {
-  //           label: "Height",
-  //           name: "height",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationKey: "height",
-  //           helpText:
-  //             "Specify the target height. Height and width cannot be used together. Use a decimal, an integer, or an expression.",
-  //           examples: ["0.5", "300", "ih_div_2"],
-  //         },
-  //         {
-  //           label: "Aspect Ratio",
-  //           name: "aspectRatio",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationKey: "aspectRatio",
-  //           helpText:
-  //             "Enter an aspect ratio as 'width-height' or an expression. Cannot be used alongside both width and height.",
-  //           examples: ["16-9", "4-3", "iar_mul_0.75"],
-  //         },
-  //         {
-  //           label: "Focus",
-  //           name: "focus",
-  //           fieldType: "select",
-  //           isTransformation: true,
-  //           transformationGroup: "focus",
-  //           fieldProps: {
-  //             options: [
-  //               { label: "Auto", value: "auto" },
-  //               { label: "Anchor", value: "anchor" },
-  //               { label: "Face", value: "face" },
-  //               { label: "Object", value: "object" },
-  //             ],
-  //           },
-  //         },
-  //         {
-  //           label: "Focus Anchor",
-  //           name: "focusAnchor",
-  //           fieldType: "anchor",
-  //           isTransformation: true,
-  //           transformationGroup: "focus",
-  //           fieldProps: {
-  //             options: [
-  //               { label: "Center", value: "center" },
-  //               { label: "Top", value: "top" },
-  //               { label: "Bottom", value: "bottom" },
-  //               { label: "Left", value: "left" },
-  //               { label: "Right", value: "right" },
-  //               { label: "Top Left", value: "top_left" },
-  //               { label: "Top Right", value: "top_right" },
-  //               { label: "Bottom Left", value: "bottom_left" },
-  //               { label: "Bottom Right", value: "bottom_right" },
-  //             ],
-  //           },
-  //           isVisible: ({ focus }) => focus === "anchor",
-  //         },
-  //         {
-  //           label: "Focus Object",
-  //           name: "focusObject",
-  //           fieldType: "select",
-  //           isTransformation: true,
-  //           transformationGroup: "focus",
-  //           fieldProps: {
-  //             isCreatable: false,
-  //           },
-  //           helpText:
-  //             "Select an object to focus on. The crop will center on this object.",
-  //           isVisible: ({ focus }) => focus === "object",
-  //         },
-  //         {
-  //           label: "Zoom",
-  //           name: "zoom",
-  //           fieldType: "zoom",
-  //           isTransformation: true,
-  //           transformationGroup: "focus",
-  //           fieldProps: {
-  //             defaultValue: 100,
-  //           },
-  //           helpText:
-  //             "Select the zoom level for the focus area. Higher zoom levels crop closer to the focus point.",
-  //           isVisible: ({ focus }) => focus === "object" || focus === "face",
-  //         },
-  //       ],
-  //     },
-  //     {
-  //       key: "resize-forced_crop",
-  //       name: "Forced Crop",
-  //       // Forced crop squeezes the entire image into the requested width and height,
-  //       // ignoring the original aspect ratio. The image is not cropped; instead it
-  //       // is stretched or squashed to exactly fit the provided dimensions.
-  //       description:
-  //         "Resize an image to exactly the specified width and height, distorting the aspect ratio if necessary. The entire original image is preserved without cropping.",
-  //       docsLink:
-  //         "https://imagekit.io/docs/image-resize-and-crop#forced-crop-strategy---c-force",
-  //       defaultTransformation: { crop: "force" },
-  //       schema: z
-  //         .object({
-  //           width: widthValidator.optional(),
-  //           height: heightValidator.optional(),
-  //           focus: z.string().optional(),
-  //           focusAnchor: z.string().optional(),
-  //           focusObject: z.string().optional(),
-  //           zoom: z.coerce.number().optional(),
-  //         })
-  //         .refine(
-  //           (val) => {
-  //             if (
-  //               Object.values(val).some(
-  //                 (v) => v !== undefined && v !== null && v !== "",
-  //               )
-  //             ) {
-  //               return true
-  //             }
-  //             return false
-  //           },
-  //           {
-  //             message: "At least one value is required",
-  //             path: [],
-  //           },
-  //         ),
-  //       transformations: [
-  //         {
-  //           label: "Width",
-  //           name: "width",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationKey: "width",
-  //           helpText:
-  //             "Specify the exact width of the output. The image will be squashed or stretched to fit this width if both width and height are provided. Use a decimal, integer, or expression.",
-  //           examples: ["0.5", "300", "iw_div_2"],
-  //         },
-  //         {
-  //           label: "Height",
-  //           name: "height",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationKey: "height",
-  //           helpText:
-  //             "Specify the exact height of the output. The image will be squashed or stretched to fit this height if both width and height are provided. Use a decimal, integer, or expression.",
-  //           examples: ["0.5", "300", "ih_div_2"],
-  //         },
-  //         {
-  //           label: "Focus",
-  //           name: "focus",
-  //           fieldType: "select",
-  //           isTransformation: true,
-  //           transformationGroup: "focus",
-  //           fieldProps: {
-  //             options: [
-  //               { label: "Auto", value: "auto" },
-  //               { label: "Anchor", value: "anchor" },
-  //               { label: "Face", value: "face" },
-  //               { label: "Object", value: "object" },
-  //             ],
-  //           },
-  //         },
-  //         {
-  //           label: "Focus Anchor",
-  //           name: "focusAnchor",
-  //           fieldType: "anchor",
-  //           isTransformation: true,
-  //           transformationGroup: "focus",
-  //           fieldProps: {
-  //             options: [
-  //               { label: "Center", value: "center" },
-  //               { label: "Top", value: "top" },
-  //               { label: "Bottom", value: "bottom" },
-  //               { label: "Left", value: "left" },
-  //               { label: "Right", value: "right" },
-  //               { label: "Top Left", value: "top_left" },
-  //               { label: "Top Right", value: "top_right" },
-  //               { label: "Bottom Left", value: "bottom_left" },
-  //               { label: "Bottom Right", value: "bottom_right" },
-  //             ],
-  //           },
-  //           isVisible: ({ focus }) => focus === "anchor",
-  //         },
-  //         {
-  //           label: "Focus Object",
-  //           name: "focusObject",
-  //           fieldType: "select",
-  //           isTransformation: true,
-  //           transformationGroup: "focus",
-  //           fieldProps: {
-  //             isCreatable: false,
-  //           },
-  //           helpText:
-  //             "Select an object to focus on. The crop will center on this object.",
-  //           isVisible: ({ focus }) => focus === "object",
-  //         },
-  //         {
-  //           label: "Zoom",
-  //           name: "zoom",
-  //           fieldType: "zoom",
-  //           isTransformation: true,
-  //           transformationGroup: "focus",
-  //           fieldProps: {
-  //             defaultValue: 100,
-  //           },
-  //           helpText:
-  //             "Select the zoom level for the focus area. Higher zoom levels crop closer to the focus point.",
-  //           isVisible: ({ focus }) => focus === "object",
-  //         },
-  //       ],
-  //     },
-  //     {
-  //       key: "resize-max_size",
-  //       name: "Max Size",
-  //       // Max size cropping preserves the aspect ratio and scales the image so
-  //       // that at least one dimension matches the requested size, while the other
-  //       // dimension is equal to or smaller than the requested dimension. It
-  //       // guarantees the output image will never be larger than the requested box.
-  //       description:
-  //         "Resize the image so that it fits within the specified width and/or height. The aspect ratio is preserved and at least one dimension will match the request while the other may be smaller.",
-  //       docsLink:
-  //         "https://imagekit.io/docs/image-resize-and-crop#max-size-cropping-strategy---c-at_max",
-  //       defaultTransformation: { crop: "at_max" },
-  //       schema: z
-  //         .object({
-  //           width: widthValidator.optional(),
-  //           height: heightValidator.optional(),
-  //         })
-  //         .refine(
-  //           (val) => {
-  //             if (
-  //               Object.values(val).some(
-  //                 (v) => v !== undefined && v !== null && v !== "",
-  //               )
-  //             ) {
-  //               return true
-  //             }
-  //             return false
-  //           },
-  //           {
-  //             message: "At least one value is required",
-  //             path: [],
-  //           },
-  //         ),
-  //       transformations: [
-  //         {
-  //           label: "Width",
-  //           name: "width",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationKey: "width",
-  //           helpText:
-  //             "Specify the maximum width. The image will scale down to fit within this width while preserving aspect ratio. Use a percentage, pixels, or an expression.",
-  //           examples: ["0.5", "300", "iw_div_2"],
-  //         },
-  //         {
-  //           label: "Height",
-  //           name: "height",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationKey: "height",
-  //           helpText:
-  //             "Specify the maximum height. The image will scale down to fit within this height while preserving aspect ratio. Use a percentage, pixels, or an expression.",
-  //           examples: ["0.5", "300", "ih_div_2"],
-  //         },
-  //       ],
-  //     },
-  //     {
-  //       key: "resize-max_size_enlarge",
-  //       name: "Max Size (Enlarge)",
-  //       // The max size (enlarge) strategy behaves like max size cropping but
-  //       // allows the image to be upscaled if the requested dimensions are larger
-  //       // than the original. Aspect ratio is preserved and at least one
-  //       // dimension will match the requested size.
-  //       description:
-  //         "Resize the image so that it fits within the specified dimensions, preserving aspect ratio. If the target size is larger than the original image, the image will be upscaled.",
-  //       docsLink:
-  //         "https://imagekit.io/docs/image-resize-and-crop#max-size-enlarge-cropping-strategy---c-at_max_enlarge",
-  //       defaultTransformation: { crop: "at_max_enlarge" },
-  //       schema: z
-  //         .object({
-  //           width: widthValidator.optional(),
-  //           height: heightValidator.optional(),
-  //         })
-  //         .refine(
-  //           (val) => {
-  //             if (
-  //               Object.values(val).some(
-  //                 (v) => v !== undefined && v !== null && v !== "",
-  //               )
-  //             ) {
-  //               return true
-  //             }
-  //             return false
-  //           },
-  //           {
-  //             message: "At least one value is required",
-  //             path: [],
-  //           },
-  //         ),
-  //       transformations: [
-  //         {
-  //           label: "Width",
-  //           name: "width",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationKey: "width",
-  //           helpText:
-  //             "Specify the maximum width. The image will scale up or down to fit this width while preserving aspect ratio. Use a percentage, pixels, or an expression.",
-  //           examples: ["0.5", "300", "iw_div_2"],
-  //         },
-  //         {
-  //           label: "Height",
-  //           name: "height",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationKey: "height",
-  //           helpText:
-  //             "Specify the maximum height. The image will scale up or down to fit this height while preserving aspect ratio. Use a percentage, pixels, or an expression.",
-  //           examples: ["0.5", "300", "ih_div_2"],
-  //         },
-  //       ],
-  //     },
-  //     {
-  //       key: "resize-at_least",
-  //       name: "Min Size",
-  //       // The min-size crop strategy resizes the image so that at least one
-  //       // dimension is equal to or greater than the requested dimension. The
-  //       // aspect ratio is preserved and the other dimension may exceed the
-  //       // requested value.
-  //       description:
-  //         "Resize the image so that it meets or exceeds the specified width and/or height. The aspect ratio is preserved and at least one dimension will match or exceed the request.",
-  //       docsLink:
-  //         "https://imagekit.io/docs/image-resize-and-crop#min-size-cropping-strategy---c-at_least",
-  //       defaultTransformation: { crop: "at_least" },
-  //       schema: z
-  //         .object({
-  //           width: widthValidator.optional(),
-  //           height: heightValidator.optional(),
-  //         })
-  //         .refine(
-  //           (val) => {
-  //             if (
-  //               Object.values(val).some(
-  //                 (v) => v !== undefined && v !== null && v !== "",
-  //               )
-  //             ) {
-  //               return true
-  //             }
-  //             return false
-  //           },
-  //           {
-  //             message: "At least one value is required",
-  //             path: [],
-  //           },
-  //         ),
-  //       transformations: [
-  //         {
-  //           label: "Width",
-  //           name: "width",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationKey: "width",
-  //           helpText:
-  //             "Specify the minimum width. The image will scale so that the width is at least this value while preserving aspect ratio. Use a percentage, pixels, or an expression.",
-  //           examples: ["0.5", "300", "iw_div_2"],
-  //         },
-  //         {
-  //           label: "Height",
-  //           name: "height",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationKey: "height",
-  //           helpText:
-  //             "Specify the minimum height. The image will scale so that the height is at least this value while preserving aspect ratio. Use a percentage, pixels, or an expression.",
-  //           examples: ["0.5", "300", "ih_div_2"],
-  //         },
-  //       ],
-  //     },
-  //   ],
-  // },
-  // {
-  //   key: "crop_extract",
-  //   name: "Crop & Extract",
-  //   items: [
-  //     {
-  //       key: "crop_extract-extract",
-  //       name: "Extract",
-  //       // Extract crop cuts out a region of the specified width and height from
-  //       // the original image without scaling. The crop can be centred by default
-  //       // or positioned using focus (anchor or object). If the specified crop
-  //       // area is larger than the original bounds, the operation will fail.
-  //       description:
-  //         "Extract a rectangular region from the original image without resizing. Specify width and height to define the area and optionally choose a focus point or object to position the crop.",
-  //       docsLink:
-  //         "https://imagekit.io/docs/image-resize-and-crop#extract-crop-strategy---cm-extract",
-  //       defaultTransformation: { cropMode: "extract" },
-  //       schema: z
-  //         .object({
-  //           width: widthValidator.optional(),
-  //           height: heightValidator.optional(),
-  //           focus: z.string().optional(),
-  //           focusAnchor: z.string().optional(),
-  //           focusObject: z.string().optional(),
-  //           coordinateMethod: z.string().optional(),
-  //           x: z.string().optional(),
-  //           y: z.string().optional(),
-  //           xc: z.string().optional(),
-  //           yc: z.string().optional(),
-  //           zoom: z.coerce.number().optional(),
-  //         })
-  //         .refine(
-  //           (val) => {
-  //             if (
-  //               Object.values(val).some(
-  //                 (v) => v !== undefined && v !== null && v !== "",
-  //               )
-  //             ) {
-  //               return true
-  //             }
-  //             return false
-  //           },
-  //           {
-  //             message: "At least one value is required",
-  //             path: [],
-  //           },
-  //         )
-  //         .superRefine((val, ctx) => {
-  //           if (val.focus === "object" && !val.focusObject) {
-  //             ctx.addIssue({
-  //               code: z.ZodIssueCode.custom,
-  //               message: "Focus object is required",
-  //               path: ["focusObject"],
-  //             })
-  //           }
-  //           if (val.focus === "anchor" && !val.focusAnchor) {
-  //             ctx.addIssue({
-  //               code: z.ZodIssueCode.custom,
-  //               message: "Focus anchor is required",
-  //               path: ["focusAnchor"],
-  //             })
-  //           }
-  //           if (val.focus === "coordinates") {
-  //             if (val.coordinateMethod === "topleft") {
-  //               if (!val.x && !val.y) {
-  //                 ctx.addIssue({
-  //                   code: z.ZodIssueCode.custom,
-  //                   message: "At least one coordinate (x or y) is required",
-  //                   path: [],
-  //                 })
-  //               }
-  //             } else if (val.coordinateMethod === "center") {
-  //               if (!val.xc && !val.yc) {
-  //                 ctx.addIssue({
-  //                   code: z.ZodIssueCode.custom,
-  //                   message: "At least one coordinate (xc or yc) is required",
-  //                   path: [],
-  //                 })
-  //               }
-  //             }
-  //           }
-  //         }),
-  //       transformations: [
-  //         {
-  //           label: "Width",
-  //           name: "width",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationKey: "width",
-  //           helpText:
-  //             "Specify the width of the region to extract. Use a decimal, an integer, or an expression. The image is not resized; only the specified region is returned.",
-  //           examples: ["0.5", "300", "iw_div_2"],
-  //         },
-  //         {
-  //           label: "Height",
-  //           name: "height",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationKey: "height",
-  //           helpText:
-  //             "Specify the height of the region to extract. Use a decimal, an integer, or an expression. The image is not resized; only the specified region is returned.",
-  //           examples: ["0.5", "300", "ih_div_2"],
-  //         },
-  //         {
-  //           label: "Focus",
-  //           name: "focus",
-  //           fieldType: "select",
-  //           isTransformation: true,
-  //           transformationGroup: "focus",
-  //           fieldProps: {
-  //             options: [
-  //               { label: "Auto", value: "auto" },
-  //               { label: "Anchor", value: "anchor" },
-  //               { label: "Face", value: "face" },
-  //               { label: "Object", value: "object" },
-  //               { label: "Custom", value: "custom" },
-  //               { label: "Coordinates", value: "coordinates" },
-  //             ],
-  //           },
-  //           helpText:
-  //             "Choose how to position the extracted region. Custom uses a saved focus area from Media Library.",
-  //         },
-  //         {
-  //           label: "Focus Anchor",
-  //           name: "focusAnchor",
-  //           fieldType: "anchor",
-  //           isTransformation: true,
-  //           transformationGroup: "focus",
-  //           fieldProps: {
-  //             options: [
-  //               { label: "Center", value: "center" },
-  //               { label: "Top", value: "top" },
-  //               { label: "Bottom", value: "bottom" },
-  //               { label: "Left", value: "left" },
-  //               { label: "Right", value: "right" },
-  //               { label: "Top Left", value: "top_left" },
-  //               { label: "Top Right", value: "top_right" },
-  //               { label: "Bottom Left", value: "bottom_left" },
-  //               { label: "Bottom Right", value: "bottom_right" },
-  //             ],
-  //           },
-  //           isVisible: ({ focus }) => focus === "anchor",
-  //         },
-  //         {
-  //           label: "Focus Object",
-  //           name: "focusObject",
-  //           fieldType: "select",
-  //           isTransformation: true,
-  //           transformationGroup: "focus",
-  //           fieldProps: {
-  //             isCreatable: false,
-  //           },
-  //           helpText:
-  //             "Select an object to focus on during extraction. The crop will center on this object.",
-  //           isVisible: ({ focus }) => focus === "object",
-  //         },
-  //         {
-  //           label: "Coordinate Method",
-  //           name: "coordinateMethod",
-  //           fieldType: "radio-card",
-  //           isTransformation: false,
-  //           transformationGroup: "focus",
-  //           fieldProps: {
-  //             options: [
-  //               { label: "Top-left (x, y)", value: "topleft" },
-  //               { label: "Center (xc, yc)", value: "center" },
-  //             ],
-  //             defaultValue: "topleft",
-  //           },
-  //           helpText:
-  //             "Choose whether coordinates are relative to the top-left corner or the center of the image.",
-  //           isVisible: ({ focus }) => focus === "coordinates",
-  //         },
-  //         {
-  //           label: "X (Horizontal)",
-  //           name: "x",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationGroup: "focus",
-  //           helpText:
-  //             "Horizontal position from the top-left. Use an integer or expression.",
-  //           examples: ["100", "iw_mul_0.4"],
-  //           isVisible: ({ focus, coordinateMethod }) =>
-  //             focus === "coordinates" && coordinateMethod === "topleft",
-  //         },
-  //         {
-  //           label: "Y (Vertical)",
-  //           name: "y",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationGroup: "focus",
-  //           helpText:
-  //             "Vertical position from the top-left. Use an integer or expression.",
-  //           examples: ["100", "ih_mul_0.4"],
-  //           isVisible: ({ focus, coordinateMethod }) =>
-  //             focus === "coordinates" && coordinateMethod === "topleft",
-  //         },
-  //         {
-  //           label: "XC (Horizontal Center)",
-  //           name: "xc",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationGroup: "focus",
-  //           helpText:
-  //             "Horizontal center position. Use an integer or expression.",
-  //           examples: ["200", "iw_mul_0.5"],
-  //           isVisible: ({ focus, coordinateMethod }) =>
-  //             focus === "coordinates" && coordinateMethod === "center",
-  //         },
-  //         {
-  //           label: "YC (Vertical Center)",
-  //           name: "yc",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationGroup: "focus",
-  //           helpText: "Vertical center position. Use an integer or expression.",
-  //           examples: ["200", "ih_mul_0.5"],
-  //           isVisible: ({ focus, coordinateMethod }) =>
-  //             focus === "coordinates" && coordinateMethod === "center",
-  //         },
-  //         {
-  //           label: "Zoom",
-  //           name: "zoom",
-  //           fieldType: "zoom",
-  //           isTransformation: true,
-  //           transformationGroup: "focus",
-  //           fieldProps: {
-  //             defaultValue: 100,
-  //           },
-  //           helpText:
-  //             "Select the zoom level for the focus area. Higher zoom levels crop closer to the focus point.",
-  //           isVisible: ({ focus }) => focus === "object" || focus === "face",
-  //         },
-  //       ],
-  //     },
-  //     {
-  //       key: "crop_extract-pad_extract",
-  //       name: "Pad Extract",
-  //       // Pad extract crops a region from the image like extract, but if the
-  //       // cropped region is smaller than the requested dimensions it pads the
-  //       // remaining area. This allows you to centre or position a subject and
-  //       // fill unused space with a solid color or generative fill.
-  //       description:
-  //         "Extract a region from the image and pad it to match the requested dimensions. Use a solid color or an AI-generated fill for the padding and optionally set a focus point.",
-  //       docsLink:
-  //         "https://imagekit.io/docs/image-resize-and-crop#pad-extract-crop-strategy---cm-pad_extract",
-  //       defaultTransformation: { cropMode: "pad_extract" },
-  //       schema: z
-  //         .object({
-  //           width: widthValidator.optional(),
-  //           height: heightValidator.optional(),
-  //           ...background.getPropsFor("pad_extract").schema,
-  //         })
-  //         .refine(
-  //           (val) => {
-  //             if (
-  //               Object.values(val).some(
-  //                 (v) => v !== undefined && v !== null && v !== "",
-  //               )
-  //             ) {
-  //               return true
-  //             }
-  //             return false
-  //           },
-  //           {
-  //             message: "At least one value is required",
-  //             path: [],
-  //           },
-  //         ),
-  //       transformations: [
-  //         {
-  //           label: "Width",
-  //           name: "width",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationKey: "width",
-  //           helpText:
-  //             "Specify the width of the extracted region. If the region is smaller than this width, padding will be added. Use a percentage, pixels, or an expression.",
-  //           examples: ["0.5", "300", "iw_div_2"],
-  //         },
-  //         {
-  //           label: "Height",
-  //           name: "height",
-  //           fieldType: "input",
-  //           isTransformation: true,
-  //           transformationKey: "height",
-  //           helpText:
-  //             "Specify the height of the extracted region. If the region is smaller than this height, padding will be added. Use a percentage, pixels, or an expression.",
-  //           examples: ["0.5", "300", "ih_div_2"],
-  //         },
-  //         ...background.getPropsFor("pad_extract").transformations({ transformationGroup: "background" }),
-  //       ],
-  //     },
-  //   ],
-  // },
   {
     key: "adjust",
     name: "Adjust",
@@ -1042,14 +179,18 @@ const baseTransformationSchema: TransformationSchema[] = [
       {
         key: "adjust-background",
         name: "Background",
-        description: "Apply a solid color or a gradient background to the image.",
-        docsLink: "https://imagekit.io/docs/effects-and-enhancements#background---bg",
+        description:
+          "Apply a solid color or a gradient background to the image.",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#background---bg",
         defaultTransformation: {},
         schema: z.object({
           ...background.getPropsFor("root_image").schema,
         }),
         transformations: [
-          ...background.getPropsFor("root_image").transformations({ transformationGroup: "background" }),
+          ...background
+            .getPropsFor("root_image")
+            .transformations({ transformationGroup: "background" }),
         ],
       },
       {
@@ -3282,13 +2423,14 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationGroup: "imageLayer",
             transformationKey: "dpr",
             fieldProps: {
-              defaultValue: "auto",
+              defaultValue: 1,
               autoOption: true,
               min: 0.1,
               max: 5,
               step: 0.1,
             },
-            isVisible: ({ dprEnabled, width, height }) => dprEnabled === true && !!(width || height),
+            isVisible: ({ dprEnabled, width, height }) =>
+              dprEnabled === true && !!(width || height),
           },
           {
             label: "Crop",
@@ -3973,11 +3115,22 @@ export const transformationFormatters: Record<
   ) => void
 > = {
   background: (values, transforms) => {
-    let { backgroundType, backgroundBlurIntensity, backgroundBlurBrightness, backgroundDominantAuto, backgroundGradientAutoDominant, backgroundGradientMode, backgroundGradientPaletteSize, backgroundGradient } =
-      values as Record<string, string | boolean | GradientPickerState>
+    let {
+      backgroundType,
+      backgroundBlurIntensity,
+      backgroundBlurBrightness,
+      backgroundDominantAuto,
+      backgroundGradientAutoDominant,
+      backgroundGradientMode,
+      backgroundGradientPaletteSize,
+      backgroundGradient,
+    } = values as Record<string, string | boolean | GradientPickerState>
 
-    if (backgroundBlurBrightness?.startsWith?.("-")) {
-      backgroundBlurBrightness = (backgroundBlurBrightness as string).replace("-", "N")
+    if (backgroundBlurBrightness.startsWith?.("-")) {
+      backgroundBlurBrightness = (backgroundBlurBrightness as string).replace(
+        "-",
+        "N",
+      )
     }
 
     if (backgroundType === "color") {
@@ -3996,13 +3149,13 @@ export const transformationFormatters: Record<
         // Manual gradient using full layer syntax approach
         const gradient = backgroundGradient as GradientPickerState
         const { from, to, direction, stopPoint } = gradient
-        
+
         // Build the gradient parameters
         const fromColor = from?.replace("#", "") || "FFFFFF"
         const toColor = to?.replace("#", "") || "000000"
         const gradientDirection = direction || "bottom"
-        const stopPointDecimal = (stopPoint || 100) / 100
-        
+        const stopPointDecimal = ((stopPoint as number) || 100) / 100
+
         // Create the full layer syntax with placeholder for image path
         // This will be replaced with actual image path in the store per image
         transforms.raw = `e-gradient-ld-${gradientDirection}_from-${fromColor}_to-${toColor}_sp-${stopPointDecimal}:l-image,i-__IMAGE_PATH__,t-false,l-end`
@@ -4633,8 +3786,9 @@ function validatePerspectiveDistort(
 
   // Perspective distortion: require all coordinates and ensure they are valid
   if (distortType === "perspective") {
-    const distortPerspective = value
-      .distortPerspective as PerspectiveObject | undefined
+    const distortPerspective = value.distortPerspective as
+      | PerspectiveObject
+      | undefined
 
     if (!distortPerspective) {
       ctx.addIssue({

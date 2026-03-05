@@ -32,13 +32,13 @@ const ColorPickerField = ({
    */
   const parseAlphaLikeDownstream = (hexAlpha: string): number => {
     const parsed = parseInt(hexAlpha, 10)
-    return isNaN(parsed) ? 0 : parsed / 100
+    return Number.isNaN(parsed) ? 0 : parsed / 100
   }
 
   /**
    * Helper function to convert alpha back to hex format that will parse correctly downstream.
    * We need to find a hex value that, when parsed as decimal by downstream, gives us the desired alpha.
-   * 
+   *
    * For example:
    * - If alpha is 0.99, we want downstream to get 99, so we need "99" in hex
    * - If alpha is 0.5, we want downstream to get 50, so we need "50" in hex
@@ -51,32 +51,32 @@ const ColorPickerField = ({
 
   // Convert a color from downstream format to standard format for the color picker
   const convertDownstreamToStandard = (color: string): string => {
-    if (!color || !color.startsWith('#') || color.length !== 9) {
+    if (!color || !color.startsWith("#") || color.length !== 9) {
       return color
     }
-    
+
     const rgb = color.slice(1, 7)
     const alphaHex = color.slice(7, 9)
     const parsedAlpha = parseAlphaLikeDownstream(alphaHex)
-    
+
     // Convert to standard 0-255 range
     const standardAlphaInt = Math.round(parsedAlpha * 255)
     const standardAlphaHex = standardAlphaInt.toString(16).padStart(2, "0")
-    
+
     return `#${rgb}${standardAlphaHex}`
   }
 
   // Get the preview color that shows what downstream will actually render
   const getPreviewColor = (color: string): string => {
-    if (!color || !color.startsWith('#')) {
+    if (!color || !color.startsWith("#")) {
       return color
     }
-    
+
     if (color.length === 9) {
       // Has alpha channel - convert using downstream logic
       return convertDownstreamToStandard(color)
     }
-    
+
     return color
   }
 

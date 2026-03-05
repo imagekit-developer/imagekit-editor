@@ -2,13 +2,14 @@ import { z } from "zod/v3"
 import type { TransformationField, TransformationSchema } from "."
 import { background } from "./background"
 import {
-  widthValidator,
-  heightValidator,
   aspectRatioValidator,
+  heightValidator,
+  widthValidator,
 } from "./transformation"
 
 // Help text explaining single dimension vs both dimensions behavior
-export const RESIZE_CROP_HELP_TEXT = "If you specify only one dimension (width or height), the other will be adjusted automatically to preserve the aspect ratio and no cropping is applied. When you specify both dimensions, you'd need to choose a cropping strategy to control how the image is resized or cropped."
+export const RESIZE_CROP_HELP_TEXT =
+  "If you specify only one dimension (width or height), the other will be adjusted automatically to preserve the aspect ratio and no cropping is applied. When you specify both dimensions, you'd need to choose a cropping strategy to control how the image is resized or cropped."
 
 // The 8 crop/resize modes available (c-maintain_ratio is default and first)
 export const RESIZE_CROP_MODES = [
@@ -44,7 +45,8 @@ export const RESIZE_CROP_MODES = [
   },
   {
     value: "c-at_max_enlarge",
-    label: "Resize to contain inside a box, enlarge image if needed, don't crop",
+    label:
+      "Resize to contain inside a box, enlarge image if needed, don't crop",
     paramLabel: "c-at_max_enlarge",
   },
   {
@@ -55,7 +57,9 @@ export const RESIZE_CROP_MODES = [
 ] as const
 
 // Maps mode values to crop/cropMode parameters for URL building
-export function getDefaultTransformationFromMode(mode: string): Record<string, unknown> {
+export function getDefaultTransformationFromMode(
+  mode: string,
+): Record<string, unknown> {
   switch (mode) {
     case "cm-pad_resize":
       return { cropMode: "pad_resize" as const }
@@ -83,20 +87,21 @@ export const resizeAndCropSchema = z
   .object({
     // Mode dropdown - only visible when both dimensions are set
     mode: z.string().optional(),
-    
+
     // Dimensions - always visible
     width: widthValidator.optional(),
     height: heightValidator.optional(),
-    
+
     // Aspect ratio - for maintain_ratio mode
     aspectRatio: aspectRatioValidator.optional(),
-    
+
     // Focus fields - for pad_resize, maintain_ratio, extract, force (auto only)
     focus: z.string().optional(),
     focusAnchor: z.string().optional(),
     focusObject: z.string().optional(),
     zoom: z.coerce.number().optional(),
-    // Only valid when either width or height is specified
+    // DPR controls - only valid when either width or height is specified
+    dprEnabled: z.boolean().optional(),
     dpr: z
       .union([
         z.coerce
@@ -107,14 +112,14 @@ export const resizeAndCropSchema = z
         z.literal("auto"),
       ])
       .optional(),
-    
+
     // Coordinates for extract mode
     coordinateMethod: z.string().optional(),
     x: z.string().optional(),
     y: z.string().optional(),
     xc: z.string().optional(),
     yc: z.string().optional(),
-    
+
     // Background fields for pad_resize and pad_extract
     ...background.getPropsFor("pad_resize").schema,
   })
@@ -126,7 +131,7 @@ export const resizeAndCropSchema = z
     {
       message: "At least one of width or height is required",
       path: [],
-    }
+    },
   )
   .refine(
     (val) => {
@@ -139,25 +144,27 @@ export const resizeAndCropSchema = z
     {
       message: "Mode is required when both width and height are specified",
       path: ["mode"],
-    }
+    },
   )
   .superRefine((val, ctx) => {
     // DPR validation - can only be used when either width or height is specified
     if (val.dpr && !(val.width || val.height)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "DPR can only be used when either width or height is specified",
+        message:
+          "DPR can only be used when either width or height is specified",
         path: ["dpr"],
       })
     }
 
     // Mode-specific validations (only when mode is set)
     if (!val.mode) return
-    
+
     // cm-pad_resize specific validations
     if (val.mode === "cm-pad_resize") {
       // If backgroundType is blurred or generative_fill, both dimensions required
-      const backgroundType = (val as any).backgroundType
+      const backgroundType = (val as Record<string, unknown>)
+        .backgroundType as string
       if (backgroundType === "blurred" && (!val.width || !val.height)) {
         if (!val.width) {
           ctx.addIssue({
@@ -191,7 +198,7 @@ export const resizeAndCropSchema = z
         }
       }
     }
-    
+
     // cm-extract specific validations
     if (val.mode === "cm-extract") {
       if (val.focus === "object" && !val.focusObject) {
@@ -228,7 +235,7 @@ export const resizeAndCropSchema = z
         }
       }
     }
-    
+
     // Aspect ratio validation (applies at top level, not mode-specific)
     if (val.aspectRatio && !val.width && !val.height) {
       ctx.addIssue({
@@ -237,7 +244,7 @@ export const resizeAndCropSchema = z
         path: ["aspectRatio"],
       })
     }
-    
+
     // c-maintain_ratio specific validations
     if (val.mode === "c-maintain_ratio") {
       // Focus validations
@@ -271,7 +278,7 @@ export const resizeAndCropTransformations: TransformationField[] = [
       "Specify the output width. Use a decimal between 0 and 1, an integer greater than 1 for pixel units, or an expression.",
     examples: ["0.5 (50%)", "300", "iw_div_2"],
   },
-  
+
   // 2. Height (always visible)
   {
     label: "Height",
@@ -283,7 +290,7 @@ export const resizeAndCropTransformations: TransformationField[] = [
       "Specify the output height. Use a decimal between 0 and 1, an integer greater than 1, or an expression.",
     examples: ["0.5", "300", "ih_div_2"],
   },
-  
+
   // 3. Aspect Ratio (visible when at least one dimension is set)
   {
     label: "Aspect Ratio",
@@ -299,7 +306,7 @@ export const resizeAndCropTransformations: TransformationField[] = [
       disabled: false, // Will be controlled by form logic
     },
   },
-  
+
   // 4. Mode dropdown (visible only when both dimensions are set)
   {
     label: "What kind of output?",
@@ -314,8 +321,21 @@ export const resizeAndCropTransformations: TransformationField[] = [
       })),
       defaultValue: "c-maintain_ratio",
     },
-    helpText: "Choose how the image should be resized or cropped when both dimensions are specified.",
+    helpText:
+      "Choose how the image should be resized or cropped when both dimensions are specified.",
     isVisible: ({ width, height }) => !!(width && height),
+  },
+  {
+    label: "Adjust DPR",
+    name: "dprEnabled",
+    fieldType: "switch",
+    isTransformation: false,
+    transformationKey: "dprEnabled",
+    helpText: "Adjust the DPR of the image.",
+    fieldProps: {
+      defaultValue: false,
+    },
+    isVisible: ({ width, height }) => !!(width || height),
   },
   {
     label: "DPR",
@@ -332,9 +352,10 @@ export const resizeAndCropTransformations: TransformationField[] = [
       max: 5,
       step: 0.1,
     },
-    isVisible: ({ width, height }) => !!(width || height),
+    isVisible: ({ dprEnabled, width, height }) =>
+      dprEnabled === true && !!(width || height),
   },
-  
+
   // 5. Focus (for pad_resize - anchor only for padding position)
   {
     label: "Focus",
@@ -346,10 +367,10 @@ export const resizeAndCropTransformations: TransformationField[] = [
       positions: ["center", "top", "bottom", "left", "right"],
     },
     helpText: "Position the image within the padded area.",
-    isVisible: ({ width, height, mode }) => 
+    isVisible: ({ width, height, mode }) =>
       !!(width && height && mode === "cm-pad_resize"),
   },
-  
+
   // 6. Focus select (for maintain_ratio - 4 options)
   {
     label: "Focus",
@@ -367,10 +388,10 @@ export const resizeAndCropTransformations: TransformationField[] = [
     },
     helpText:
       "Choose how to position the crop. Auto detects the most important part, anchor uses fixed positions, face/object focuses on detected subjects.",
-    isVisible: ({ width, height, mode }) => 
+    isVisible: ({ width, height, mode }) =>
       !!(width && height && mode === "c-maintain_ratio"),
   },
-  
+
   // 7. Focus select (for extract - 6 options including Custom and Coordinates)
   {
     label: "Focus",
@@ -390,10 +411,10 @@ export const resizeAndCropTransformations: TransformationField[] = [
     },
     helpText:
       "Choose how to position the extracted region. Custom uses a saved focus area from Media Library.",
-    isVisible: ({ width, height, mode }) => 
+    isVisible: ({ width, height, mode }) =>
       !!(width && height && mode === "cm-extract"),
   },
-  
+
   // 8. Focus select for force (auto only)
   {
     label: "Focus",
@@ -402,16 +423,13 @@ export const resizeAndCropTransformations: TransformationField[] = [
     isTransformation: true,
     transformationGroup: "focus",
     fieldProps: {
-      options: [
-        { label: "Auto", value: "auto" },
-      ],
+      options: [{ label: "Auto", value: "auto" }],
     },
-    helpText:
-      "Automatically detect the most important part of the image.",
-    isVisible: ({ width, height, mode }) => 
+    helpText: "Automatically detect the most important part of the image.",
+    isVisible: ({ width, height, mode }) =>
       !!(width && height && mode === "c-force"),
   },
-  
+
   // 9. Focus Anchor (for extract and maintain_ratio)
   {
     label: "Focus Anchor",
@@ -433,9 +451,14 @@ export const resizeAndCropTransformations: TransformationField[] = [
       ],
     },
     isVisible: ({ width, height, mode, focus }) =>
-      !!(width && height && (mode === "cm-extract" || mode === "c-maintain_ratio") && focus === "anchor"),
+      !!(
+        width &&
+        height &&
+        (mode === "cm-extract" || mode === "c-maintain_ratio") &&
+        focus === "anchor"
+      ),
   },
-  
+
   // 10. Focus Object (for extract and maintain_ratio)
   {
     label: "Focus Object",
@@ -449,9 +472,14 @@ export const resizeAndCropTransformations: TransformationField[] = [
     helpText:
       "Select an object to focus on. The crop will center on this object.",
     isVisible: ({ width, height, mode, focus }) =>
-      !!(width && height && (mode === "cm-extract" || mode === "c-maintain_ratio") && focus === "object"),
+      !!(
+        width &&
+        height &&
+        (mode === "cm-extract" || mode === "c-maintain_ratio") &&
+        focus === "object"
+      ),
   },
-  
+
   // 11. Zoom (for face/object focus in extract and maintain_ratio)
   {
     label: "Zoom",
@@ -465,9 +493,14 @@ export const resizeAndCropTransformations: TransformationField[] = [
     helpText:
       "Select the zoom level for the focus area. Higher zoom levels crop closer to the focus point.",
     isVisible: ({ width, height, mode, focus }) =>
-      !!(width && height && (mode === "cm-extract" || mode === "c-maintain_ratio") && (focus === "object" || focus === "face")),
+      !!(
+        width &&
+        height &&
+        (mode === "cm-extract" || mode === "c-maintain_ratio") &&
+        (focus === "object" || focus === "face")
+      ),
   },
-  
+
   // 12. Coordinate Method (for extract with coordinates)
   {
     label: "Coordinate Method",
@@ -487,7 +520,7 @@ export const resizeAndCropTransformations: TransformationField[] = [
     isVisible: ({ width, height, mode, focus }) =>
       !!(width && height && mode === "cm-extract" && focus === "coordinates"),
   },
-  
+
   // 13-16. Coordinate fields (x, y, xc, yc for extract)
   {
     label: "X (Horizontal)",
@@ -499,7 +532,13 @@ export const resizeAndCropTransformations: TransformationField[] = [
       "Horizontal position from the top-left. Use an integer or expression.",
     examples: ["100", "iw_mul_0.4"],
     isVisible: ({ width, height, mode, focus, coordinateMethod }) =>
-      !!(width && height && mode === "cm-extract" && focus === "coordinates" && coordinateMethod === "topleft"),
+      !!(
+        width &&
+        height &&
+        mode === "cm-extract" &&
+        focus === "coordinates" &&
+        coordinateMethod === "topleft"
+      ),
   },
   {
     label: "Y (Vertical)",
@@ -511,7 +550,13 @@ export const resizeAndCropTransformations: TransformationField[] = [
       "Vertical position from the top-left. Use an integer or expression.",
     examples: ["100", "ih_mul_0.4"],
     isVisible: ({ width, height, mode, focus, coordinateMethod }) =>
-      !!(width && height && mode === "cm-extract" && focus === "coordinates" && coordinateMethod === "topleft"),
+      !!(
+        width &&
+        height &&
+        mode === "cm-extract" &&
+        focus === "coordinates" &&
+        coordinateMethod === "topleft"
+      ),
   },
   {
     label: "XC (Horizontal Center)",
@@ -519,11 +564,16 @@ export const resizeAndCropTransformations: TransformationField[] = [
     fieldType: "input",
     isTransformation: true,
     transformationGroup: "focus",
-    helpText:
-      "Horizontal center position. Use an integer or expression.",
+    helpText: "Horizontal center position. Use an integer or expression.",
     examples: ["200", "iw_mul_0.5"],
     isVisible: ({ width, height, mode, focus, coordinateMethod }) =>
-      !!(width && height && mode === "cm-extract" && focus === "coordinates" && coordinateMethod === "center"),
+      !!(
+        width &&
+        height &&
+        mode === "cm-extract" &&
+        focus === "coordinates" &&
+        coordinateMethod === "center"
+      ),
   },
   {
     label: "YC (Vertical Center)",
@@ -534,16 +584,24 @@ export const resizeAndCropTransformations: TransformationField[] = [
     helpText: "Vertical center position. Use an integer or expression.",
     examples: ["200", "ih_mul_0.5"],
     isVisible: ({ width, height, mode, focus, coordinateMethod }) =>
-      !!(width && height && mode === "cm-extract" && focus === "coordinates" && coordinateMethod === "center"),
+      !!(
+        width &&
+        height &&
+        mode === "cm-extract" &&
+        focus === "coordinates" &&
+        coordinateMethod === "center"
+      ),
   },
-  
+
   // 17. Background fields (for pad_resize mode)
   // These will be spread from background.getPropsFor("pad_resize")
   // We need to add them with isVisible checks for pad_resize mode
 ]
 
 // Add background fields for pad_resize with mode visibility
-const padResizeBackgroundFields = background.getPropsFor("pad_resize").transformations({ transformationGroup: "background" })
+const padResizeBackgroundFields = background
+  .getPropsFor("pad_resize")
+  .transformations({ transformationGroup: "background" })
 padResizeBackgroundFields.forEach((field) => {
   const originalIsVisible = field.isVisible
   resizeAndCropTransformations.push({
@@ -560,7 +618,9 @@ padResizeBackgroundFields.forEach((field) => {
 })
 
 // Add background fields for pad_extract with mode visibility
-const padExtractBackgroundFields = background.getPropsFor("pad_extract").transformations({ transformationGroup: "background" })
+const padExtractBackgroundFields = background
+  .getPropsFor("pad_extract")
+  .transformations({ transformationGroup: "background" })
 padExtractBackgroundFields.forEach((field) => {
   const originalIsVisible = field.isVisible
   resizeAndCropTransformations.push({
