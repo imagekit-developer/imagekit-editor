@@ -3216,6 +3216,16 @@ const baseTransformationSchema: TransformationSchema[] = [
               }
             }
 
+            // DPR for image layers: only valid when either width or height is specified
+            if (val.dpr && !(val.width || val.height)) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message:
+                  "DPR can only be used when either width or height is specified",
+                path: ["dpr"],
+              })
+            }
+
             validatePerspectiveDistort(val, ctx)
           }),
         transformations: [
@@ -3248,6 +3258,37 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationGroup: "imageLayer",
             helpText: "Specify the height of the overlay image.",
             examples: ["100", "ih_div_2"],
+          },
+          {
+            label: "Adjust DPR",
+            name: "dprEnabled",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            transformationKey: "dprEnabled",
+            helpText: "Adjust the DPR of the overlay image.",
+            fieldProps: {
+              defaultValue: false,
+            },
+            isVisible: ({ width, height }) => !!(width || height),
+          },
+          {
+            label: "DPR",
+            name: "dpr",
+            helpText:
+              "Set this value to deliver images optimised for high-resolution displays. The value can be between 0.1 and 5.",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            transformationKey: "dpr",
+            fieldProps: {
+              defaultValue: "auto",
+              autoOption: true,
+              min: 0.1,
+              max: 5,
+              step: 0.1,
+            },
+            isVisible: ({ dprEnabled, width, height }) => dprEnabled === true && !!(width || height),
           },
           {
             label: "Crop",
@@ -3434,36 +3475,6 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationGroup: "imageLayer",
             helpText: "Specify the vertical offset for the overlay image.",
             examples: ["10", "-20", "N30", "bh_div_2"],
-          },
-          {
-            label: "Adjust DPR",
-            name: "dprEnabled",
-            fieldType: "switch",
-            isTransformation: false,
-            transformationGroup: "imageLayer",
-            transformationKey: "dprEnabled",
-            helpText: "Adjust the DPR of the overlay image.",
-            fieldProps: {
-              defaultValue: false,
-            },
-          },
-          {
-            label: "DPR",
-            name: "dpr",
-            helpText:
-              "Set this value to deliver images optimised for high-resolution displays. The value can be between 0.1 and 5.",
-            fieldType: "slider",
-            isTransformation: true,
-            transformationGroup: "imageLayer",
-            transformationKey: "dpr",
-            fieldProps: {
-              defaultValue: "auto",
-              autoOption: true,
-              min: 0.1,
-              max: 5,
-              step: 0.1,
-            },
-            isVisible: ({ dprEnabled }) => dprEnabled === true,
           },
           {
             label: "Opacity",
