@@ -28,6 +28,7 @@ import {
   heightValidator,
   layerXValidator,
   layerYValidator,
+  lineHeightValidator,
   optionalPositiveFloatNumberValidator,
   refineUnsharpenMask,
   widthValidator,
@@ -1751,52 +1752,55 @@ const baseTransformationSchema: TransformationSchema[] = [
             innerAlignment: z
               .enum(["left", "right", "center"])
               .default("center"),
-            padding: z
-              .object({
-                mode: z.enum(["uniform", "individual"]).optional(),
-                padding: z
-                  .union([
-                    z.coerce
-                      .number({
-                        invalid_type_error: "Should be a number.",
-                      })
-                      .min(0, {
-                        message: "Negative values are not allowed.",
+            padding: z.preprocess(
+              (val) => (val === "" ? undefined : val),
+              z
+                .object({
+                  mode: z.enum(["uniform", "individual"]).optional(),
+                  padding: z
+                    .union([
+                      z.coerce
+                        .number({
+                          invalid_type_error: "Should be a number.",
+                        })
+                        .min(0, {
+                          message: "Negative values are not allowed.",
+                        }),
+                      z.object({
+                        top: z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
+                        right: z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
+                        bottom: z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
+                        left: z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
                       }),
-                    z.object({
-                      top: z.coerce
-                        .number({
-                          invalid_type_error: "Should be a number.",
-                        })
-                        .min(0, {
-                          message: "Negative values are not allowed.",
-                        }),
-                      right: z.coerce
-                        .number({
-                          invalid_type_error: "Should be a number.",
-                        })
-                        .min(0, {
-                          message: "Negative values are not allowed.",
-                        }),
-                      bottom: z.coerce
-                        .number({
-                          invalid_type_error: "Should be a number.",
-                        })
-                        .min(0, {
-                          message: "Negative values are not allowed.",
-                        }),
-                      left: z.coerce
-                        .number({
-                          invalid_type_error: "Should be a number.",
-                        })
-                        .min(0, {
-                          message: "Negative values are not allowed.",
-                        }),
-                    }),
-                  ])
-                  .optional(),
-              })
-              .optional(),
+                    ])
+                    .optional(),
+                })
+                .optional(),
+            ),
             opacity: z
               .union([
                 z.coerce
@@ -1820,6 +1824,7 @@ const baseTransformationSchema: TransformationSchema[] = [
                 })
                 .min(0),
             ]),
+            lineHeight: lineHeightValidator,
             flip: z
               .array(z.enum(["horizontal", "vertical"]).optional())
               .optional(),
@@ -2007,8 +2012,9 @@ const baseTransformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "lineHeight",
             transformationGroup: "textLayer",
-            helpText: "Specify the line height for the text overlay.",
-            examples: ["1.5", "bh_div_2"],
+            helpText:
+              "Specify the line height for the text overlay. Must be a positive integer or a valid expression string.",
+            examples: ["1", "3", "bh_div_2"],
           },
           {
             label: "Opacity",
@@ -3371,32 +3377,35 @@ export const transformationFormatters: Record<
       const bg = (values.backgroundColor as string).replace(/^#/, "")
       overlayTransform.background = bg
     }
-    const { padding, mode } = values.padding as Record<string, unknown>
-    if (
-      mode === "uniform" &&
-      (typeof padding === "number" || typeof padding === "string")
-    ) {
-      overlayTransform.padding = padding
-    } else if (
-      mode === "individual" &&
-      typeof padding === "object" &&
-      padding !== null
-    ) {
-      const { top, right, bottom, left } = padding as {
-        top: number
-        right: number
-        bottom: number
-        left: number
+    if (values.padding && typeof values.padding === "object") {
+      const { padding, mode } = values.padding as Record<string, unknown>
+      if (
+        mode === "uniform" &&
+        (typeof padding === "number" || typeof padding === "string") &&
+        padding !== ""
+      ) {
+        overlayTransform.padding = padding
+      } else if (
+        mode === "individual" &&
+        typeof padding === "object" &&
+        padding !== null
+      ) {
+        const { top, right, bottom, left } = padding as {
+          top: number
+          right: number
+          bottom: number
+          left: number
+        }
+        let paddingString: string
+        if (top === right && top === bottom && top === left) {
+          paddingString = String(top)
+        } else if (top === bottom && right === left) {
+          paddingString = `${top}_${right}`
+        } else {
+          paddingString = `${top}_${right}_${bottom}_${left}`
+        }
+        overlayTransform.padding = paddingString
       }
-      let paddingString: string
-      if (top === right && top === bottom && top === left) {
-        paddingString = String(top)
-      } else if (top === bottom && right === left) {
-        paddingString = `${top}_${right}`
-      } else {
-        paddingString = `${top}_${right}_${bottom}_${left}`
-      }
-      overlayTransform.padding = paddingString
     }
     if (
       typeof values.lineHeight === "number" ||

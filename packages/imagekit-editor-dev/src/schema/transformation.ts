@@ -165,6 +165,29 @@ export const overlayBlockExprValidator = z.any().superRefine((val, ctx) => {
   })
 })
 
+const lineHeightInteger = z.coerce.string().regex(/^\d+$/)
+
+const lineHeightExpr = z
+  .string()
+  .regex(
+    /^(?:ih|bh|ch|iw|bw|cw)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/,
+  )
+
+export const lineHeightValidator = z.any().superRefine((val, ctx) => {
+  if (val === undefined || val === "") return
+  if (lineHeightInteger.safeParse(val).success) {
+    return
+  }
+  if (lineHeightExpr.safeParse(val).success) {
+    return
+  }
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message:
+      "Line height must be a positive integer or a valid expression string.",
+  })
+})
+
 export const optionalPositiveFloatNumberValidator = z.preprocess(
   (val) => (val === "" || val === undefined || val === null ? undefined : val),
   z.coerce
