@@ -2084,6 +2084,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             positionX: layerXValidator.optional(),
             positionY: layerYValidator.optional(),
             anchor: z.string().optional(),
+            opacityEnabled: z.boolean().optional(),
             opacity: z.coerce
               .number({
                 invalid_type_error: "Should be a number.",
@@ -2120,6 +2121,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               .min(1)
               .max(99)
               .optional(),
+            qualityEnabled: z.boolean().optional(),
             quality: z.coerce
               .number({
                 invalid_type_error: "Should be a number.",
@@ -2620,6 +2622,18 @@ const baseTransformationSchema: TransformationSchema[] = [
           },
           {
             label: "Opacity",
+            name: "opacityEnabled",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationKey: "opacityEnabled",
+            transformationGroup: "imageLayer",
+            helpText: "Toggle to set a custom opacity for the overlay image.",
+            fieldProps: {
+              defaultValue: false,
+            },
+          },
+          {
+            label: "Opacity",
             name: "opacity",
             fieldType: "slider",
             isTransformation: true,
@@ -2633,6 +2647,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               step: 1,
               defaultValue: 100,
             },
+            isVisible: ({ opacityEnabled }) => opacityEnabled === true,
           },
           {
             label: "Background Color",
@@ -2727,6 +2742,19 @@ const baseTransformationSchema: TransformationSchema[] = [
           },
           {
             label: "Quality",
+            name: "qualityEnabled",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationKey: "qualityEnabled",
+            transformationGroup: "imageLayer",
+            helpText:
+              "Toggle to set a custom compression quality for the overlay image.",
+            fieldProps: {
+              defaultValue: false,
+            },
+          },
+          {
+            label: "Quality",
             name: "quality",
             fieldType: "slider",
             isTransformation: true,
@@ -2739,6 +2767,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               step: 1,
               defaultValue: 80,
             },
+            isVisible: ({ qualityEnabled }) => qualityEnabled === true,
           },
           {
             label: "Blur",
@@ -3475,7 +3504,7 @@ export const transformationFormatters: Record<
       overlayTransform.height = values.height
     }
 
-    if (values.opacity) {
+    if (values.opacityEnabled === true && values.opacity !== undefined) {
       overlayTransform.opacity = values.opacity
     }
 
@@ -3520,7 +3549,7 @@ export const transformationFormatters: Record<
     if (values.dpr && values.dprEnabled === true) {
       overlayTransform.dpr = values.dpr
     }
-    if (values.quality) {
+    if (values.qualityEnabled === true && values.quality !== undefined) {
       overlayTransform.quality = values.quality
     }
 
