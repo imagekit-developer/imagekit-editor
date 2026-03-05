@@ -2022,12 +2022,12 @@ const baseTransformationSchema: TransformationSchema[] = [
             fieldType: "slider",
             isTransformation: true,
             transformationGroup: "textLayer",
-            helpText: "Set opacity for the text overlay (0-10).",
+            helpText: "Set opacity for the text overlay (1-9).",
             fieldProps: {
               min: 1,
-              max: 10,
+              max: 9,
               step: 1,
-              defaultValue: 10,
+              defaultValue: 9,
             },
           },
           {
@@ -3443,8 +3443,8 @@ export const transformationFormatters: Record<
     }
 
     if (typeof values.opacity === "number") {
-      if (values.opacity !== 10) {
-        overlayTransform.alpha = values.opacity / 10
+      if (values.opacity >= 1 && values.opacity <= 9) {
+        overlayTransform.alpha = values.opacity
       }
     }
 
