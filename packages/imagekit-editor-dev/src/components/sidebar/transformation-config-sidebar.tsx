@@ -665,6 +665,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                   value={watch(field.name) as string}
                   setValue={setValue}
                   fieldProps={field.fieldProps as ColorPickerProps}
+                  isClearable={field.fieldProps?.isClearable ?? false}
                 />
               ) : null}
               {field.fieldType === "gradient-picker" ? (

@@ -955,6 +955,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               hideOpacity: true,
               showHexAlpha: false,
               defaultValue: "#000000",
+              isClearable: true,
             },
           },
         ],
@@ -1066,6 +1067,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             fieldProps: {
               hideOpacity: true,
               showHexAlpha: false,
+              isClearable: true,
             },
             transformationGroup: "colorReplace",
             helpText:
@@ -1094,6 +1096,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             fieldProps: {
               hideOpacity: true,
               showHexAlpha: false,
+              isClearable: true,
             },
             isTransformation: false,
             transformationGroup: "colorReplace",
@@ -1953,6 +1956,9 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationGroup: "textLayer",
             helpText: "Select a color for the text.",
             examples: ["FFFFFF", "FF0000"],
+            fieldProps: {
+              isClearable: true,
+            },
           },
           {
             label: "Background Color",
@@ -1963,6 +1969,9 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationGroup: "textLayer",
             helpText: "Set a background color for the text box.",
             examples: ["FFFFFF", "FF0000"],
+            fieldProps: {
+              isClearable: true,
+            },
           },
           {
             label: "Inner Alignment",
@@ -2657,6 +2666,9 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationKey: "background",
             transformationGroup: "imageLayer",
             helpText: "Set a background color for the overlay image.",
+            fieldProps: {
+              isClearable: true,
+            },
           },
           {
             label: "Radius",
@@ -2811,6 +2823,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               hideOpacity: true,
               showHexAlpha: false,
               defaultValue: "#000000",
+              isClearable: true,
             },
           },
           {
@@ -3155,7 +3168,7 @@ export const transformationFormatters: Record<
       backgroundGradient,
     } = values as Record<string, string | boolean | GradientPickerState>
 
-    if (backgroundBlurBrightness.startsWith?.("-")) {
+    if ((backgroundBlurBrightness as string)?.startsWith?.("-")) {
       backgroundBlurBrightness = (backgroundBlurBrightness as string).replace(
         "-",
         "N",

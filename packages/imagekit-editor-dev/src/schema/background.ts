@@ -92,6 +92,9 @@ export const backgroundTransformations: Record<
       helpText: "Apply a solid color to the background.",
       examples: ["FFFFFF", "FF0000"],
       isVisible: ({ backgroundType }) => backgroundType === "color",
+      fieldProps: {
+        isClearable: true,
+      },
     }
 
     switch (context) {

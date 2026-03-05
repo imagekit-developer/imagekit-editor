@@ -1,11 +1,16 @@
 import {
   Flex,
+  Icon,
+  IconButton,
   Input,
+  InputGroup,
+  InputRightElement,
   Popover,
   PopoverBody,
   PopoverContent,
   PopoverTrigger,
 } from "@chakra-ui/react"
+import { PiX } from "@react-icons/all-files/pi/PiX"
 import { memo, useEffect, useState } from "react"
 import ColorPicker, {
   type ColorPickerProps,
@@ -17,11 +22,13 @@ const ColorPickerField = ({
   value,
   setValue,
   fieldProps,
+  isClearable,
 }: {
   fieldName: string
   value: string
   setValue: (name: string, value: string) => void
   fieldProps?: ColorPickerProps
+  isClearable?: boolean
 }) => {
   const [localValue, setLocalValue] = useState<string>(value)
 
@@ -51,7 +58,7 @@ const ColorPickerField = ({
 
   // Convert a color from downstream format to standard format for the color picker
   const convertDownstreamToStandard = (color: string): string => {
-    if (!color || !color.startsWith("#") || color.length !== 9) {
+    if (!color || !color?.startsWith("#") || color?.length !== 9) {
       return color
     }
 
@@ -68,7 +75,7 @@ const ColorPickerField = ({
 
   // Get the preview color that shows what downstream will actually render
   const getPreviewColor = (color: string): string => {
-    if (!color || !color.startsWith("#")) {
+    if (!color || !color?.startsWith("#")) {
       return color
     }
 
@@ -113,27 +120,46 @@ const ColorPickerField = ({
     setLocalValue(value)
   }, [value])
 
+  const handleClear = () => {
+    setLocalValue("")
+    setValue(fieldName, "")
+  }
+
   return (
     <Flex direction="column" gap="2">
       <Flex>
-        <Input
-          size="md"
-          value={localValue}
-          onChange={(e) => {
-            const newValue = e.target.value
-            if (newValue.match(/^#[0-9A-Fa-f]{0,8}$/)) {
-              setLocalValue(newValue)
-            } else if (newValue === "") {
-              setLocalValue("")
-            }
-          }}
-          borderColor="gray.200"
-          placeholder="#FFFFFF"
-          fontFamily="mono"
-          borderRadius="4px"
-          borderRightRadius="0"
-          width="calc(100% - var(--chakra-space-10))"
-        />
+        <InputGroup width="calc(100% - var(--chakra-space-10))">
+          <Input
+            size="md"
+            value={localValue}
+            onChange={(e) => {
+              const newValue = e.target.value
+              if (newValue.match(/^#[0-9A-Fa-f]{0,8}$/)) {
+                setLocalValue(newValue)
+              } else if (newValue === "") {
+                setLocalValue("")
+              }
+            }}
+            borderColor="gray.200"
+            placeholder="#FFFFFF"
+            fontFamily="mono"
+            borderRadius="4px"
+            borderRightRadius="0"
+            pr={isClearable && localValue ? "8" : undefined}
+          />
+          {isClearable && localValue && (
+            <InputRightElement>
+              <IconButton
+                aria-label="Clear color"
+                icon={<Icon as={PiX} boxSize="3" />}
+                size="xs"
+                variant="ghost"
+                onClick={handleClear}
+                tabIndex={-1}
+              />
+            </InputRightElement>
+          )}
+        </InputGroup>
         <Popover
           placement="auto"
           closeOnBlur={true}
