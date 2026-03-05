@@ -2576,59 +2576,6 @@ const baseTransformationSchema: TransformationSchema[] = [
           },
         ],
       },
-      {
-        key: "delivery-dpr",
-        name: "DPR",
-        description:
-          "Set the device pixel ratio (DPR) to deliver images optimised for high-resolution displays. A higher DPR increases the pixel density of the delivered image.",
-        docsLink: "https://imagekit.io/docs/image-resize-and-crop#dpr---dpr",
-        defaultTransformation: {},
-        schema: z
-          .object({
-            dpr: z
-              .union([
-                z.coerce
-                  .number({
-                    invalid_type_error: "Should be a number.",
-                  })
-                  .optional(),
-                z.literal("auto"),
-              ])
-              .optional(),
-          })
-          .refine(
-            (val) => {
-              if (
-                Object.values(val).some((v) => v !== undefined && v !== null)
-              ) {
-                return true
-              }
-              return false
-            },
-            {
-              message: "At least one value is required",
-              path: [],
-            },
-          ),
-        transformations: [
-          {
-            label: "DPR",
-            name: "dpr",
-            helpText:
-              "Set this value to deliver images optimised for high-resolution displays. The value can be between 0.1 and 5.",
-            fieldType: "slider",
-            isTransformation: true,
-            transformationKey: "dpr",
-            fieldProps: {
-              defaultValue: 1,
-              autoOption: true,
-              min: 0.1,
-              max: 5,
-              step: 0.1,
-            },
-          },
-        ],
-      },
     ],
   },
   // New Layers section: allows adding text and image overlays as layers

@@ -96,6 +96,17 @@ export const resizeAndCropSchema = z
     focusAnchor: z.string().optional(),
     focusObject: z.string().optional(),
     zoom: z.coerce.number().optional(),
+    // Only valid when either width or height is specified
+    dpr: z
+      .union([
+        z.coerce
+          .number({
+            invalid_type_error: "Should be a number.",
+          })
+          .optional(),
+        z.literal("auto"),
+      ])
+      .optional(),
     
     // Coordinates for extract mode
     coordinateMethod: z.string().optional(),
@@ -131,6 +142,15 @@ export const resizeAndCropSchema = z
     }
   )
   .superRefine((val, ctx) => {
+    // DPR validation - can only be used when either width or height is specified
+    if (val.dpr && !(val.width || val.height)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "DPR can only be used when either width or height is specified",
+        path: ["dpr"],
+      })
+    }
+
     // Mode-specific validations (only when mode is set)
     if (!val.mode) return
     
@@ -296,6 +316,23 @@ export const resizeAndCropTransformations: TransformationField[] = [
     },
     helpText: "Choose how the image should be resized or cropped when both dimensions are specified.",
     isVisible: ({ width, height }) => !!(width && height),
+  },
+  {
+    label: "DPR",
+    name: "dpr",
+    fieldType: "slider",
+    isTransformation: true,
+    transformationKey: "dpr",
+    helpText:
+      "Set this value to deliver images optimised for high-resolution displays. The value can be between 0.1 and 5.",
+    fieldProps: {
+      defaultValue: 1,
+      autoOption: true,
+      min: 0.1,
+      max: 5,
+      step: 0.1,
+    },
+    isVisible: ({ width, height }) => !!(width || height),
   },
   
   // 5. Focus (for pad_resize - anchor only for padding position)
