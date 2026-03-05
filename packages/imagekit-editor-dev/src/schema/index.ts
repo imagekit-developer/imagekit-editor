@@ -167,7 +167,7 @@ export interface TransformationSchema {
   items: TransformationItem[]
 }
 
-export const transformationSchema: TransformationSchema[] = [
+const baseTransformationSchema: TransformationSchema[] = [
   // Unified Resize and Crop transformation
   resizeAndCropCategory,
   // {
@@ -4000,6 +4000,12 @@ export const transformationSchema: TransformationSchema[] = [
     ],
   },
 ]
+
+export const transformationSchema: TransformationSchema[] =
+  baseTransformationSchema.map((category) => ({
+    ...category,
+    items: [...category.items].sort((a, b) => a.name.localeCompare(b.name)),
+  }))
 
 export const transformationFormatters: Record<
   string,
