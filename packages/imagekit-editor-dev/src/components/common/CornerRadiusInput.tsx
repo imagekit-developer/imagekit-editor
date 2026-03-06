@@ -122,9 +122,12 @@ export const RadiusInputField: React.FC<RadiusInputFieldProps> = ({
   const [radiusMode, setRadiusMode] = useState<RadiusMode>(
     value?.mode ?? "uniform",
   )
-  const [radiusValue, setRadiusValue] = useState<RadiusObject | string>(
-    value?.radius ?? "",
-  )
+  const [radiusValue, setRadiusValue] = useState<RadiusObject | string>(() => {
+    const r = value?.radius
+    if (r === undefined || r === null || r === "") return ""
+    if (typeof r === "number") return String(r)
+    return r
+  })
   const errorRed = useColorModeValue("red.500", "red.300")
   const activeColor = useColorModeValue("blue.500", "blue.600")
   const inactiveColor = useColorModeValue("gray.600", "gray.400")
@@ -145,16 +148,21 @@ export const RadiusInputField: React.FC<RadiusInputFieldProps> = ({
       setRadiusValue((prev) => {
         const prevString =
           typeof prev === "string" ? prev : JSON.stringify(prev ?? "")
+        const next = value.radius
+        const nextNormalised =
+          typeof next === "number"
+            ? String(next)
+            : (next as RadiusObject | string)
         const nextString =
-          typeof value.radius === "string"
-            ? value.radius
-            : JSON.stringify(value.radius ?? "")
+          typeof nextNormalised === "string"
+            ? nextNormalised
+            : JSON.stringify(nextNormalised ?? "")
 
         if (prevString === nextString) {
           return prev
         }
 
-        return value.radius as RadiusObject | string
+        return nextNormalised
       })
     }
   }, [value?.mode, value?.radius])
