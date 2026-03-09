@@ -159,6 +159,7 @@ export const GridView: FC<GridViewProps> = ({ imageSize, onAddImage }) => {
                       }
                       isLoading={isSigning}
                       onLoad={(event) => {
+                        // biome-ignore lint/style/noNonNullAssertion: <required here>
                         setImageDimensions(originalImageList[index]!.url, {
                           width: event.currentTarget.naturalWidth,
                           height: event.currentTarget.naturalHeight,

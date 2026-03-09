@@ -77,11 +77,7 @@ export const aspectRatioValidator = z.any().superRefine((val, ctx) => {
   })
 })
 
-const layerXNumber = z.coerce
-  .number({ invalid_type_error: "Should be a number." })
-  .min(0, {
-    message: "Layer X must be a positive number.",
-  })
+const layerXNumber = z.coerce.string().regex(/^[N-]?\d+(\.\d{1,2})?$/)
 
 const layerXExpr = z
   .string()
@@ -97,15 +93,11 @@ export const layerXValidator = z.any().superRefine((val, ctx) => {
   }
   ctx.addIssue({
     code: z.ZodIssueCode.custom,
-    message: "Layer X must be a positive number or a valid expression string.",
+    message: "Layer X must be a number or a valid expression string.",
   })
 })
 
-const layerYNumber = z.coerce
-  .number({ invalid_type_error: "Should be a number." })
-  .min(0, {
-    message: "Layer Y must be a positive number.",
-  })
+const layerYNumber = z.coerce.string().regex(/^[N-]?\d+(\.\d{1,2})?$/)
 
 const layerYExpr = z
   .string()
@@ -121,6 +113,127 @@ export const layerYValidator = z.any().superRefine((val, ctx) => {
   }
   ctx.addIssue({
     code: z.ZodIssueCode.custom,
-    message: "Layer Y must be a positive number or a valid expression string.",
+    message: "Layer Y must be a number or a valid expression string.",
   })
 })
+
+const commonNumber = z.coerce
+  .number({ invalid_type_error: "Should be a number." })
+  .min(0, {
+    message: "Must be a positive number.",
+  })
+const commonExpr = z
+  .string()
+  .regex(
+    /^(?:ih|bh|ch|iw|bw|cw)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/,
+    {
+      message: "String must be a valid expression string.",
+    },
+  )
+
+export const commonNumberAndExpressionValidator = z
+  .any()
+  .superRefine((val, ctx) => {
+    if (commonNumber.safeParse(val).success) {
+      return
+    }
+    if (commonExpr.safeParse(val).success) {
+      return
+    }
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Must be a positive number or a valid expression string.",
+    })
+  })
+
+const overlayBlockExpr = z
+  .string()
+  .regex(/^(?:bh|bw|bar)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/, {
+    message: "String must be a valid expression string.",
+  })
+
+export const overlayBlockExprValidator = z.any().superRefine((val, ctx) => {
+  if (commonNumber.safeParse(val).success) {
+    return
+  }
+  if (overlayBlockExpr.safeParse(val).success) {
+    return
+  }
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: "Must be a positive number or a valid expression string.",
+  })
+})
+
+const lineHeightInteger = z.coerce.string().regex(/^\d+$/)
+
+const lineHeightExpr = z
+  .string()
+  .regex(
+    /^(?:ih|bh|ch|iw|bw|cw)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/,
+  )
+
+export const lineHeightValidator = z.any().superRefine((val, ctx) => {
+  if (val === undefined || val === "") return
+  if (lineHeightInteger.safeParse(val).success) {
+    return
+  }
+  if (lineHeightExpr.safeParse(val).success) {
+    return
+  }
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message:
+      "Line height must be a positive integer or a valid expression string.",
+  })
+})
+
+export const optionalPositiveFloatNumberValidator = z.preprocess(
+  (val) => (val === "" || val === undefined || val === null ? undefined : val),
+  z.coerce
+    .number()
+    .positive({ message: "Should be a positive floating point number." })
+    .optional(),
+)
+
+export const refineUnsharpenMask = (
+  val: {
+    unsharpenMask?: boolean
+    unsharpenMaskRadius?: number
+    unsharpenMaskSigma?: number
+    unsharpenMaskAmount?: number
+    unsharpenMaskThreshold?: number
+  },
+  ctx: z.RefinementCtx,
+) => {
+  if (val.unsharpenMask === true) {
+    if (!val.unsharpenMaskRadius) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Radius is required when Unsharpen Mask is enabled",
+        path: ["unsharpenMaskRadius"],
+      })
+    }
+    if (!val.unsharpenMaskSigma) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Sigma is required when Unsharpen Mask is enabled",
+        path: ["unsharpenMaskSigma"],
+      })
+    }
+    if (!val.unsharpenMaskAmount) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Amount is required when Unsharpen Mask is enabled",
+        path: ["unsharpenMaskAmount"],
+      })
+    }
+    if (!val.unsharpenMaskThreshold) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Threshold is required when Unsharpen Mask is enabled",
+        path: ["unsharpenMaskThreshold"],
+      })
+    }
+  }
+}
