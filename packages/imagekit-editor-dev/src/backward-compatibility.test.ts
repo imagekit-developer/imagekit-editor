@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
+import { transformationFormatters, transformationSchema } from "./schema"
 import type { Transformation } from "./store"
 import { TRANSFORMATION_STATE_VERSION } from "./store"
-import { transformationFormatters, transformationSchema } from "./schema"
 
 /**
  * V1 Template Fixtures
@@ -313,7 +313,7 @@ function validateTransformation(t: Omit<Transformation, "id">): {
     if (!result.success) {
       result.error.errors.forEach((err) => {
         errors.push(
-          `Schema validation failed for '${err.path.join(".")}': ${err.message}`
+          `Schema validation failed for '${err.path.join(".")}': ${err.message}`,
         )
       })
     }
@@ -611,7 +611,7 @@ describe("Backward Compatibility - V1 Templates", () => {
       }
 
       // Remove id for storage
-      const { id, ...forStorage } = withId
+      const { id: _id, ...forStorage } = withId
       expect(forStorage.id).toBeUndefined()
 
       // Add id back when loading
@@ -662,11 +662,13 @@ describe("Backward Compatibility - V1 Templates", () => {
       const result = validateTransformation(invalid)
       expect(result.valid).toBe(false)
       expect(result.errors.length).toBeGreaterThan(0)
-      expect(result.errors.some((e) => e.includes("not found in current schema"))).toBe(true)
+      expect(
+        result.errors.some((e) => e.includes("not found in current schema")),
+      ).toBe(true)
     })
 
     it("should reject transformation with wrong type", () => {
-      const invalid: any = {
+      const invalid: Record<string, unknown> = {
         key: "adjust-background",
         name: "Background",
         type: "wrong-type",
@@ -685,7 +687,7 @@ describe("Backward Compatibility - V1 Templates", () => {
         name: "Corner Radius",
         type: "transformation",
         value: {
-          radius: 999,  // Should be an object with {radius: number}
+          radius: 999, // Should be an object with {radius: number}
         },
         version: "v1",
       }
@@ -933,7 +935,12 @@ describe("Backward Compatibility - V1 Templates", () => {
         key: "layers-text",
         name: "Text",
         type: "transformation",
-        value: { text: "Hello", positionX: "bw_div_2", fontSize: 24, radius: 0 },
+        value: {
+          text: "Hello",
+          positionX: "bw_div_2",
+          fontSize: 24,
+          radius: 0,
+        },
         version: "v1",
       }
       expect(validateTransformation(template).valid).toBe(true)
@@ -944,7 +951,12 @@ describe("Backward Compatibility - V1 Templates", () => {
         key: "layers-text",
         name: "Text",
         type: "transformation",
-        value: { text: "Hello", positionY: "bh_sub_100", fontSize: 24, radius: 0 },
+        value: {
+          text: "Hello",
+          positionY: "bh_sub_100",
+          fontSize: 24,
+          radius: 0,
+        },
         version: "v1",
       }
       expect(validateTransformation(template).valid).toBe(true)
@@ -1227,7 +1239,7 @@ describe("Backward Compatibility - V1 Templates", () => {
           unsharpenMaskAmount: 1.2,
           unsharpenMaskThreshold: 0.1,
         },
-       version: "v1",
+        version: "v1",
       }
       const result = validateTransformation(template)
       if (!result.valid) {
@@ -1561,7 +1573,12 @@ describe("Backward Compatibility - V1 Templates", () => {
         key: "layers-text",
         name: "Text",
         type: "transformation",
-        value: { text: "Hello", positionX: "invalid_expr", fontSize: 24, radius: 0 },
+        value: {
+          text: "Hello",
+          positionX: "invalid_expr",
+          fontSize: 24,
+          radius: 0,
+        },
         version: "v1",
       }
       expect(validateTransformation(template).valid).toBe(false)
@@ -1605,7 +1622,12 @@ describe("Backward Compatibility - V1 Templates", () => {
         key: "layers-text",
         name: "Text",
         type: "transformation",
-        value: { text: "Hello", lineHeight: "ih_mul_1.5", fontSize: 24, radius: 0 },
+        value: {
+          text: "Hello",
+          lineHeight: "ih_mul_1.5",
+          fontSize: 24,
+          radius: 0,
+        },
         version: "v1",
       }
       expect(validateTransformation(template).valid).toBe(true)
@@ -1627,7 +1649,12 @@ describe("Backward Compatibility - V1 Templates", () => {
         key: "layers-text",
         name: "Text",
         type: "transformation",
-        value: { text: "Hello", lineHeight: "not_valid", fontSize: 24, radius: 0 },
+        value: {
+          text: "Hello",
+          lineHeight: "not_valid",
+          fontSize: 24,
+          radius: 0,
+        },
         version: "v1",
       }
       expect(validateTransformation(template).valid).toBe(false)
@@ -2138,7 +2165,11 @@ describe("Backward Compatibility - V1 Templates", () => {
     })
 
     it("should validate text layer with all alignment options", () => {
-      const alignments: Array<"left" | "right" | "center"> = ["left", "right", "center"]
+      const alignments: Array<"left" | "right" | "center"> = [
+        "left",
+        "right",
+        "center",
+      ]
       alignments.forEach((align) => {
         const template: Omit<Transformation, "id"> = {
           key: "layers-text",

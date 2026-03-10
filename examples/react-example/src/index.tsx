@@ -3,8 +3,8 @@ import {
   ImageKitEditor,
   type ImageKitEditorProps,
   type ImageKitEditorRef,
-  type Transformation,
   TRANSFORMATION_STATE_VERSION,
+  type Transformation,
 } from "@imagekit/editor"
 import { PiDownload } from "@react-icons/all-files/pi/PiDownload"
 import React, { useCallback, useEffect } from "react"
@@ -50,12 +50,16 @@ function App() {
     const template = ref.current?.getTemplate()
     if (template) {
       // Remove the 'id' field from each transformation for storage
-      const templateToSave = template.map(({ id, ...rest }: Transformation) => rest)
+      const templateToSave = template.map(
+        ({ id, ...rest }: Transformation) => rest,
+      )
       setSavedTemplate(templateToSave)
       // Also save to localStorage for persistence
       localStorage.setItem("editorTemplate", JSON.stringify(templateToSave))
       console.log("Saved template:", templateToSave)
-      alert(`✅ Saved template with ${templateToSave.length} transformation(s)!`)
+      alert(
+        `✅ Saved template with ${templateToSave.length} transformation(s)!`,
+      )
     } else {
       alert("⚠️ No transformations to save")
     }
@@ -176,7 +180,8 @@ function App() {
         console.log("Signed URL", request.url)
         return Promise.resolve(request.url)
       },
-    })  }, [handleAddImage, handleSaveTemplate])
+    })
+  }, [handleAddImage, handleSaveTemplate])
 
   const toggle = () => {
     setOpen((prev: boolean) => !prev)
@@ -213,12 +218,14 @@ function App() {
               padding: "10px 20px",
               fontSize: "16px",
               marginRight: "10px",
-              cursor: savedTemplate || localStorage.getItem("editorTemplate") 
-                ? "pointer" 
-                : "not-allowed",
-              opacity: savedTemplate || localStorage.getItem("editorTemplate") 
-                ? 1 
-                : 0.5,
+              cursor:
+                savedTemplate || localStorage.getItem("editorTemplate")
+                  ? "pointer"
+                  : "not-allowed",
+              opacity:
+                savedTemplate || localStorage.getItem("editorTemplate")
+                  ? 1
+                  : 0.5,
             }}
           >
             Load Saved Template
@@ -264,12 +271,18 @@ function App() {
               </p>
               <p>
                 <strong>Types:</strong>{" "}
-                {Array.from(
-                  new Set(savedTemplate.map((t) => t.type))
-                ).join(", ")}
+                {Array.from(new Set(savedTemplate.map((t) => t.type))).join(
+                  ", ",
+                )}
               </p>
               <details>
-                <summary style={{ cursor: "pointer", marginTop: "10px", fontWeight: "bold" }}>
+                <summary
+                  style={{
+                    cursor: "pointer",
+                    marginTop: "10px",
+                    fontWeight: "bold",
+                  }}
+                >
                   📋 View Template JSON
                 </summary>
                 <pre
@@ -302,18 +315,35 @@ function App() {
           <h3>📖 How to use Template Features:</h3>
           <ol>
             <li>Click "Open ImageKit Editor" and apply some transformations</li>
-            <li>Click the <strong>"Save Template"</strong> button in the editor header</li>
+            <li>
+              Click the <strong>"Save Template"</strong> button in the editor
+              header
+            </li>
             <li>Close the editor</li>
             <li>
-              Click <strong>"Load Saved Template"</strong> - it will open the editor with all transformations restored
+              Click <strong>"Load Saved Template"</strong> - it will open the
+              editor with all transformations restored
             </li>
-            <li>Use <strong>"Clear Template"</strong> to remove the saved template</li>
+            <li>
+              Use <strong>"Clear Template"</strong> to remove the saved template
+            </li>
           </ol>
-          <p style={{ marginTop: "15px", padding: "10px", fontSize: "14px", color: "#0d47a1", backgroundColor: "#bbdefb", borderRadius: "3px" }}>
-            💾 <strong>Persistent Storage:</strong> Templates are saved to localStorage, so they persist across page reloads!
+          <p
+            style={{
+              marginTop: "15px",
+              padding: "10px",
+              fontSize: "14px",
+              color: "#0d47a1",
+              backgroundColor: "#bbdefb",
+              borderRadius: "3px",
+            }}
+          >
+            💾 <strong>Persistent Storage:</strong> Templates are saved to
+            localStorage, so they persist across page reloads!
           </p>
           <p style={{ marginTop: "10px", fontSize: "13px", color: "#666" }}>
-            <strong>Note:</strong> Template IDs are automatically generated on load to ensure uniqueness and enable reusability.
+            <strong>Note:</strong> Template IDs are automatically generated on
+            load to ensure uniqueness and enable reusability.
           </p>
         </div>
       </div>

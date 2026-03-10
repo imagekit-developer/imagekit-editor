@@ -311,13 +311,13 @@ const useEditorStore = create<EditorState & EditorActions>()(
         id: `transformation-${Date.now()}-${index}`,
         version: TRANSFORMATION_STATE_VERSION,
       }))
-      
+
       const visibleTransformations: Record<string, boolean> = {}
       transformationsWithIds.forEach((t) => {
         visibleTransformations[t.id] = true
       })
-      
-      set((state) => ({ 
+
+      set((state) => ({
         transformations: transformationsWithIds,
         visibleTransformations: {
           ...state.visibleTransformations,

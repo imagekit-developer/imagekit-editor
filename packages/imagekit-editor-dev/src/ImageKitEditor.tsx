@@ -20,19 +20,19 @@ export interface ImageKitEditorRef {
    * @param image - Image URL string or FileElement with metadata
    */
   loadImage: (image: string | InputFileElement) => void
-  
+
   /**
    * Loads multiple images into the editor
    * @param images - Array of image URL strings or FileElements with metadata
    */
   loadImages: (images: Array<string | InputFileElement>) => void
-  
+
   /**
    * Switches the current active image
    * @param imageSrc - URL of the image to set as current
    */
   setCurrentImage: (imageSrc: string) => void
-  
+
   /**
    * Gets the current editor template (transformation stack)
    * @returns Array of transformation objects representing the template
@@ -46,7 +46,7 @@ export interface ImageKitEditorRef {
    * ```
    */
   getTemplate: () => Transformation[]
-  
+
   /**
    * Loads a template (transformation stack) into the editor
    * @param template - Array of transformation objects without the 'id' field
