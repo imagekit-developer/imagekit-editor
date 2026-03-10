@@ -3005,6 +3005,25 @@ describe("Backward Compatibility - V1 Templates", () => {
       expect(validateTransformation(template).valid).toBe(false)
     })
 
+    it("should reject unsharpen mask with missing threshold", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "adjust-unsharpen-mask",
+        name: "Unsharpen Mask",
+        type: "transformation",
+        value: {
+          unsharpenMask: true,
+          unsharpenMaskRadius: 2,
+          unsharpenMaskSigma: 1,
+          unsharpenMaskAmount: 0.5,
+          // Missing unsharpenMaskThreshold entirely
+        },
+        version: "v1",
+      }
+      const result = validateTransformation(template)
+      expect(result.valid).toBe(false)
+      expect(result.errors?.some(e => e.includes("Threshold"))).toBe(true)
+    })
+
     it("should accept unsharpen mask with valid positive threshold", () => {
       const template: Omit<Transformation, "id"> = {
         key: "adjust-unsharpen-mask",
@@ -3020,6 +3039,70 @@ describe("Backward Compatibility - V1 Templates", () => {
         version: "v1",
       }
       expect(validateTransformation(template).valid).toBe(true)
+    })
+  })
+
+  describe("Empty Transformation Validation - At Least One Value Required", () => {
+    it("should reject contrast transformation with no values", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "adjust-contrast",
+        name: "Contrast",
+        type: "transformation",
+        value: {},
+        version: "v1",
+      }
+      const result = validateTransformation(template)
+      expect(result.valid).toBe(false)
+      expect(result.errors?.some(e => e.includes("At least one value"))).toBe(true)
+    })
+
+    it("should reject shadow transformation with no values", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "adjust-shadow",
+        name: "Shadow",
+        type: "transformation",
+        value: {},
+        version: "v1",
+      }
+      const result = validateTransformation(template)
+      expect(result.valid).toBe(false)
+      expect(result.errors?.some(e => e.includes("At least one value"))).toBe(true)
+    })
+
+    it("should reject grayscale transformation with no values", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "adjust-grayscale",
+        name: "Grayscale",
+        type: "transformation",
+        value: {},
+        version: "v1",
+      }
+      const result = validateTransformation(template)
+      expect(result.valid).toBe(false)
+    })
+
+    it("should reject radius transformation with no values", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "adjust-radius",
+        name: "Radius",
+        type: "transformation",
+        value: {},
+        version: "v1",
+      }
+      const result = validateTransformation(template)
+      expect(result.valid).toBe(false)
+    })
+
+    it("should reject trim transformation with no values", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "adjust-trim",
+        name: "Trim",
+        type: "transformation",
+        value: {},
+        version: "v1",
+      }
+      const result = validateTransformation(template)
+      expect(result.valid).toBe(false)
     })
   })
 })
