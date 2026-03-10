@@ -28,9 +28,9 @@ export default defineConfig({
       exclude: ["src/**/*.{test,spec}.{ts,tsx}", "node_modules/**"],
       thresholds: {
         // Only enforced on src/schema files - focusing on validation logic
-        lines: 85, // Realistic threshold given UI visibility code
-        branches: 85,
-        statements: 85,
+        lines: 90, // Realistic threshold given UI visibility code
+        branches: 90,
+        statements: 90,
         perFile: false, // Global threshold across all schema files
       },
     },
