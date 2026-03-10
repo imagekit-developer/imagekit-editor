@@ -9,14 +9,54 @@ import {
   type InputFileElement,
   type RequiredMetadata,
   type Signer,
+  type Transformation,
   useEditorStore,
 } from "./store"
 import { themeOverrides } from "./theme"
 
 export interface ImageKitEditorRef {
+  /**
+   * Loads a single image into the editor
+   * @param image - Image URL string or FileElement with metadata
+   */
   loadImage: (image: string | InputFileElement) => void
+  
+  /**
+   * Loads multiple images into the editor
+   * @param images - Array of image URL strings or FileElements with metadata
+   */
   loadImages: (images: Array<string | InputFileElement>) => void
+  
+  /**
+   * Switches the current active image
+   * @param imageSrc - URL of the image to set as current
+   */
   setCurrentImage: (imageSrc: string) => void
+  
+  /**
+   * Gets the current editor template (transformation stack)
+   * @returns Array of transformation objects representing the template
+   * @example
+   * ```tsx
+   * const template = editorRef.current?.getTemplate()
+   * // Save to localStorage or backend
+   * localStorage.setItem('editorTemplate', JSON.stringify(
+   *   template.map(({ id, ...rest }) => rest)
+   * ))
+   * ```
+   */
+  getTemplate: () => Transformation[]
+  
+  /**
+   * Loads a template (transformation stack) into the editor
+   * @param template - Array of transformation objects without the 'id' field
+   * @example
+   * ```tsx
+   * const saved = JSON.parse(localStorage.getItem('editorTemplate'))
+   * editorRef.current?.loadTemplate(saved)
+   * ```
+   */
+  loadTemplate: (template: Omit<Transformation, "id">[]) => void
 }
 
 interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
@@ -41,6 +81,7 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     transformations,
     initialize,
     destroy,
+    loadTemplate,
   } = useEditorStore()
 
   const handleOnClose = () => {
@@ -73,8 +114,10 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
       loadImage: addImage,
       loadImages: addImages,
       setCurrentImage,
+      getTemplate: () => transformations,
+      loadTemplate,
     }),
-    [addImage, addImages, setCurrentImage],
+    [addImage, addImages, setCurrentImage, transformations, loadTemplate],
   )
 
   const mergedThemes = merge(defaultTheme, themeOverrides, theme)

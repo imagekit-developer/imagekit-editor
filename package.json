@@ -25,7 +25,10 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.1.1",
+    "@types/jsdom": "^28",
+    "@vitest/coverage-v8": "^4.0.18",
     "husky": "^9.1.7",
+    "jsdom": "^28.1.0",
     "lint-staged": "^16.1.2",
     "shx": "^0.4.0",
     "turbo": "^2.0.1"

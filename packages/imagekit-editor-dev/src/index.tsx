@@ -1,4 +1,5 @@
 export type { ImageKitEditorProps, ImageKitEditorRef } from "./ImageKitEditor"
 export { ImageKitEditor } from "./ImageKitEditor"
 export { DEFAULT_FOCUS_OBJECTS } from "./schema"
-export type { FileElement, Signer } from "./store"
+export type { FileElement, Signer, Transformation } from "./store"
+export { TRANSFORMATION_STATE_VERSION } from "./store"

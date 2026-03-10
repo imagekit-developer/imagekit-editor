@@ -15,12 +15,15 @@ import {
 } from "./schema"
 import { extractImagePath } from "./utils"
 
+export const TRANSFORMATION_STATE_VERSION = "v1" as const
+
 export interface Transformation {
   id: string
   key: string
   name: string
   type: "transformation"
   value: IKTransformation
+  version?: typeof TRANSFORMATION_STATE_VERSION
 }
 
 export type RequiredMetadata = { requireSignedUrl: boolean }
@@ -104,7 +107,7 @@ export type EditorActions<
   addImage: (imageSrc: string | InputFileElement<Metadata>) => void
   addImages: (imageSrcs: Array<string | InputFileElement<Metadata>>) => void
   removeImage: (imageSrc: string) => void
-  setTransformations: (transformations: Omit<Transformation, "id">[]) => void
+  loadTemplate: (template: Omit<Transformation, "id">[]) => void
   moveTransformation: (
     activeId: UniqueIdentifier,
     overId: UniqueIdentifier,
@@ -302,12 +305,30 @@ const useEditorStore = create<EditorState & EditorActions>()(
       })
     },
 
-    setTransformations: (transformations) => {
-      const transformationsWithIds = transformations.map((transformation) => ({
+    loadTemplate: (template) => {
+      const transformationsWithIds = template.map((transformation, index) => ({
         ...transformation,
-        id: `transformation-${Date.now()}`,
+        id: `transformation-${Date.now()}-${index}`,
+        version: TRANSFORMATION_STATE_VERSION,
       }))
-      set({ transformations: transformationsWithIds })
+      
+      const visibleTransformations: Record<string, boolean> = {}
+      transformationsWithIds.forEach((t) => {
+        visibleTransformations[t.id] = true
+      })
+      
+      set((state) => ({ 
+        transformations: transformationsWithIds,
+        visibleTransformations: {
+          ...state.visibleTransformations,
+          ...visibleTransformations,
+        },
+        _internalState: {
+          sidebarState: "none",
+          selectedTransformationKey: null,
+          transformationToEdit: null,
+        },
+      }))
     },
 
     moveTransformation: (activeId, overId) => {

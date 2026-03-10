@@ -1,6 +1,6 @@
 {
   "name": "imagekit-editor-dev",
-  "version": "0.0.0",
+  "version": "2.2.0",
   "description": "AI Image Editor powered by ImageKit",
   "scripts": {
     "prepack": "yarn build",
@@ -8,7 +8,11 @@
     "dev": "DEBUG=* vite build --watch",
     "start": "vite build --watch",
     "analyze": "vite build --mode analyze",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [],
   "author": {
@@ -29,13 +33,16 @@
     "@types/react-color": "^2",
     "@types/react-dom": "^17.0.2",
     "@vitejs/plugin-react": "^4.5.2",
+    "@vitest/coverage-v8": "^2.1.9",
+    "@vitest/ui": "^2.0.0",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "rollup-plugin-visualizer": "^5.12.0",
     "terser": "^5.43.1",
     "typescript": "4.9.3",
     "vite": "^6.3.5",
-    "vite-plugin-dts": "5.0.0-beta.3"
+    "vite-plugin-dts": "5.0.0-beta.3",
+    "vitest": "^2.0.0"
   },
   "dependencies": {
     "@chakra-ui/icons": "1.1.1",

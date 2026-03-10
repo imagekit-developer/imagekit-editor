@@ -16,6 +16,22 @@ export default defineConfig({
       outDir: "../imagekit-editor/dist/types",
     }),
   ],
+  test: {
+    globals: true,
+    environment: "jsdom",
+    setupFiles: [],
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json", "html"],
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: [
+        "src/**/*.{test,spec}.{ts,tsx}",
+        "src/index.tsx",
+        "node_modules/**",
+      ],
+    },
+  },
   build: {
     lib: {
       entry: path.resolve(__dirname, "src/index.tsx"),
