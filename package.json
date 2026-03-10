@@ -16,6 +16,7 @@
     "dev": "turbo run dev",
     "start": "turbo run start",
     "build": "turbo run build",
+    "test": "turbo run test",
     "version": "yarn workspace @imagekit/editor version",
     "package": "yarn build && shx cp README.md ./packages/imagekit-editor/ && yarn workspace @imagekit/editor pack --out ../../builds/imagekit-editor-%v.tgz",
     "release": "yarn build && shx cp README.md ./packages/imagekit-editor/ && yarn workspace @imagekit/editor pack --out ../../builds/imagekit-editor-%v.tgz && yarn workspace @imagekit/editor publish",
