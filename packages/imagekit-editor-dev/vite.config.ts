@@ -24,12 +24,18 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
-      include: ["src/**/*.{ts,tsx}"],
+      include: ["src/schema/**/*.{ts,tsx}"],
       exclude: [
         "src/**/*.{test,spec}.{ts,tsx}",
-        "src/index.tsx",
         "node_modules/**",
       ],
+      thresholds: {
+        // Only enforced on src/schema files - focusing on validation logic
+        lines: 85, // Realistic threshold given UI visibility code
+        branches: 85,
+        statements: 85,
+        perFile: false, // Global threshold across all schema files
+      },
     },
   },
   build: {

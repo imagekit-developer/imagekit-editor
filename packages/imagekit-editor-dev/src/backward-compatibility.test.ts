@@ -2577,4 +2577,449 @@ describe("Backward Compatibility - V1 Templates", () => {
       expect(validateTransformation(template).valid).toBe(false)
     })
   })
+
+  describe("Height Validator Coverage", () => {
+    it("should reject invalid height expression", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "resize_and_crop-resize_and_crop",
+        name: "Resize and Crop",
+        type: "transformation",
+        value: {
+          width: 100,
+          height: "invalid_height_expr",
+          mode: "cm-pad_resize",
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(false)
+    })
+  })
+
+
+
+  describe("Unsharpen Mask Error Coverage", () => {
+    it("should require sigma when unsharpen mask is enabled", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-image",
+        name: "Image Layer",
+        type: "transformation",
+        value: {
+          imageUrl: "overlay.png",
+          unsharpenMask: true,
+          unsharpenMaskRadius: 2,
+          // Missing sigma and other required fields
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(false)
+    })
+
+    it("should require amount when unsharpen mask is enabled", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-image",
+        name: "Image Layer",
+        type: "transformation",
+        value: {
+          imageUrl: "overlay.png",
+          unsharpenMask: true,
+          unsharpenMaskRadius: 2,
+          unsharpenMaskSigma: 1.5,
+          // Missing amount
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(false)
+    })
+
+    it("should require threshold when unsharpen mask is enabled", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-image",
+        name: "Image Layer",
+        type: "transformation",
+        value: {
+          imageUrl: "overlay.png",
+          unsharpenMask: true,
+          unsharpenMaskRadius: 2,
+          unsharpenMaskSigma: 1.5,
+          unsharpenMaskAmount: 1.2,
+          // Missing threshold
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(false)
+    })
+  })
+
+  describe("Background Gradient Auto Coverage", () => {
+    it("should validate background gradient with radial mode", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "adjust-background",
+        name: "Background",
+        type: "transformation",
+        value: {
+          backgroundType: "gradient",
+          backgroundGradientAutoDominant: true,
+          backgroundGradientMode: "radial",
+          backgroundGradientPaletteSize: "2",
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("should validate background gradient with linear mode", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "adjust-background",
+        name: "Background",
+        type: "transformation",
+        value: {
+          backgroundType: "gradient",
+          backgroundGradientAutoDominant: true,
+          backgroundGradientMode: "linear",
+          backgroundGradientPaletteSize: "4",
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("should validate manual background gradient", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "adjust-background",
+        name: "Background",
+        type: "transformation",
+        value: {
+          backgroundType: "gradient",
+          backgroundGradientAutoDominant: false,
+          backgroundGradient: {
+            type: "linear",
+            angle: "90",
+            stops: [
+              { color: "#FF0000", stopPoint: 0 },
+              { color: "#0000FF", stopPoint: 100 },
+            ],
+          },
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+  })
+
+  describe("Resize Mode Conversion Coverage", () => {
+    it("should validate c-at_max_enlarge mode", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "resize_and_crop-resize_and_crop",
+        name: "Resize and Crop",
+        type: "transformation",
+        value: {
+          width: 800,
+          height: 600,
+          mode: "c-at_max_enlarge",
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("should validate c-force mode", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "resize_and_crop-resize_and_crop",
+        name: "Resize and Crop",
+        type: "transformation",
+        value: {
+          width: 800,
+          height: 600,
+          mode: "c-force",
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("should validate c-at_max mode", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "resize_and_crop-resize_and_crop",
+        name: "Resize and Crop",
+        type: "transformation",
+        value: {
+          width: 800,
+          mode: "c-at_max",
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+  })
+
+
+
+
+
+  describe("Maintain Ratio Focus Validations", () => {
+    it("should validate maintain_ratio with anchor focus", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "resize_and_crop-resize_and_crop",
+        name: "Resize and Crop",
+        type: "transformation",
+        value: {
+          width: 800,
+          mode: "c-maintain_ratio",
+          focus: "anchor",
+          focusAnchor: "center",
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("should require focusAnchor for maintain_ratio with anchor focus", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "resize_and_crop-resize_and_crop",
+        name: "Resize and Crop",
+        type: "transformation",
+        value: {
+          width: 800,
+          mode: "c-maintain_ratio",
+          focus: "anchor",
+          // Missing focusAnchor
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(false)
+    })
+
+    it("should validate maintain_ratio with object focus", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "resize_and_crop-resize_and_crop",
+        name: "Resize and Crop",
+        type: "transformation",
+        value: {
+          width: 800,
+          mode: "c-maintain_ratio",
+          focus: "object",
+          focusObject: "person",
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("should require focusObject for maintain_ratio with object focus", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "resize_and_crop-resize_and_crop",
+        name: "Resize and Crop",
+        type: "transformation",
+        value: {
+          width: 800,
+          mode: "c-maintain_ratio",
+          focus: "object",
+          // Missing focusObject
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(false)
+    })
+  })
+
+  describe("Pad Resize Background Validation Errors", () => {
+    it("should require width when using blurred background", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "resize_and_crop-resize_and_crop",
+        name: "Resize and Crop",
+        type: "transformation",
+        value: {
+          // width missing
+          height: 600,
+          mode: "cm-pad_resize",
+          backgroundType: "blurred",
+          backgroundBlurIntensity: 10,
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(false)
+    })
+
+    it("should require height when using blurred background", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "resize_and_crop-resize_and_crop",
+        name: "Resize and Crop",
+        type: "transformation",
+        value: {
+          width: 800,
+          // height missing
+          mode: "cm-pad_resize",
+          backgroundType: "blurred",
+          backgroundBlurIntensity: 10,
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(false)
+    })
+
+    it("should require width when using generative fill", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "resize_and_crop-resize_and_crop",
+        name: "Resize and Crop",
+        type: "transformation",
+        value: {
+          // width missing
+          height: 600,
+          mode: "cm-pad_resize",
+          backgroundType: "generative_fill",
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(false)
+    })
+
+    it("should require height when using generative fill", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "resize_and_crop-resize_and_crop",
+        name: "Resize and Crop",
+        type: "transformation",
+        value: {
+          width: 800,
+          // height missing
+          mode: "cm-pad_resize",
+          backgroundType: "generative_fill",
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(false)
+    })
+
+    it("should pass validation with both dimensions for blurred background", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "resize_and_crop-resize_and_crop",
+        name: "Resize and Crop",
+        type: "transformation",
+        value: {
+          width: 800,
+          height: 600,
+          mode: "cm-pad_resize",
+          backgroundType: "blurred",
+          backgroundBlurIntensity: 10,
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("should pass validation with both dimensions for generative fill", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "resize_and_crop-resize_and_crop",
+        name: "Resize and Crop",
+        type: "transformation",
+        value: {
+          width: 800,
+          height: 600,
+          mode: "cm-pad_resize",
+          backgroundType: "generative_fill",
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+  })
+
+  describe("Final Coverage Gaps - Missing Validations", () => {
+    it("should reject aspect ratio without width or height", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "resize_and_crop-resize_and_crop",
+        name: "Resize and Crop",
+        type: "transformation",
+        value: {
+          aspectRatio: "16-9",
+          // No width or height
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(false)
+    })
+
+    it("should accept aspect ratio with width", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "resize_and_crop-resize_and_crop",
+        name: "Resize and Crop",
+        type: "transformation",
+        value: {
+          width: 800,
+          aspectRatio: "16-9",
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("should require at least one center coordinate for cm-extract with coordinates", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "resize_and_crop-resize_and_crop",
+        name: "Resize and Crop",
+        type: "transformation",
+        value: {
+          width: 800,
+          height: 600,
+          mode: "cm-extract",
+          focus: "coordinates",
+          coordinateMethod: "center",
+          // Missing both xc and yc
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(false)
+    })
+
+    it("should accept center coordinates with at least xc for cm-extract", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "resize_and_crop-resize_and_crop",
+        name: "Resize and Crop",
+        type: "transformation",
+        value: {
+          width: 800,
+          height: 600,
+          mode: "cm-extract",
+          focus: "coordinates",
+          coordinateMethod: "center",
+          xc: "400",
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("should reject unsharpen mask with threshold = 0 as invalid", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "adjust-unsharpen-mask",
+        name: "Unsharpen Mask",
+        type: "transformation",
+        value: {
+          unsharpenMask: true,
+          unsharpenMaskRadius: 2,
+          unsharpenMaskSigma: 1,
+          unsharpenMaskAmount: 0.5,
+          unsharpenMaskThreshold: 0, // Falsy value
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(false)
+    })
+
+    it("should accept unsharpen mask with valid positive threshold", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "adjust-unsharpen-mask",
+        name: "Unsharpen Mask",
+        type: "transformation",
+        value: {
+          unsharpenMask: true,
+          unsharpenMaskRadius: 2,
+          unsharpenMaskSigma: 1,
+          unsharpenMaskAmount: 0.5,
+          unsharpenMaskThreshold: 0.05,
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+  })
 })
