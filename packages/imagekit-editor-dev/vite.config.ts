@@ -25,10 +25,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "json", "html"],
       include: ["src/schema/**/*.{ts,tsx}"],
-      exclude: [
-        "src/**/*.{test,spec}.{ts,tsx}",
-        "node_modules/**",
-      ],
+      exclude: ["src/**/*.{test,spec}.{ts,tsx}", "node_modules/**"],
       thresholds: {
         // Only enforced on src/schema files - focusing on validation logic
         lines: 85, // Realistic threshold given UI visibility code

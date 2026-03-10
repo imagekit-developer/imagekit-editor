@@ -201,7 +201,9 @@ describe("Field Configuration Tests", () => {
       })
 
       it("should show xc field for center coordinates in extract mode", () => {
-        const xcField = resizeAndCropTransformations.find((f) => f.name === "xc")
+        const xcField = resizeAndCropTransformations.find(
+          (f) => f.name === "xc",
+        )
 
         const visible = xcField?.isVisible?.({
           width: 100,
@@ -215,7 +217,9 @@ describe("Field Configuration Tests", () => {
       })
 
       it("should show yc field for center coordinates in extract mode", () => {
-        const ycField = resizeAndCropTransformations.find((f) => f.name === "yc")
+        const ycField = resizeAndCropTransformations.find(
+          (f) => f.name === "yc",
+        )
 
         const visible = ycField?.isVisible?.({
           width: 100,
@@ -360,7 +364,9 @@ describe("Field Configuration Tests", () => {
 
   describe("Additional Field Visibility Coverage", () => {
     it("should show DPR field when enabled and width exists", () => {
-      const dprField = resizeAndCropTransformations.find((f) => f.name === "dpr")
+      const dprField = resizeAndCropTransformations.find(
+        (f) => f.name === "dpr",
+      )
 
       const visible = dprField?.isVisible?.({
         dprEnabled: true,
@@ -371,7 +377,9 @@ describe("Field Configuration Tests", () => {
     })
 
     it("should show DPR field when enabled and height exists", () => {
-      const dprField = resizeAndCropTransformations.find((f) => f.name === "dpr")
+      const dprField = resizeAndCropTransformations.find(
+        (f) => f.name === "dpr",
+      )
 
       const visible = dprField?.isVisible?.({
         dprEnabled: true,
@@ -382,7 +390,9 @@ describe("Field Configuration Tests", () => {
     })
 
     it("should hide DPR field when not enabled", () => {
-      const dprField = resizeAndCropTransformations.find((f) => f.name === "dpr")
+      const dprField = resizeAndCropTransformations.find(
+        (f) => f.name === "dpr",
+      )
 
       const visible = dprField?.isVisible?.({
         dprEnabled: false,
@@ -393,7 +403,9 @@ describe("Field Configuration Tests", () => {
     })
 
     it("should show zoom field for face focus in extract mode", () => {
-      const zoomField = resizeAndCropTransformations.find((f) => f.name === "zoom")
+      const zoomField = resizeAndCropTransformations.find(
+        (f) => f.name === "zoom",
+      )
 
       const visible = zoomField?.isVisible?.({
         width: 100,
@@ -406,7 +418,9 @@ describe("Field Configuration Tests", () => {
     })
 
     it("should show zoom field for object focus in maintain_ratio", () => {
-      const zoomField = resizeAndCropTransformations.find((f) => f.name === "zoom")
+      const zoomField = resizeAndCropTransformations.find(
+        (f) => f.name === "zoom",
+      )
 
       const visible = zoomField?.isVisible?.({
         width: 100,
@@ -419,7 +433,9 @@ describe("Field Configuration Tests", () => {
     })
 
     it("should hide zoom field for anchor focus", () => {
-      const zoomField = resizeAndCropTransformations.find((f) => f.name === "zoom")
+      const zoomField = resizeAndCropTransformations.find(
+        (f) => f.name === "zoom",
+      )
 
       const visible = zoomField?.isVisible?.({
         width: 100,

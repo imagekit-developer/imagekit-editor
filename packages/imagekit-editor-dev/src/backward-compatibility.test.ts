@@ -2595,8 +2595,6 @@ describe("Backward Compatibility - V1 Templates", () => {
     })
   })
 
-
-
   describe("Unsharpen Mask Error Coverage", () => {
     it("should require sigma when unsharpen mask is enabled", () => {
       const template: Omit<Transformation, "id"> = {
@@ -2751,10 +2749,6 @@ describe("Backward Compatibility - V1 Templates", () => {
       expect(validateTransformation(template).valid).toBe(true)
     })
   })
-
-
-
-
 
   describe("Maintain Ratio Focus Validations", () => {
     it("should validate maintain_ratio with anchor focus", () => {
@@ -3021,7 +3015,7 @@ describe("Backward Compatibility - V1 Templates", () => {
       }
       const result = validateTransformation(template)
       expect(result.valid).toBe(false)
-      expect(result.errors?.some(e => e.includes("Threshold"))).toBe(true)
+      expect(result.errors?.some((e) => e.includes("Threshold"))).toBe(true)
     })
 
     it("should accept unsharpen mask with valid positive threshold", () => {
@@ -3053,7 +3047,9 @@ describe("Backward Compatibility - V1 Templates", () => {
       }
       const result = validateTransformation(template)
       expect(result.valid).toBe(false)
-      expect(result.errors?.some(e => e.includes("At least one value"))).toBe(true)
+      expect(result.errors?.some((e) => e.includes("At least one value"))).toBe(
+        true,
+      )
     })
 
     it("should reject shadow transformation with no values", () => {
@@ -3066,7 +3062,9 @@ describe("Backward Compatibility - V1 Templates", () => {
       }
       const result = validateTransformation(template)
       expect(result.valid).toBe(false)
-      expect(result.errors?.some(e => e.includes("At least one value"))).toBe(true)
+      expect(result.errors?.some((e) => e.includes("At least one value"))).toBe(
+        true,
+      )
     })
 
     it("should reject grayscale transformation with no values", () => {
