@@ -1,5 +1,7 @@
 import { Flex } from "@chakra-ui/react"
 import { useState } from "react"
+import { useAutoSaveTemplate } from "../../hooks/useAutoSaveTemplate"
+import { useSaveTemplate } from "../../hooks/useSaveTemplate"
 import { Header, type HeaderProps } from "../header"
 import { Sidebar } from "../sidebar"
 import { ActionBar } from "./ActionBar"
@@ -15,6 +17,9 @@ interface Props {
 export function EditorLayout({ onAddImage, onClose, exportOptions }: Props) {
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
   const [gridImageSize, setGridImageSize] = useState<number>(300)
+
+  useAutoSaveTemplate()
+  useSaveTemplate()
 
   return (
     <>

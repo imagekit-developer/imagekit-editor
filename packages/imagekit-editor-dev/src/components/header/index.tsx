@@ -8,17 +8,14 @@ import {
   MenuItem,
   MenuList,
   Spacer,
-  Text,
 } from "@chakra-ui/react"
-import { PiImageSquare } from "@react-icons/all-files/pi/PiImageSquare"
-import { PiImagesSquare } from "@react-icons/all-files/pi/PiImagesSquare"
 import { PiX } from "@react-icons/all-files/pi/PiX"
-import React, { useMemo } from "react"
-import {
-  type FileElement,
-  type RequiredMetadata,
-  useEditorStore,
-} from "../../store"
+import React from "react"
+import { useTemplateStorage } from "../../context/TemplateStorageContext"
+import { type FileElement, type RequiredMetadata, useEditorStore } from "../../store"
+import { TemplateNameInput } from "./TemplateNameInput"
+import { TemplateStatus } from "./TemplateStatus"
+import { TemplatesDropdown } from "./TemplatesDropdown"
 
 interface ExportOptionButton<
   Metadata extends RequiredMetadata = RequiredMetadata,
@@ -54,15 +51,7 @@ export interface HeaderProps<
 
 export const Header = ({ onClose, exportOptions }: HeaderProps) => {
   const { imageList, originalImageList, currentImage } = useEditorStore()
-
-  const headerText = useMemo(() => {
-    if (imageList.length === 1) {
-      return decodeURIComponent(
-        currentImage?.split("/").pop()?.split("?")?.[0] || "",
-      )
-    }
-    return `${imageList.length} Images`
-  }, [imageList, currentImage])
+  const provider = useTemplateStorage()
 
   return (
     <Flex
@@ -77,12 +66,13 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
       borderBottomColor="editorBattleshipGrey.100"
       flexShrink={0}
     >
-      <Icon
-        boxSize={"5"}
-        mr="4"
-        as={imageList.length === 1 ? PiImageSquare : PiImagesSquare}
-      />
-      <Text>{headerText}</Text>
+      {provider ? (
+        <Flex alignItems="center" gap="0.5" mr="3">
+          <TemplateNameInput />
+          <TemplatesDropdown />
+        </Flex>
+      ) : null}
+      <TemplateStatus />
       <Spacer />
       {exportOptions
         ?.filter((exportOption) =>

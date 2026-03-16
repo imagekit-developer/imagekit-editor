@@ -24,6 +24,8 @@ export interface Transformation {
   type: "transformation"
   value: IKTransformation
   version?: typeof TRANSFORMATION_STATE_VERSION
+  /** Persisted visibility flag. Absent or true = visible; false = hidden. */
+  enabled?: boolean
 }
 
 export type RequiredMetadata = { requireSignedUrl: boolean }
@@ -72,6 +74,8 @@ export type FocusObjects =
   | (typeof DEFAULT_FOCUS_OBJECTS)[number]
   | (string & {})
 
+export type SyncStatus = "unsaved" | "saving" | "saved" | "error"
+
 export interface EditorState<
   Metadata extends RequiredMetadata = RequiredMetadata,
 > {
@@ -88,6 +92,11 @@ export interface EditorState<
   currentTransformKey: string
   focusObjects?: ReadonlyArray<FocusObjects>
   _internalState: InternalState
+  templateName: string
+  templateId: string | null
+  syncStatus: SyncStatus
+  storageError?: string
+  isPristine: boolean
 }
 
 export type EditorActions<
@@ -97,6 +106,8 @@ export type EditorActions<
     imageList?: Array<string | InputFileElement<Metadata>>
     signer?: Signer<Metadata>
     focusObjects?: ReadonlyArray<FocusObjects>
+    templateName?: string
+    templateId?: string
   }) => void
   destroy: () => void
   setCurrentImage: (imageSrc: string | undefined) => void
@@ -123,6 +134,10 @@ export type EditorActions<
     updatedTransformation: Omit<Transformation, "id">,
   ) => void
   setShowOriginal: (showOriginal: boolean) => void
+  setTemplateName: (name: string) => void
+  setTemplateId: (id: string | null) => void
+  setSyncStatus: (status: SyncStatus, error?: string) => void
+  resetToNewTemplate: () => void
 
   _setSidebarState: (state: "none" | "type" | "config") => void
   _setSelectedTransformationKey: (key: string | null) => void
@@ -184,6 +199,11 @@ const DEFAULT_STATE: EditorState = {
     selectedTransformationKey: null,
     transformationToEdit: null,
   },
+  templateName: "Untitled Template",
+  templateId: null,
+  syncStatus: "unsaved",
+  storageError: undefined,
+  isPristine: true,
 }
 
 const useEditorStore = create<EditorState & EditorActions>()(
@@ -203,6 +223,14 @@ const useEditorStore = create<EditorState & EditorActions>()(
       }
       if (initialData?.focusObjects) {
         updates.focusObjects = initialData.focusObjects
+      }
+      if (initialData?.templateName) {
+        updates.templateName = initialData.templateName
+        updates.isPristine = false
+      }
+      if (initialData?.templateId) {
+        updates.templateId = initialData.templateId
+        updates.isPristine = false
       }
       if (Object.keys(updates).length > 0) {
         set(updates as EditorState)
@@ -314,7 +342,8 @@ const useEditorStore = create<EditorState & EditorActions>()(
 
       const visibleTransformations: Record<string, boolean> = {}
       transformationsWithIds.forEach((t) => {
-        visibleTransformations[t.id] = true
+        // enabled absent or true → visible; false → hidden
+        visibleTransformations[t.id] = t.enabled !== false
       })
 
       set((state) => ({
@@ -328,6 +357,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
           selectedTransformationKey: null,
           transformationToEdit: null,
         },
+        isPristine: false,
       }))
     },
 
@@ -343,24 +373,33 @@ const useEditorStore = create<EditorState & EditorActions>()(
         )
 
         if (oldIndex !== -1 && newIndex !== -1) {
-          // Create a new array with the moved item
           const updatedTransformations = [...state.transformations]
           const [removed] = updatedTransformations.splice(oldIndex, 1)
           updatedTransformations.splice(newIndex, 0, removed)
 
-          return { transformations: updatedTransformations }
+          return { transformations: updatedTransformations, isPristine: false }
         }
         return { transformations: state.transformations }
       })
     },
 
     toggleTransformationVisibility: (id) => {
-      set((state) => ({
-        visibleTransformations: {
-          ...state.visibleTransformations,
-          [id]: !state.visibleTransformations[id],
-        },
-      }))
+      set((state) => {
+        const newVisible = !state.visibleTransformations[id]
+        return {
+          visibleTransformations: {
+            ...state.visibleTransformations,
+            [id]: newVisible,
+          },
+          // Sync enabled into the transformations array so the auto-save
+          // subscription (which watches `transformations`) fires, and so the
+          // visibility state is persisted alongside the transformation data.
+          transformations: state.transformations.map((t) =>
+            t.id === id ? { ...t, enabled: newVisible } : t,
+          ),
+          isPristine: false,
+        }
+      })
     },
 
     addTransformation: (transformation, position) => {
@@ -376,6 +415,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
               ...state.visibleTransformations,
               [id]: true,
             },
+            isPristine: false,
           }
         })
 
@@ -392,6 +432,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
             ...state.visibleTransformations,
             [id]: true,
           },
+          isPristine: false,
         }
       })
 
@@ -403,6 +444,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
         transformations: state.transformations.filter(
           (transformation) => transformation.id !== id,
         ),
+        isPristine: false,
       }))
     },
 
@@ -414,6 +456,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
         transformations: state.transformations.map((t) =>
           t.id === id ? { ...updatedTransformation, id } : t,
         ),
+        isPristine: false,
       }))
     },
 
@@ -421,6 +464,38 @@ const useEditorStore = create<EditorState & EditorActions>()(
       set(() => ({
         showOriginal,
       }))
+    },
+
+    setTemplateName: (name) => {
+      set((state) => ({
+        templateName: name,
+        isPristine: state.templateName === name ? state.isPristine : false,
+      }))
+    },
+
+    setTemplateId: (id) => {
+      set({ templateId: id })
+    },
+
+    setSyncStatus: (status, error?) => {
+      set({ syncStatus: status, storageError: error })
+    },
+
+    resetToNewTemplate: () => {
+      set({
+        transformations: [],
+        visibleTransformations: {},
+        templateName: "Untitled Template",
+        templateId: null,
+        syncStatus: "unsaved",
+        storageError: undefined,
+        isPristine: true,
+        _internalState: {
+          sidebarState: "none",
+          selectedTransformationKey: null,
+          transformationToEdit: null,
+        },
+      })
     },
 
     _setSidebarState: (sidebarState) => {

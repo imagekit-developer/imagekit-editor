@@ -4,7 +4,6 @@ import {
   type ImageKitEditorProps,
   type ImageKitEditorRef,
   TRANSFORMATION_STATE_VERSION,
-  type Transformation,
 } from "@imagekit/editor"
 import { PiDownload } from "@react-icons/all-files/pi/PiDownload"
 import React, { useCallback, useEffect } from "react"
@@ -42,28 +41,6 @@ function App() {
       setShouldLoadTemplate(false)
     }
   }, [open, shouldLoadTemplate, savedTemplate])
-
-  /**
-   * Save the current editor template
-   */
-  const handleSaveTemplate = useCallback(() => {
-    const template = ref.current?.getTemplate()
-    if (template) {
-      // Remove the 'id' field from each transformation for storage
-      const templateToSave = template.map(
-        ({ id, ...rest }: Transformation) => rest,
-      )
-      setSavedTemplate(templateToSave)
-      // Also save to localStorage for persistence
-      localStorage.setItem("editorTemplate", JSON.stringify(templateToSave))
-      console.log("Saved template:", templateToSave)
-      alert(
-        `✅ Saved template with ${templateToSave.length} transformation(s)!`,
-      )
-    } else {
-      alert("⚠️ No transformations to save")
-    }
-  }, [])
 
   /**
    * Load previously saved template
@@ -141,20 +118,11 @@ function App() {
       exportOptions: [
         {
           type: "button",
-          label: "Export Images",
+          label: "Export",
           icon: <Icon boxSize={"5"} as={PiDownload} />,
           isVisible: true,
           onClick: (images, currentImage) => {
             console.log("Export images:", images, currentImage)
-          },
-        },
-        {
-          type: "button",
-          label: "Save Template",
-          icon: <Icon boxSize={"5"} as={PiDownload} />,
-          isVisible: true,
-          onClick: () => {
-            handleSaveTemplate()
           },
         },
         // {
@@ -180,8 +148,9 @@ function App() {
         console.log("Signed URL", request.url)
         return Promise.resolve(request.url)
       },
+      storageProvider: "localStorage",
     })
-  }, [handleAddImage, handleSaveTemplate])
+  }, [handleAddImage])
 
   const toggle = () => {
     setOpen((prev: boolean) => !prev)

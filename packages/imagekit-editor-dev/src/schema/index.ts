@@ -706,11 +706,24 @@ const baseTransformationSchema: TransformationSchema[] = [
         defaultTransformation: {},
         schema: z
           .object({
-            flip: z.coerce
-              .string({
-                invalid_type_error: "Should be a string.",
-              })
-              .optional(),
+            // z.preprocess normalises legacy string values that were coerced
+            // from the array before this fix (e.g. "horizontal",
+            // "horizontal,vertical", or corrupted "h,,,o,r,i,z,n,t,a,l,...").
+            flip: z.preprocess(
+              (val) => {
+                if (Array.isArray(val)) return val
+                if (typeof val === "string" && val) {
+                  return val
+                    .split(",")
+                    .map((s) => s.trim())
+                    .filter(
+                      (s) => s === "horizontal" || s === "vertical",
+                    )
+                }
+                return []
+              },
+              z.array(z.enum(["horizontal", "vertical"])).optional(),
+            ),
           })
           .refine(
             (val) => {

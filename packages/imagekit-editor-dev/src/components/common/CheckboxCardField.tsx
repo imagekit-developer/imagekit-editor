@@ -30,13 +30,15 @@ const toggleValue = (
   v: string,
   max?: number,
 ): string[] => {
-  const set = new Set(current)
+  // Guard: a stored string must never be spread into characters via new Set(string).
+  const currentArray = Array.isArray(current) ? current : []
+  const set = new Set(currentArray)
   if (set.has(v)) {
     set.delete(v)
     return Array.from(set)
   }
   // add
-  if (typeof max === "number" && current.length >= max) return current
+  if (typeof max === "number" && currentArray.length >= max) return currentArray
   set.add(v)
   return Array.from(set)
 }
@@ -52,8 +54,9 @@ export const CheckboxCardField: React.FC<CheckboxCardFieldProps> = ({
   const selectedBg = useColorModeValue("blue.50", "blue.900")
   const selectedBorder = useColorModeValue("blue.400", "blue.300")
   const hoverBg = useColorModeValue("gray.50", "whiteAlpha.100")
+  const safeValue = Array.isArray(value) ? value : []
   const isMaxed =
-    typeof maxSelections === "number" && value.length >= maxSelections
+    typeof maxSelections === "number" && safeValue.length >= maxSelections
 
   const handleKeyDown = (
     e: React.KeyboardEvent<HTMLDivElement>,
@@ -63,7 +66,7 @@ export const CheckboxCardField: React.FC<CheckboxCardFieldProps> = ({
     if (disabled) return
     if (e.key === " " || e.key === "Enter") {
       e.preventDefault()
-      onChange(toggleValue(value, v, maxSelections))
+      onChange(toggleValue(safeValue, v, maxSelections))
     }
   }
 
@@ -84,7 +87,7 @@ export const CheckboxCardField: React.FC<CheckboxCardFieldProps> = ({
       }}
     >
       {options.map((opt) => {
-        const isChecked = value.includes(opt.value)
+        const isChecked = safeValue.includes(opt.value)
         const disabled = opt.isDisabled || (!isChecked && isMaxed)
         return (
           // biome-ignore lint/a11y/useSemanticElements: <role used to concur to chakra standard>
@@ -97,7 +100,7 @@ export const CheckboxCardField: React.FC<CheckboxCardFieldProps> = ({
             tabIndex={disabled ? -1 : 0}
             onClick={() => {
               if (disabled) return
-              onChange(toggleValue(value, opt.value, maxSelections))
+              onChange(toggleValue(safeValue, opt.value, maxSelections))
             }}
             onKeyDown={(e) => handleKeyDown(e, opt.value, disabled)}
             cursor={disabled ? "not-allowed" : "pointer"}

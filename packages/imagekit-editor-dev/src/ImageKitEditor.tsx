@@ -1,9 +1,20 @@
 import { ChakraProvider, theme as defaultTheme } from "@chakra-ui/react"
 import type { Dict } from "@chakra-ui/utils"
 import merge from "lodash/merge"
-import React, { forwardRef, useImperativeHandle } from "react"
+import React, {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+} from "react"
 import { EditorLayout, EditorWrapper } from "./components/editor"
 import type { HeaderProps } from "./components/header"
+import { TemplateStorageContextProvider } from "./context/TemplateStorageContext"
+import {
+  createLocalStorageProvider,
+  type LocalStorageProviderOptions,
+  type TemplateStorageProvider,
+} from "./storage"
 import {
   type FocusObjects,
   type InputFileElement,
@@ -57,6 +68,12 @@ export interface ImageKitEditorRef {
    * ```
    */
   loadTemplate: (template: Omit<Transformation, "id">[]) => void
+
+  /**
+   * Explicitly saves the current template to the configured storage provider.
+   * No-op if no storage provider is configured.
+   */
+  saveTemplate: () => Promise<void>
 }
 
 interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
@@ -67,13 +84,24 @@ interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
   exportOptions?: HeaderProps<Metadata>["exportOptions"]
   focusObjects?: ReadonlyArray<FocusObjects>
   onClose: (args: { dirty: boolean; destroy: () => void }) => void
+  storageProvider?: "localStorage" | "library"
+  libraryStorage?: TemplateStorageProvider
+  localStorageKeys?: LocalStorageProviderOptions
 }
 
 function ImageKitEditorImpl<M extends RequiredMetadata>(
   props: EditorProps<M>,
   ref: React.Ref<ImageKitEditorRef>,
 ) {
-  const { theme, initialImages, signer, focusObjects } = props
+  const {
+    theme,
+    initialImages,
+    signer,
+    focusObjects,
+    storageProvider,
+    libraryStorage,
+    localStorageKeys,
+  } = props
   const {
     addImage,
     addImages,
@@ -83,6 +111,40 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     destroy,
     loadTemplate,
   } = useEditorStore()
+
+  const resolvedProvider = useMemo<TemplateStorageProvider | null>(() => {
+    if (storageProvider === "localStorage") {
+      return createLocalStorageProvider(localStorageKeys)
+    }
+    if (storageProvider === "library" && libraryStorage) {
+      return libraryStorage
+    }
+    return null
+  }, [storageProvider, libraryStorage, localStorageKeys])
+
+  const saveTemplateImperative = useCallback(async () => {
+    if (!resolvedProvider) return
+    const state = useEditorStore.getState()
+    const { setSyncStatus, setTemplateId, setTemplateName } = state
+    setSyncStatus("saving")
+    try {
+      const saved = await resolvedProvider.saveTemplate({
+        id: state.templateId ?? undefined,
+        name: state.templateName,
+        transformations: state.transformations.map(
+          ({ id: _id, ...rest }) => rest,
+        ),
+      })
+      setTemplateId(saved.id)
+      setTemplateName(saved.name)
+      setSyncStatus("saved")
+    } catch (err) {
+      setSyncStatus(
+        "error",
+        err instanceof Error ? err.message : "Failed to save template",
+      )
+    }
+  }, [resolvedProvider])
 
   const handleOnClose = () => {
     const dirty = transformations.length > 0
@@ -116,8 +178,16 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
       setCurrentImage,
       getTemplate: () => transformations,
       loadTemplate,
+      saveTemplate: saveTemplateImperative,
     }),
-    [addImage, addImages, setCurrentImage, transformations, loadTemplate],
+    [
+      addImage,
+      addImages,
+      setCurrentImage,
+      transformations,
+      loadTemplate,
+      saveTemplateImperative,
+    ],
   )
 
   const mergedThemes = merge(defaultTheme, themeOverrides, theme)
@@ -125,13 +195,15 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
   return (
     <React.StrictMode>
       <ChakraProvider cssVarsRoot="#ik-editor" theme={mergedThemes} resetCSS>
-        <EditorWrapper>
-          <EditorLayout
-            onAddImage={props.onAddImage}
-            onClose={handleOnClose}
-            exportOptions={props.exportOptions}
-          />
-        </EditorWrapper>
+        <TemplateStorageContextProvider provider={resolvedProvider}>
+          <EditorWrapper>
+            <EditorLayout
+              onAddImage={props.onAddImage}
+              onClose={handleOnClose}
+              exportOptions={props.exportOptions}
+            />
+          </EditorWrapper>
+        </TemplateStorageContextProvider>
       </ChakraProvider>
     </React.StrictMode>
   )
