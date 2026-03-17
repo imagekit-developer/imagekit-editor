@@ -42,7 +42,13 @@ interface Props {
 }
 
 function formatRelativeTime(ts: number): string {
-  return humanDate.relativeTime(new Date(ts))
+  const now = Date.now()
+  // If the timestamp is within 10 seconds of now, show "Just now"
+  if (Math.abs(now - ts) < 10 * 1000) {
+    return "Just now"
+  }
+  const tsDate = new Date(ts)
+  return humanDate.relativeTime(tsDate)
 }
 
 export function TemplatesLibraryView({ onClose }: Props) {
@@ -53,6 +59,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
   const search = useDebounce(searchInput, 200)
   const [visibilityFilter, setVisibilityFilter] = useState<string[]>([])
   const [creatorFilter, setCreatorFilter] = useState<string[]>([])
+  const [pinningId, setPinningId] = useState<string | null>(null)
 
   const { loadTemplate, setTemplateName, setTemplateId } = useEditorStore()
   const templateId = useEditorStore((s) => s.templateId)
@@ -104,7 +111,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
   }, [templates])
 
   const filtered = useMemo(() => {
-    return templates
+    const base = templates
       .filter((t) => t.id !== templateId)
       .filter((t) =>
         search
@@ -124,6 +131,20 @@ export function TemplatesLibraryView({ onClose }: Props) {
           ? creatorFilter.includes(t.createdBy.userId)
           : true,
       )
+
+    // Sort so that pinned templates (for the local user) come first,
+    // then all others by most recently used / updated.
+    return [...base].sort((a, b) => {
+      const aPinned = a.pinnedBy.includes("local") ? 1 : 0
+      const bPinned = b.pinnedBy.includes("local") ? 1 : 0
+      if (aPinned !== bPinned) {
+        return bPinned - aPinned
+      }
+
+      const aTime = a.lastUsedAt ?? a.updatedAt
+      const bTime = b.lastUsedAt ?? b.updatedAt
+      return bTime - aTime
+    })
   }, [templates, templateId, search, visibilityFilter, creatorFilter])
 
   const handleSelect = (record: TemplateRecord) => {
@@ -146,6 +167,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
       : [...record.pinnedBy, currentUserId]
 
     try {
+      setPinningId(record.id)
       const updated = await provider.saveTemplate({
         id: record.id,
         name: record.name,
@@ -163,6 +185,8 @@ export function TemplatesLibraryView({ onClose }: Props) {
       )
     } catch {
       // Silently ignore pin failures in this view
+    } finally {
+      setPinningId((current) => (current === record.id ? null : current))
     }
   }
 
@@ -387,37 +411,20 @@ export function TemplatesLibraryView({ onClose }: Props) {
               </Flex>
 
               {/* Current row */}
-              {shouldShowCurrent && (
-                <Flex
-                  px="5"
-                  py="4"
-                  alignItems="center"
-                  bg="blue.50"
-                  borderBottomWidth="1px"
-                  borderColor="editorGray.200"
-                  pointerEvents="none"
-                  gap="4"
-                >
-                  <Box flex="1" minW={0}>
-                    <Flex alignItems="center" gap="2" mb="1">
-                      <Text
-                        fontSize="md"
-                        fontWeight="medium"
-                        isTruncated
-                        color="blue.800"
-                      >
-                        {templateName}
-                      </Text>
-                      <Badge colorScheme="blue" fontSize="xs" flexShrink={0}>
-                        Current
-                      </Badge>
-                    </Flex>
-                    <Text fontSize="sm" color="blue.500">
-                      {currentTransformCount} transformation
-                      {currentTransformCount !== 1 ? "s" : ""}
-                    </Text>
-                  </Box>
-                </Flex>
+              {shouldShowCurrent && activeTemplate && (
+                <TemplateRow
+                  record={activeTemplate}
+                  onSelect={() => {
+                    // Current row is informational; selecting it is a no-op.
+                  }}
+                  onTogglePin={handleTogglePin}
+                  isPinning={pinningId === activeTemplate.id}
+                  onDelete={() => {
+                    // Deletion for current row is disabled via props.
+                  }}
+                  isCurrent
+                  canDelete={false}
+                />
               )}
 
               {/* Filtered templates */}
@@ -446,6 +453,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
                     record={record}
                     onSelect={handleSelect}
                     onTogglePin={handleTogglePin}
+                    isPinning={pinningId === record.id}
                     onDelete={async (r) => {
                       if (!provider) return
                       if (!provider.deleteTemplate) return
@@ -468,6 +476,9 @@ interface TemplateRowProps {
   onSelect(record: TemplateRecord): void
   onTogglePin(record: TemplateRecord): void
   onDelete(record: TemplateRecord): void
+  isPinning: boolean
+  isCurrent?: boolean
+  canDelete?: boolean
 }
 
 function TemplateRow({
@@ -475,6 +486,9 @@ function TemplateRow({
   onSelect,
   onTogglePin,
   onDelete,
+  isPinning,
+  isCurrent = false,
+  canDelete = true,
 }: TemplateRowProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   return (
@@ -482,45 +496,64 @@ function TemplateRow({
       px="5"
       py="4"
       alignItems="center"
-      cursor="pointer"
+      cursor={isCurrent ? "default" : "pointer"}
       borderBottomWidth="1px"
       borderColor="editorGray.200"
-      _hover={{ bg: "editorGray.50" }}
-      onClick={() => onSelect(record)}
+      bg={isCurrent ? "blue.50" : "transparent"}
+      _hover={isCurrent ? undefined : { bg: "editorGray.50" }}
+      onClick={() => {
+        if (!isCurrent) onSelect(record)
+      }}
     >
       {/* Pin */}
       <Box flexShrink={0} w="8">
         <Box
           as="button"
           type="button"
+          disabled={isPinning}
           onClick={(e) => {
             e.stopPropagation()
             onTogglePin(record)
           }}
         >
-          <Icon
-            as={record.pinnedBy.includes("local") ? PiPushPinFill : PiPushPin}
-            boxSize={4}
-            color={
-              record.pinnedBy.includes("local")
-                ? "editorBlue.500"
-                : "editorBattleshipGrey.400"
-            }
-          />
+          {isPinning ? (
+            <Spinner size="xs" color="editorBattleshipGrey.500" />
+          ) : (
+            <Icon
+              as={record.pinnedBy.includes("local") ? PiPushPinFill : PiPushPin}
+              boxSize={4}
+              color={
+                record.pinnedBy.includes("local")
+                  ? "editorBlue.500"
+                  : "editorBattleshipGrey.400"
+              }
+            />
+          )}
         </Box>
       </Box>
 
       {/* Name + transform count */}
       <Box flex="3" minW={0} ml="2">
+        <Flex alignItems="center" gap="2" mb="1">
+          <Text
+            fontSize="sm"
+            fontWeight="medium"
+            color={isCurrent ? "blue.800" : "editorBattleshipGrey.700"}
+            isTruncated
+          >
+            {record.name}
+          </Text>
+          {isCurrent && (
+            <Badge colorScheme="blue" fontSize="xs" flexShrink={0}>
+              Current
+            </Badge>
+          )}
+        </Flex>
         <Text
-          fontSize="sm"
-          fontWeight="medium"
-          color="editorBattleshipGrey.700"
-          isTruncated
+          fontSize="xs"
+          color={isCurrent ? "blue.500" : "editorBattleshipGrey.500"}
+          mt="0.5"
         >
-          {record.name}
-        </Text>
-        <Text fontSize="xs" color="editorBattleshipGrey.500" mt="0.5">
           {record.transformations.length} transformation
           {record.transformations.length !== 1 ? "s" : ""}
         </Text>
@@ -529,20 +562,24 @@ function TemplateRow({
       {/* Creator */}
       <Flex flex="2" alignItems="center" gap="2" minW={0} overflow="hidden">
         <Avatar
-          size="xs"
+          size="sm"
           name={record.createdBy.name || record.createdBy.email}
           flexShrink={0}
         />
         <Box minW={0}>
           <Text
             fontSize="xs"
-            color="editorBattleshipGrey.700"
+            color={isCurrent ? "blue.800" : "editorBattleshipGrey.700"}
             isTruncated
             fontWeight="medium"
           >
             {record.createdBy.name || record.createdBy.email}
           </Text>
-          <Text fontSize="xs" color="editorBattleshipGrey.400" isTruncated>
+          <Text
+            fontSize="xs"
+            color={isCurrent ? "blue.500" : "editorBattleshipGrey.400"}
+            isTruncated
+          >
             {record.createdBy.email}
           </Text>
         </Box>
@@ -554,9 +591,12 @@ function TemplateRow({
           <Icon
             as={record.isPrivate ? PiLock : PiGlobe}
             boxSize={4}
-            color="editorBattleshipGrey.500"
+            color={isCurrent ? "blue.700" : "editorBattleshipGrey.500"}
           />
-          <Text fontSize="xs" color="editorBattleshipGrey.700">
+          <Text
+            fontSize="xs"
+            color={isCurrent ? "blue.800" : "editorBattleshipGrey.700"}
+          >
             {record.isPrivate ? "Only to me" : "Shared with everyone"}
           </Text>
         </Flex>
@@ -564,7 +604,10 @@ function TemplateRow({
 
       {/* Last updated */}
       <Box flex="1.5" minW={0}>
-        <Text fontSize="xs" color="editorBattleshipGrey.400">
+        <Text
+          fontSize="xs"
+          color={isCurrent ? "blue.700" : "editorBattleshipGrey.400"}
+        >
           {formatRelativeTime(record.updatedAt)}
         </Text>
       </Box>
@@ -613,11 +656,13 @@ function TemplateRow({
               >
                 <MenuItem
                   icon={<Icon as={PiTrash} boxSize={4} />}
-                  color="red.500"
+                  color={canDelete ? "red.500" : "gray.400"}
                   display="flex"
                   alignItems="center"
-                  _hover={{ bg: "red.50" }}
+                  _hover={{ bg: canDelete ? "red.50" : "transparent" }}
+                  isDisabled={!canDelete}
                   onClick={(e) => {
+                    if (!canDelete) return
                     e.stopPropagation()
                     setShowDeleteConfirm(true)
                   }}
@@ -648,6 +693,11 @@ function TemplateRow({
                 size="md"
                 variant="ghost"
                 onClick={() => setShowDeleteConfirm(false)}
+                color="editorBattleshipGrey.500"
+                _hover={{
+                  color: "editorBattleshipGrey.800",
+                  bg: "editorGray.50",
+                }}
               >
                 Cancel
               </Button>
