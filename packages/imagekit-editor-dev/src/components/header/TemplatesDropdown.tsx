@@ -5,6 +5,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogOverlay,
+  Avatar,
   Badge,
   Box,
   Button,
@@ -18,18 +19,23 @@ import {
   PopoverBody,
   PopoverContent,
   PopoverTrigger,
+  Spinner,
   Text,
   useDisclosure,
 } from "@chakra-ui/react"
 import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
+import { PiGlobe } from "@react-icons/all-files/pi/PiGlobe"
+import { PiLock } from "@react-icons/all-files/pi/PiLock"
 import { PiMagnifyingGlass } from "@react-icons/all-files/pi/PiMagnifyingGlass"
 import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
-import React, { useCallback, useEffect, useRef, useState } from "react"
+import { PiPushPin } from "@react-icons/all-files/pi/PiPushPin"
+import { PiPushPinFill } from "@react-icons/all-files/pi/PiPushPinFill"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import type { TemplateRecord } from "../../storage"
 import { useEditorStore } from "../../store"
 
-const MAX_VISIBLE = 8
+const MAX_VISIBLE = 5
 
 interface TemplatesDropdownProps {
   onViewAllTemplates?: () => void
@@ -42,6 +48,7 @@ export function TemplatesDropdown({
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [templates, setTemplates] = useState<TemplateRecord[]>([])
   const [search, setSearch] = useState("")
+  const [pinningId, setPinningId] = useState<string | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
 
@@ -87,10 +94,26 @@ export function TemplatesDropdown({
     ? activeTemplate.transformations.length
     : transformations.length
 
-  const filtered = templates
-    .filter((t) => t.id !== templateId)
-    .filter((t) => t.name.toLowerCase().includes(search.toLowerCase()))
-    .slice(0, MAX_VISIBLE)
+  const filtered = useMemo(() => {
+    const base = templates
+      .filter((t) => t.id !== templateId)
+      .filter((t) => t.name.toLowerCase().includes(search.toLowerCase()))
+
+    // Sort by: pinned first, then by most recently used/updated
+    return [...base]
+      .sort((a, b) => {
+        const aPinned = a.pinnedBy.includes("local") ? 1 : 0
+        const bPinned = b.pinnedBy.includes("local") ? 1 : 0
+        if (aPinned !== bPinned) {
+          return bPinned - aPinned
+        }
+
+        const aTime = a.lastUsedAt ?? a.updatedAt
+        const bTime = b.lastUsedAt ?? b.updatedAt
+        return bTime - aTime
+      })
+      .slice(0, MAX_VISIBLE)
+  }, [templates, templateId, search])
 
   const doLoadTemplate = (record: TemplateRecord) => {
     loadTemplate(record.transformations)
@@ -112,6 +135,39 @@ export function TemplatesDropdown({
   const handleNewTemplate = () => {
     resetToNewTemplate()
     onClose()
+  }
+
+  const handleTogglePin = async (record: TemplateRecord) => {
+    if (!provider) return
+    const currentUserId = "local"
+    const isPinned = record.pinnedBy.includes(currentUserId)
+    const nextPinnedBy = isPinned
+      ? record.pinnedBy.filter((id) => id !== currentUserId)
+      : [...record.pinnedBy, currentUserId]
+
+    try {
+      setPinningId(record.id)
+      const updated = await provider.saveTemplate({
+        id: record.id,
+        name: record.name,
+        transformations: record.transformations,
+        clientNumber: record.clientNumber,
+        isPrivate: record.isPrivate,
+        pinnedBy: nextPinnedBy,
+        createdBy: record.createdBy,
+        updatedBy: record.updatedBy,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+      })
+
+      setTemplates((prev) =>
+        prev.map((t) => (t.id === updated.id ? updated : t)),
+      )
+    } catch {
+      // ignore pin failures in dropdown
+    } finally {
+      setPinningId((current) => (current === record.id ? null : current))
+    }
   }
 
   const handleSaveAndContinue = async () => {
@@ -167,7 +223,7 @@ export function TemplatesDropdown({
           </Box>
         </PopoverTrigger>
         <PopoverContent
-          width="sm"
+          width="md"
           shadow="lg"
           p="0"
           overflow="hidden"
@@ -188,34 +244,38 @@ export function TemplatesDropdown({
               borderBottomWidth="1px"
               borderColor="editorGray.300"
             >
-              <InputGroup size="md" flex="1">
-                <InputLeftElement pointerEvents="none">
-                  <Icon
-                    as={PiMagnifyingGlass}
-                    color="editorBattleshipGrey.500"
-                    boxSize={4}
-                  />
+              <InputGroup size="md" flex="1" maxW="xs">
+                <InputLeftElement pointerEvents="none" pl="2">
+                  <Icon as={PiMagnifyingGlass} color="gray.400" />
                 </InputLeftElement>
                 <Input
                   ref={searchRef}
-                  placeholder="Search templates"
+                  placeholder="Search templates..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  variant="filled"
-                  bg="editorGray.200"
-                  _focus={{ bg: "editorGray.200" }}
+                  bg="white"
+                  borderColor="gray.200"
                   borderRadius="md"
+                  px="3"
                   fontSize="sm"
+                  fontWeight="400"
+                  _placeholder={{ fontWeight: "400" }}
+                  _hover={{ borderColor: "gray.300" }}
+                  _focus={{
+                    borderColor: "blue.500",
+                    boxShadow: "0 0 0 1px #3182ce",
+                  }}
                 />
               </InputGroup>
               <Button
-                size="sm"
-                leftIcon={<Icon as={PiPlus} boxSize={4} />}
-                onClick={handleNewTemplate}
-                variant="ghost"
+                size="md"
                 colorScheme="blue"
+                variant="outline"
+                leftIcon={<Icon as={PiPlus} boxSize={4} />}
+                px="4"
                 flexShrink={0}
                 fontWeight="normal"
+                onClick={handleNewTemplate}
               >
                 New
               </Button>
@@ -225,17 +285,27 @@ export function TemplatesDropdown({
               {shouldShowCurrent && (
                 <Flex
                   px="4"
-                  py="3"
+                  py="2"
                   alignItems="center"
                   bg="blue.50"
                   borderBottomWidth="1px"
                   borderColor="blue.100"
                   pointerEvents="none"
+                  gap="3"
                 >
-                  <Box flex="1" minW="0">
-                    <Flex alignItems="center" gap="2" mb="0.5">
+                  {/* Visibility Icon (fallback to private when unknown) */}
+                  <Icon
+                    as={activeTemplate?.isPrivate === false ? PiGlobe : PiLock}
+                    boxSize={4}
+                    color="blue.700"
+                    flexShrink={0}
+                  />
+
+                  {/* Name + badge */}
+                  <Box flex="1" minW={0}>
+                    <Flex alignItems="center" gap="2">
                       <Text
-                        fontSize="md"
+                        fontSize="sm"
                         fontWeight="medium"
                         isTruncated
                         color="blue.800"
@@ -246,11 +316,13 @@ export function TemplatesDropdown({
                         Current
                       </Badge>
                     </Flex>
-                    <Text fontSize="sm" color="blue.500">
-                      {currentTransformCount} transformation
-                      {currentTransformCount !== 1 ? "s" : ""}
-                    </Text>
                   </Box>
+
+                  {/* Transform count on the right */}
+                  <Text fontSize="xs" color="blue.600" flexShrink={0}>
+                    {currentTransformCount} transformation
+                    {currentTransformCount !== 1 ? "s" : ""}
+                  </Text>
                 </Flex>
               )}
 
@@ -273,21 +345,94 @@ export function TemplatesDropdown({
                   <Flex
                     key={record.id}
                     px="4"
-                    py="3"
+                    py="2"
                     cursor="pointer"
                     alignItems="center"
-                    _hover={{ bg: "editorGray.200" }}
+                    gap="3"
+                    _hover={{ bg: "editorGray.100" }}
                     onClick={() => handleSelect(record)}
+                    transition="background-color 0.15s"
+                    role="group"
                   >
-                    <Box flex="1" minW="0">
-                      <Text fontSize="md" fontWeight="medium" isTruncated>
-                        {record.name}
-                      </Text>
-                      <Text fontSize="sm" color="editorBattleshipGrey.500">
-                        {record.transformations.length} transformation
-                        {record.transformations.length !== 1 ? "s" : ""}
-                      </Text>
-                    </Box>
+                    {/* Visibility Icon */}
+                    <Icon
+                      as={record.isPrivate ? PiLock : PiGlobe}
+                      boxSize={4}
+                      color="editorBattleshipGrey.500"
+                      flexShrink={0}
+                    />
+
+                    {/* Template name */}
+                    <Text
+                      flex="1"
+                      minW={0}
+                      fontSize="sm"
+                      fontWeight="medium"
+                      isTruncated
+                      color="editorBattleshipGrey.800"
+                    >
+                      {record.name}
+                    </Text>
+
+                    {/* Creator on hover + pin (always visible for pinned, hover for others) */}
+                    <Flex alignItems="center" gap="3">
+                      {/* Creator: only on hover */}
+                      <Flex
+                        alignItems="center"
+                        gap="1.5"
+                        maxW="36"
+                        opacity={0}
+                        _groupHover={{ opacity: 1 }}
+                        transition="opacity 0.12s ease-in-out"
+                      >
+                        <Avatar
+                          name={record.createdBy.name || record.createdBy.email}
+                          size="xs"
+                          fontSize="xs"
+                          fontWeight="bold"
+                          flexShrink={0}
+                        />
+                        <Text
+                          fontSize="xs"
+                          color="editorBattleshipGrey.500"
+                          isTruncated
+                        >
+                          {record.createdBy.name || record.createdBy.email}
+                        </Text>
+                      </Flex>
+
+                      {/* Pin */}
+                      <Box
+                        as="button"
+                        type="button"
+                        opacity={record.pinnedBy.includes("local") ? 1 : 0}
+                        _groupHover={{ opacity: 1 }}
+                        transition="opacity 0.12s ease-in-out"
+                        disabled={pinningId === record.id}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleTogglePin(record)
+                        }}
+                      >
+                        {pinningId === record.id ? (
+                          <Spinner size="xs" color="editorBattleshipGrey.500" />
+                        ) : (
+                          <Icon
+                            as={
+                              record.pinnedBy.includes("local")
+                                ? PiPushPinFill
+                                : PiPushPin
+                            }
+                            boxSize={4}
+                            color={
+                              record.pinnedBy.includes("local")
+                                ? "editorBlue.500"
+                                : "editorBattleshipGrey.400"
+                            }
+                          />
+                        )}
+                      </Box>
+                    </Flex>
                   </Flex>
                 ))
               )}
@@ -301,7 +446,7 @@ export function TemplatesDropdown({
                   <Button
                     size="sm"
                     variant="ghost"
-                    color="editorBlue.500"
+                    color="editorGray.700"
                     fontWeight="normal"
                     onClick={() => {
                       onClose()
