@@ -30,6 +30,7 @@ import { PiMagnifyingGlass } from "@react-icons/all-files/pi/PiMagnifyingGlass"
 import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
 import { PiPushPin } from "@react-icons/all-files/pi/PiPushPin"
 import { PiPushPinFill } from "@react-icons/all-files/pi/PiPushPinFill"
+import { PiSquaresFourLight } from "@react-icons/all-files/pi/PiSquaresFourLight"
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import type { TemplateRecord } from "../../storage"
@@ -268,9 +269,8 @@ export function TemplatesDropdown({
                 />
               </InputGroup>
               <Button
-                size="md"
-                colorScheme="blue"
-                variant="outline"
+                size="sm"
+                variant="ghost"
                 leftIcon={<Icon as={PiPlus} boxSize={4} />}
                 px="4"
                 flexShrink={0}
@@ -442,10 +442,11 @@ export function TemplatesDropdown({
             {onViewAllTemplates ? (
               <>
                 <Divider borderColor="editorGray.300" />
-                <Flex px="4" py="3" justifyContent="center">
+                <Flex px="4" py="3" justifyContent="flex-start">
                   <Button
                     size="sm"
                     variant="ghost"
+                    leftIcon={<Icon as={PiSquaresFourLight} boxSize={4} />}
                     color="editorGray.700"
                     fontWeight="normal"
                     onClick={() => {
