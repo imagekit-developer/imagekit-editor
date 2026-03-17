@@ -16,7 +16,6 @@ import {
   Spinner,
   Text,
 } from "@chakra-ui/react"
-import { PiArrowLeft } from "@react-icons/all-files/pi/PiArrowLeft"
 import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
 import { PiGlobe } from "@react-icons/all-files/pi/PiGlobe"
 import { PiLock } from "@react-icons/all-files/pi/PiLock"
@@ -33,14 +32,14 @@ import FilterChipsField from "../common/FilterChipsField"
 import MultiSelectListField from "../common/MultiSelectListField"
 
 interface Props {
-  onBack(): void
+  onClose(): void
 }
 
 function formatRelativeTime(ts: number): string {
   return humanDate.relativeTime(new Date(ts))
 }
 
-export function TemplatesLibraryView({ onBack }: Props) {
+export function TemplatesLibraryView({ onClose }: Props) {
   const provider = useTemplateStorage()
   const [templates, setTemplates] = useState<TemplateRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -126,7 +125,7 @@ export function TemplatesLibraryView({ onBack }: Props) {
       loadTemplate(record.transformations)
       setTemplateName(record.name)
       setTemplateId(record.id)
-      onBack()
+      onClose()
     }
   }
 
@@ -170,29 +169,15 @@ export function TemplatesLibraryView({ onBack }: Props) {
       background="white"
       overflowY="hidden"
     >
-      {/* Static top section: back button, title, filters */}
+      {/* Static top section: title, filters */}
       <Box px="6" pt="4" pb="3" flexShrink={0}>
         <Box
-          width="70%"
+          width="100%"
           mx="auto"
           display="flex"
           flexDirection="column"
           gap="4"
         >
-          {/* Page header */}
-          <Button
-            onClick={onBack}
-            variant="ghost"
-            size="xs"
-            alignSelf="flex-start"
-            leftIcon={<Icon as={PiArrowLeft} boxSize={4} />}
-            color="editorBattleshipGrey.500"
-            _hover={{ color: "editorBattleshipGrey.700", bg: "transparent" }}
-            px="0"
-          >
-            Go back
-          </Button>
-
           <Box>
             <Text
               fontSize="lg"
@@ -350,7 +335,7 @@ export function TemplatesLibraryView({ onBack }: Props) {
         overflowY="hidden"
       >
         <Box
-          width="70%"
+          width="100%"
           mx="auto"
           display="flex"
           flexDirection="column"

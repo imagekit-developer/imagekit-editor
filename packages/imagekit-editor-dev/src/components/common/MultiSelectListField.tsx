@@ -142,11 +142,10 @@ export const MultiSelectListField: React.FC<MultiSelectListFieldProps> = ({
     <Box
       id={id}
       role="group"
-      borderWidth="1px"
-      borderColor="gray.200"
+      borderWidth="0"
       borderRadius="md"
       overflow="hidden"
-      bg="white"
+      bg="transparent"
     >
       {isSearchable ? (
         <Box px="3" py="2.5" borderBottomWidth="1px" borderBottomColor="gray.100">
@@ -158,12 +157,14 @@ export const MultiSelectListField: React.FC<MultiSelectListFieldProps> = ({
               placeholder={searchPlaceholder}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              bg="gray.50"
-              borderColor="gray.200"
-              _hover={{ borderColor: "gray.300" }}
+              variant="unstyled"
+              pl="8"
+              bg="transparent"
+              borderColor="transparent"
+              _hover={{ borderColor: "transparent" }}
               _focus={{
-                borderColor: "blue.500",
-                boxShadow: "0 0 0 1px #3182ce",
+                borderColor: "transparent",
+                boxShadow: "none",
               }}
             />
           </InputGroup>

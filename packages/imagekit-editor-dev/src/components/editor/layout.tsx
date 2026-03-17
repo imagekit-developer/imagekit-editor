@@ -1,5 +1,6 @@
-import { Flex } from "@chakra-ui/react"
-import { useState } from "react"
+import { Box, Flex, IconButton } from "@chakra-ui/react"
+import { PiX } from "@react-icons/all-files/pi/PiX"
+import { useEffect, useState } from "react"
 import { useAutoSaveTemplate } from "../../hooks/useAutoSaveTemplate"
 import { useSaveTemplate } from "../../hooks/useSaveTemplate"
 import { Header, type HeaderProps } from "../header"
@@ -18,9 +19,22 @@ interface Props {
 export function EditorLayout({ onAddImage, onClose, exportOptions }: Props) {
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
   const [gridImageSize, setGridImageSize] = useState<number>(300)
-  const [layoutMode, setLayoutMode] = useState<"editor" | "templates">(
-    "templates",
-  )
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false)
+
+  // Close templates modal on Escape while it's open
+  useEffect(() => {
+    if (!isTemplatesOpen) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation()
+        setIsTemplatesOpen(false)
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [isTemplatesOpen])
 
   useAutoSaveTemplate()
   useSaveTemplate()
@@ -30,32 +44,74 @@ export function EditorLayout({ onAddImage, onClose, exportOptions }: Props) {
       <Header
         onClose={onClose}
         exportOptions={exportOptions}
-        onViewAllTemplates={() => setLayoutMode("templates")}
+        onViewAllTemplates={() => setIsTemplatesOpen(true)}
       />
-      {layoutMode === "templates" ? (
-        <TemplatesLibraryView onBack={() => setLayoutMode("editor")} />
-      ) : (
-        <Flex flexDirection="row" width="full" height="full" flexGrow={0}>
-          <Sidebar />
-          <Flex
-            flex="1 0 0"
-            background="editorGray.200"
+      <Flex flexDirection="row" width="full" height="full" flexGrow={0}>
+        <Sidebar />
+        <Flex
+          flex="1 0 0"
+          background="editorGray.200"
+          flexDirection="column"
+          position="relative"
+        >
+          <ActionBar
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            gridImageSize={gridImageSize}
+            setGridImageSize={setGridImageSize}
+          />
+          {viewMode === "list" && <ListView onAddImage={onAddImage} />}
+          {viewMode === "grid" && (
+            <GridView imageSize={gridImageSize} onAddImage={onAddImage} />
+          )}
+        </Flex>
+      </Flex>
+      {isTemplatesOpen ? (
+        <Box
+          position="fixed"
+          inset={0}
+          bg="blackAlpha.400"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          zIndex={1400}
+        >
+          <Box
+            w="80vw"
+            h="80vh"
+            maxW="80vw"
+            maxH="80vh"
+            bg="white"
+            borderRadius="xl"
+            overflow="hidden"
+            boxShadow="xl"
+            display="flex"
             flexDirection="column"
             position="relative"
           >
-            <ActionBar
-              viewMode={viewMode}
-              setViewMode={setViewMode}
-              gridImageSize={gridImageSize}
-              setGridImageSize={setGridImageSize}
+            <IconButton
+              aria-label="Close templates"
+              icon={<PiX />}
+              size="sm"
+              variant="ghost"
+              position="absolute"
+              top="3"
+              right="3"
+              zIndex={1}
+              onClick={() => setIsTemplatesOpen(false)}
             />
-            {viewMode === "list" && <ListView onAddImage={onAddImage} />}
-            {viewMode === "grid" && (
-              <GridView imageSize={gridImageSize} onAddImage={onAddImage} />
-            )}
-          </Flex>
-        </Flex>
-      )}
+            <Box
+              flex="1 1 0"
+              minH={0}
+              display="flex"
+              flexDirection="column"
+              paddingY="2"
+            >
+              <TemplatesLibraryView onClose={() => setIsTemplatesOpen(false)} />
+            </Box>
+          </Box>
+        </Box>
+      ) : null}
     </>
   )
 }
