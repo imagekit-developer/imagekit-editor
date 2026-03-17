@@ -9,8 +9,10 @@ import {
   MenuList,
   Spacer,
 } from "@chakra-ui/react"
+import { PiGlobe } from "@react-icons/all-files/pi/PiGlobe"
+import { PiLock } from "@react-icons/all-files/pi/PiLock"
 import { PiX } from "@react-icons/all-files/pi/PiX"
-import React from "react"
+import React, { useEffect, useState } from "react"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import {
   type FileElement,
@@ -60,7 +62,34 @@ export const Header = ({
   onViewAllTemplates,
 }: HeaderProps) => {
   const { imageList, originalImageList, currentImage } = useEditorStore()
+  const templateId = useEditorStore((s) => s.templateId)
   const provider = useTemplateStorage()
+
+  const [isPrivate, setIsPrivate] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!provider || !templateId) {
+      setIsPrivate(null)
+      return
+    }
+
+    provider
+      .getTemplate(templateId)
+      .then((record) => {
+        if (cancelled) return
+        setIsPrivate(record ? record.isPrivate : null)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setIsPrivate(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [provider, templateId])
 
   return (
     <Flex
@@ -77,6 +106,13 @@ export const Header = ({
     >
       {provider ? (
         <Flex alignItems="center" gap="0.5" mr="3">
+          {templateId && (
+            <Icon
+              as={isPrivate === false ? PiGlobe : PiLock}
+              boxSize={5}
+              color="editorBattleshipGrey.500"
+            />
+          )}
           <TemplateNameInput />
           <TemplatesDropdown onViewAllTemplates={onViewAllTemplates} />
         </Flex>
