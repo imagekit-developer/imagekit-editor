@@ -200,7 +200,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
             w="100%"
             flexWrap="wrap"
           >
-            <InputGroup size="sm" maxW="xs">
+            <InputGroup size="md" maxW="xs">
               <InputLeftElement pointerEvents="none" pl="2">
                 <Icon as={PiMagnifyingGlass} color="gray.400" />
               </InputLeftElement>
@@ -211,8 +211,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
                 bg="white"
                 borderColor="gray.200"
                 borderRadius="md"
-                px="2"
-                py="2"
+                px="3"
                 fontSize="sm"
                 fontWeight="400"
                 _placeholder={{ fontWeight: "400" }}
@@ -472,7 +471,12 @@ function TemplateRow({ record, onSelect, onTogglePin }: TemplateRowProps) {
     >
       {/* Name + transform count */}
       <Box flex="3" minW={0}>
-        <Text fontSize="sm" fontWeight="medium" isTruncated>
+        <Text
+          fontSize="sm"
+          fontWeight="medium"
+          color="editorBattleshipGrey.700"
+          isTruncated
+        >
           {record.name}
         </Text>
         <Text fontSize="xs" color="editorBattleshipGrey.500" mt="0.5">

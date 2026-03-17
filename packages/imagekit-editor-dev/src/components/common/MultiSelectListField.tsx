@@ -135,7 +135,7 @@ export const MultiSelectListField: React.FC<MultiSelectListFieldProps> = ({
           </Text>
           {opt.email && (
             <Text fontSize="xs" color="gray.500" noOfLines={1}>
-              {opt.email}
+              ({opt.email})
             </Text>
           )}
         </Flex>
