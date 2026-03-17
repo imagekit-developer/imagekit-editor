@@ -1,0 +1,121 @@
+import {
+  type As,
+  Box,
+  Flex,
+  HStack,
+  Icon,
+  Text,
+  useColorModeValue,
+} from "@chakra-ui/react"
+import type * as React from "react"
+
+type FilterChipsOption = {
+  label: string
+  value: string
+  icon?: React.ReactNode
+}
+
+type FilterChipsFieldProps = {
+  id?: string
+  value?: string[]
+  options: FilterChipsOption[]
+  onChange: (values: string[]) => void
+  maxSelections?: number
+}
+
+const toggleValue = (
+  current: string[] = [],
+  v: string,
+  max?: number,
+): string[] => {
+  const currentArray = Array.isArray(current) ? current : []
+  const set = new Set(currentArray)
+  if (set.has(v)) {
+    set.delete(v)
+    return Array.from(set)
+  }
+  if (typeof max === "number" && currentArray.length >= max) return currentArray
+  set.add(v)
+  return Array.from(set)
+}
+
+export const FilterChipsField: React.FC<FilterChipsFieldProps> = ({
+  id,
+  value = [],
+  options,
+  onChange,
+  maxSelections,
+}) => {
+  const selectedBg = useColorModeValue("blue.50", "blue.900")
+  const selectedBorder = useColorModeValue("blue.400", "blue.300")
+  const hoverBg = useColorModeValue("gray.50", "whiteAlpha.100")
+  const safeValue = Array.isArray(value) ? value : []
+  const isMaxed =
+    typeof maxSelections === "number" && safeValue.length >= maxSelections
+
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLDivElement>,
+    v: string,
+    disabled?: boolean,
+  ) => {
+    if (disabled) return
+    if (e.key === " " || e.key === "Enter") {
+      e.preventDefault()
+      onChange(toggleValue(safeValue, v, maxSelections))
+    }
+  }
+
+  return (
+    <HStack
+      as="fieldset"
+      id={id}
+      role="group"
+      align="center"
+      spacing="2"
+      wrap="wrap"
+    >
+      {options.map((opt) => {
+        const isChecked = safeValue.includes(opt.value)
+        const disabled = opt.isDisabled || (!isChecked && isMaxed)
+        return (
+          <Box
+            key={opt.value}
+            role="checkbox"
+            aria-checked={isChecked}
+            aria-disabled={disabled || undefined}
+            tabIndex={disabled ? -1 : 0}
+            onClick={() => {
+              if (disabled) return
+              onChange(toggleValue(safeValue, opt.value, maxSelections))
+            }}
+            onKeyDown={(e) => handleKeyDown(e, opt.value, disabled)}
+            cursor={disabled ? "not-allowed" : "pointer"}
+            opacity={disabled ? 0.5 : 1}
+            borderWidth="1px"
+            borderRadius="md"
+            p="2"
+            transition="all 0.12s ease-in-out"
+            borderColor={isChecked ? selectedBorder : "gray.200"}
+            bg={isChecked ? selectedBg : "transparent"}
+            _hover={{
+              bg: disabled ? undefined : isChecked ? selectedBg : hoverBg,
+            }}
+            _focusVisible={{
+              boxShadow: "0 0 0 2px var(--chakra-colors-blue-400)",
+              outline: "none",
+            }}
+          >
+            <Flex align="center" gap="2" opacity={isChecked ? 1 : 0.5}>
+              {opt.icon ? <Icon as={opt.icon as As} boxSize="16px" /> : null}
+              <Text fontSize="sm" noOfLines={1}>
+                {opt.label}
+              </Text>
+            </Flex>
+          </Box>
+        )
+      })}
+    </HStack>
+  )
+}
+
+export default FilterChipsField

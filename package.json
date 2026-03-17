@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.1.1",
+    "@types/human-date": "^1",
     "@types/jsdom": "^28",
     "@vitest/coverage-v8": "^4.0.18",
     "husky": "^9.1.7",
@@ -44,6 +45,7 @@
     ]
   },
   "dependencies": {
+    "human-date": "^1.4.0",
     "react-select": "^5.2.1"
   }
 }

@@ -1,4 +1,22 @@
 export const themeOverrides = {
+  styles: {
+    global: {
+      "#ik-editor *": {
+        scrollbarWidth: "thin",
+      },
+      "#ik-editor *::-webkit-scrollbar": {
+        width: "6px",
+        height: "6px",
+      },
+      "#ik-editor *::-webkit-scrollbar-thumb": {
+        background: "rgba(160, 174, 192, 0.8)",
+        borderRadius: "999px",
+      },
+      "#ik-editor *::-webkit-scrollbar-track": {
+        background: "transparent",
+      },
+    },
+  },
   colors: {
     editorBattleshipGrey: {
       "50": "#f9f6fd",

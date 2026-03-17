@@ -47,9 +47,10 @@ export interface HeaderProps<
   exportOptions?: Array<
     ExportOptionButton<Metadata> | ExportOptionMenu<Metadata>
   >
+  onViewAllTemplates?: () => void
 }
 
-export const Header = ({ onClose, exportOptions }: HeaderProps) => {
+export const Header = ({ onClose, exportOptions, onViewAllTemplates }: HeaderProps) => {
   const { imageList, originalImageList, currentImage } = useEditorStore()
   const provider = useTemplateStorage()
 
@@ -69,7 +70,7 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
       {provider ? (
         <Flex alignItems="center" gap="0.5" mr="3">
           <TemplateNameInput />
-          <TemplatesDropdown />
+          <TemplatesDropdown onViewAllTemplates={onViewAllTemplates} />
         </Flex>
       ) : null}
       <TemplateStatus />

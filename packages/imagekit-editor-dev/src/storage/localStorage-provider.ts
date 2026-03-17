@@ -1,13 +1,37 @@
 import type {
   LocalStorageProviderOptions,
+  SaveTemplateInput,
+  TemplateCreator,
   TemplateRecord,
   TemplateStorageProvider,
 } from "./types"
 
 const DEFAULT_TEMPLATES_KEY = "ik-editor-templates"
 
+const LOCAL_USER: TemplateCreator = { userId: "local", name: "You", email: "" }
+
 function generateId(): string {
   return `template-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+function normalizeRecord(raw: Record<string, unknown>): TemplateRecord {
+  const now = Date.now()
+  const updatedAt = (raw.updatedAt as number) || now
+  return {
+    id: (raw.id as string) || generateId(),
+    clientNumber: (raw.clientNumber as string) || "local",
+    isPrivate:
+      raw.isPrivate !== undefined ? (raw.isPrivate as boolean) : true,
+    name: (raw.name as string) || "",
+    transformations:
+      (raw.transformations as TemplateRecord["transformations"]) || [],
+    pinnedBy: (raw.pinnedBy as string[]) || [],
+    createdBy: (raw.createdBy as TemplateCreator) || LOCAL_USER,
+    updatedBy: (raw.updatedBy as TemplateCreator) || LOCAL_USER,
+    createdAt: (raw.createdAt as number) || updatedAt,
+    updatedAt,
+    lastUsedAt: raw.lastUsedAt as number | undefined,
+  }
 }
 
 export function createLocalStorageProvider(
@@ -19,7 +43,8 @@ export function createLocalStorageProvider(
     try {
       const raw = localStorage.getItem(templatesKey)
       if (!raw) return []
-      return JSON.parse(raw) as TemplateRecord[]
+      const parsed = JSON.parse(raw) as Record<string, unknown>[]
+      return parsed.map(normalizeRecord)
     } catch {
       return []
     }
@@ -48,11 +73,7 @@ export function createLocalStorageProvider(
       return templates.find((t) => t.id === id) ?? null
     },
 
-    async saveTemplate(
-      record: Omit<TemplateRecord, "id" | "updatedAt" | "lastUsedAt"> & {
-        id?: string
-      },
-    ): Promise<TemplateRecord> {
+    async saveTemplate(record: SaveTemplateInput): Promise<TemplateRecord> {
       await new Promise((resolve) => setTimeout(resolve, 1500))
       const templates = readTemplates()
       const now = Date.now()
@@ -60,11 +81,15 @@ export function createLocalStorageProvider(
       if (record.id) {
         const index = templates.findIndex((t) => t.id === record.id)
         if (index !== -1) {
+          const existing = templates[index]
           const updated: TemplateRecord = {
-            ...templates[index],
+            ...existing,
             name: record.name,
             transformations: record.transformations,
+            isPrivate: record.isPrivate ?? existing.isPrivate,
+            pinnedBy: record.pinnedBy ?? existing.pinnedBy,
             updatedAt: now,
+            updatedBy: record.updatedBy ?? LOCAL_USER,
           }
           templates[index] = updated
           writeTemplates(templates)
@@ -74,8 +99,14 @@ export function createLocalStorageProvider(
 
       const newRecord: TemplateRecord = {
         id: record.id ?? generateId(),
+        clientNumber: record.clientNumber ?? "local",
+        isPrivate: record.isPrivate ?? true,
         name: record.name,
         transformations: record.transformations,
+        pinnedBy: record.pinnedBy ?? [],
+        createdBy: record.createdBy ?? LOCAL_USER,
+        updatedBy: record.updatedBy ?? record.createdBy ?? LOCAL_USER,
+        createdAt: record.createdAt ?? now,
         updatedAt: now,
       }
       templates.push(newRecord)

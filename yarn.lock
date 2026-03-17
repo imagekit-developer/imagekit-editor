@@ -2771,6 +2771,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/human-date@npm:^1":
+  version: 1.4.5
+  resolution: "@types/human-date@npm:1.4.5"
+  checksum: 10c0/e3a72ceaa539e96673a0f562f21a3bde72acdcd8128ef465d385802afa2f14e8548088c6cac56a3b074a9c2add83356de5df74ec1eb49f12c4ce3953acb2bfac
+  languageName: node
+  linkType: hard
+
 "@types/jsdom@npm:^28":
   version: 28.0.0
   resolution: "@types/jsdom@npm:28.0.0"
@@ -4399,6 +4406,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"human-date@npm:^1.4.0":
+  version: 1.4.0
+  resolution: "human-date@npm:1.4.0"
+  checksum: 10c0/4548555e36f5f6b7759a23ec7b7b4882d1b14614a653c5171235828e0b4e4ce3360da5f901b3383413b488711782c8575b8d74d7234c12e0871c7c73fe7f203f
+  languageName: node
+  linkType: hard
+
 "husky@npm:^9.1.7":
   version: 9.1.7
   resolution: "husky@npm:9.1.7"
@@ -4468,8 +4482,10 @@ __metadata:
   resolution: "imagekit-editor@workspace:."
   dependencies:
     "@biomejs/biome": "npm:2.1.1"
+    "@types/human-date": "npm:^1"
     "@types/jsdom": "npm:^28"
     "@vitest/coverage-v8": "npm:^4.0.18"
+    human-date: "npm:^1.4.0"
     husky: "npm:^9.1.7"
     jsdom: "npm:^28.1.0"
     lint-staged: "npm:^16.1.2"

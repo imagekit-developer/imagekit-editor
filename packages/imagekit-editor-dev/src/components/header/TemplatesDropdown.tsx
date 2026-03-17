@@ -31,7 +31,11 @@ import { useEditorStore } from "../../store"
 
 const MAX_VISIBLE = 8
 
-export function TemplatesDropdown() {
+interface TemplatesDropdownProps {
+  onViewAllTemplates?: () => void
+}
+
+export function TemplatesDropdown({ onViewAllTemplates }: TemplatesDropdownProps) {
   const provider = useTemplateStorage()
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [templates, setTemplates] = useState<TemplateRecord[]>([])
@@ -165,7 +169,9 @@ export function TemplatesDropdown() {
           shadow="lg"
           p="0"
           overflow="hidden"
-          _focus={{ boxShadow: "lg" }}
+          borderWidth="0"
+          outline="none"
+          _focus={{ boxShadow: "lg", outline: "none", borderColor: "transparent" }}
         >
           <PopoverBody p="0">
             <Flex
@@ -281,21 +287,36 @@ export function TemplatesDropdown() {
               )}
             </Box>
 
-            {templates.length > MAX_VISIBLE + (shouldShowCurrent ? 1 : 0) && (
+            {/* Always show "View all templates" when callback is provided, or when there are more templates than visible */}
+            {onViewAllTemplates ? (
               <>
                 <Divider borderColor="editorGray.300" />
                 <Flex px="4" py="3" justifyContent="center">
-                  <Text
-                    fontSize="sm"
+                  <Button
+                    size="sm"
+                    variant="ghost"
                     color="editorBlue.500"
-                    cursor="pointer"
-                    _hover={{ textDecoration: "underline" }}
+                    fontWeight="normal"
+                    onClick={() => {
+                      onClose()
+                      // Defer to next tick to allow popover to close cleanly
+                      setTimeout(() => onViewAllTemplates?.(), 0)
+                    }}
                   >
                     View all templates
+                  </Button>
+                </Flex>
+              </>
+            ) : templates.length > MAX_VISIBLE + (shouldShowCurrent ? 1 : 0) ? (
+              <>
+                <Divider borderColor="editorGray.300" />
+                <Flex px="4" py="3" justifyContent="center">
+                  <Text fontSize="sm" color="editorBattleshipGrey.500">
+                    {templates.length} templates total
                   </Text>
                 </Flex>
               </>
-            )}
+            ) : null}
           </PopoverBody>
         </PopoverContent>
       </Popover>
