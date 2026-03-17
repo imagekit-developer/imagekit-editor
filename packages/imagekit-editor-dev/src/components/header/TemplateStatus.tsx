@@ -149,6 +149,7 @@ export function TemplateStatus() {
           width="auto"
           maxW="xs"
           shadow="lg"
+          border="none"
           _focus={{ boxShadow: "lg" }}
         >
           <PopoverArrow />
