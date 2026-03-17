@@ -130,7 +130,7 @@ export const MultiSelectListField: React.FC<MultiSelectListFieldProps> = ({
         <Avatar size="xs" name={opt.label} src={opt.avatar} flexShrink={0} />
 
         <Flex direction="column" minW={0} flex="1">
-          <Text fontSize="sm" fontWeight="500" noOfLines={1}>
+          <Text fontSize="sm" fontWeight="500" noOfLines={1} color="gray.600">
             {opt.label}
           </Text>
           {opt.email && (

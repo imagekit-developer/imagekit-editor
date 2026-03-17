@@ -1,5 +1,4 @@
-import { Box, Flex, IconButton } from "@chakra-ui/react"
-import { PiX } from "@react-icons/all-files/pi/PiX"
+import { Box, Flex } from "@chakra-ui/react"
 import { useEffect, useState } from "react"
 import { useAutoSaveTemplate } from "../../hooks/useAutoSaveTemplate"
 import { useSaveTemplate } from "../../hooks/useSaveTemplate"
@@ -89,17 +88,6 @@ export function EditorLayout({ onAddImage, onClose, exportOptions }: Props) {
             flexDirection="column"
             position="relative"
           >
-            <IconButton
-              aria-label="Close templates"
-              icon={<PiX />}
-              size="sm"
-              variant="ghost"
-              position="absolute"
-              top="3"
-              right="3"
-              zIndex={1}
-              onClick={() => setIsTemplatesOpen(false)}
-            />
             <Box
               flex="1 1 0"
               minH={0}

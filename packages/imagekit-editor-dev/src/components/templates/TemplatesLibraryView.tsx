@@ -21,10 +21,12 @@ import {
   Text,
 } from "@chakra-ui/react"
 import { BsThreeDots } from "@react-icons/all-files/bs/BsThreeDots"
+import { PiArrowLeft } from "@react-icons/all-files/pi/PiArrowLeft"
 import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
 import { PiGlobe } from "@react-icons/all-files/pi/PiGlobe"
 import { PiLock } from "@react-icons/all-files/pi/PiLock"
 import { PiMagnifyingGlass } from "@react-icons/all-files/pi/PiMagnifyingGlass"
+import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
 import { PiPushPin } from "@react-icons/all-files/pi/PiPushPin"
 import { PiPushPinFill } from "@react-icons/all-files/pi/PiPushPinFill"
 import { PiTrash } from "@react-icons/all-files/pi/PiTrash"
@@ -61,7 +63,8 @@ export function TemplatesLibraryView({ onClose }: Props) {
   const [creatorFilter, setCreatorFilter] = useState<string[]>([])
   const [pinningId, setPinningId] = useState<string | null>(null)
 
-  const { loadTemplate, setTemplateName, setTemplateId } = useEditorStore()
+  const { loadTemplate, setTemplateName, setTemplateId, resetToNewTemplate } =
+    useEditorStore()
   const templateId = useEditorStore((s) => s.templateId)
   const templateName = useEditorStore((s) => s.templateName)
   const transformations = useEditorStore((s) => s.transformations)
@@ -209,18 +212,45 @@ export function TemplatesLibraryView({ onClose }: Props) {
           flexDirection="column"
           gap="4"
         >
-          <Box>
-            <Text
-              fontSize="lg"
-              fontWeight="semibold"
-              color="editorBattleshipGrey.900"
+          <Button
+            onClick={onClose}
+            variant="ghost"
+            size="xs"
+            alignSelf="flex-start"
+            leftIcon={<Icon as={PiArrowLeft} boxSize={4} />}
+            color="editorBattleshipGrey.500"
+            _hover={{ color: "editorBattleshipGrey.700", bg: "transparent" }}
+            px="0"
+          >
+            Go back
+          </Button>
+
+          <Flex alignItems="center" justifyContent="space-between">
+            <Box>
+              <Text
+                fontSize="lg"
+                fontWeight="semibold"
+                color="editorBattleshipGrey.900"
+              >
+                All templates
+              </Text>
+              <Text fontSize="sm" color="editorBattleshipGrey.500">
+                Browse and load templates created by you or shared with you.
+              </Text>
+            </Box>
+            <Button
+              size="md"
+              colorScheme="blue"
+              leftIcon={<Icon as={PiPlus} boxSize={4} />}
+              px="4"
+              onClick={() => {
+                resetToNewTemplate()
+                onClose()
+              }}
             >
-              All templates
-            </Text>
-            <Text fontSize="sm" color="editorBattleshipGrey.500">
-              Browse and load templates shared with you or created by your team.
-            </Text>
-          </Box>
+              New template
+            </Button>
+          </Flex>
 
           {/* Controls bar */}
           <Flex
