@@ -9,6 +9,10 @@ import {
   Input,
   InputGroup,
   InputLeftElement,
+  Menu,
+  MenuButton,
+  MenuItem,
+  MenuList,
   Popover,
   PopoverBody,
   PopoverContent,
@@ -16,12 +20,14 @@ import {
   Spinner,
   Text,
 } from "@chakra-ui/react"
+import { BsThreeDots } from "@react-icons/all-files/bs/BsThreeDots"
 import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
 import { PiGlobe } from "@react-icons/all-files/pi/PiGlobe"
 import { PiLock } from "@react-icons/all-files/pi/PiLock"
 import { PiMagnifyingGlass } from "@react-icons/all-files/pi/PiMagnifyingGlass"
 import { PiPushPin } from "@react-icons/all-files/pi/PiPushPin"
 import { PiPushPinFill } from "@react-icons/all-files/pi/PiPushPinFill"
+import { PiTrash } from "@react-icons/all-files/pi/PiTrash"
 import humanDate from "human-date"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
@@ -440,6 +446,12 @@ export function TemplatesLibraryView({ onClose }: Props) {
                     record={record}
                     onSelect={handleSelect}
                     onTogglePin={handleTogglePin}
+                    onDelete={async (r) => {
+                      if (!provider) return
+                      if (!provider.deleteTemplate) return
+                      await provider.deleteTemplate(r.id)
+                      setTemplates((prev) => prev.filter((t) => t.id !== r.id))
+                    }}
                   />
                 ))
               )}
@@ -455,9 +467,16 @@ interface TemplateRowProps {
   record: TemplateRecord
   onSelect(record: TemplateRecord): void
   onTogglePin(record: TemplateRecord): void
+  onDelete(record: TemplateRecord): void
 }
 
-function TemplateRow({ record, onSelect, onTogglePin }: TemplateRowProps) {
+function TemplateRow({
+  record,
+  onSelect,
+  onTogglePin,
+  onDelete,
+}: TemplateRowProps) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   return (
     <Flex
       px="5"
@@ -469,8 +488,30 @@ function TemplateRow({ record, onSelect, onTogglePin }: TemplateRowProps) {
       _hover={{ bg: "editorGray.50" }}
       onClick={() => onSelect(record)}
     >
+      {/* Pin */}
+      <Box flexShrink={0} w="8">
+        <Box
+          as="button"
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onTogglePin(record)
+          }}
+        >
+          <Icon
+            as={record.pinnedBy.includes("local") ? PiPushPinFill : PiPushPin}
+            boxSize={4}
+            color={
+              record.pinnedBy.includes("local")
+                ? "editorBlue.500"
+                : "editorBattleshipGrey.400"
+            }
+          />
+        </Box>
+      </Box>
+
       {/* Name + transform count */}
-      <Box flex="3" minW={0}>
+      <Box flex="3" minW={0} ml="2">
         <Text
           fontSize="sm"
           fontWeight="medium"
@@ -528,27 +569,103 @@ function TemplateRow({ record, onSelect, onTogglePin }: TemplateRowProps) {
         </Text>
       </Box>
 
-      {/* Pin */}
-      <Box flexShrink={0} w="8">
-        <Box
-          as="button"
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            onTogglePin(record)
-          }}
+      {/* Row actions menu + delete confirmation popup */}
+      <Popover
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        placement="bottom-end"
+        closeOnBlur
+      >
+        <PopoverTrigger>
+          <Box
+            as="span"
+            flexShrink={0}
+            w="8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Menu isLazy>
+              <MenuButton
+                as={Button}
+                size="md"
+                variant="ghost"
+                px="2"
+                py="1"
+                minW="auto"
+                bg="transparent"
+                borderWidth={0}
+                borderColor="transparent"
+                _hover={{ bg: "editorGray.200" }}
+                _focus={{ boxShadow: "none" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Icon
+                  as={BsThreeDots}
+                  boxSize={4}
+                  color="editorBattleshipGrey.700"
+                />
+              </MenuButton>
+              <MenuList
+                minW="32"
+                py="1"
+                borderWidth={0}
+                borderColor="transparent"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MenuItem
+                  icon={<Icon as={PiTrash} boxSize={4} />}
+                  color="red.500"
+                  display="flex"
+                  alignItems="center"
+                  _hover={{ bg: "red.50" }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowDeleteConfirm(true)
+                  }}
+                >
+                  Delete
+                </MenuItem>
+              </MenuList>
+            </Menu>
+          </Box>
+        </PopoverTrigger>
+        <PopoverContent
+          p="4"
+          fontSize="sm"
+          maxW="md"
+          w="md"
+          borderWidth={0}
+          borderColor="transparent"
+          _focus={{ boxShadow: "lg", outline: "none" }}
+          onClick={(e) => e.stopPropagation()}
         >
-          <Icon
-            as={record.pinnedBy.includes("local") ? PiPushPinFill : PiPushPin}
-            boxSize={4}
-            color={
-              record.pinnedBy.includes("local")
-                ? "editorBlue.500"
-                : "editorBattleshipGrey.400"
-            }
-          />
-        </Box>
-      </Box>
+          <Flex direction="column" gap="3">
+            <Text color="gray.600" fontSize="md">
+              Are you sure you want to delete this template? This action is
+              irreversible.
+            </Text>
+            <Flex justifyContent="flex-end" gap="2">
+              <Button
+                size="md"
+                variant="ghost"
+                onClick={() => setShowDeleteConfirm(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="md"
+                colorScheme="red"
+                leftIcon={<Icon as={PiTrash} boxSize={4} />}
+                onClick={() => {
+                  setShowDeleteConfirm(false)
+                  onDelete(record)
+                }}
+              >
+                Delete
+              </Button>
+            </Flex>
+          </Flex>
+        </PopoverContent>
+      </Popover>
     </Flex>
   )
 }
