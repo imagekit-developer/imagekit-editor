@@ -426,17 +426,19 @@ export function TemplatesLibraryView({ onClose }: Props) {
                 textTransform="uppercase"
                 letterSpacing="0.06em"
               >
-                <Box flex="3" minW={0}>
-                  <Text>Name</Text>
+                {/* Pin column spacer to align with row */}
+                <Box flexShrink={0} w="8" />
+                <Box flex="3" minW={0} ml="2">
+                  <Text textAlign="left">Name</Text>
                 </Box>
                 <Box flex="2" minW={0}>
-                  <Text>Created by</Text>
+                  <Text textAlign="left">Created by</Text>
                 </Box>
                 <Box flex="1.5" minW={0}>
-                  <Text>Visibility</Text>
+                  <Text textAlign="left">Visibility</Text>
                 </Box>
                 <Box flex="1.5" minW={0}>
-                  <Text>Last updated</Text>
+                  <Text textAlign="left">Last updated</Text>
                 </Box>
                 <Box flexShrink={0} w="8" />
               </Flex>
