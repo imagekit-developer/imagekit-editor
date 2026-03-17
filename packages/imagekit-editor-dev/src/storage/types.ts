@@ -30,6 +30,11 @@ export type SaveTemplateInput = {
   createdBy?: TemplateCreator
   updatedBy?: TemplateCreator
   createdAt?: number
+  /**
+   * Optional override for updatedAt. When provided, the local storage provider
+   * will respect this value instead of always touching updatedAt.
+   */
+  updatedAt?: number
 }
 
 export interface TemplateStorageProvider {

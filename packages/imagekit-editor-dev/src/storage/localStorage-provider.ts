@@ -88,7 +88,7 @@ export function createLocalStorageProvider(
             transformations: record.transformations,
             isPrivate: record.isPrivate ?? existing.isPrivate,
             pinnedBy: record.pinnedBy ?? existing.pinnedBy,
-            updatedAt: now,
+            updatedAt: record.updatedAt ?? now,
             updatedBy: record.updatedBy ?? LOCAL_USER,
           }
           templates[index] = updated

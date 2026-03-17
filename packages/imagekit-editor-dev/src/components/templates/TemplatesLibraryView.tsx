@@ -178,6 +178,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
         createdBy: record.createdBy,
         updatedBy: record.updatedBy,
         createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
       })
 
       setTemplates((prev) =>
