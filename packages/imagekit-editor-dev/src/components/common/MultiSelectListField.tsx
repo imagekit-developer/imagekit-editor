@@ -81,9 +81,16 @@ export const MultiSelectListField: React.FC<MultiSelectListFieldProps> = ({
   }, [options, query, safeValue, selectedFirst])
 
   const shouldRenderSeparator =
-    selectedFirst && showSelectedSeparator && selected.length > 0 && other.length > 0
+    selectedFirst &&
+    showSelectedSeparator &&
+    selected.length > 0 &&
+    other.length > 0
 
-  const renderOption = (opt: MultiSelectListOption, idx: number, arrLen: number) => {
+  const renderOption = (
+    opt: MultiSelectListOption,
+    idx: number,
+    arrLen: number,
+  ) => {
     const isChecked = safeValue.includes(opt.value)
     const disabled = opt.isDisabled
 
@@ -92,7 +99,8 @@ export const MultiSelectListField: React.FC<MultiSelectListFieldProps> = ({
         key={opt.value}
         px="3"
         py="2.5"
-        spacing="3"
+        spacing="2"
+        alignItems="center"
         cursor={disabled ? "not-allowed" : "pointer"}
         opacity={disabled ? 0.5 : 1}
         onClick={() => {
@@ -104,6 +112,7 @@ export const MultiSelectListField: React.FC<MultiSelectListFieldProps> = ({
         borderBottomWidth={idx < arrLen - 1 ? "1px" : "0"}
         borderBottomColor="gray.100"
         transition="background-color 0.12s ease-in-out"
+        margin="2"
       >
         <Checkbox
           isChecked={isChecked}
@@ -113,14 +122,12 @@ export const MultiSelectListField: React.FC<MultiSelectListFieldProps> = ({
           }}
           pointerEvents="none"
           flexShrink={0}
+          borderColor="gray.300"
+          bg="white"
+          mr="2"
         />
 
-        <Avatar
-          size="xs"
-          name={opt.label}
-          src={opt.avatar}
-          flexShrink={0}
-        />
+        <Avatar size="xs" name={opt.label} src={opt.avatar} flexShrink={0} />
 
         <Flex direction="column" minW={0} flex="1">
           <Text fontSize="sm" fontWeight="500" noOfLines={1}>
@@ -136,7 +143,9 @@ export const MultiSelectListField: React.FC<MultiSelectListFieldProps> = ({
     )
   }
 
-  const renderedCount = selectedFirst ? selected.length + other.length : selected.length
+  const renderedCount = selectedFirst
+    ? selected.length + other.length
+    : selected.length
 
   return (
     <Box
@@ -148,17 +157,20 @@ export const MultiSelectListField: React.FC<MultiSelectListFieldProps> = ({
       bg="transparent"
     >
       {isSearchable ? (
-        <Box px="3" py="2.5" borderBottomWidth="1px" borderBottomColor="gray.100">
-          <InputGroup size="sm">
-            <InputLeftElement pointerEvents="none">
-              <Icon as={PiMagnifyingGlass} color="gray.400" boxSize={4} />
-            </InputLeftElement>
+        <Box
+          px="4"
+          py="2.5"
+          borderBottomWidth="1px"
+          borderBottomColor="gray.100"
+        >
+          <Flex alignItems="center" gap="2">
+            <Icon as={PiMagnifyingGlass} color="gray.400" boxSize={4} />
             <Input
+              fontSize="sm"
               placeholder={searchPlaceholder}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               variant="unstyled"
-              pl="8"
               bg="transparent"
               borderColor="transparent"
               _hover={{ borderColor: "transparent" }}
@@ -167,14 +179,16 @@ export const MultiSelectListField: React.FC<MultiSelectListFieldProps> = ({
                 boxShadow: "none",
               }}
             />
-          </InputGroup>
+          </Flex>
         </Box>
       ) : null}
 
       <Box overflowY="auto" maxH={maxHeight}>
         {selectedFirst ? (
           <>
-            {selected.map((opt, idx) => renderOption(opt, idx, selected.length))}
+            {selected.map((opt, idx) =>
+              renderOption(opt, idx, selected.length),
+            )}
             {shouldRenderSeparator ? <Divider borderColor="gray.200" /> : null}
             {other.map((opt, idx) => renderOption(opt, idx, other.length))}
           </>
@@ -184,7 +198,9 @@ export const MultiSelectListField: React.FC<MultiSelectListFieldProps> = ({
 
         {renderedCount === 0 && (
           <Flex align="center" justify="center" px="3" py="8" color="gray.500">
-            <Text fontSize="sm">{query.trim() ? "No matches found" : "No items available"}</Text>
+            <Text fontSize="sm">
+              {query.trim() ? "No matches found" : "No items available"}
+            </Text>
           </Flex>
         )}
       </Box>

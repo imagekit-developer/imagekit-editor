@@ -286,7 +286,12 @@ export function TemplatesLibraryView({ onClose }: Props) {
                 p="0"
                 outline="none"
                 boxShadow="md"
-                _focus={{ outline: "none", boxShadow: "md" }}
+                borderWidth="0"
+                _focus={{
+                  outline: "none",
+                  boxShadow: "md",
+                  borderColor: "transparent",
+                }}
               >
                 <PopoverBody p="0" display="flex" flexDirection="column">
                   <MultiSelectListField
@@ -301,7 +306,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
                     selectedFirst
                     showSelectedSeparator
                   />
-                  <Divider my="0" />
+                  <Divider alignSelf="center" my="0" borderColor="gray.200" />
                   <Button
                     w="full"
                     variant="ghost"
