@@ -548,11 +548,11 @@ function TemplateRow({
           }}
         >
           {isPinning ? (
-            <Spinner size="xs" color="editorBattleshipGrey.500" />
+            <Spinner size="sm" color="editorBattleshipGrey.500" />
           ) : (
             <Icon
               as={record.pinnedBy.includes("local") ? PiPushPinFill : PiPushPin}
-              boxSize={4}
+              boxSize={5}
               color={
                 record.pinnedBy.includes("local")
                   ? "editorBlue.500"
@@ -599,15 +599,15 @@ function TemplateRow({
         />
         <Box minW={0}>
           <Text
-            fontSize="xs"
-            color={isCurrent ? "blue.800" : "editorBattleshipGrey.700"}
+            fontSize="sm"
+            color={isCurrent ? "blue.800" : "editorBattleshipGrey.500"}
             isTruncated
             fontWeight="medium"
           >
             {record.createdBy.name || record.createdBy.email}
           </Text>
           <Text
-            fontSize="xs"
+            fontSize="sm"
             color={isCurrent ? "blue.500" : "editorBattleshipGrey.400"}
             isTruncated
           >
@@ -621,11 +621,11 @@ function TemplateRow({
         <Flex alignItems="center" gap="2">
           <Icon
             as={record.isPrivate ? PiLock : PiGlobe}
-            boxSize={4}
+            boxSize={5}
             color={isCurrent ? "blue.700" : "editorBattleshipGrey.500"}
           />
           <Text
-            fontSize="xs"
+            fontSize="sm"
             color={isCurrent ? "blue.800" : "editorBattleshipGrey.700"}
           >
             {record.isPrivate ? "Only to me" : "Shared with everyone"}
@@ -636,7 +636,7 @@ function TemplateRow({
       {/* Last updated */}
       <Box flex="1.5" minW={0}>
         <Text
-          fontSize="xs"
+          fontSize="sm"
           color={isCurrent ? "blue.700" : "editorBattleshipGrey.400"}
         >
           {formatRelativeTime(record.updatedAt)}
