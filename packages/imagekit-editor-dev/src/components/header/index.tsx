@@ -12,7 +12,11 @@ import {
 import { PiX } from "@react-icons/all-files/pi/PiX"
 import React from "react"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
-import { type FileElement, type RequiredMetadata, useEditorStore } from "../../store"
+import {
+  type FileElement,
+  type RequiredMetadata,
+  useEditorStore,
+} from "../../store"
 import { TemplateNameInput } from "./TemplateNameInput"
 import { TemplateStatus } from "./TemplateStatus"
 import { TemplatesDropdown } from "./TemplatesDropdown"
@@ -50,7 +54,11 @@ export interface HeaderProps<
   onViewAllTemplates?: () => void
 }
 
-export const Header = ({ onClose, exportOptions, onViewAllTemplates }: HeaderProps) => {
+export const Header = ({
+  onClose,
+  exportOptions,
+  onViewAllTemplates,
+}: HeaderProps) => {
   const { imageList, originalImageList, currentImage } = useEditorStore()
   const provider = useTemplateStorage()
 

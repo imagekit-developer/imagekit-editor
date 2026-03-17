@@ -64,7 +64,9 @@ export function useAutoSaveTemplate() {
           } catch (err) {
             setSyncStatus(
               "error",
-              err instanceof Error ? err.message : "Failed to auto-save template",
+              err instanceof Error
+                ? err.message
+                : "Failed to auto-save template",
             )
           }
         }, DEBOUNCE_MS)

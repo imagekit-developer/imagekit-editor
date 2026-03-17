@@ -35,7 +35,9 @@ interface TemplatesDropdownProps {
   onViewAllTemplates?: () => void
 }
 
-export function TemplatesDropdown({ onViewAllTemplates }: TemplatesDropdownProps) {
+export function TemplatesDropdown({
+  onViewAllTemplates,
+}: TemplatesDropdownProps) {
   const provider = useTemplateStorage()
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [templates, setTemplates] = useState<TemplateRecord[]>([])
@@ -171,7 +173,11 @@ export function TemplatesDropdown({ onViewAllTemplates }: TemplatesDropdownProps
           overflow="hidden"
           borderWidth="0"
           outline="none"
-          _focus={{ boxShadow: "lg", outline: "none", borderColor: "transparent" }}
+          _focus={{
+            boxShadow: "lg",
+            outline: "none",
+            borderColor: "transparent",
+          }}
         >
           <PopoverBody p="0">
             <Flex

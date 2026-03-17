@@ -20,8 +20,7 @@ function normalizeRecord(raw: Record<string, unknown>): TemplateRecord {
   return {
     id: (raw.id as string) || generateId(),
     clientNumber: (raw.clientNumber as string) || "local",
-    isPrivate:
-      raw.isPrivate !== undefined ? (raw.isPrivate as boolean) : true,
+    isPrivate: raw.isPrivate !== undefined ? (raw.isPrivate as boolean) : true,
     name: (raw.name as string) || "",
     transformations:
       (raw.transformations as TemplateRecord["transformations"]) || [],

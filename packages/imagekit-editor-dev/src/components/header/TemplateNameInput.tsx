@@ -79,7 +79,9 @@ export function TemplateNameInput() {
       variant="unstyled"
       fontWeight="medium"
       fontSize="md"
-      color={isDefault ? "editorBattleshipGrey.500" : "editorBattleshipGrey.900"}
+      color={
+        isDefault ? "editorBattleshipGrey.500" : "editorBattleshipGrey.900"
+      }
       placeholder={UNTITLED}
       _placeholder={{ color: "editorBattleshipGrey.500" }}
       width="auto"
