@@ -208,14 +208,29 @@ export function TemplatesDropdown({
       >
         <PopoverTrigger>
           <Box
+            as="button"
             display="inline-flex"
             alignItems="center"
+            gap="2"
             cursor="pointer"
-            borderRadius="md"
-            p="1"
-            _hover={{ bg: "editorGray.200" }}
+            height="full"
+            px="4"
+            _hover={{ bg: "editorGray.100" }}
+            transition="background-color 0.15s"
             aria-label="Open templates dropdown"
           >
+            <Icon
+              as={PiSquaresFourLight}
+              boxSize={5}
+              color="editorBattleshipGrey.600"
+            />
+            <Text
+              fontSize="sm"
+              fontWeight="medium"
+              color="editorBattleshipGrey.700"
+            >
+              Templates
+            </Text>
             <Icon
               as={PiCaretDown}
               boxSize={4}

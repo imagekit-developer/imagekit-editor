@@ -3,12 +3,14 @@ import {
   Divider,
   Flex,
   Icon,
+  IconButton,
   Menu,
   MenuButton,
   MenuItem,
   MenuList,
   Spacer,
 } from "@chakra-ui/react"
+import { PiGear } from "@react-icons/all-files/pi/PiGear"
 import { PiGlobe } from "@react-icons/all-files/pi/PiGlobe"
 import { PiLock } from "@react-icons/all-files/pi/PiLock"
 import { PiX } from "@react-icons/all-files/pi/PiX"
@@ -105,19 +107,47 @@ export const Header = ({
       flexShrink={0}
     >
       {provider ? (
-        <Flex alignItems="center" gap="0.5" mr="3">
-          {templateId && (
-            <Icon
-              as={isPrivate === false ? PiGlobe : PiLock}
-              boxSize={5}
-              color="editorBattleshipGrey.500"
-            />
-          )}
-          <TemplateNameInput />
-          <TemplatesDropdown onViewAllTemplates={onViewAllTemplates} />
-        </Flex>
+        <>
+          <Flex alignItems="center" gap="2" px="4" height="full" ml="2">
+            {templateId && (
+              <Icon
+                as={isPrivate === false ? PiGlobe : PiLock}
+                boxSize={5}
+                color="editorBattleshipGrey.500"
+              />
+            )}
+            <TemplateNameInput />
+          </Flex>
+          <Divider
+            orientation="vertical"
+            borderColor="editorBattleshipGrey.100"
+          />
+          <IconButton
+            aria-label="Settings"
+            icon={<Icon as={PiGear} boxSize={6} />}
+            variant="ghost"
+            height="full"
+            width="20"
+            borderRadius="0"
+            size="md"
+            color="editorBattleshipGrey.500"
+          />
+          <Divider
+            orientation="vertical"
+            borderColor="editorBattleshipGrey.100"
+          />
+          <Flex alignItems="center" height="full">
+            <TemplatesDropdown onViewAllTemplates={onViewAllTemplates} />
+          </Flex>
+          <Divider
+            orientation="vertical"
+            borderColor="editorBattleshipGrey.100"
+          />
+        </>
       ) : null}
-      <TemplateStatus />
+      <Flex ml="6">
+        <TemplateStatus />
+      </Flex>
       <Spacer />
       {exportOptions
         ?.filter((exportOption) =>
