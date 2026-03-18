@@ -108,7 +108,7 @@ export const Header = ({
     >
       {provider ? (
         <>
-          <Flex alignItems="center" gap="2" px="4" height="full" ml="2">
+          <Flex alignItems="center" gap="2" px="4" height="full" ml="-4">
             {templateId && (
               <Icon
                 as={isPrivate === false ? PiGlobe : PiLock}
