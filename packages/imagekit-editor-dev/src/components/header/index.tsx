@@ -253,7 +253,7 @@ export const Header = ({
       />
       <NavbarItem
         icon={<Icon boxSize={"5"} as={PiX} />}
-        label="Close Button"
+        label="Close"
         onClick={onClose}
       />
       {isSettingsOpen && (
