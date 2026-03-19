@@ -70,7 +70,12 @@ export function TemplateStatus() {
   // "Saving…" is a transient text-only state — no icon yet
   if (notificationVisible && syncStatus === "saving") {
     return (
-      <Text fontSize="sm" color="editorBattleshipGrey.600" userSelect="none">
+      <Text
+        fontSize="sm"
+        fontWeight="medium"
+        color="editorBattleshipGrey.600"
+        userSelect="none"
+      >
         Saving…
       </Text>
     )
@@ -165,7 +170,12 @@ export function TemplateStatus() {
       </Popover>
 
       {notifText && (
-        <Text fontSize="sm" color="editorBattleshipGrey.700" userSelect="none">
+        <Text
+          fontSize="sm"
+          fontWeight="medium"
+          color="editorBattleshipGrey.700"
+          userSelect="none"
+        >
           {notifText}
         </Text>
       )}

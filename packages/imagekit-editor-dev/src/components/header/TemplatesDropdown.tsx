@@ -80,6 +80,13 @@ export function TemplatesDropdown({
     }
   }, [isOpen, fetchTemplates])
 
+  useEffect(() => {
+    // Refetch templates when sync status changes to "saved" to reflect updates
+    if (syncStatus === "saved") {
+      fetchTemplates()
+    }
+  }, [syncStatus, fetchTemplates])
+
   if (!provider) return null
 
   const activeTemplate = templateId
@@ -213,9 +220,11 @@ export function TemplatesDropdown({
             alignItems="center"
             gap="2"
             cursor="pointer"
-            height="full"
-            px="4"
-            _hover={{ bg: "editorGray.100" }}
+            borderRadius="md"
+            paddingX="4"
+            paddingY="2"
+            marginX="2"
+            _hover={{ bg: "editorGray.200" }}
             transition="background-color 0.15s"
             aria-label="Open templates dropdown"
           >

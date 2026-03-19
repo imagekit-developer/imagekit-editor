@@ -1,9 +1,7 @@
 import {
-  Button,
   Divider,
   Flex,
   Icon,
-  IconButton,
   Menu,
   MenuButton,
   MenuItem,
@@ -21,6 +19,8 @@ import {
   type RequiredMetadata,
   useEditorStore,
 } from "../../store"
+import { NavbarItem } from "./NavbarItem"
+import { SettingsModal } from "./SettingsModal"
 import { TemplateNameInput } from "./TemplateNameInput"
 import { TemplateStatus } from "./TemplateStatus"
 import { TemplatesDropdown } from "./TemplatesDropdown"
@@ -65,9 +65,11 @@ export const Header = ({
 }: HeaderProps) => {
   const { imageList, originalImageList, currentImage } = useEditorStore()
   const templateId = useEditorStore((s) => s.templateId)
+  const syncStatus = useEditorStore((s) => s.syncStatus)
   const provider = useTemplateStorage()
 
   const [isPrivate, setIsPrivate] = useState<boolean | null>(null)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -92,6 +94,30 @@ export const Header = ({
       cancelled = true
     }
   }, [provider, templateId])
+
+  // Refetch template visibility when it's saved
+  useEffect(() => {
+    let cancelled = false
+
+    if (!provider || !templateId || syncStatus !== "saved") {
+      return
+    }
+
+    provider
+      .getTemplate(templateId)
+      .then((record) => {
+        if (cancelled) return
+        setIsPrivate(record ? record.isPrivate : null)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setIsPrivate(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [provider, templateId, syncStatus])
 
   return (
     <Flex
@@ -120,28 +146,27 @@ export const Header = ({
           </Flex>
           <Divider
             orientation="vertical"
-            borderColor="editorBattleshipGrey.100"
+            borderColor="editorBattleshipGrey.200"
+            height="40%"
           />
-          <IconButton
-            aria-label="Settings"
-            icon={<Icon as={PiGear} boxSize={6} />}
-            variant="ghost"
-            height="full"
-            width="20"
-            borderRadius="0"
-            size="md"
-            color="editorBattleshipGrey.500"
+          <NavbarItem
+            label="Settings"
+            icon={<PiGear />}
+            variant="icon"
+            onClick={() => setIsSettingsOpen(true)}
           />
           <Divider
             orientation="vertical"
-            borderColor="editorBattleshipGrey.100"
+            borderColor="editorBattleshipGrey.200"
+            height="40%"
           />
-          <Flex alignItems="center" height="full">
+          <Flex alignItems="center">
             <TemplatesDropdown onViewAllTemplates={onViewAllTemplates} />
           </Flex>
           <Divider
             orientation="vertical"
-            borderColor="editorBattleshipGrey.100"
+            borderColor="editorBattleshipGrey.200"
+            height="40%"
           />
         </>
       ) : null}
@@ -157,21 +182,11 @@ export const Header = ({
         )
         .map((exportOption) => (
           <React.Fragment key={`export-option-${exportOption.label}`}>
-            <Divider
-              orientation="vertical"
-              borderColor="editorBattleshipGrey.100"
-            />
             {exportOption.type === "button" ? (
-              <Button
+              <NavbarItem
                 key={`export-button-${exportOption.label}`}
-                leftIcon={exportOption.icon}
-                aria-label={exportOption.label}
-                variant="ghost"
-                fontWeight="normal"
-                height="full"
-                borderRadius="0"
-                px="8"
-                size="sm"
+                icon={exportOption.icon}
+                label={exportOption.label}
                 onClick={() => {
                   const images = imageList.map((image, index) => ({
                     url: image,
@@ -187,21 +202,13 @@ export const Header = ({
                     file: cImage!.file,
                   })
                 }}
-              >
-                {exportOption.label}
-              </Button>
+              />
             ) : (
               <Menu key={`export-menu-${exportOption.label}`}>
                 <MenuButton
-                  as={Button}
-                  leftIcon={exportOption.icon}
-                  aria-label={exportOption.label}
-                  variant="ghost"
-                  fontWeight="normal"
-                  height="full"
-                  borderRadius="0"
-                  px="8"
-                  size="sm"
+                  as={NavbarItem}
+                  icon={exportOption.icon}
+                  label={exportOption.label}
                 >
                   {exportOption.label}
                 </MenuButton>
@@ -239,20 +246,19 @@ export const Header = ({
             )}
           </React.Fragment>
         ))}
-      <Divider orientation="vertical" borderColor="editorBattleshipGrey.100" />
-      <Button
-        leftIcon={<Icon boxSize={"5"} as={PiX} />}
-        aria-label="Close Button"
+      <Divider
+        orientation="vertical"
+        borderColor="editorBattleshipGrey.200"
+        height="40%"
+      />
+      <NavbarItem
+        icon={<Icon boxSize={"5"} as={PiX} />}
+        label="Close Button"
         onClick={onClose}
-        variant="ghost"
-        fontWeight="normal"
-        height="full"
-        borderRadius="0"
-        px="8"
-        size="sm"
-      >
-        Close
-      </Button>
+      />
+      {isSettingsOpen && (
+        <SettingsModal onClose={() => setIsSettingsOpen(false)} />
+      )}
     </Flex>
   )
 }
