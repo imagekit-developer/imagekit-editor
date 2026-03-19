@@ -7,8 +7,6 @@ import {
   HStack,
   Icon,
   Input,
-  InputGroup,
-  InputLeftElement,
   Text,
 } from "@chakra-ui/react"
 import { PiMagnifyingGlass } from "@react-icons/all-files/pi/PiMagnifyingGlass"
@@ -150,7 +148,6 @@ export const MultiSelectListField: React.FC<MultiSelectListFieldProps> = ({
   return (
     <Box
       id={id}
-      role="group"
       borderWidth="0"
       borderRadius="md"
       overflow="hidden"

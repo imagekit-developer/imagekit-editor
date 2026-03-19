@@ -66,21 +66,13 @@ export const FilterChipsField: React.FC<FilterChipsFieldProps> = ({
   }
 
   return (
-    <HStack
-      as="fieldset"
-      id={id}
-      role="group"
-      align="center"
-      spacing="2"
-      wrap="wrap"
-    >
+    <HStack as="fieldset" id={id} align="center" spacing="2" wrap="wrap">
       {options.map((opt) => {
         const isChecked = safeValue.includes(opt.value)
         const disabled = opt.isDisabled || (!isChecked && isMaxed)
         return (
           <Box
             key={opt.value}
-            role="checkbox"
             aria-checked={isChecked}
             aria-disabled={disabled || undefined}
             tabIndex={disabled ? -1 : 0}

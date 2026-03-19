@@ -13,7 +13,7 @@ import {
 import { IoMdCloudDone } from "@react-icons/all-files/io/IoMdCloudDone"
 import { MdSync } from "@react-icons/all-files/md/MdSync"
 import { MdSyncProblem } from "@react-icons/all-files/md/MdSyncProblem"
-import React, { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import { useEditorStore } from "../../store"
 

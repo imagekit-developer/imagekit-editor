@@ -66,8 +66,6 @@ export function TemplatesLibraryView({ onClose }: Props) {
   const { loadTemplate, setTemplateName, setTemplateId, resetToNewTemplate } =
     useEditorStore()
   const templateId = useEditorStore((s) => s.templateId)
-  const templateName = useEditorStore((s) => s.templateName)
-  const transformations = useEditorStore((s) => s.transformations)
   const isPristine = useEditorStore((s) => s.isPristine)
   const syncStatus = useEditorStore((s) => s.syncStatus)
 
@@ -91,10 +89,6 @@ export function TemplatesLibraryView({ onClose }: Props) {
   const activeTemplate = templateId
     ? (templates.find((t) => t.id === templateId) ?? null)
     : null
-
-  const currentTransformCount = activeTemplate
-    ? activeTemplate.transformations.length
-    : transformations.length
 
   const uniqueCreators = useMemo(() => {
     const seen = new Map<string, { name: string; email: string }>()

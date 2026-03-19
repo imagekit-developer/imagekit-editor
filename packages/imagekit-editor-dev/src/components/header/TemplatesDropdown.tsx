@@ -31,7 +31,7 @@ import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
 import { PiPushPin } from "@react-icons/all-files/pi/PiPushPin"
 import { PiPushPinFill } from "@react-icons/all-files/pi/PiPushPinFill"
 import { PiSquaresFourLight } from "@react-icons/all-files/pi/PiSquaresFourLight"
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import type { TemplateRecord } from "../../storage"
 import { useEditorStore } from "../../store"
@@ -87,8 +87,6 @@ export function TemplatesDropdown({
     }
   }, [syncStatus, fetchTemplates])
 
-  if (!provider) return null
-
   const activeTemplate = templateId
     ? (templates.find((t) => t.id === templateId) ?? null)
     : null
@@ -122,6 +120,8 @@ export function TemplatesDropdown({
       })
       .slice(0, MAX_VISIBLE)
   }, [templates, templateId, search])
+
+  if (!provider) return null
 
   const doLoadTemplate = (record: TemplateRecord) => {
     loadTemplate(record.transformations)
@@ -376,7 +376,6 @@ export function TemplatesDropdown({
                     _hover={{ bg: "editorGray.100" }}
                     onClick={() => handleSelect(record)}
                     transition="background-color 0.15s"
-                    role="group"
                   >
                     {/* Visibility Icon */}
                     <Icon
