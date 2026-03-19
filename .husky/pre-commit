@@ -1,1 +1,5 @@
-lint-staged
+# Run lint autofixes
+yarn lint:fix
+
+# Check lint again
+yarn lint
