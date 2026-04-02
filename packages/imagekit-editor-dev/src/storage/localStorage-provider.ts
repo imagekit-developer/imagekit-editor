@@ -1,3 +1,4 @@
+import { normalizeTransformationStepsForPersistence } from "./serializeTransformations"
 import type {
   LocalStorageProviderOptions,
   SaveTemplateInput,
@@ -24,7 +25,7 @@ function normalizeRecord(raw: Record<string, unknown>): TemplateRecord {
     name: (raw.name as string) || "",
     transformations:
       (raw.transformations as TemplateRecord["transformations"]) || [],
-    pinnedBy: (raw.pinnedBy as string[]) || [],
+    isPinned: typeof raw.isPinned === "boolean" ? raw.isPinned : false,
     createdBy: (raw.createdBy as TemplateCreator) || LOCAL_USER,
     updatedBy: (raw.updatedBy as TemplateCreator) || LOCAL_USER,
     createdAt: (raw.createdAt as number) || updatedAt,
@@ -76,6 +77,9 @@ export function createLocalStorageProvider(
       await new Promise((resolve) => setTimeout(resolve, 1500))
       const templates = readTemplates()
       const now = Date.now()
+      const transformations = normalizeTransformationStepsForPersistence(
+        record.transformations,
+      )
 
       if (record.id) {
         const index = templates.findIndex((t) => t.id === record.id)
@@ -84,9 +88,9 @@ export function createLocalStorageProvider(
           const updated: TemplateRecord = {
             ...existing,
             name: record.name,
-            transformations: record.transformations,
+            transformations,
             isPrivate: record.isPrivate ?? existing.isPrivate,
-            pinnedBy: record.pinnedBy ?? existing.pinnedBy,
+            isPinned: record.isPinned ?? existing.isPinned,
             updatedAt: record.updatedAt ?? now,
             updatedBy: record.updatedBy ?? LOCAL_USER,
           }
@@ -101,8 +105,8 @@ export function createLocalStorageProvider(
         clientNumber: record.clientNumber ?? "local",
         isPrivate: record.isPrivate ?? true,
         name: record.name,
-        transformations: record.transformations,
-        pinnedBy: record.pinnedBy ?? [],
+        transformations,
+        isPinned: record.isPinned ?? false,
         createdBy: record.createdBy ?? LOCAL_USER,
         updatedBy: record.updatedBy ?? record.createdBy ?? LOCAL_USER,
         createdAt: record.createdAt ?? now,
@@ -116,6 +120,27 @@ export function createLocalStorageProvider(
     async deleteTemplate(id: string): Promise<void> {
       const templates = readTemplates().filter((t) => t.id !== id)
       writeTemplates(templates)
+    },
+
+    async setTemplatePinned(
+      id: string,
+      isPinned: boolean,
+    ): Promise<TemplateRecord> {
+      const templates = readTemplates()
+      const index = templates.findIndex((t) => t.id === id)
+      if (index === -1) {
+        throw new Error("Template not found")
+      }
+      const existing = templates[index]
+      const updated: TemplateRecord = {
+        ...existing,
+        isPinned,
+        updatedAt: Date.now(),
+        updatedBy: LOCAL_USER,
+      }
+      templates[index] = updated
+      writeTemplates(templates)
+      return updated
     },
   }
 }

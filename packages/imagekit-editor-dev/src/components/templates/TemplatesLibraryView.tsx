@@ -23,6 +23,7 @@ import {
 import { BsThreeDots } from "@react-icons/all-files/bs/BsThreeDots"
 import { PiArrowLeft } from "@react-icons/all-files/pi/PiArrowLeft"
 import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
+import { PiGear } from "@react-icons/all-files/pi/PiGear"
 import { PiGlobe } from "@react-icons/all-files/pi/PiGlobe"
 import { PiLock } from "@react-icons/all-files/pi/PiLock"
 import { PiMagnifyingGlass } from "@react-icons/all-files/pi/PiMagnifyingGlass"
@@ -38,6 +39,7 @@ import type { TemplateRecord } from "../../storage"
 import { useEditorStore } from "../../store"
 import FilterChipsField from "../common/FilterChipsField"
 import MultiSelectListField from "../common/MultiSelectListField"
+import { SettingsModal } from "../header/SettingsModal"
 
 interface Props {
   onClose(): void
@@ -62,10 +64,15 @@ export function TemplatesLibraryView({ onClose }: Props) {
   const [visibilityFilter, setVisibilityFilter] = useState<string[]>([])
   const [creatorFilter, setCreatorFilter] = useState<string[]>([])
   const [pinningId, setPinningId] = useState<string | null>(null)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [settingsKnownIsPrivate, setSettingsKnownIsPrivate] = useState<
+    boolean | null
+  >(null)
 
   const { loadTemplate, setTemplateName, setTemplateId, resetToNewTemplate } =
     useEditorStore()
   const templateId = useEditorStore((s) => s.templateId)
+  const templateName = useEditorStore((s) => s.templateName)
   const isPristine = useEditorStore((s) => s.isPristine)
   const syncStatus = useEditorStore((s) => s.syncStatus)
 
@@ -110,6 +117,16 @@ export function TemplatesLibraryView({ onClose }: Props) {
   const filtered = useMemo(() => {
     const base = templates
       .filter((t) => t.id !== templateId)
+      .filter((t) => {
+        if (
+          shouldShowCurrent &&
+          templateId === null &&
+          t.name === templateName
+        ) {
+          return false
+        }
+        return true
+      })
       .filter((t) =>
         search
           ? t.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -132,8 +149,8 @@ export function TemplatesLibraryView({ onClose }: Props) {
     // Sort so that pinned templates (for the local user) come first,
     // then all others by most recently used / updated.
     return [...base].sort((a, b) => {
-      const aPinned = a.pinnedBy.includes("local") ? 1 : 0
-      const bPinned = b.pinnedBy.includes("local") ? 1 : 0
+      const aPinned = a.isPinned ? 1 : 0
+      const bPinned = b.isPinned ? 1 : 0
       if (aPinned !== bPinned) {
         return bPinned - aPinned
       }
@@ -142,7 +159,15 @@ export function TemplatesLibraryView({ onClose }: Props) {
       const bTime = b.lastUsedAt ?? b.updatedAt
       return bTime - aTime
     })
-  }, [templates, templateId, search, visibilityFilter, creatorFilter])
+  }, [
+    templates,
+    templateId,
+    templateName,
+    search,
+    visibilityFilter,
+    creatorFilter,
+    shouldShowCurrent,
+  ])
 
   const handleSelect = (record: TemplateRecord) => {
     if (isPristine || syncStatus === "saved") {
@@ -156,27 +181,12 @@ export function TemplatesLibraryView({ onClose }: Props) {
   const handleTogglePin = async (record: TemplateRecord) => {
     if (!provider) return
 
-    // For the local storage provider we only have a single logical user.
-    const currentUserId = "local"
-    const isPinned = record.pinnedBy.includes(currentUserId)
-    const nextPinnedBy = isPinned
-      ? record.pinnedBy.filter((id) => id !== currentUserId)
-      : [...record.pinnedBy, currentUserId]
-
     try {
       setPinningId(record.id)
-      const updated = await provider.saveTemplate({
-        id: record.id,
-        name: record.name,
-        transformations: record.transformations,
-        clientNumber: record.clientNumber,
-        isPrivate: record.isPrivate,
-        pinnedBy: nextPinnedBy,
-        createdBy: record.createdBy,
-        updatedBy: record.updatedBy,
-        createdAt: record.createdAt,
-        updatedAt: record.updatedAt,
-      })
+      const updated = await provider.setTemplatePinned(
+        record.id,
+        !record.isPinned,
+      )
 
       setTemplates((prev) =>
         prev.map((t) => (t.id === updated.id ? updated : t)),
@@ -187,6 +197,32 @@ export function TemplatesLibraryView({ onClose }: Props) {
       setPinningId((current) => (current === record.id ? null : current))
     }
   }
+
+  const handleDeleteTemplate = useCallback(
+    async (record: TemplateRecord) => {
+      if (!provider) return
+      if (!provider.deleteTemplate) return
+
+      await provider.deleteTemplate(record.id)
+      setTemplates((prev) => prev.filter((t) => t.id !== record.id))
+
+      if (record.id === useEditorStore.getState().templateId) {
+        resetToNewTemplate()
+      }
+    },
+    [provider, resetToNewTemplate],
+  )
+
+  const handleOpenSettings = useCallback(
+    (record: TemplateRecord) => {
+      loadTemplate(record.transformations)
+      setTemplateName(record.name)
+      setTemplateId(record.id)
+      setSettingsKnownIsPrivate(record.isPrivate)
+      setIsSettingsOpen(true)
+    },
+    [loadTemplate, setTemplateId, setTemplateName],
+  )
 
   return (
     <Flex
@@ -446,11 +482,10 @@ export function TemplatesLibraryView({ onClose }: Props) {
                   }}
                   onTogglePin={handleTogglePin}
                   isPinning={pinningId === activeTemplate.id}
-                  onDelete={() => {
-                    // Deletion for current row is disabled via props.
-                  }}
+                  onDelete={handleDeleteTemplate}
+                  onSettings={handleOpenSettings}
                   isCurrent
-                  canDelete={false}
+                  canDelete
                 />
               )}
 
@@ -481,12 +516,8 @@ export function TemplatesLibraryView({ onClose }: Props) {
                     onSelect={handleSelect}
                     onTogglePin={handleTogglePin}
                     isPinning={pinningId === record.id}
-                    onDelete={async (r) => {
-                      if (!provider) return
-                      if (!provider.deleteTemplate) return
-                      await provider.deleteTemplate(r.id)
-                      setTemplates((prev) => prev.filter((t) => t.id !== r.id))
-                    }}
+                    onDelete={handleDeleteTemplate}
+                    onSettings={handleOpenSettings}
                   />
                 ))
               )}
@@ -494,6 +525,13 @@ export function TemplatesLibraryView({ onClose }: Props) {
           )}
         </Box>
       </Flex>
+      {isSettingsOpen && (
+        <SettingsModal
+          key={templateId ?? "new"}
+          knownIsPrivate={settingsKnownIsPrivate}
+          onClose={() => setIsSettingsOpen(false)}
+        />
+      )}
     </Flex>
   )
 }
@@ -503,6 +541,7 @@ interface TemplateRowProps {
   onSelect(record: TemplateRecord): void
   onTogglePin(record: TemplateRecord): void
   onDelete(record: TemplateRecord): void
+  onSettings(record: TemplateRecord): void
   isPinning: boolean
   isCurrent?: boolean
   canDelete?: boolean
@@ -513,6 +552,7 @@ function TemplateRow({
   onSelect,
   onTogglePin,
   onDelete,
+  onSettings,
   isPinning,
   isCurrent = false,
   canDelete = true,
@@ -547,12 +587,10 @@ function TemplateRow({
             <Spinner size="sm" color="editorBattleshipGrey.500" />
           ) : (
             <Icon
-              as={record.pinnedBy.includes("local") ? PiPushPinFill : PiPushPin}
+              as={record.isPinned ? PiPushPinFill : PiPushPin}
               boxSize={5}
               color={
-                record.pinnedBy.includes("local")
-                  ? "editorBlue.500"
-                  : "editorBattleshipGrey.400"
+                record.isPinned ? "editorBlue.500" : "editorBattleshipGrey.400"
               }
             />
           )}
@@ -681,6 +719,15 @@ function TemplateRow({
                 borderColor="transparent"
                 onClick={(e) => e.stopPropagation()}
               >
+                <MenuItem
+                  icon={<Icon as={PiGear} boxSize={4} />}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onSettings(record)
+                  }}
+                >
+                  Settings
+                </MenuItem>
                 <MenuItem
                   icon={<Icon as={PiTrash} boxSize={4} />}
                   color={canDelete ? "red.500" : "gray.400"}

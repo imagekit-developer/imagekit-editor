@@ -7,6 +7,7 @@ const UNTITLED = "Untitled Template"
 
 export function TemplateNameInput() {
   const templateName = useEditorStore((s) => s.templateName)
+  const templateId = useEditorStore((s) => s.templateId)
   const isPristine = useEditorStore((s) => s.isPristine)
   const setTemplateName = useEditorStore((s) => s.setTemplateName)
 
@@ -26,15 +27,15 @@ export function TemplateNameInput() {
     }
   }, [templateName])
 
-  // Focus the input whenever a new template is created (isPristine transitions
-  // false → true, which only happens via resetToNewTemplate).
+  // Focus the input when starting a new unsaved template (reset → pristine with no id).
+  // Do not focus when transitioning to pristine after a successful save (id stays set).
   useEffect(() => {
     const wasPristine = prevIsPristineRef.current
     prevIsPristineRef.current = isPristine
-    if (isPristine && !wasPristine) {
+    if (isPristine && !wasPristine && templateId === null) {
       inputRef.current?.focus()
     }
-  }, [isPristine])
+  }, [isPristine, templateId])
 
   const commit = () => {
     const trimmed = localValueRef.current.trim()

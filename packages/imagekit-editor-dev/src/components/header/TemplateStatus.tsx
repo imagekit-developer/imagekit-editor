@@ -63,7 +63,7 @@ export function TemplateStatus() {
     }
   }, [syncStatus])
 
-  if (!provider || isPristine) return null
+  if (!provider || (isPristine && syncStatus !== "error")) return null
 
   const providerName = provider.getProviderName()
 

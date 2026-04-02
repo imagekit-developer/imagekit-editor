@@ -11,8 +11,7 @@ import { EditorLayout, EditorWrapper } from "./components/editor"
 import type { HeaderProps } from "./components/header"
 import { TemplateStorageContextProvider } from "./context/TemplateStorageContext"
 import {
-  createLocalStorageProvider,
-  type LocalStorageProviderOptions,
+  applyTemplateStorageAccessFailure,
   type TemplateStorageProvider,
 } from "./storage"
 import {
@@ -84,24 +83,19 @@ interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
   exportOptions?: HeaderProps<Metadata>["exportOptions"]
   focusObjects?: ReadonlyArray<FocusObjects>
   onClose: (args: { dirty: boolean; destroy: () => void }) => void
-  storageProvider?: "localStorage" | "library"
-  libraryStorage?: TemplateStorageProvider
-  localStorageKeys?: LocalStorageProviderOptions
+  /**
+   * Template persistence (list/save/delete/pin). Implemented by the host app —
+   * the editor does not perform media library or other remote API calls itself.
+   * Omit or pass `null` to disable template sync UI.
+   */
+  templateStorage?: TemplateStorageProvider | null
 }
 
 function ImageKitEditorImpl<M extends RequiredMetadata>(
   props: EditorProps<M>,
   ref: React.Ref<ImageKitEditorRef>,
 ) {
-  const {
-    theme,
-    initialImages,
-    signer,
-    focusObjects,
-    storageProvider,
-    libraryStorage,
-    localStorageKeys,
-  } = props
+  const { theme, initialImages, signer, focusObjects, templateStorage } = props
   const {
     addImage,
     addImages,
@@ -112,33 +106,40 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     loadTemplate,
   } = useEditorStore()
 
-  const resolvedProvider = useMemo<TemplateStorageProvider | null>(() => {
-    if (storageProvider === "localStorage") {
-      return createLocalStorageProvider(localStorageKeys)
-    }
-    if (storageProvider === "library" && libraryStorage) {
-      return libraryStorage
-    }
-    return null
-  }, [storageProvider, libraryStorage, localStorageKeys])
+  const resolvedProvider = useMemo<TemplateStorageProvider | null>(
+    () => templateStorage ?? null,
+    [templateStorage],
+  )
 
   const saveTemplateImperative = useCallback(async () => {
     if (!resolvedProvider) return
-    const state = useEditorStore.getState()
-    const { setSyncStatus, setTemplateId, setTemplateName } = state
+    const s = useEditorStore.getState()
+    if (s.templateStorageWriteBlocked) return
+
+    const {
+      setSyncStatus,
+      setTemplateId,
+      setTemplateName,
+      denyTemplateStorageAccess,
+    } = s
     setSyncStatus("saving")
     try {
       const saved = await resolvedProvider.saveTemplate({
-        id: state.templateId ?? undefined,
-        name: state.templateName,
-        transformations: state.transformations.map(
-          ({ id: _id, ...rest }) => rest,
-        ),
+        id: s.templateId ?? undefined,
+        name: s.templateName,
+        transformations: s.transformations.map(({ id: _id, ...rest }) => rest),
       })
       setTemplateId(saved.id)
       setTemplateName(saved.name)
       setSyncStatus("saved")
     } catch (err) {
+      if (
+        applyTemplateStorageAccessFailure(err, {
+          denyTemplateStorageAccess,
+        })
+      ) {
+        return
+      }
       setSyncStatus(
         "error",
         err instanceof Error ? err.message : "Failed to save template",

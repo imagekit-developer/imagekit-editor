@@ -3,9 +3,17 @@ export { ImageKitEditor } from "./ImageKitEditor"
 export { DEFAULT_FOCUS_OBJECTS } from "./schema"
 export type {
   LocalStorageProviderOptions,
+  SaveTemplateInput,
   TemplateRecord,
+  TemplateStorageHttpClient,
   TemplateStorageProvider,
 } from "./storage"
-export { createLocalStorageProvider } from "./storage"
+export {
+  applyTemplateStorageAccessFailure,
+  createLocalStorageProvider,
+  isTemplateAccessDeniedError,
+  normalizeTransformationStepsForPersistence,
+  TemplateAccessDeniedError,
+} from "./storage"
 export type { FileElement, Signer, Transformation } from "./store"
 export { TRANSFORMATION_STATE_VERSION } from "./store"

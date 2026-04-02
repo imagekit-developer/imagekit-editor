@@ -1,5 +1,6 @@
 import { Icon } from "@chakra-ui/react"
 import {
+  createLocalStorageProvider,
   ImageKitEditor,
   type ImageKitEditorProps,
   type ImageKitEditorRef,
@@ -148,7 +149,7 @@ function App() {
         console.log("Signed URL", request.url)
         return Promise.resolve(request.url)
       },
-      storageProvider: "localStorage",
+      templateStorage: createLocalStorageProvider(),
     })
   }, [handleAddImage])
 

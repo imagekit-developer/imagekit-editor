@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react"
 import { useTemplateStorage } from "../context/TemplateStorageContext"
+import { applyTemplateStorageAccessFailure } from "../storage/templateAccessError"
 import { useEditorStore } from "../store"
 
 const DEBOUNCE_MS = 600
@@ -47,9 +48,10 @@ export function useAutoSaveTemplate() {
           // Re-read fresh state at fire time: the slice snapshot can be up to
           // DEBOUNCE_MS stale by the time the timer fires.
           const state = useEditorStore.getState()
-          if (state.isPristine) return
+          if (state.isPristine || state.templateStorageWriteBlocked) return
 
-          const { setSyncStatus, setTemplateId } = state
+          const { setSyncStatus, setTemplateId, denyTemplateStorageAccess } =
+            state
           setSyncStatus("saving")
           try {
             const saved = await provider.saveTemplate({
@@ -62,6 +64,13 @@ export function useAutoSaveTemplate() {
             setTemplateId(saved.id)
             setSyncStatus("saved")
           } catch (err) {
+            if (
+              applyTemplateStorageAccessFailure(err, {
+                denyTemplateStorageAccess,
+              })
+            ) {
+              return
+            }
             setSyncStatus(
               "error",
               err instanceof Error

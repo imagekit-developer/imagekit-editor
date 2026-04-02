@@ -1,15 +1,23 @@
 import { useCallback, useEffect } from "react"
 import { useTemplateStorage } from "../context/TemplateStorageContext"
+import { applyTemplateStorageAccessFailure } from "../storage/templateAccessError"
 import { useEditorStore } from "../store"
 
 export function useSaveTemplate() {
   const provider = useTemplateStorage()
-  const { setSyncStatus, setTemplateId, setTemplateName } = useEditorStore()
+  const {
+    setSyncStatus,
+    setTemplateId,
+    setTemplateName,
+    denyTemplateStorageAccess,
+  } = useEditorStore()
 
   const save = useCallback(async () => {
     if (!provider) return
 
     const state = useEditorStore.getState()
+    if (state.templateStorageWriteBlocked) return
+
     const { transformations, templateName, templateId } = state
 
     setSyncStatus("saving")
@@ -23,12 +31,25 @@ export function useSaveTemplate() {
       setTemplateName(saved.name)
       setSyncStatus("saved")
     } catch (err) {
+      if (
+        applyTemplateStorageAccessFailure(err, {
+          denyTemplateStorageAccess,
+        })
+      ) {
+        return
+      }
       setSyncStatus(
         "error",
         err instanceof Error ? err.message : "Failed to save template",
       )
     }
-  }, [provider, setSyncStatus, setTemplateId, setTemplateName])
+  }, [
+    provider,
+    setSyncStatus,
+    setTemplateId,
+    setTemplateName,
+    denyTemplateStorageAccess,
+  ])
 
   useEffect(() => {
     if (!provider) return

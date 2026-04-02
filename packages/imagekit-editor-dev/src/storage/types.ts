@@ -12,7 +12,8 @@ export interface TemplateRecord {
   isPrivate: boolean
   name: string
   transformations: Omit<Transformation, "id">[]
-  pinnedBy: string[]
+  /** Whether the active user has this template pinned. */
+  isPinned: boolean
   createdBy: TemplateCreator
   updatedBy: TemplateCreator
   createdAt: number
@@ -26,7 +27,7 @@ export type SaveTemplateInput = {
   transformations: Omit<Transformation, "id">[]
   clientNumber?: string
   isPrivate?: boolean
-  pinnedBy?: string[]
+  isPinned?: boolean
   createdBy?: TemplateCreator
   updatedBy?: TemplateCreator
   createdAt?: number
@@ -42,9 +43,22 @@ export interface TemplateStorageProvider {
   getTemplate(id: string): Promise<TemplateRecord | null>
   saveTemplate(record: SaveTemplateInput): Promise<TemplateRecord>
   deleteTemplate?(id: string): Promise<void>
+  setTemplatePinned(id: string, isPinned: boolean): Promise<TemplateRecord>
   getProviderName(): string
+  getCurrentUserSession(): unknown
 }
 
 export interface LocalStorageProviderOptions {
   templatesKey?: string
+}
+
+/**
+ * Minimal HTTP surface for host-implemented template storage (e.g. dashboard `use-http` request).
+ */
+export interface TemplateStorageHttpClient {
+  get(path: string): Promise<unknown>
+  post(path: string, body?: unknown): Promise<unknown>
+  patch(path: string, body?: unknown): Promise<unknown>
+  put(path: string, body?: unknown): Promise<unknown>
+  delete(path: string): Promise<unknown>
 }

@@ -13,72 +13,136 @@ import { PiGlobe } from "@react-icons/all-files/pi/PiGlobe"
 import { PiLock } from "@react-icons/all-files/pi/PiLock"
 import { PiTrash } from "@react-icons/all-files/pi/PiTrash"
 import { PiX } from "@react-icons/all-files/pi/PiX"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Select from "react-select"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
+import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
 import { useEditorStore } from "../../store"
+
+function visibilityFromKnownPrivate(
+  isPrivate: boolean | null,
+): "everyone" | "onlyMe" {
+  if (isPrivate === false) {
+    return "everyone"
+  }
+  return "onlyMe"
+}
 
 interface SettingsModalProps {
   onClose: () => void
+  /** From header refetch of template visibility; seeds the dropdown before async getTemplate completes. */
+  knownIsPrivate: boolean | null
 }
 
-export function SettingsModal({ onClose }: SettingsModalProps) {
+export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
   const provider = useTemplateStorage()
   const templateId = useEditorStore((s) => s.templateId)
   const templateName = useEditorStore((s) => s.templateName)
   const setTemplateName = useEditorStore((s) => s.setTemplateName)
+  const setTemplateId = useEditorStore((s) => s.setTemplateId)
   const transformations = useEditorStore((s) => s.transformations)
   const setSyncStatus = useEditorStore((s) => s.setSyncStatus)
   const resetToNewTemplate = useEditorStore((s) => s.resetToNewTemplate)
+  const denyTemplateStorageAccess = useEditorStore(
+    (s) => s.denyTemplateStorageAccess,
+  )
+  const templateStorageWriteBlocked = useEditorStore(
+    (s) => s.templateStorageWriteBlocked,
+  )
+
+  // Stable ref so the getTemplate effect doesn't re-run when onClose identity changes.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
 
   const [localName, setLocalName] = useState(templateName)
   const [localVisibility, setLocalVisibility] = useState<"everyone" | "onlyMe">(
-    "onlyMe",
+    () => visibilityFromKnownPrivate(knownIsPrivate),
   )
+  const [canChangeVisibility, setCanChangeVisibility] = useState(true)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
-  // Fetch current template visibility
+  useEffect(() => {
+    setLocalName(templateName)
+  }, [templateName])
+
+  useEffect(() => {
+    setLocalVisibility(visibilityFromKnownPrivate(knownIsPrivate))
+  }, [knownIsPrivate])
+
+  // Authoritative visibility from API (may arrive after header snapshot).
+  // onClose is intentionally read via ref so its identity change never re-triggers this effect.
   useEffect(() => {
     let cancelled = false
 
     if (!provider || !templateId) {
+      setCanChangeVisibility(true)
       return
     }
 
     provider
       .getTemplate(templateId)
       .then((record) => {
-        if (cancelled || !record) return
+        if (cancelled) return
+        if (!record) {
+          setCanChangeVisibility(true)
+          return
+        }
         setLocalVisibility(record.isPrivate ? "onlyMe" : "everyone")
+        console.log(
+          provider?.getCurrentUserSession(),
+          record.createdBy.userId === provider?.getCurrentUserSession()?.id,
+        )
+        setCanChangeVisibility(
+          record.createdBy.userId === provider?.getCurrentUserSession()?.id,
+        )
       })
-      .catch(() => {
-        // Ignore errors
+      .catch((err) => {
+        if (
+          applyTemplateStorageAccessFailure(err, {
+            denyTemplateStorageAccess,
+          })
+        ) {
+          onCloseRef.current()
+        }
       })
 
     return () => {
       cancelled = true
     }
-  }, [provider, templateId])
+    // denyTemplateStorageAccess is a stable Zustand action — safe to include.
+    // onClose is intentionally excluded; we use onCloseRef instead.
+  }, [provider, templateId, denyTemplateStorageAccess])
 
   const handleSave = async () => {
-    if (!provider || !localName.trim()) return
+    if (!provider || !localName.trim() || templateStorageWriteBlocked) return
 
     setIsSaving(true)
     setSyncStatus("saving")
 
     try {
-      await provider.saveTemplate({
+      const saved = await provider.saveTemplate({
         id: templateId ?? undefined,
         name: localName.trim(),
         transformations: transformations.map(({ id: _id, ...rest }) => rest),
         isPrivate: localVisibility === "onlyMe",
       })
 
+      setTemplateId(saved.id)
       setTemplateName(localName.trim())
       setSyncStatus("saved")
       onClose()
     } catch (err) {
+      if (
+        applyTemplateStorageAccessFailure(err, {
+          denyTemplateStorageAccess,
+        })
+      ) {
+        onClose()
+        return
+      }
       setSyncStatus(
         "error",
         err instanceof Error ? err.message : "Failed to save",
@@ -98,6 +162,14 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       resetToNewTemplate()
       onClose()
     } catch (err) {
+      if (
+        applyTemplateStorageAccessFailure(err, {
+          denyTemplateStorageAccess,
+        })
+      ) {
+        onClose()
+        return
+      }
       console.error("Failed to delete template:", err)
     } finally {
       setIsDeleting(false)
@@ -126,7 +198,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       display="flex"
       alignItems="center"
       justifyContent="center"
-      zIndex={1400}
+      zIndex={1500}
       onClick={onClose}
     >
       <Box
@@ -195,6 +267,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 Visibility
               </FormLabel>
               <Select
+                key={`${templateId ?? "new"}-${localVisibility}`}
                 value={{
                   value: localVisibility,
                   label:
@@ -203,6 +276,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                       : "Only to me",
                 }}
                 onChange={(option) => {
+                  if (!canChangeVisibility) return
                   if (option) {
                     setLocalVisibility(option.value as "everyone" | "onlyMe")
                   }
@@ -227,6 +301,10 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                     fontSize: "12px",
                     minHeight: "32px",
                     borderColor: "#E2E8F0",
+                    backgroundColor: canChangeVisibility
+                      ? base.backgroundColor
+                      : "#F7FAFC",
+                    opacity: canChangeVisibility ? 1 : 0.6,
                   }),
                   menu: (base) => ({
                     ...base,
@@ -238,6 +316,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                   }),
                 }}
                 isSearchable={false}
+                isDisabled={!canChangeVisibility}
               />
             </FormControl>
           </Flex>
@@ -278,7 +357,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               size="md"
               onClick={handleSave}
               isLoading={isSaving}
-              isDisabled={!localName.trim() || isDeleting}
+              isDisabled={
+                !localName.trim() || isDeleting || templateStorageWriteBlocked
+              }
             >
               Save
             </Button>

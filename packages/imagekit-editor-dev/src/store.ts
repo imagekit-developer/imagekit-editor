@@ -97,6 +97,11 @@ export interface EditorState<
   syncStatus: SyncStatus
   storageError?: string
   isPristine: boolean
+  /**
+   * After a 401/403 template write failure, saves are blocked so a follow-up
+   * save cannot POST a duplicate after the store clears `templateId`.
+   */
+  templateStorageWriteBlocked: boolean
 }
 
 export type EditorActions<
@@ -137,7 +142,9 @@ export type EditorActions<
   setTemplateName: (name: string) => void
   setTemplateId: (id: string | null) => void
   setSyncStatus: (status: SyncStatus, error?: string) => void
+  setIsPristine: (pristine: boolean) => void
   resetToNewTemplate: () => void
+  denyTemplateStorageAccess: (message?: string) => void
 
   _setSidebarState: (state: "none" | "type" | "config") => void
   _setSelectedTransformationKey: (key: string | null) => void
@@ -204,6 +211,7 @@ const DEFAULT_STATE: EditorState = {
   syncStatus: "unsaved",
   storageError: undefined,
   isPristine: true,
+  templateStorageWriteBlocked: false,
 }
 
 const useEditorStore = create<EditorState & EditorActions>()(
@@ -358,6 +366,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
           transformationToEdit: null,
         },
         isPristine: false,
+        templateStorageWriteBlocked: false,
       }))
     },
 
@@ -481,6 +490,10 @@ const useEditorStore = create<EditorState & EditorActions>()(
       set({ syncStatus: status, storageError: error })
     },
 
+    setIsPristine: (pristine: boolean) => {
+      set({ isPristine: pristine })
+    },
+
     resetToNewTemplate: () => {
       set({
         transformations: [],
@@ -490,6 +503,25 @@ const useEditorStore = create<EditorState & EditorActions>()(
         syncStatus: "unsaved",
         storageError: undefined,
         isPristine: true,
+        templateStorageWriteBlocked: false,
+        _internalState: {
+          sidebarState: "none",
+          selectedTransformationKey: null,
+          transformationToEdit: null,
+        },
+      })
+    },
+
+    denyTemplateStorageAccess: (message) => {
+      set({
+        transformations: [],
+        visibleTransformations: {},
+        templateName: "Untitled Template",
+        templateId: null,
+        syncStatus: "error",
+        storageError: message ?? "You no longer have access to this template.",
+        isPristine: true,
+        templateStorageWriteBlocked: true,
         _internalState: {
           sidebarState: "none",
           selectedTransformationKey: null,

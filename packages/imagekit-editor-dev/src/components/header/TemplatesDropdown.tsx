@@ -34,6 +34,7 @@ import { PiSquaresFourLight } from "@react-icons/all-files/pi/PiSquaresFourLight
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import type { TemplateRecord } from "../../storage"
+import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
 import { useEditorStore } from "../../store"
 
 const MAX_VISIBLE = 5
@@ -65,6 +66,9 @@ export function TemplatesDropdown({
   const syncStatus = useEditorStore((s) => s.syncStatus)
   const isPristine = useEditorStore((s) => s.isPristine)
   const setSyncStatus = useEditorStore((s) => s.setSyncStatus)
+  const templateStorageWriteBlocked = useEditorStore(
+    (s) => s.templateStorageWriteBlocked,
+  )
 
   const fetchTemplates = useCallback(async () => {
     if (!provider) return
@@ -103,13 +107,23 @@ export function TemplatesDropdown({
   const filtered = useMemo(() => {
     const base = templates
       .filter((t) => t.id !== templateId)
+      .filter((t) => {
+        if (
+          shouldShowCurrent &&
+          templateId === null &&
+          t.name === templateName
+        ) {
+          return false
+        }
+        return true
+      })
       .filter((t) => t.name.toLowerCase().includes(search.toLowerCase()))
 
     // Sort by: pinned first, then by most recently used/updated
     return [...base]
       .sort((a, b) => {
-        const aPinned = a.pinnedBy.includes("local") ? 1 : 0
-        const bPinned = b.pinnedBy.includes("local") ? 1 : 0
+        const aPinned = a.isPinned ? 1 : 0
+        const bPinned = b.isPinned ? 1 : 0
         if (aPinned !== bPinned) {
           return bPinned - aPinned
         }
@@ -119,7 +133,7 @@ export function TemplatesDropdown({
         return bTime - aTime
       })
       .slice(0, MAX_VISIBLE)
-  }, [templates, templateId, search])
+  }, [templates, templateId, search, shouldShowCurrent, templateName])
 
   if (!provider) return null
 
@@ -147,39 +161,34 @@ export function TemplatesDropdown({
 
   const handleTogglePin = async (record: TemplateRecord) => {
     if (!provider) return
-    const currentUserId = "local"
-    const isPinned = record.pinnedBy.includes(currentUserId)
-    const nextPinnedBy = isPinned
-      ? record.pinnedBy.filter((id) => id !== currentUserId)
-      : [...record.pinnedBy, currentUserId]
 
     try {
       setPinningId(record.id)
-      const updated = await provider.saveTemplate({
-        id: record.id,
-        name: record.name,
-        transformations: record.transformations,
-        clientNumber: record.clientNumber,
-        isPrivate: record.isPrivate,
-        pinnedBy: nextPinnedBy,
-        createdBy: record.createdBy,
-        updatedBy: record.updatedBy,
-        createdAt: record.createdAt,
-        updatedAt: record.updatedAt,
-      })
+      const updated = await provider.setTemplatePinned(
+        record.id,
+        !record.isPinned,
+      )
 
       setTemplates((prev) =>
         prev.map((t) => (t.id === updated.id ? updated : t)),
       )
-    } catch {
-      // ignore pin failures in dropdown
+    } catch (err) {
+      const { denyTemplateStorageAccess } = useEditorStore.getState()
+      if (
+        record.id === templateId &&
+        applyTemplateStorageAccessFailure(err, {
+          denyTemplateStorageAccess,
+        })
+      ) {
+        return
+      }
     } finally {
       setPinningId((current) => (current === record.id ? null : current))
     }
   }
 
   const handleSaveAndContinue = async () => {
-    if (!provider || !pendingTemplate) return
+    if (!provider || !pendingTemplate || templateStorageWriteBlocked) return
     const state = useEditorStore.getState()
     setSyncStatus("saving")
     try {
@@ -191,13 +200,22 @@ export function TemplatesDropdown({
         ),
       })
       setSyncStatus("saved")
+      doLoadTemplate(pendingTemplate)
     } catch (err) {
+      const { denyTemplateStorageAccess, setSyncStatus } =
+        useEditorStore.getState()
+      if (
+        applyTemplateStorageAccessFailure(err, {
+          denyTemplateStorageAccess,
+        })
+      ) {
+        return
+      }
       setSyncStatus(
         "error",
         err instanceof Error ? err.message : "Failed to save",
       )
     }
-    doLoadTemplate(pendingTemplate)
   }
 
   const handleContinueWithoutSaving = () => {
@@ -428,7 +446,7 @@ export function TemplatesDropdown({
                       <Box
                         as="button"
                         type="button"
-                        opacity={record.pinnedBy.includes("local") ? 1 : 0}
+                        opacity={record.isPinned ? 1 : 0}
                         _groupHover={{ opacity: 1 }}
                         transition="opacity 0.12s ease-in-out"
                         disabled={pinningId === record.id}
@@ -441,14 +459,10 @@ export function TemplatesDropdown({
                           <Spinner size="xs" color="editorBattleshipGrey.500" />
                         ) : (
                           <Icon
-                            as={
-                              record.pinnedBy.includes("local")
-                                ? PiPushPinFill
-                                : PiPushPin
-                            }
+                            as={record.isPinned ? PiPushPinFill : PiPushPin}
                             boxSize={4}
                             color={
-                              record.pinnedBy.includes("local")
+                              record.isPinned
                                 ? "editorBlue.500"
                                 : "editorBattleshipGrey.400"
                             }

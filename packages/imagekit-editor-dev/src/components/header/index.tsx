@@ -14,6 +14,7 @@ import { PiLock } from "@react-icons/all-files/pi/PiLock"
 import { PiX } from "@react-icons/all-files/pi/PiX"
 import React, { useEffect, useState } from "react"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
+import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
 import {
   type FileElement,
   type RequiredMetadata,
@@ -85,8 +86,16 @@ export const Header = ({
         if (cancelled) return
         setIsPrivate(record ? record.isPrivate : null)
       })
-      .catch(() => {
+      .catch((err) => {
         if (cancelled) return
+        const { denyTemplateStorageAccess } = useEditorStore.getState()
+        if (
+          applyTemplateStorageAccessFailure(err, {
+            denyTemplateStorageAccess,
+          })
+        ) {
+          return
+        }
         setIsPrivate(null)
       })
 
@@ -109,8 +118,16 @@ export const Header = ({
         if (cancelled) return
         setIsPrivate(record ? record.isPrivate : null)
       })
-      .catch(() => {
+      .catch((err) => {
         if (cancelled) return
+        const { denyTemplateStorageAccess } = useEditorStore.getState()
+        if (
+          applyTemplateStorageAccessFailure(err, {
+            denyTemplateStorageAccess,
+          })
+        ) {
+          return
+        }
         setIsPrivate(null)
       })
 
@@ -204,7 +221,11 @@ export const Header = ({
                 }}
               />
             ) : (
-              <Menu key={`export-menu-${exportOption.label}`}>
+              <Menu
+                key={`export-menu-${exportOption.label}`}
+                placement="bottom-end"
+                strategy="fixed"
+              >
                 <MenuButton
                   as={NavbarItem}
                   icon={exportOption.icon}
@@ -257,7 +278,11 @@ export const Header = ({
         onClick={onClose}
       />
       {isSettingsOpen && (
-        <SettingsModal onClose={() => setIsSettingsOpen(false)} />
+        <SettingsModal
+          key={templateId ?? "new"}
+          knownIsPrivate={isPrivate}
+          onClose={() => setIsSettingsOpen(false)}
+        />
       )}
     </Flex>
   )
