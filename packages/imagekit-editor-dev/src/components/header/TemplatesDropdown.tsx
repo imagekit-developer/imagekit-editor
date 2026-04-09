@@ -384,6 +384,7 @@ export function TemplatesDropdown({
                 </Flex>
               ) : (
                 filtered.map((record) => (
+                  // biome-ignore lint/a11y/useSemanticElements: Not necessary for this component
                   <Flex
                     key={record.id}
                     px="4"
@@ -391,6 +392,7 @@ export function TemplatesDropdown({
                     cursor="pointer"
                     alignItems="center"
                     gap="3"
+                    role="group"
                     _hover={{ bg: "editorGray.100" }}
                     onClick={() => handleSelect(record)}
                     transition="background-color 0.15s"
