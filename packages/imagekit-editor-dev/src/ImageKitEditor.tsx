@@ -148,7 +148,13 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
   }, [resolvedProvider])
 
   const handleOnClose = () => {
-    const dirty = transformations.length > 0
+    // `dirty` should represent *unsynced* changes (host uses it to decide
+    // whether to show a close confirmation).
+    const state = useEditorStore.getState()
+    const hasChanges = !state.isPristine
+    const dirty = resolvedProvider
+      ? hasChanges && state.syncStatus !== "saved"
+      : hasChanges
     props.onClose({ dirty, destroy })
   }
 
