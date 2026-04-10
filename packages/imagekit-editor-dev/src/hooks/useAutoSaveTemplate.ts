@@ -4,11 +4,12 @@ import { applyTemplateStorageAccessFailure } from "../storage/templateAccessErro
 import { useEditorStore } from "../store"
 
 const DEBOUNCE_MS = 600
+const INTERVAL_SAVE_MS = 2 * 60 * 1000
 
 /**
- * Automatically persists the template to the storage provider whenever
- * transformations or the template name change. Uses saveTemplate() so the
- * record is immediately visible in listTemplates().
+ * Automatically persists template *metadata* (name / visibility) to the storage
+ * provider. Transformations are intentionally NOT auto-saved; they are kept as
+ * local unsynced changes until the user explicitly saves (Cmd/Ctrl+S or save UI).
  *
  * Why transformationToEdit is NOT in the subscribed slice
  * --------------------------------------------------------
@@ -29,13 +30,49 @@ const DEBOUNCE_MS = 600
 export function useAutoSaveTemplate() {
   const provider = useTemplateStorage()
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isSavingRef = useRef(false)
 
   useEffect(() => {
     if (!provider) return
 
+    const saveNow = async () => {
+      if (isSavingRef.current) return
+      const state = useEditorStore.getState()
+      if (state.isPristine || state.templateStorageWriteBlocked) return
+      if (state.syncStatus === "saving") return
+
+      isSavingRef.current = true
+      const { setSyncStatus, setTemplateId, denyTemplateStorageAccess } = state
+      setSyncStatus("saving")
+      try {
+        const saved = await provider.saveTemplate({
+          id: state.templateId ?? undefined,
+          name: state.templateName,
+          transformations: state.transformations.map(
+            ({ id: _id, ...rest }) => rest,
+          ),
+        })
+        setTemplateId(saved.id)
+        setSyncStatus("saved")
+      } catch (err) {
+        if (
+          applyTemplateStorageAccessFailure(err, {
+            denyTemplateStorageAccess,
+          })
+        ) {
+          return
+        }
+        setSyncStatus(
+          "error",
+          err instanceof Error ? err.message : "Failed to auto-save template",
+        )
+      } finally {
+        isSavingRef.current = false
+      }
+    }
+
     const unsubscribe = useEditorStore.subscribe(
       (state) => ({
-        transformations: state.transformations,
         templateName: state.templateName,
         isPristine: state.isPristine,
       }),
@@ -44,53 +81,29 @@ export function useAutoSaveTemplate() {
 
         if (timerRef.current) clearTimeout(timerRef.current)
 
-        timerRef.current = setTimeout(async () => {
-          // Re-read fresh state at fire time: the slice snapshot can be up to
-          // DEBOUNCE_MS stale by the time the timer fires.
-          const state = useEditorStore.getState()
-          if (state.isPristine || state.templateStorageWriteBlocked) return
-
-          const { setSyncStatus, setTemplateId, denyTemplateStorageAccess } =
-            state
-          setSyncStatus("saving")
-          try {
-            const saved = await provider.saveTemplate({
-              id: state.templateId ?? undefined,
-              name: state.templateName,
-              transformations: state.transformations.map(
-                ({ id: _id, ...rest }) => rest,
-              ),
-            })
-            setTemplateId(saved.id)
-            setSyncStatus("saved")
-          } catch (err) {
-            if (
-              applyTemplateStorageAccessFailure(err, {
-                denyTemplateStorageAccess,
-              })
-            ) {
-              return
-            }
-            setSyncStatus(
-              "error",
-              err instanceof Error
-                ? err.message
-                : "Failed to auto-save template",
-            )
-          }
+        timerRef.current = setTimeout(() => {
+          void saveNow()
         }, DEBOUNCE_MS)
       },
       {
         equalityFn: (a, b) =>
-          a.transformations === b.transformations &&
-          a.templateName === b.templateName &&
-          a.isPristine === b.isPristine,
+          a.templateName === b.templateName && a.isPristine === b.isPristine,
       },
     )
+
+    // Background safety-net: periodically save unsynced changes (e.g. transformations).
+    const intervalId = window.setInterval(() => {
+      const state = useEditorStore.getState()
+      if (state.templateStorageWriteBlocked) return
+      if (state.isPristine) return
+      if (state.syncStatus !== "unsaved") return
+      void saveNow()
+    }, INTERVAL_SAVE_MS)
 
     return () => {
       unsubscribe()
       if (timerRef.current) clearTimeout(timerRef.current)
+      window.clearInterval(intervalId)
     }
   }, [provider])
 }

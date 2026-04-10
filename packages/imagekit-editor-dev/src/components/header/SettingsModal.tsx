@@ -63,6 +63,7 @@ export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
   const [canChangeVisibility, setCanChangeVisibility] = useState(true)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const prevVisibilityRef = useRef(localVisibility)
 
   useEffect(() => {
     setLocalName(templateName)
@@ -116,7 +117,7 @@ export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
     // onClose is intentionally excluded; we use onCloseRef instead.
   }, [provider, templateId, denyTemplateStorageAccess])
 
-  const handleSave = async () => {
+  const saveTemplate = async (opts?: { closeAfter?: boolean }) => {
     if (!provider || !localName.trim() || templateStorageWriteBlocked) return
 
     setIsSaving(true)
@@ -133,14 +134,18 @@ export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
       setTemplateId(saved.id)
       setTemplateName(localName.trim())
       setSyncStatus("saved")
-      onClose()
+      if (opts?.closeAfter !== false) {
+        onClose()
+      }
     } catch (err) {
       if (
         applyTemplateStorageAccessFailure(err, {
           denyTemplateStorageAccess,
         })
       ) {
-        onClose()
+        if (opts?.closeAfter !== false) {
+          onClose()
+        }
         return
       }
       setSyncStatus(
@@ -151,6 +156,18 @@ export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
       setIsSaving(false)
     }
   }
+
+  // Auto-save visibility changes (instant, like template name).
+  useEffect(() => {
+    if (!provider || !templateId) return
+    if (!canChangeVisibility) return
+    if (isSaving || isDeleting || templateStorageWriteBlocked) return
+    const prev = prevVisibilityRef.current
+    if (prev === localVisibility) return
+    prevVisibilityRef.current = localVisibility
+    void saveTemplate({ closeAfter: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localVisibility])
 
   const handleDelete = async () => {
     if (!provider || !templateId) return
@@ -355,7 +372,7 @@ export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
             <Button
               colorScheme="blue"
               size="md"
-              onClick={handleSave}
+              onClick={() => saveTemplate({ closeAfter: true })}
               isLoading={isSaving}
               isDisabled={
                 !localName.trim() || isDeleting || templateStorageWriteBlocked

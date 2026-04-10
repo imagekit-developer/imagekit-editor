@@ -38,12 +38,13 @@ import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
 import { PiInfo } from "@react-icons/all-files/pi/PiInfo"
 import { PiX } from "@react-icons/all-files/pi/PiX"
 import startCase from "lodash/startCase"
-import { useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import type { ColorPickerProps } from "react-best-gradient-color-picker"
 import { Controller, type SubmitHandler, useForm } from "react-hook-form"
 import Select from "react-select"
 import CreateableSelect from "react-select/creatable"
 import { z } from "zod/v3"
+import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import type { TransformationField } from "../../schema"
 import {
   DEFAULT_FOCUS_OBJECTS,
@@ -51,7 +52,8 @@ import {
   RESIZE_CROP_MODES,
   transformationSchema,
 } from "../../schema"
-import { useEditorStore } from "../../store"
+import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
+import { type SyncStatus, useEditorStore } from "../../store"
 import { isStepAligned } from "../../utils"
 import AnchorField from "../common/AnchorField"
 import CheckboxCardField from "../common/CheckboxCardField"
@@ -78,7 +80,70 @@ import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
 import { SidebarRoot } from "./sidebar-root"
 
+export type TransformationFooterActionMode =
+  | "fullySynced"
+  | "applyFlow"
+  | "saveFlow"
+
+/** Pure state machine for transformation sidebar footer primary + menu labels and disabled flags. */
+export function getTransformationFooterActionsConfig(input: {
+  isDirty: boolean
+  syncStatus: SyncStatus
+  hasAppliedInSession: boolean
+  templateStorageWriteBlocked: boolean
+}): {
+  mode: TransformationFooterActionMode
+  primary: { label: string; disabled: boolean }
+  menu: Array<{ label: string; disabled: boolean }>
+  menuTriggerDisabled: boolean
+} {
+  const {
+    isDirty,
+    syncStatus,
+    hasAppliedInSession,
+    templateStorageWriteBlocked,
+  } = input
+
+  const fullySynced = !isDirty && syncStatus === "saved"
+  if (fullySynced) {
+    return {
+      mode: "fullySynced",
+      primary: { label: "Apply", disabled: true },
+      menu: [
+        { label: "Apply & Close", disabled: true },
+        { label: "Apply & Save", disabled: true },
+      ],
+      menuTriggerDisabled: true,
+    }
+  }
+
+  const showApplyFlow = !hasAppliedInSession || isDirty
+  if (showApplyFlow) {
+    const canApply = isDirty
+    const primaryDisabled = !canApply
+    return {
+      mode: "applyFlow",
+      primary: { label: "Apply", disabled: primaryDisabled },
+      menu: [
+        { label: "Apply & Close", disabled: primaryDisabled },
+        { label: "Apply & Save", disabled: primaryDisabled },
+      ],
+      menuTriggerDisabled: primaryDisabled,
+    }
+  }
+
+  const saveDisabled = templateStorageWriteBlocked || syncStatus === "saving"
+
+  return {
+    mode: "saveFlow",
+    primary: { label: "Save Changes", disabled: saveDisabled },
+    menu: [{ label: "Save & Close", disabled: saveDisabled }],
+    menuTriggerDisabled: saveDisabled,
+  }
+}
+
 export const TransformationConfigSidebar: React.FC = () => {
+  const provider = useTemplateStorage()
   const {
     transformations,
     addTransformation,
@@ -90,6 +155,42 @@ export const TransformationConfigSidebar: React.FC = () => {
     _setTransformationToEdit,
     _setSelectedTransformationKey,
   } = useEditorStore()
+  const syncStatus = useEditorStore((s) => s.syncStatus)
+  const templateStorageWriteBlocked = useEditorStore(
+    (s) => s.templateStorageWriteBlocked,
+  )
+  const setSyncStatus = useEditorStore((s) => s.setSyncStatus)
+
+  const save = useCallback(async () => {
+    if (!provider) return
+    const state = useEditorStore.getState()
+    if (state.templateStorageWriteBlocked) return
+    setSyncStatus("saving")
+    try {
+      const saved = await provider.saveTemplate({
+        id: state.templateId ?? undefined,
+        name: state.templateName,
+        transformations: state.transformations.map(
+          ({ id: _id, ...rest }) => rest,
+        ),
+      })
+      useEditorStore.getState().setTemplateId(saved.id)
+      setSyncStatus("saved")
+    } catch (err) {
+      const { denyTemplateStorageAccess } = useEditorStore.getState()
+      if (
+        applyTemplateStorageAccessFailure(err, {
+          denyTemplateStorageAccess,
+        })
+      ) {
+        return
+      }
+      setSyncStatus(
+        "error",
+        err instanceof Error ? err.message : "Failed to save",
+      )
+    }
+  }, [provider, setSyncStatus])
 
   const selectedTransformation = useMemo(() => {
     return transformationSchema
@@ -115,6 +216,15 @@ export const TransformationConfigSidebar: React.FC = () => {
         transformation.id === transformationToEdit.transformationId,
     )
   }, [transformations, transformationToEdit])
+
+  const [hasAppliedInSession, setHasAppliedInSession] = useState(false)
+
+  const footerSessionResetKey = `${_internalState.selectedTransformationKey ?? ""}:${editedTransformation?.id ?? ""}`
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: must reset when switching transformation / edit target
+  useEffect(() => {
+    setHasAppliedInSession(false)
+  }, [footerSessionResetKey])
 
   const editedTransformationValue = editedTransformation?.value as
     | Record<string, unknown>
@@ -172,7 +282,7 @@ export const TransformationConfigSidebar: React.FC = () => {
 
   const values = watch()
 
-  const onClose = () => {
+  const onClose = useCallback(() => {
     if (transformations.length === 0) {
       _setSidebarState("type")
     } else {
@@ -180,101 +290,196 @@ export const TransformationConfigSidebar: React.FC = () => {
     }
     _setSelectedTransformationKey(null)
     _setTransformationToEdit(null)
-  }
+  }, [
+    transformations.length,
+    _setSidebarState,
+    _setSelectedTransformationKey,
+    _setTransformationToEdit,
+  ])
 
   const onBack = () => {
     _setSidebarState("type")
   }
 
-  const onApply = (data: Record<string, unknown>) => {
-    if (!selectedTransformation) {
-      return
-    }
-
-    const transformationToEdit = _internalState.transformationToEdit
-
-    // Generate display name for resize_and_crop transformation
-    let displayName = selectedTransformation.name
-    if (
-      selectedTransformation.key === "resize_and_crop-resize_and_crop" &&
-      data.mode
-    ) {
-      const modeInfo = RESIZE_CROP_MODES.find((m) => m.value === data.mode)
-      if (modeInfo) {
-        displayName = `Resize and Crop (${modeInfo.label})`
+  const onApply = useCallback(
+    (data: Record<string, unknown>) => {
+      if (!selectedTransformation) {
+        return
       }
-    }
 
-    // Helper to check if a name is auto-generated for resize_and_crop
-    const isAutoGeneratedName = (name: string) => {
-      if (name === "Resize and Crop") return true
-      // Check if it matches pattern "Resize and Crop (ModeName)"
-      return RESIZE_CROP_MODES.some(
-        (mode) => name === `Resize and Crop (${mode.label})`,
-      )
-    }
+      const transformationToEdit = _internalState.transformationToEdit
 
-    if (transformationToEdit && transformationToEdit.position === "inplace") {
-      // For resize_and_crop, only update name if it's still auto-generated
-      // If user has manually changed it, preserve their custom name
-      let finalName = editedTransformation?.name ?? displayName
+      // Generate display name for resize_and_crop transformation
+      let displayName = selectedTransformation.name
       if (
         selectedTransformation.key === "resize_and_crop-resize_and_crop" &&
-        editedTransformation?.name
+        data.mode
       ) {
-        if (isAutoGeneratedName(editedTransformation.name)) {
-          finalName = displayName
+        const modeInfo = RESIZE_CROP_MODES.find((m) => m.value === data.mode)
+        if (modeInfo) {
+          displayName = `Resize and Crop (${modeInfo.label})`
         }
       }
 
-      updateTransformation(transformationToEdit.transformationId, {
-        type: "transformation",
-        name: finalName,
-        key: selectedTransformation.key,
-        value: data,
-      })
-    } else if (
-      transformationToEdit &&
-      (transformationToEdit.position === "above" ||
-        transformationToEdit.position === "below")
-    ) {
-      const index = transformations.findIndex(
-        (transformation) => transformation.id === transformationToEdit.targetId,
-      )
+      // Helper to check if a name is auto-generated for resize_and_crop
+      const isAutoGeneratedName = (name: string) => {
+        if (name === "Resize and Crop") return true
+        // Check if it matches pattern "Resize and Crop (ModeName)"
+        return RESIZE_CROP_MODES.some(
+          (mode) => name === `Resize and Crop (${mode.label})`,
+        )
+      }
 
-      const transformationId = addTransformation(
-        {
+      if (transformationToEdit && transformationToEdit.position === "inplace") {
+        // For resize_and_crop, only update name if it's still auto-generated
+        // If user has manually changed it, preserve their custom name
+        let finalName = editedTransformation?.name ?? displayName
+        if (
+          selectedTransformation.key === "resize_and_crop-resize_and_crop" &&
+          editedTransformation?.name
+        ) {
+          if (isAutoGeneratedName(editedTransformation.name)) {
+            finalName = displayName
+          }
+        }
+
+        updateTransformation(transformationToEdit.transformationId, {
+          type: "transformation",
+          name: finalName,
+          key: selectedTransformation.key,
+          value: data,
+        })
+      } else if (
+        transformationToEdit &&
+        (transformationToEdit.position === "above" ||
+          transformationToEdit.position === "below")
+      ) {
+        const index = transformations.findIndex(
+          (transformation) =>
+            transformation.id === transformationToEdit.targetId,
+        )
+
+        const transformationId = addTransformation(
+          {
+            type: "transformation",
+            name: displayName,
+            key: selectedTransformation.key,
+            value: data,
+          },
+          index + (transformationToEdit.position === "above" ? 0 : 1),
+        )
+
+        _setTransformationToEdit(transformationId, "inplace")
+      } else {
+        const transformationId = addTransformation({
           type: "transformation",
           name: displayName,
           key: selectedTransformation.key,
           value: data,
-        },
-        index + (transformationToEdit.position === "above" ? 0 : 1),
-      )
+        })
 
-      _setTransformationToEdit(transformationId, "inplace")
-    } else {
-      const transformationId = addTransformation({
-        type: "transformation",
-        name: displayName,
-        key: selectedTransformation.key,
-        value: data,
-      })
-
-      _setTransformationToEdit(transformationId, "inplace")
-    }
-  }
-
-  const onSubmit = (
-    shouldClose = false,
-  ): SubmitHandler<Record<string, unknown>> => {
-    return (data) => {
-      onApply(data)
-      if (shouldClose) {
-        onClose()
+        _setTransformationToEdit(transformationId, "inplace")
       }
+
+      setHasAppliedInSession(true)
+    },
+    [
+      _internalState.transformationToEdit,
+      addTransformation,
+      editedTransformation,
+      selectedTransformation,
+      transformations,
+      updateTransformation,
+      _setTransformationToEdit,
+    ],
+  )
+
+  const onSubmit = useCallback(
+    (shouldClose = false): SubmitHandler<Record<string, unknown>> => {
+      return (data) => {
+        onApply(data)
+        if (shouldClose) {
+          onClose()
+        }
+      }
+    },
+    [onApply, onClose],
+  )
+
+  const footerActionsConfig = useMemo(
+    () =>
+      getTransformationFooterActionsConfig({
+        isDirty,
+        syncStatus,
+        hasAppliedInSession,
+        templateStorageWriteBlocked,
+      }),
+    [isDirty, syncStatus, hasAppliedInSession, templateStorageWriteBlocked],
+  )
+
+  const footerActions = useMemo(() => {
+    const noop = () => {}
+    const applySubmit = handleSubmit(onSubmit())
+    const applyCloseSubmit = handleSubmit(onSubmit(true))
+    const applySaveSubmit = handleSubmit((data) => {
+      onApply(data)
+      void save()
+    })
+
+    switch (footerActionsConfig.mode) {
+      case "fullySynced":
+        return {
+          primary: { ...footerActionsConfig.primary, onClick: noop },
+          menuItems: footerActionsConfig.menu.map((item) => ({
+            ...item,
+            onClick: noop,
+          })),
+          menuTriggerDisabled: footerActionsConfig.menuTriggerDisabled,
+        }
+      case "applyFlow":
+        return {
+          primary: {
+            ...footerActionsConfig.primary,
+            onClick: () => {
+              void applySubmit()
+            },
+          },
+          menuItems: [
+            {
+              ...footerActionsConfig.menu[0],
+              onClick: () => {
+                void applyCloseSubmit()
+              },
+            },
+            {
+              ...footerActionsConfig.menu[1],
+              onClick: () => {
+                void applySaveSubmit()
+              },
+            },
+          ],
+          menuTriggerDisabled: footerActionsConfig.menuTriggerDisabled,
+        }
+      case "saveFlow":
+        return {
+          primary: {
+            ...footerActionsConfig.primary,
+            onClick: () => {
+              void save()
+            },
+          },
+          menuItems: [
+            {
+              ...footerActionsConfig.menu[0],
+              onClick: () => {
+                void save().finally(() => onClose())
+              },
+            },
+          ],
+          menuTriggerDisabled: footerActionsConfig.menuTriggerDisabled,
+        }
     }
-  }
+  }, [footerActionsConfig, handleSubmit, onSubmit, onApply, save, onClose])
 
   if (!selectedTransformation) {
     return null
@@ -821,12 +1026,17 @@ export const TransformationConfigSidebar: React.FC = () => {
             variant="solid"
             colorScheme="editorBlue"
           >
-            <Button type="submit" onClick={handleSubmit(onSubmit())}>
-              Apply
+            <Button
+              type="button"
+              isDisabled={footerActions.primary.disabled}
+              onClick={footerActions.primary.onClick}
+            >
+              {footerActions.primary.label}
             </Button>
             <Menu placement="top-end" closeOnSelect>
               <MenuButton
                 as={Button}
+                isDisabled={footerActions.menuTriggerDisabled}
                 colorScheme="editorBlue"
                 borderLeft="1px"
                 borderLeftColor="blue.300"
@@ -835,9 +1045,15 @@ export const TransformationConfigSidebar: React.FC = () => {
                 <Icon as={PiCaretDown} />
               </MenuButton>
               <MenuList minW="160px">
-                <MenuItem onClick={handleSubmit(onSubmit(true))}>
-                  Apply & Close
-                </MenuItem>
+                {footerActions.menuItems.map((item) => (
+                  <MenuItem
+                    key={item.label}
+                    isDisabled={item.disabled}
+                    onClick={item.onClick}
+                  >
+                    {item.label}
+                  </MenuItem>
+                ))}
               </MenuList>
             </Menu>
           </ButtonGroup>

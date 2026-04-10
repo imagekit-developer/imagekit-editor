@@ -366,6 +366,8 @@ const useEditorStore = create<EditorState & EditorActions>()(
           transformationToEdit: null,
         },
         isPristine: false,
+        // Loading an existing template implies we're in sync with storage.
+        syncStatus: "saved",
         templateStorageWriteBlocked: false,
       }))
     },
@@ -386,7 +388,11 @@ const useEditorStore = create<EditorState & EditorActions>()(
           const [removed] = updatedTransformations.splice(oldIndex, 1)
           updatedTransformations.splice(newIndex, 0, removed)
 
-          return { transformations: updatedTransformations, isPristine: false }
+          return {
+            transformations: updatedTransformations,
+            isPristine: false,
+            syncStatus: "unsaved",
+          }
         }
         return { transformations: state.transformations }
       })
@@ -407,6 +413,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
             t.id === id ? { ...t, enabled: newVisible } : t,
           ),
           isPristine: false,
+          syncStatus: "unsaved",
         }
       })
     },
@@ -425,6 +432,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
               [id]: true,
             },
             isPristine: false,
+            syncStatus: "unsaved",
           }
         })
 
@@ -442,6 +450,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
             [id]: true,
           },
           isPristine: false,
+          syncStatus: "unsaved",
         }
       })
 
@@ -454,6 +463,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
           (transformation) => transformation.id !== id,
         ),
         isPristine: false,
+        syncStatus: "unsaved",
       }))
     },
 
@@ -466,6 +476,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
           t.id === id ? { ...updatedTransformation, id } : t,
         ),
         isPristine: false,
+        syncStatus: "unsaved",
       }))
     },
 
@@ -479,6 +490,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
       set((state) => ({
         templateName: name,
         isPristine: state.templateName === name ? state.isPristine : false,
+        syncStatus: state.templateName === name ? state.syncStatus : "unsaved",
       }))
     },
 
