@@ -38,6 +38,8 @@ export function EditorLayout({ onAddImage, onClose, exportOptions }: Props) {
   useAutoSaveTemplate()
   useSaveTemplate()
 
+  const closeTemplatesLibrary = () => setIsTemplatesOpen(false)
+
   return (
     <>
       <Header
@@ -74,6 +76,7 @@ export function EditorLayout({ onAddImage, onClose, exportOptions }: Props) {
           alignItems="center"
           justifyContent="center"
           zIndex={1400}
+          onClick={closeTemplatesLibrary}
         >
           <Box
             w="80vw"
@@ -87,6 +90,7 @@ export function EditorLayout({ onAddImage, onClose, exportOptions }: Props) {
             display="flex"
             flexDirection="column"
             position="relative"
+            onClick={(e) => e.stopPropagation()}
           >
             <Box
               flex="1 1 0"
@@ -95,7 +99,7 @@ export function EditorLayout({ onAddImage, onClose, exportOptions }: Props) {
               flexDirection="column"
               paddingY="2"
             >
-              <TemplatesLibraryView onClose={() => setIsTemplatesOpen(false)} />
+              <TemplatesLibraryView onClose={closeTemplatesLibrary} />
             </Box>
           </Box>
         </Box>
