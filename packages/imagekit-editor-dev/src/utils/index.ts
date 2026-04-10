@@ -1,6 +1,7 @@
 export const __DEV__ = process.env.NODE_ENV !== "production"
 
 export const SIMPLE_OVERLAY_TEXT_REGEX = /^[a-zA-Z0-9-._ ]*$/
+export const TEMPLATE_NAME_UI_MAX_LENGTH = 30
 
 export const safeBtoa = (str: string): string => {
   if (typeof window !== "undefined") {
@@ -92,4 +93,11 @@ export const extractImagePath = (imageUrl: string): string => {
 
     return segments[0] || ""
   }
+}
+
+export const truncateTemplateName = (name: string) => {
+  if (name.length <= TEMPLATE_NAME_UI_MAX_LENGTH) {
+    return name
+  }
+  return `${name.slice(0, TEMPLATE_NAME_UI_MAX_LENGTH)}...`
 }

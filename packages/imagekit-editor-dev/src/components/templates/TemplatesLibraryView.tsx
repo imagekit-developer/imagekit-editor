@@ -37,6 +37,7 @@ import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import { useDebounce } from "../../hooks/useDebounce"
 import type { TemplateRecord } from "../../storage"
 import { useEditorStore } from "../../store"
+import { truncateTemplateName } from "../../utils"
 import FilterChipsField from "../common/FilterChipsField"
 import MultiSelectListField from "../common/MultiSelectListField"
 import { SettingsModal } from "../header/SettingsModal"
@@ -605,8 +606,9 @@ function TemplateRow({
             fontWeight="medium"
             color={isCurrent ? "blue.800" : "editorBattleshipGrey.700"}
             isTruncated
+            title={record.name}
           >
-            {record.name}
+            {truncateTemplateName(record.name)}
           </Text>
           {isCurrent && (
             <Badge colorScheme="blue" fontSize="xs" flexShrink={0}>

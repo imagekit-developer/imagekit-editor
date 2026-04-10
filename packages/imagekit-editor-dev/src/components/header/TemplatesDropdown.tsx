@@ -36,6 +36,7 @@ import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import type { TemplateRecord } from "../../storage"
 import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
 import { useEditorStore } from "../../store"
+import { truncateTemplateName } from "../../utils"
 
 const MAX_VISIBLE = 5
 
@@ -351,8 +352,9 @@ export function TemplatesDropdown({
                         fontWeight="medium"
                         isTruncated
                         color="blue.800"
+                        title={templateName}
                       >
-                        {templateName}
+                        {truncateTemplateName(templateName)}
                       </Text>
                       <Badge colorScheme="blue" fontSize="xs" flexShrink={0}>
                         Current
@@ -413,8 +415,9 @@ export function TemplatesDropdown({
                       fontWeight="medium"
                       isTruncated
                       color="editorBattleshipGrey.800"
+                      title={record.name}
                     >
-                      {record.name}
+                      {truncateTemplateName(record.name)}
                     </Text>
 
                     {/* Creator on hover + pin (always visible for pinned, hover for others) */}
