@@ -32,6 +32,7 @@ import { PiPushPin } from "@react-icons/all-files/pi/PiPushPin"
 import { PiPushPinFill } from "@react-icons/all-files/pi/PiPushPinFill"
 import { PiTrash } from "@react-icons/all-files/pi/PiTrash"
 import humanDate from "human-date"
+import type React from "react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import { useDebounce } from "../../hooks/useDebounce"
@@ -70,12 +71,14 @@ export function TemplatesLibraryView({ onClose }: Props) {
     boolean | null
   >(null)
 
-  const { loadTemplate, setTemplateName, setTemplateId, resetToNewTemplate } =
+  const { loadTemplate, resetToNewTemplate, hydrateTemplateMetadata } =
     useEditorStore()
   const templateId = useEditorStore((s) => s.templateId)
   const templateName = useEditorStore((s) => s.templateName)
   const isPristine = useEditorStore((s) => s.isPristine)
-  const syncStatus = useEditorStore((s) => s.syncStatus)
+  const hasUnsyncedChanges = useEditorStore(
+    (s) => s.localChangeVersion !== s.lastSyncedVersion,
+  )
 
   const fetchTemplates = useCallback(async () => {
     if (!provider) return
@@ -171,10 +174,13 @@ export function TemplatesLibraryView({ onClose }: Props) {
   ])
 
   const handleSelect = (record: TemplateRecord) => {
-    if (isPristine || syncStatus === "saved") {
+    if (!hasUnsyncedChanges) {
       loadTemplate(record.transformations)
-      setTemplateName(record.name)
-      setTemplateId(record.id)
+      hydrateTemplateMetadata({
+        templateId: record.id,
+        templateName: record.name,
+        templateIsPrivate: record.isPrivate,
+      })
       onClose()
     }
   }
@@ -217,12 +223,15 @@ export function TemplatesLibraryView({ onClose }: Props) {
   const handleOpenSettings = useCallback(
     (record: TemplateRecord) => {
       loadTemplate(record.transformations)
-      setTemplateName(record.name)
-      setTemplateId(record.id)
+      hydrateTemplateMetadata({
+        templateId: record.id,
+        templateName: record.name,
+        templateIsPrivate: record.isPrivate,
+      })
       setSettingsKnownIsPrivate(record.isPrivate)
       setIsSettingsOpen(true)
     },
-    [loadTemplate, setTemplateId, setTemplateName],
+    [loadTemplate, hydrateTemplateMetadata],
   )
 
   return (
@@ -579,7 +588,7 @@ function TemplateRow({
           as="button"
           type="button"
           disabled={isPinning}
-          onClick={(e) => {
+          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
             e.stopPropagation()
             onTogglePin(record)
           }}

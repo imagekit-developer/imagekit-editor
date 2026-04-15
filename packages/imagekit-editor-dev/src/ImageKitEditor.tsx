@@ -112,27 +112,41 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
   )
 
   const saveTemplateImperative = useCallback(async () => {
+    // Avoid importing hooks here; implement via store+provider with version gating.
     if (!resolvedProvider) return
-    const s = useEditorStore.getState()
-    if (s.templateStorageWriteBlocked) return
+    const state = useEditorStore.getState()
+    if (state.templateStorageWriteBlocked) return
 
-    const {
-      setSyncStatus,
-      setTemplateId,
-      setTemplateName,
-      denyTemplateStorageAccess,
-    } = s
-    setSyncStatus("saving")
+    const saveStartedAtVersion = state.localChangeVersion
+    state.setSyncStatus("saving")
     try {
       const saved = await resolvedProvider.saveTemplate({
-        id: s.templateId ?? undefined,
-        name: s.templateName,
-        transformations: s.transformations.map(({ id: _id, ...rest }) => rest),
+        id: state.templateId ?? undefined,
+        name: state.templateName,
+        transformations: state.transformations.map(
+          ({ id: _id, ...rest }) => rest,
+        ),
+        ...(state.templateIsPrivate !== null
+          ? { isPrivate: state.templateIsPrivate }
+          : {}),
       })
-      setTemplateId(saved.id)
-      setTemplateName(saved.name)
-      setSyncStatus("saved")
+      const after = useEditorStore.getState()
+      after.hydrateTemplateMetadata({
+        templateId: saved.id,
+        templateName: saved.name,
+        templateIsPrivate:
+          typeof saved.isPrivate === "boolean" ? saved.isPrivate : null,
+      })
+      if (after.localChangeVersion === saveStartedAtVersion) {
+        after.markSynced(saveStartedAtVersion)
+        after.setSyncStatus("saved")
+      } else {
+        after.setSyncStatus("unsaved")
+      }
+      after.setLastSavedAt(Date.now())
     } catch (err) {
+      const { denyTemplateStorageAccess } = useEditorStore.getState()
+      // Reuse existing access-denied mapping.
       if (
         applyTemplateStorageAccessFailure(err, {
           denyTemplateStorageAccess,
@@ -140,7 +154,7 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
       ) {
         return
       }
-      setSyncStatus(
+      state.setSyncStatus(
         "error",
         err instanceof Error ? err.message : "Failed to save template",
       )
@@ -151,10 +165,11 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     // `dirty` should represent *unsynced* changes (host uses it to decide
     // whether to show a close confirmation).
     const state = useEditorStore.getState()
-    const hasChanges = !state.isPristine
-    const dirty = resolvedProvider
-      ? hasChanges && state.syncStatus !== "saved"
-      : hasChanges
+    const dirty =
+      state.transformationConfigFormDirty ||
+      (resolvedProvider
+        ? state.localChangeVersion !== state.lastSyncedVersion
+        : !state.isPristine)
     props.onClose({ dirty, destroy })
   }
 

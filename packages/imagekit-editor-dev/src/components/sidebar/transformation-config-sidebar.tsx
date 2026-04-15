@@ -44,7 +44,7 @@ import { Controller, type SubmitHandler, useForm } from "react-hook-form"
 import Select from "react-select"
 import CreateableSelect from "react-select/creatable"
 import { z } from "zod/v3"
-import { useTemplateStorage } from "../../context/TemplateStorageContext"
+import { useTemplateSync } from "../../hooks/useTemplateSync"
 import type { TransformationField } from "../../schema"
 import {
   DEFAULT_FOCUS_OBJECTS,
@@ -52,7 +52,6 @@ import {
   RESIZE_CROP_MODES,
   transformationSchema,
 } from "../../schema"
-import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
 import { type SyncStatus, useEditorStore } from "../../store"
 import { isStepAligned } from "../../utils"
 import AnchorField from "../common/AnchorField"
@@ -91,6 +90,7 @@ export function getTransformationFooterActionsConfig(input: {
   syncStatus: SyncStatus
   hasAppliedInSession: boolean
   templateStorageWriteBlocked: boolean
+  hasUnsyncedChanges: boolean
 }): {
   mode: TransformationFooterActionMode
   primary: { label: string; disabled: boolean }
@@ -102,9 +102,10 @@ export function getTransformationFooterActionsConfig(input: {
     syncStatus,
     hasAppliedInSession,
     templateStorageWriteBlocked,
+    hasUnsyncedChanges,
   } = input
 
-  const fullySynced = !isDirty && syncStatus === "saved"
+  const fullySynced = !isDirty && !hasUnsyncedChanges && syncStatus === "saved"
   if (fullySynced) {
     return {
       mode: "fullySynced",
@@ -143,7 +144,6 @@ export function getTransformationFooterActionsConfig(input: {
 }
 
 export const TransformationConfigSidebar: React.FC = () => {
-  const provider = useTemplateStorage()
   const {
     transformations,
     addTransformation,
@@ -154,43 +154,17 @@ export const TransformationConfigSidebar: React.FC = () => {
     _internalState,
     _setTransformationToEdit,
     _setSelectedTransformationKey,
+    setTransformationConfigFormDirty,
   } = useEditorStore()
   const syncStatus = useEditorStore((s) => s.syncStatus)
   const templateStorageWriteBlocked = useEditorStore(
     (s) => s.templateStorageWriteBlocked,
   )
-  const setSyncStatus = useEditorStore((s) => s.setSyncStatus)
-
-  const save = useCallback(async () => {
-    if (!provider) return
-    const state = useEditorStore.getState()
-    if (state.templateStorageWriteBlocked) return
-    setSyncStatus("saving")
-    try {
-      const saved = await provider.saveTemplate({
-        id: state.templateId ?? undefined,
-        name: state.templateName,
-        transformations: state.transformations.map(
-          ({ id: _id, ...rest }) => rest,
-        ),
-      })
-      useEditorStore.getState().setTemplateId(saved.id)
-      setSyncStatus("saved")
-    } catch (err) {
-      const { denyTemplateStorageAccess } = useEditorStore.getState()
-      if (
-        applyTemplateStorageAccessFailure(err, {
-          denyTemplateStorageAccess,
-        })
-      ) {
-        return
-      }
-      setSyncStatus(
-        "error",
-        err instanceof Error ? err.message : "Failed to save",
-      )
-    }
-  }, [provider, setSyncStatus])
+  const { saveNow } = useTemplateSync()
+  const hasUnsyncedChanges = useEditorStore(
+    (s) => s.localChangeVersion !== s.lastSyncedVersion,
+  )
+  const save = useCallback(() => saveNow({ reason: "sidebar" }), [saveNow])
 
   const selectedTransformation = useMemo(() => {
     return transformationSchema
@@ -279,6 +253,18 @@ export const TransformationConfigSidebar: React.FC = () => {
   useEffect(() => {
     reset(defaultValues)
   }, [reset, defaultValues])
+
+  useEffect(() => {
+    setTransformationConfigFormDirty(isDirty)
+    return () => setTransformationConfigFormDirty(false)
+  }, [isDirty, setTransformationConfigFormDirty])
+
+  const setDirtyValue = useCallback(
+    (name: string, value: unknown) => {
+      setValue(name, value, { shouldDirty: true, shouldTouch: true })
+    },
+    [setValue],
+  )
 
   const values = watch()
 
@@ -413,8 +399,15 @@ export const TransformationConfigSidebar: React.FC = () => {
         syncStatus,
         hasAppliedInSession,
         templateStorageWriteBlocked,
+        hasUnsyncedChanges,
       }),
-    [isDirty, syncStatus, hasAppliedInSession, templateStorageWriteBlocked],
+    [
+      isDirty,
+      syncStatus,
+      hasAppliedInSession,
+      templateStorageWriteBlocked,
+      hasUnsyncedChanges,
+    ],
   )
 
   const footerActions = useMemo(() => {
@@ -597,9 +590,6 @@ export const TransformationConfigSidebar: React.FC = () => {
                     const isCreatable = field.fieldProps?.isCreatable === true
                     const isClearable: boolean =
                       field.fieldProps?.isClearable ?? false
-                    const SelectComponent = isCreatable
-                      ? CreateableSelect
-                      : Select
 
                     // For creatable selects, find the value in options or create a custom one
                     const selectedValue = isCreatable
@@ -616,12 +606,41 @@ export const TransformationConfigSidebar: React.FC = () => {
                           (option) => option.value === controllerField.value,
                         )
 
-                    return (
-                      <SelectComponent
+                    return isCreatable ? (
+                      <CreateableSelect
                         id={field.name}
-                        formatCreateLabel={(inputValue) =>
+                        formatCreateLabel={(inputValue: string) =>
                           `Use "${inputValue}"`
                         }
+                        isClearable={isClearable}
+                        placeholder="Select"
+                        menuPlacement="auto"
+                        options={selectOptions}
+                        value={selectedValue}
+                        onChange={(selectedOption) =>
+                          controllerField.onChange(selectedOption?.value)
+                        }
+                        onBlur={controllerField.onBlur}
+                        styles={{
+                          control: (base) => ({
+                            ...base,
+                            fontSize: "12px",
+                            minHeight: "32px",
+                            borderColor: "#E2E8F0",
+                          }),
+                          menu: (base) => ({
+                            ...base,
+                            zIndex: 10,
+                          }),
+                          option: (base) => ({
+                            ...base,
+                            fontSize: "12px",
+                          }),
+                        }}
+                      />
+                    ) : (
+                      <Select
+                        id={field.name}
                         isClearable={isClearable}
                         placeholder="Select"
                         menuPlacement="auto"
@@ -769,7 +788,10 @@ export const TransformationConfigSidebar: React.FC = () => {
                         }
                         const finalValue =
                           v < 0 && isNumberWithN ? `N${Math.abs(v)}` : String(v)
-                        setValue(field.name, finalValue)
+                        setValue(field.name, finalValue, {
+                          shouldDirty: true,
+                          shouldTouch: true,
+                        })
                       }}
                       onChange={(e) => {
                         const val = e.target.value
@@ -782,12 +804,18 @@ export const TransformationConfigSidebar: React.FC = () => {
                           val.toUpperCase().startsWith("N")
 
                         if (val === "") {
-                          setValue(field.name, "")
+                          setValue(field.name, "", {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          })
                           return
                         }
 
                         if (val === "-") {
-                          setValue(field.name, "-")
+                          setValue(field.name, "-", {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          })
                           return
                         }
 
@@ -795,7 +823,10 @@ export const TransformationConfigSidebar: React.FC = () => {
                           field.fieldProps?.autoOption &&
                           val.match(/au?t?o?/i)
                         ) {
-                          setValue(field.name, "auto")
+                          setValue(field.name, "auto", {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          })
                         } else if (
                           !field.fieldProps?.skipStepCheck &&
                           field.fieldProps?.step &&
@@ -810,14 +841,23 @@ export const TransformationConfigSidebar: React.FC = () => {
                             field.fieldProps.min < 0 && isNumberWithN
                               ? `N${Math.abs(field.fieldProps.min)}`
                               : String(field.fieldProps.min)
-                          setValue(field.name, finalVal)
+                          setValue(field.name, finalVal, {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          })
                         } else if (
                           field.fieldProps?.max !== undefined &&
                           Number(numSafeVal) > field.fieldProps.max
                         ) {
-                          setValue(field.name, field.fieldProps.max)
+                          setValue(field.name, field.fieldProps.max, {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          })
                         } else {
-                          setValue(field.name, val)
+                          setValue(field.name, val, {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          })
                         }
                       }}
                     />
@@ -827,7 +867,12 @@ export const TransformationConfigSidebar: React.FC = () => {
                         colorScheme={
                           watch(field.name) === "auto" ? "blue" : "gray"
                         }
-                        onClick={() => setValue(field.name, "auto")}
+                        onClick={() =>
+                          setValue(field.name, "auto", {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          })
+                        }
                       >
                         Auto
                       </Button>
@@ -854,7 +899,12 @@ export const TransformationConfigSidebar: React.FC = () => {
                           )
                     }
                     defaultValue={field.fieldProps?.defaultValue as number}
-                    onChange={(val) => setValue(field.name, val.toString())}
+                    onChange={(val) =>
+                      setValue(field.name, val.toString(), {
+                        shouldDirty: true,
+                        shouldTouch: true,
+                      })
+                    }
                     focusThumbOnChange={false}
                   >
                     <SliderTrack>
@@ -868,7 +918,12 @@ export const TransformationConfigSidebar: React.FC = () => {
                 <ColorPickerField
                   fieldName={field.name}
                   value={watch(field.name) as string}
-                  setValue={setValue}
+                  setValue={
+                    setDirtyValue as unknown as (
+                      name: string,
+                      value: string,
+                    ) => void
+                  }
                   fieldProps={field.fieldProps as ColorPickerProps}
                   isClearable={field.fieldProps?.isClearable ?? false}
                 />
@@ -877,7 +932,12 @@ export const TransformationConfigSidebar: React.FC = () => {
                 <GradientPicker
                   fieldName={field.name}
                   value={watch(field.name) as GradientPickerState}
-                  setValue={setValue}
+                  setValue={
+                    setDirtyValue as unknown as (
+                      name: string,
+                      value: GradientPickerState | string,
+                    ) => void
+                  }
                   errors={errors}
                 />
               ) : null}
@@ -885,14 +945,24 @@ export const TransformationConfigSidebar: React.FC = () => {
                 <AnchorField
                   value={watch(field.name) as string}
                   positions={field.fieldProps?.positions as string[]}
-                  onChange={(value) => setValue(field.name, value)}
+                  onChange={(value) =>
+                    setValue(field.name, value, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                    })
+                  }
                 />
               ) : null}
               {field.fieldType === "radio-card" ? (
                 <RadioCardField
                   value={watch(field.name) as string}
                   options={field.fieldProps?.options ?? []}
-                  onChange={(value) => setValue(field.name, value)}
+                  onChange={(value) =>
+                    setValue(field.name, value, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                    })
+                  }
                   {...field.fieldProps}
                 />
               ) : null}
@@ -900,14 +970,22 @@ export const TransformationConfigSidebar: React.FC = () => {
                 <CheckboxCardField
                   value={watch(field.name) as string[]}
                   options={field.fieldProps?.options ?? []}
-                  onChange={(value) => setValue(field.name, value)}
+                  onChange={(value) =>
+                    setValue(field.name, value, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                    })
+                  }
                   {...field.fieldProps}
                 />
               ) : null}
               {field.fieldType === "padding-input" ? (
                 <PaddingInputField
                   onChange={(value) => {
-                    setValue(field.name, value)
+                    setValue(field.name, value, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                    })
                     trigger(field.name)
                   }}
                   errors={errors as PaddingErrors}
@@ -919,14 +997,26 @@ export const TransformationConfigSidebar: React.FC = () => {
               {field.fieldType === "zoom" ? (
                 <ZoomInput
                   value={watch(field.name) as number}
-                  onChange={(value) => setValue(field.name, value)}
-                  {...field.fieldProps}
+                  onChange={(value) =>
+                    setValue(field.name, value, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                    })
+                  }
+                  defaultValue={
+                    typeof field.fieldProps?.defaultValue === "number"
+                      ? (field.fieldProps.defaultValue as number)
+                      : undefined
+                  }
                 />
               ) : null}
               {field.fieldType === "distort-perspective-input" ? (
                 <DistortPerspectiveInput
                   onChange={(value) => {
-                    setValue(field.name, value)
+                    setValue(field.name, value, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                    })
                     trigger(field.name)
                   }}
                   errors={errors as PerspectiveErrors}
@@ -938,7 +1028,10 @@ export const TransformationConfigSidebar: React.FC = () => {
               {field.fieldType === "radius-input" ? (
                 <RadiusInputField
                   onChange={(value) => {
-                    setValue(field.name, value)
+                    setValue(field.name, value, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                    })
                     trigger(field.name)
                   }}
                   errors={errors as RadiusErrors}

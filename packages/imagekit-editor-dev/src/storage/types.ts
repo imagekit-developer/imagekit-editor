@@ -48,10 +48,6 @@ export interface TemplateStorageProvider {
   getCurrentUserSession(): unknown
 }
 
-export interface LocalStorageProviderOptions {
-  templatesKey?: string
-}
-
 /**
  * Minimal HTTP surface for host-implemented template storage (e.g. dashboard `use-http` request).
  */

@@ -2,7 +2,6 @@ export type { ImageKitEditorProps, ImageKitEditorRef } from "./ImageKitEditor"
 export { ImageKitEditor } from "./ImageKitEditor"
 export { DEFAULT_FOCUS_OBJECTS } from "./schema"
 export type {
-  LocalStorageProviderOptions,
   SaveTemplateInput,
   TemplateRecord,
   TemplateStorageHttpClient,
@@ -10,7 +9,6 @@ export type {
 } from "./storage"
 export {
   applyTemplateStorageAccessFailure,
-  createLocalStorageProvider,
   isTemplateAccessDeniedError,
   normalizeTransformationStepsForPersistence,
   TemplateAccessDeniedError,

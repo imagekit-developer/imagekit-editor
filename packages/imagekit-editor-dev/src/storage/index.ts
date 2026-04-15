@@ -1,4 +1,3 @@
-export { createLocalStorageProvider } from "./localStorage-provider"
 export { normalizeTransformationStepsForPersistence } from "./serializeTransformations"
 export {
   applyTemplateStorageAccessFailure,
@@ -6,7 +5,6 @@ export {
   TemplateAccessDeniedError,
 } from "./templateAccessError"
 export type {
-  LocalStorageProviderOptions,
   SaveTemplateInput,
   TemplateCreator,
   TemplateRecord,

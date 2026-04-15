@@ -31,12 +31,18 @@ import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
 import { PiPushPin } from "@react-icons/all-files/pi/PiPushPin"
 import { PiPushPinFill } from "@react-icons/all-files/pi/PiPushPinFill"
 import { PiSquaresFourLight } from "@react-icons/all-files/pi/PiSquaresFourLight"
+import type React from "react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
+import { useTemplateSync } from "../../hooks/useTemplateSync"
 import type { TemplateRecord } from "../../storage"
 import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
 import { useEditorStore } from "../../store"
 import { truncateTemplateName } from "../../utils"
+
+const PopoverContentAny = PopoverContent as unknown as React.FC<
+  Record<string, unknown>
+>
 
 const MAX_VISIBLE = 5
 
@@ -48,6 +54,7 @@ export function TemplatesDropdown({
   onViewAllTemplates,
 }: TemplatesDropdownProps) {
   const provider = useTemplateStorage()
+  const { saveNow } = useTemplateSync()
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [templates, setTemplates] = useState<TemplateRecord[]>([])
   const [search, setSearch] = useState("")
@@ -59,14 +66,18 @@ export function TemplatesDropdown({
     null,
   )
 
-  const { loadTemplate, setTemplateName, setTemplateId, resetToNewTemplate } =
-    useEditorStore()
+  const { loadTemplate, resetToNewTemplate } = useEditorStore()
+  const hydrateTemplateMetadata = useEditorStore(
+    (s) => s.hydrateTemplateMetadata,
+  )
   const templateId = useEditorStore((s) => s.templateId)
   const templateName = useEditorStore((s) => s.templateName)
   const transformations = useEditorStore((s) => s.transformations)
   const syncStatus = useEditorStore((s) => s.syncStatus)
+  const hasUnsyncedChanges = useEditorStore(
+    (s) => s.localChangeVersion !== s.lastSyncedVersion,
+  )
   const isPristine = useEditorStore((s) => s.isPristine)
-  const setSyncStatus = useEditorStore((s) => s.setSyncStatus)
   const templateStorageWriteBlocked = useEditorStore(
     (s) => s.templateStorageWriteBlocked,
   )
@@ -140,14 +151,17 @@ export function TemplatesDropdown({
 
   const doLoadTemplate = (record: TemplateRecord) => {
     loadTemplate(record.transformations)
-    setTemplateName(record.name)
-    setTemplateId(record.id)
+    hydrateTemplateMetadata({
+      templateId: record.id,
+      templateName: record.name,
+      templateIsPrivate: record.isPrivate,
+    })
     onClose()
     setPendingTemplate(null)
   }
 
   const handleSelect = (record: TemplateRecord) => {
-    if (isPristine || syncStatus === "saved") {
+    if (!hasUnsyncedChanges) {
       doLoadTemplate(record)
     } else {
       setPendingTemplate(record)
@@ -190,17 +204,8 @@ export function TemplatesDropdown({
 
   const handleSaveAndContinue = async () => {
     if (!provider || !pendingTemplate || templateStorageWriteBlocked) return
-    const state = useEditorStore.getState()
-    setSyncStatus("saving")
     try {
-      await provider.saveTemplate({
-        id: state.templateId ?? undefined,
-        name: state.templateName,
-        transformations: state.transformations.map(
-          ({ id: _id, ...rest }) => rest,
-        ),
-      })
-      setSyncStatus("saved")
+      await saveNow({ reason: "manual" })
       doLoadTemplate(pendingTemplate)
     } catch (err) {
       const { denyTemplateStorageAccess, setSyncStatus } =
@@ -266,7 +271,7 @@ export function TemplatesDropdown({
             />
           </Box>
         </PopoverTrigger>
-        <PopoverContent
+        <PopoverContentAny
           width="md"
           shadow="lg"
           p="0"
@@ -455,7 +460,7 @@ export function TemplatesDropdown({
                         _groupHover={{ opacity: 1 }}
                         transition="opacity 0.12s ease-in-out"
                         disabled={pinningId === record.id}
-                        onClick={(e) => {
+                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                           e.stopPropagation()
                           handleTogglePin(record)
                         }}
@@ -512,7 +517,7 @@ export function TemplatesDropdown({
               </>
             ) : null}
           </PopoverBody>
-        </PopoverContent>
+        </PopoverContentAny>
       </Popover>
 
       <AlertDialog

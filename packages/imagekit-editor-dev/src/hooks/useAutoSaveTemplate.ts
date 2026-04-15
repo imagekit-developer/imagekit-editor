@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react"
 import { useTemplateStorage } from "../context/TemplateStorageContext"
-import { applyTemplateStorageAccessFailure } from "../storage/templateAccessError"
 import { useEditorStore } from "../store"
+import { useTemplateSync } from "./useTemplateSync"
 
-const DEBOUNCE_MS = 600
-const INTERVAL_SAVE_MS = 2 * 60 * 1000
+export const DEBOUNCE_MS = 600
+export const INTERVAL_SAVE_MS = 2 * 60 * 1000
 
 /**
  * Automatically persists template *metadata* (name / visibility) to the storage
@@ -30,80 +30,68 @@ const INTERVAL_SAVE_MS = 2 * 60 * 1000
 export function useAutoSaveTemplate() {
   const provider = useTemplateStorage()
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const isSavingRef = useRef(false)
+  const intervalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { saveNow } = useTemplateSync()
 
   useEffect(() => {
     if (!provider) return
 
-    const saveNow = async () => {
-      if (isSavingRef.current) return
-      const state = useEditorStore.getState()
-      if (state.isPristine || state.templateStorageWriteBlocked) return
-      if (state.syncStatus === "saving") return
-
-      isSavingRef.current = true
-      const { setSyncStatus, setTemplateId, denyTemplateStorageAccess } = state
-      setSyncStatus("saving")
-      try {
-        const saved = await provider.saveTemplate({
-          id: state.templateId ?? undefined,
-          name: state.templateName,
-          transformations: state.transformations.map(
-            ({ id: _id, ...rest }) => rest,
-          ),
-        })
-        setTemplateId(saved.id)
-        setSyncStatus("saved")
-      } catch (err) {
-        if (
-          applyTemplateStorageAccessFailure(err, {
-            denyTemplateStorageAccess,
-          })
-        ) {
+    const scheduleNextInterval = (ms = INTERVAL_SAVE_MS) => {
+      if (intervalTimerRef.current) clearTimeout(intervalTimerRef.current)
+      intervalTimerRef.current = setTimeout(() => {
+        const state = useEditorStore.getState()
+        if (state.templateStorageWriteBlocked || state.isPristine) {
+          scheduleNextInterval()
           return
         }
-        setSyncStatus(
-          "error",
-          err instanceof Error ? err.message : "Failed to auto-save template",
-        )
-      } finally {
-        isSavingRef.current = false
-      }
+        if (state.localChangeVersion === state.lastSyncedVersion) {
+          scheduleNextInterval()
+          return
+        }
+        void saveNow({ reason: "auto_interval" }).finally(() => {
+          scheduleNextInterval()
+        })
+      }, ms)
     }
+
+    // Start periodic auto-save loop (resets on successful saves).
+    scheduleNextInterval()
 
     const unsubscribe = useEditorStore.subscribe(
       (state) => ({
         templateName: state.templateName,
-        isPristine: state.isPristine,
+        templateIsPrivate: state.templateIsPrivate,
       }),
-      (slice) => {
-        if (slice.isPristine) return
-
+      () => {
         if (timerRef.current) clearTimeout(timerRef.current)
 
         timerRef.current = setTimeout(() => {
-          void saveNow()
+          void saveNow({ reason: "auto_metadata" }).finally(() => {
+            // Reset the 2-minute timer after a save attempt.
+            scheduleNextInterval()
+          })
         }, DEBOUNCE_MS)
       },
       {
         equalityFn: (a, b) =>
-          a.templateName === b.templateName && a.isPristine === b.isPristine,
+          a.templateName === b.templateName &&
+          a.templateIsPrivate === b.templateIsPrivate,
       },
     )
 
-    // Background safety-net: periodically save unsynced changes (e.g. transformations).
-    const intervalId = window.setInterval(() => {
-      const state = useEditorStore.getState()
-      if (state.templateStorageWriteBlocked) return
-      if (state.isPristine) return
-      if (state.syncStatus !== "unsaved") return
-      void saveNow()
-    }, INTERVAL_SAVE_MS)
+    const unsubscribeLastSaved = useEditorStore.subscribe(
+      (s) => s.lastSavedAt,
+      (ts) => {
+        if (!ts) return
+        scheduleNextInterval()
+      },
+    )
 
     return () => {
       unsubscribe()
+      unsubscribeLastSaved()
       if (timerRef.current) clearTimeout(timerRef.current)
-      window.clearInterval(intervalId)
+      if (intervalTimerRef.current) clearTimeout(intervalTimerRef.current)
     }
-  }, [provider])
+  }, [provider, saveNow])
 }

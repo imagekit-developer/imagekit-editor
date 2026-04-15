@@ -13,11 +13,15 @@ import { PiGlobe } from "@react-icons/all-files/pi/PiGlobe"
 import { PiLock } from "@react-icons/all-files/pi/PiLock"
 import { PiTrash } from "@react-icons/all-files/pi/PiTrash"
 import { PiX } from "@react-icons/all-files/pi/PiX"
-import { useEffect, useRef, useState } from "react"
-import Select from "react-select"
+import type React from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import Select, { type StylesConfig } from "react-select"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
+import { useTemplateSync } from "../../hooks/useTemplateSync"
 import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
 import { useEditorStore } from "../../store"
+
+const FlexAny = Flex as unknown as React.FC<Record<string, unknown>>
 
 function visibilityFromKnownPrivate(
   isPrivate: boolean | null,
@@ -38,10 +42,7 @@ export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
   const provider = useTemplateStorage()
   const templateId = useEditorStore((s) => s.templateId)
   const templateName = useEditorStore((s) => s.templateName)
-  const setTemplateName = useEditorStore((s) => s.setTemplateName)
-  const setTemplateId = useEditorStore((s) => s.setTemplateId)
-  const transformations = useEditorStore((s) => s.transformations)
-  const setSyncStatus = useEditorStore((s) => s.setSyncStatus)
+  const setTemplateIsPrivate = useEditorStore((s) => s.setTemplateIsPrivate)
   const resetToNewTemplate = useEditorStore((s) => s.resetToNewTemplate)
   const denyTemplateStorageAccess = useEditorStore(
     (s) => s.denyTemplateStorageAccess,
@@ -49,6 +50,7 @@ export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
   const templateStorageWriteBlocked = useEditorStore(
     (s) => s.templateStorageWriteBlocked,
   )
+  const { saveNow } = useTemplateSync()
 
   // Stable ref so the getTemplate effect doesn't re-run when onClose identity changes.
   const onCloseRef = useRef(onClose)
@@ -63,7 +65,6 @@ export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
   const [canChangeVisibility, setCanChangeVisibility] = useState(true)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const prevVisibilityRef = useRef(localVisibility)
 
   useEffect(() => {
     setLocalName(templateName)
@@ -92,13 +93,10 @@ export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
           return
         }
         setLocalVisibility(record.isPrivate ? "onlyMe" : "everyone")
-        console.log(
-          provider?.getCurrentUserSession(),
-          record.createdBy.userId === provider?.getCurrentUserSession()?.id,
-        )
-        setCanChangeVisibility(
-          record.createdBy.userId === provider?.getCurrentUserSession()?.id,
-        )
+        const session = provider.getCurrentUserSession() as {
+          id?: string
+        } | null
+        setCanChangeVisibility(record.createdBy.userId === session?.id)
       })
       .catch((err) => {
         if (
@@ -120,20 +118,21 @@ export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
   const saveTemplate = async (opts?: { closeAfter?: boolean }) => {
     if (!provider || !localName.trim() || templateStorageWriteBlocked) return
 
-    setIsSaving(true)
-    setSyncStatus("saving")
-
     try {
-      const saved = await provider.saveTemplate({
-        id: templateId ?? undefined,
-        name: localName.trim(),
-        transformations: transformations.map(({ id: _id, ...rest }) => rest),
-        isPrivate: localVisibility === "onlyMe",
+      setIsSaving(true)
+      const saved = await saveNow({
+        reason: "settings",
+        overrides: {
+          name: localName.trim(),
+          isPrivate: localVisibility === "onlyMe",
+        },
       })
-
-      setTemplateId(saved.id)
-      setTemplateName(localName.trim())
-      setSyncStatus("saved")
+      if (!saved) return
+      useEditorStore.getState().hydrateTemplateMetadata({
+        templateId: saved.id,
+        templateName: localName.trim(),
+        templateIsPrivate: saved.isPrivate,
+      })
       if (opts?.closeAfter !== false) {
         onClose()
       }
@@ -148,29 +147,14 @@ export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
         }
         return
       }
-      setSyncStatus(
-        "error",
-        err instanceof Error ? err.message : "Failed to save",
-      )
     } finally {
       setIsSaving(false)
     }
   }
 
-  // Auto-save visibility changes (instant, like template name).
-  useEffect(() => {
-    if (!provider || !templateId) return
-    if (!canChangeVisibility) return
-    if (isSaving || isDeleting || templateStorageWriteBlocked) return
-    const prev = prevVisibilityRef.current
-    if (prev === localVisibility) return
-    prevVisibilityRef.current = localVisibility
-    void saveTemplate({ closeAfter: false })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localVisibility])
-
   const handleDelete = async () => {
     if (!provider || !templateId) return
+    if (!provider.deleteTemplate) return
 
     setIsDeleting(true)
 
@@ -207,6 +191,30 @@ export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
     }
   }, [onClose])
 
+  const selectStyles = useMemo<
+    StylesConfig<{ value: string; label: string }, false>
+  >(
+    () => ({
+      control: (base) => ({
+        ...base,
+        fontSize: "12px",
+        minHeight: "32px",
+        borderColor: "#E2E8F0",
+        backgroundColor: canChangeVisibility ? base.backgroundColor : "#F7FAFC",
+        opacity: canChangeVisibility ? 1 : 0.6,
+      }),
+      menu: (base) => ({
+        ...base,
+        zIndex: 10,
+      }),
+      option: (base) => ({
+        ...base,
+        fontSize: "12px",
+      }),
+    }),
+    [canChangeVisibility],
+  )
+
   return (
     <Box
       position="fixed"
@@ -232,7 +240,7 @@ export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <Flex
+        <FlexAny
           px="6"
           py="4"
           alignItems="center"
@@ -250,7 +258,7 @@ export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
             icon={<Icon as={PiX} boxSize={5} />}
             aria-label="Close settings"
           />
-        </Flex>
+        </FlexAny>
 
         {/* Content */}
         <Box px="6" py="6" flex="1" overflowY="auto">
@@ -296,6 +304,7 @@ export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
                   if (!canChangeVisibility) return
                   if (option) {
                     setLocalVisibility(option.value as "everyone" | "onlyMe")
+                    setTemplateIsPrivate(option.value === "onlyMe")
                   }
                 }}
                 options={[
@@ -312,26 +321,7 @@ export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
                     <span>{data.label}</span>
                   </Box>
                 )}
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    fontSize: "12px",
-                    minHeight: "32px",
-                    borderColor: "#E2E8F0",
-                    backgroundColor: canChangeVisibility
-                      ? base.backgroundColor
-                      : "#F7FAFC",
-                    opacity: canChangeVisibility ? 1 : 0.6,
-                  }),
-                  menu: (base) => ({
-                    ...base,
-                    zIndex: 10,
-                  }),
-                  option: (base) => ({
-                    ...base,
-                    fontSize: "12px",
-                  }),
-                }}
+                styles={selectStyles}
                 isSearchable={false}
                 isDisabled={!canChangeVisibility}
               />
