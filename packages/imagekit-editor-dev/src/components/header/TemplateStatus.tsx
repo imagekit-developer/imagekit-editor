@@ -1,5 +1,6 @@
 import {
   Box,
+  Button,
   Flex,
   Icon,
   Popover,
@@ -16,6 +17,7 @@ import { MdSyncProblem } from "@react-icons/all-files/md/MdSyncProblem"
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
+import { useSaveTemplate } from "../../hooks/useSaveTemplate"
 import { useEditorStore } from "../../store"
 
 const NOTIFICATION_DURATION_MS = 3000
@@ -35,12 +37,16 @@ export function TemplateStatus() {
   const syncStatus = useEditorStore((s) => s.syncStatus)
   const storageError = useEditorStore((s) => s.storageError)
   const isPristine = useEditorStore((s) => s.isPristine)
+  const templateStorageWriteBlocked = useEditorStore(
+    (s) => s.templateStorageWriteBlocked,
+  )
   const hasPendingLocalWork = useEditorStore(
     (s) =>
       s.localChangeVersion !== s.lastSyncedVersion ||
       s.transformationConfigFormDirty,
   )
   const provider = useTemplateStorage()
+  const { save } = useSaveTemplate()
 
   const [notificationVisible, setNotificationVisible] = useState(false)
   const [lastSyncResult, setLastSyncResult] = useState<
@@ -115,10 +121,12 @@ export function TemplateStatus() {
     | "template-status-saved"
     | "template-status-error"
 
+  const isUnsavedState = hasPendingLocalWork || syncStatus === "unsaved"
+
   if (notificationVisible) {
     // Unsynced edits take precedence over the last successful save result.
     // This prevents showing the green cloud when newer changes exist locally.
-    if (hasPendingLocalWork || syncStatus === "unsaved") {
+    if (isUnsavedState) {
       activeIcon = MdSync
       activeColor = "editorBattleshipGrey.500"
       notifText = "Unsaved local changes"
@@ -143,7 +151,7 @@ export function TemplateStatus() {
     if (hasPendingLocalWork) {
       activeIcon = MdSync
       activeColor = "editorBattleshipGrey.500"
-      isInteractive = false
+      isInteractive = true
       iconAriaLabel = "template-status-unsaved"
     } else {
       if (lastSyncResult === null) return null
@@ -157,10 +165,15 @@ export function TemplateStatus() {
     }
   }
 
-  const popupTitle =
-    lastSyncResult === "success" ? "All changes saved" : "Sync failed"
-  const popupBody =
-    lastSyncResult === "success"
+  const popupTitle = isUnsavedState
+    ? "Unsaved changes"
+    : lastSyncResult === "success"
+      ? "All changes saved"
+      : "Sync failed"
+
+  const popupBody = isUnsavedState
+    ? "Your current local changes haven't been synced to the library yet."
+    : lastSyncResult === "success"
       ? `Your changes are synced to ${providerName} successfully.`
       : (storageError ?? "Failed to save changes. Please try again.")
 
@@ -215,6 +228,19 @@ export function TemplateStatus() {
             <TextAny2 fontSize="sm" color="editorBattleshipGrey.600">
               {popupBody}
             </TextAny2>
+            {isUnsavedState && (
+              <Box mt="3">
+                <Button
+                  size="sm"
+                  colorScheme="blue"
+                  onClick={() => void save()}
+                  isLoading={syncStatus === "saving"}
+                  isDisabled={templateStorageWriteBlocked}
+                >
+                  Save
+                </Button>
+              </Box>
+            )}
           </PopoverBodyAny>
         </PopoverContentAny>
       </Popover>

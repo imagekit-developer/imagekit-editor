@@ -61,6 +61,7 @@ export function TemplatesDropdown({
   const [pinningId, setPinningId] = useState<string | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
+  const [isSavingAndContinuing, setIsSavingAndContinuing] = useState(false)
 
   const [pendingTemplate, setPendingTemplate] = useState<TemplateRecord | null>(
     null,
@@ -205,7 +206,11 @@ export function TemplatesDropdown({
   const handleSaveAndContinue = async () => {
     if (!provider || !pendingTemplate || templateStorageWriteBlocked) return
     try {
-      await saveNow({ reason: "manual" })
+      setIsSavingAndContinuing(true)
+      const saved = await saveNow({ reason: "manual" })
+      // saveNow can return null (e.g. another save is already in progress).
+      // In that case, do not switch templates or we'd drop unsaved changes.
+      if (!saved) return
       doLoadTemplate(pendingTemplate)
     } catch (err) {
       const { denyTemplateStorageAccess, setSyncStatus } =
@@ -221,6 +226,8 @@ export function TemplatesDropdown({
         "error",
         err instanceof Error ? err.message : "Failed to save",
       )
+    } finally {
+      setIsSavingAndContinuing(false)
     }
   }
 
@@ -523,15 +530,43 @@ export function TemplatesDropdown({
       <AlertDialog
         isOpen={pendingTemplate !== null}
         leastDestructiveRef={cancelRef}
-        onClose={() => setPendingTemplate(null)}
+        onClose={() => {
+          if (isSavingAndContinuing) return
+          setPendingTemplate(null)
+        }}
         isCentered
       >
         <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader fontSize="md" fontWeight="semibold">
+          <AlertDialogContent
+            w="45vw"
+            maxW="45vw"
+            h="40vh"
+            maxH="40vh"
+            bg="white"
+            borderRadius="xl"
+            overflow="hidden"
+            boxShadow="xl"
+            display="flex"
+            flexDirection="column"
+          >
+            <AlertDialogHeader
+              fontSize="lg"
+              fontWeight="semibold"
+              color="editorGray.900"
+              px="6"
+              py="4"
+              borderBottomWidth="0.5px"
+              borderColor="editorGray.50"
+            >
               Unsaved changes
             </AlertDialogHeader>
-            <AlertDialogBody fontSize="sm">
+            <AlertDialogBody
+              fontSize="lg"
+              color="editorGray.700"
+              p="6"
+              flex="1"
+              overflowY="auto"
+            >
               Your current changes haven't been saved yet. What would you like
               to do before switching to{" "}
               <Box as="span" fontWeight="semibold">
@@ -539,26 +574,35 @@ export function TemplatesDropdown({
               </Box>
               ?
             </AlertDialogBody>
-            <AlertDialogFooter gap="2">
+            <AlertDialogFooter
+              p="6"
+              borderTopWidth="0.5px"
+              borderColor="editorGray.50"
+              gap="3"
+            >
               <Button
                 ref={cancelRef}
-                size="sm"
+                size="md"
                 variant="ghost"
                 onClick={() => setPendingTemplate(null)}
+                isDisabled={isSavingAndContinuing}
               >
                 Cancel
               </Button>
               <Button
-                size="sm"
+                size="md"
                 variant="outline"
                 onClick={handleContinueWithoutSaving}
+                isDisabled={isSavingAndContinuing}
               >
                 Continue without saving
               </Button>
               <Button
-                size="sm"
+                size="md"
                 colorScheme="blue"
                 onClick={handleSaveAndContinue}
+                isLoading={isSavingAndContinuing}
+                isDisabled={templateStorageWriteBlocked}
               >
                 Save and continue
               </Button>
