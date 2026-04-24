@@ -1113,12 +1113,7 @@ export const TransformationConfigSidebar: React.FC = () => {
             {isDirty ? "Discard changes" : "Close"}
           </Button>
 
-          <ButtonGroup
-            size="md"
-            isAttached
-            variant="solid"
-            colorScheme="editorBlue"
-          >
+          <ButtonGroup size="md" isAttached variant="solid" colorScheme="blue">
             <Button
               type="button"
               isDisabled={footerActions.primary.disabled}
@@ -1130,7 +1125,7 @@ export const TransformationConfigSidebar: React.FC = () => {
               <MenuButton
                 as={Button}
                 isDisabled={footerActions.menuTriggerDisabled}
-                colorScheme="editorBlue"
+                colorScheme="blue"
                 borderLeft="1px"
                 borderLeftColor="blue.300"
                 px="2"

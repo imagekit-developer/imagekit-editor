@@ -360,7 +360,7 @@ export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
               Cancel
             </Button>
             <Button
-              colorScheme="editorBlue"
+              colorScheme="blue"
               size="md"
               onClick={() => saveTemplate({ closeAfter: true })}
               isLoading={isSaving}
