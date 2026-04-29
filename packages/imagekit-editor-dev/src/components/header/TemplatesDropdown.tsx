@@ -38,7 +38,7 @@ import { useTemplateSync } from "../../hooks/useTemplateSync"
 import type { TemplateRecord } from "../../storage"
 import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
 import { useEditorStore } from "../../store"
-import { truncateTemplateName } from "../../utils"
+import { formatTemplateNameForUI, truncateTemplateName } from "../../utils"
 
 const PopoverContentAny = PopoverContent as unknown as React.FC<
   Record<string, unknown>
@@ -53,6 +53,20 @@ const AlertDialogContentAny = AlertDialogContent as unknown as React.FC<
 >
 
 const BoxAny = Box as unknown as React.FC<Record<string, unknown>>
+const TextAny = Text as unknown as React.ElementType
+const FlexAny = Flex as unknown as React.ElementType
+const DividerAny = Divider as unknown as React.ElementType
+const ButtonAny = Button as unknown as React.ElementType
+const IconAny = Icon as unknown as React.ElementType
+const AlertDialogHeaderAny = AlertDialogHeader as unknown as React.ElementType
+const AlertDialogBodyAny = AlertDialogBody as unknown as React.ElementType
+const AlertDialogFooterAny = AlertDialogFooter as unknown as React.ElementType
+const InputGroupAny = InputGroup as unknown as React.ElementType
+const InputLeftElementAny = InputLeftElement as unknown as React.ElementType
+const InputAny = Input as unknown as React.ElementType
+const BadgeAny = Badge as unknown as React.ElementType
+const AvatarAny = Avatar as unknown as React.ElementType
+const SpinnerAny = Spinner as unknown as React.ElementType
 
 const MAX_VISIBLE = 5
 
@@ -163,6 +177,7 @@ export function TemplatesDropdown({
   }, [templates, templateId, search, shouldShowCurrent, templateName])
 
   if (!provider) return null
+  const templateNameUI = formatTemplateNameForUI(templateName)
 
   const scrollRowIntoView = (templateIdToScroll: string) => {
     const el = resultsScrollRef.current?.querySelector(
@@ -305,13 +320,13 @@ export function TemplatesDropdown({
               boxSize={5}
               color="editorBattleshipGrey.600"
             />
-            <Text
+            <TextAny
               fontSize="sm"
               fontWeight="medium"
               color="editorBattleshipGrey.700"
             >
               Templates
-            </Text>
+            </TextAny>
             <Icon
               as={PiCaretDown}
               boxSize={4}
@@ -333,7 +348,7 @@ export function TemplatesDropdown({
           }}
         >
           <PopoverBodyAny p="0">
-            <Flex
+            <FlexAny
               px="4"
               py="3"
               gap="3"
@@ -341,15 +356,17 @@ export function TemplatesDropdown({
               borderBottomWidth="1px"
               borderColor="editorGray.300"
             >
-              <InputGroup size="md" flex="1" maxW="xs">
-                <InputLeftElement pointerEvents="none" pl="2">
-                  <Icon as={PiMagnifyingGlass} color="gray.400" />
-                </InputLeftElement>
-                <Input
+              <InputGroupAny size="md" flex="1" maxW="xs">
+                <InputLeftElementAny pointerEvents="none" pl="2">
+                  <IconAny as={PiMagnifyingGlass} color="gray.400" />
+                </InputLeftElementAny>
+                <InputAny
                   ref={searchRef}
                   placeholder="Search templates..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setSearch(e.target.value)
+                  }
                   onKeyDown={handleSearchKeyDown}
                   bg="white"
                   borderColor="gray.200"
@@ -364,23 +381,23 @@ export function TemplatesDropdown({
                     boxShadow: "0 0 0 1px #3182ce",
                   }}
                 />
-              </InputGroup>
-              <Button
+              </InputGroupAny>
+              <ButtonAny
                 size="sm"
                 variant="ghost"
-                leftIcon={<Icon as={PiPlus} boxSize={4} />}
+                leftIcon={<IconAny as={PiPlus} boxSize={4} />}
                 px="4"
                 flexShrink={0}
                 fontWeight="normal"
                 onClick={handleNewTemplate}
               >
                 New
-              </Button>
-            </Flex>
+              </ButtonAny>
+            </FlexAny>
 
             <Box maxH="72" overflowY="auto" ref={resultsScrollRef}>
               {shouldShowCurrent && (
-                <Flex
+                <FlexAny
                   px="4"
                   py="2"
                   alignItems="center"
@@ -391,7 +408,7 @@ export function TemplatesDropdown({
                   gap="3"
                 >
                   {/* Visibility Icon (fallback to private when unknown) */}
-                  <Icon
+                  <IconAny
                     as={activeTemplate?.isPrivate === false ? PiGlobe : PiLock}
                     boxSize={4}
                     color="blue.700"
@@ -400,44 +417,54 @@ export function TemplatesDropdown({
 
                   {/* Name + badge */}
                   <Box flex="1" minW={0}>
-                    <Flex alignItems="center" gap="2">
-                      <Text
+                    <FlexAny alignItems="center" gap="2">
+                      <TextAny
                         fontSize="sm"
                         fontWeight="medium"
                         isTruncated
                         color="blue.800"
-                        title={templateName}
+                        title={templateNameUI}
                       >
                         {truncateTemplateName(templateName)}
-                      </Text>
-                      <Badge colorScheme="blue" fontSize="xs" flexShrink={0}>
+                      </TextAny>
+                      <BadgeAny colorScheme="blue" fontSize="xs" flexShrink={0}>
                         Current
-                      </Badge>
-                    </Flex>
+                      </BadgeAny>
+                    </FlexAny>
                   </Box>
 
                   {/* Transform count on the right */}
-                  <Text fontSize="xs" color="blue.600" flexShrink={0}>
+                  <TextAny fontSize="xs" color="blue.600" flexShrink={0}>
                     {currentTransformCount} transformation
                     {currentTransformCount !== 1 ? "s" : ""}
-                  </Text>
-                </Flex>
+                  </TextAny>
+                </FlexAny>
               )}
 
               {filtered.length === 0 && !shouldShowCurrent ? (
-                <Flex px="4" py="8" justifyContent="center" alignItems="center">
-                  <Text fontSize="sm" color="editorBattleshipGrey.500">
+                <FlexAny
+                  px="4"
+                  py="8"
+                  justifyContent="center"
+                  alignItems="center"
+                >
+                  <TextAny fontSize="sm" color="editorBattleshipGrey.500">
                     {search ? "No templates found" : "No saved templates yet"}
-                  </Text>
-                </Flex>
+                  </TextAny>
+                </FlexAny>
               ) : filtered.length === 0 && shouldShowCurrent ? (
-                <Flex px="4" py="6" justifyContent="center" alignItems="center">
-                  <Text fontSize="sm" color="editorBattleshipGrey.500">
+                <FlexAny
+                  px="4"
+                  py="6"
+                  justifyContent="center"
+                  alignItems="center"
+                >
+                  <TextAny fontSize="sm" color="editorBattleshipGrey.500">
                     {search
                       ? "No other templates found"
                       : "No other saved templates"}
-                  </Text>
-                </Flex>
+                  </TextAny>
+                </FlexAny>
               ) : (
                 filtered.map((record) =>
                   (() => {
@@ -445,10 +472,11 @@ export function TemplatesDropdown({
                     const shouldShowPinButton = isHovered || record.isPinned
                     const creatorLabel =
                       record.createdBy.name || record.createdBy.email
+                    const recordNameUI = formatTemplateNameForUI(record.name)
 
                     return (
                       // biome-ignore lint/a11y/useSemanticElements: Not necessary for this component
-                      <Flex
+                      <FlexAny
                         key={record.id}
                         px="4"
                         py="2"
@@ -468,7 +496,7 @@ export function TemplatesDropdown({
                         transition="background-color 0.15s"
                       >
                         {/* Visibility Icon */}
-                        <Icon
+                        <IconAny
                           as={record.isPrivate ? PiLock : PiGlobe}
                           boxSize={4}
                           color="editorBattleshipGrey.500"
@@ -476,30 +504,30 @@ export function TemplatesDropdown({
                         />
 
                         {/* Template name */}
-                        <Text
+                        <TextAny
                           flex="1"
                           minW={0}
                           fontSize="sm"
                           fontWeight="medium"
                           isTruncated
                           color="editorBattleshipGrey.800"
-                          title={record.name}
+                          title={recordNameUI}
                         >
                           {truncateTemplateName(record.name)}
-                        </Text>
+                        </TextAny>
 
                         {/* Creator on hover + pin (always visible for pinned, hover for others) */}
-                        <Flex alignItems="center" gap="3">
+                        <FlexAny alignItems="center" gap="3">
                           {/* Creator: only on hover */}
                           {isHovered ? (
-                            <Flex
+                            <FlexAny
                               alignItems="center"
                               gap="1.5"
                               maxW="36"
                               transition="opacity 0.12s ease-in-out"
                               data-testid={`templates-dropdown-creator-${record.id}`}
                             >
-                              <Avatar
+                              <AvatarAny
                                 name={creatorLabel}
                                 size="xs"
                                 fontSize="xs"
@@ -507,14 +535,14 @@ export function TemplatesDropdown({
                                 flexShrink={0}
                                 data-testid={`templates-dropdown-creator-avatar-${record.id}`}
                               />
-                              <Text
+                              <TextAny
                                 fontSize="xs"
                                 color="editorBattleshipGrey.500"
                                 isTruncated
                               >
                                 {creatorLabel}
-                              </Text>
-                            </Flex>
+                              </TextAny>
+                            </FlexAny>
                           ) : null}
 
                           {/* Pin */}
@@ -524,8 +552,8 @@ export function TemplatesDropdown({
                               type="button"
                               aria-label={
                                 record.isPinned
-                                  ? `Unpin template ${record.name}`
-                                  : `Pin template ${record.name}`
+                                  ? `Unpin template ${recordNameUI}`
+                                  : `Pin template ${recordNameUI}`
                               }
                               transition="opacity 0.12s ease-in-out"
                               disabled={pinningId === record.id}
@@ -535,12 +563,12 @@ export function TemplatesDropdown({
                               }}
                             >
                               {pinningId === record.id ? (
-                                <Spinner
+                                <SpinnerAny
                                   size="xs"
                                   color="editorBattleshipGrey.500"
                                 />
                               ) : (
-                                <Icon
+                                <IconAny
                                   as={
                                     record.isPinned ? PiPushPinFill : PiPushPin
                                   }
@@ -554,8 +582,8 @@ export function TemplatesDropdown({
                               )}
                             </Box>
                           ) : null}
-                        </Flex>
-                      </Flex>
+                        </FlexAny>
+                      </FlexAny>
                     )
                   })(),
                 )
@@ -565,12 +593,12 @@ export function TemplatesDropdown({
             {/* Always show "View all templates" when callback is provided, or when there are more templates than visible */}
             {onViewAllTemplates ? (
               <>
-                <Divider borderColor="editorGray.300" />
-                <Flex px="4" py="3" justifyContent="flex-start">
-                  <Button
+                <DividerAny borderColor="editorGray.300" />
+                <FlexAny px="4" py="3" justifyContent="flex-start">
+                  <ButtonAny
                     size="sm"
                     variant="ghost"
-                    leftIcon={<Icon as={PiSquaresFourLight} boxSize={4} />}
+                    leftIcon={<IconAny as={PiSquaresFourLight} boxSize={4} />}
                     color="editorGray.700"
                     fontWeight="normal"
                     onClick={() => {
@@ -580,17 +608,17 @@ export function TemplatesDropdown({
                     }}
                   >
                     View all templates
-                  </Button>
-                </Flex>
+                  </ButtonAny>
+                </FlexAny>
               </>
             ) : templates.length > MAX_VISIBLE + (shouldShowCurrent ? 1 : 0) ? (
               <>
-                <Divider borderColor="editorGray.300" />
-                <Flex px="4" py="3" justifyContent="center">
-                  <Text fontSize="sm" color="editorBattleshipGrey.500">
+                <DividerAny borderColor="editorGray.300" />
+                <FlexAny px="4" py="3" justifyContent="center">
+                  <TextAny fontSize="sm" color="editorBattleshipGrey.500">
                     {templates.length} templates total
-                  </Text>
-                </Flex>
+                  </TextAny>
+                </FlexAny>
               </>
             ) : null}
           </PopoverBodyAny>
@@ -619,7 +647,7 @@ export function TemplatesDropdown({
             display="flex"
             flexDirection="column"
           >
-            <AlertDialogHeader
+            <AlertDialogHeaderAny
               fontSize="lg"
               fontWeight="semibold"
               color="editorGray.900"
@@ -629,8 +657,8 @@ export function TemplatesDropdown({
               borderColor="editorGray.50"
             >
               Unsaved changes
-            </AlertDialogHeader>
-            <AlertDialogBody
+            </AlertDialogHeaderAny>
+            <AlertDialogBodyAny
               fontSize="lg"
               color="editorGray.700"
               p="6"
@@ -640,17 +668,19 @@ export function TemplatesDropdown({
               Your current changes haven't been saved yet. What would you like
               to do before switching to{" "}
               <Box as="span" fontWeight="semibold">
-                {pendingTemplate?.name}
+                {pendingTemplate
+                  ? formatTemplateNameForUI(pendingTemplate.name)
+                  : null}
               </Box>
               ?
-            </AlertDialogBody>
-            <AlertDialogFooter
+            </AlertDialogBodyAny>
+            <AlertDialogFooterAny
               p="6"
               borderTopWidth="0.5px"
               borderColor="editorGray.50"
               gap="3"
             >
-              <Button
+              <ButtonAny
                 ref={cancelRef}
                 size="md"
                 variant="ghost"
@@ -658,16 +688,16 @@ export function TemplatesDropdown({
                 isDisabled={isSavingAndContinuing}
               >
                 Cancel
-              </Button>
-              <Button
+              </ButtonAny>
+              <ButtonAny
                 size="md"
                 variant="outline"
                 onClick={handleContinueWithoutSaving}
                 isDisabled={isSavingAndContinuing}
               >
                 Continue without saving
-              </Button>
-              <Button
+              </ButtonAny>
+              <ButtonAny
                 size="md"
                 colorScheme="blue"
                 onClick={handleSaveAndContinue}
@@ -675,8 +705,8 @@ export function TemplatesDropdown({
                 isDisabled={templateStorageWriteBlocked}
               >
                 Save and continue
-              </Button>
-            </AlertDialogFooter>
+              </ButtonAny>
+            </AlertDialogFooterAny>
           </AlertDialogContentAny>
         </AlertDialogOverlay>
       </AlertDialog>

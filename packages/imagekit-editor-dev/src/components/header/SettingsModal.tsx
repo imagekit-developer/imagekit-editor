@@ -20,6 +20,7 @@ import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import { useTemplateSync } from "../../hooks/useTemplateSync"
 import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
 import { useEditorStore } from "../../store"
+import { formatTemplateNameForUI } from "../../utils"
 
 const FlexAny = Flex as unknown as React.FC<Record<string, unknown>>
 
@@ -58,7 +59,9 @@ export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
     onCloseRef.current = onClose
   })
 
-  const [localName, setLocalName] = useState(templateName)
+  const [localName, setLocalName] = useState(() =>
+    formatTemplateNameForUI(templateName),
+  )
   const [localVisibility, setLocalVisibility] = useState<"everyone" | "onlyMe">(
     () => visibilityFromKnownPrivate(knownIsPrivate),
   )
@@ -67,7 +70,7 @@ export function SettingsModal({ onClose, knownIsPrivate }: SettingsModalProps) {
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
-    setLocalName(templateName)
+    setLocalName(formatTemplateNameForUI(templateName))
   }, [templateName])
 
   useEffect(() => {

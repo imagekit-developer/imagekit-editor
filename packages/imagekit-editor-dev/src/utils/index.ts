@@ -13,6 +13,54 @@ export const safeBtoa = (str: string): string => {
   }
 }
 
+const decodeHtmlEntitiesOnce = (input: string): string => {
+  if (!input || !input.includes("&")) return input
+
+  // Some names were saved with malformed entities missing the trailing semicolon,
+  // e.g. "&amp;lt&gt;" where the "lt" is missing ";". Normalize those first.
+  const normalized = input.replace(/&(amp|lt|gt|quot|apos|nbsp)(?!;)/g, "&$1;")
+
+  // Decode a small, deterministic set of HTML entities + numeric references.
+  // Intentionally does NOT decode broader named entities like &copy; to keep
+  // behavior stable across environments and avoid surprising transforms.
+  const named: Record<string, string> = {
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+    nbsp: " ",
+  }
+
+  return normalized.replace(/&(#x[0-9a-fA-F]+|#\d+|[a-zA-Z]+);/g, (m, g1) => {
+    if (typeof g1 !== "string") return m
+    if (g1.startsWith("#x") || g1.startsWith("#X")) {
+      const codePoint = Number.parseInt(g1.slice(2), 16)
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : m
+    }
+    if (g1.startsWith("#")) {
+      const codePoint = Number.parseInt(g1.slice(1), 10)
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : m
+    }
+    return named[g1] ?? m
+  })
+}
+
+/**
+ * Normalizes a template name for display in the UI.
+ * Handles cases where names were stored with HTML entities (sometimes double-encoded).
+ */
+export const formatTemplateNameForUI = (rawName: string): string => {
+  let s = rawName ?? ""
+  // Decode up to a few times to handle double-encoding like "&amp;lt;" → "&lt;" → "<".
+  for (let i = 0; i < 3; i++) {
+    const next = decodeHtmlEntitiesOnce(s)
+    if (next === s) break
+    s = next
+  }
+  return s
+}
+
 /**
  * Step validation without floating‑point error.
  * We scale both value and step to integers using their max decimal precision
@@ -96,8 +144,9 @@ export const extractImagePath = (imageUrl: string): string => {
 }
 
 export const truncateTemplateName = (name: string) => {
-  if (name.length <= TEMPLATE_NAME_UI_MAX_LENGTH) {
-    return name
+  const normalized = formatTemplateNameForUI(name)
+  if (normalized.length <= TEMPLATE_NAME_UI_MAX_LENGTH) {
+    return normalized
   }
-  return `${name.slice(0, TEMPLATE_NAME_UI_MAX_LENGTH)}...`
+  return `${normalized.slice(0, TEMPLATE_NAME_UI_MAX_LENGTH)}...`
 }

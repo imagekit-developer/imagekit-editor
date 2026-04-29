@@ -2,19 +2,23 @@ import { Input } from "@chakra-ui/react"
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import { useEditorStore } from "../../store"
+import { formatTemplateNameForUI } from "../../utils"
 
 const UNTITLED = "Untitled Template"
+const InputAny = Input as unknown as React.ElementType
 
 export function TemplateNameInput() {
-  const templateName = useEditorStore((s) => s.templateName)
+  const templateNameRaw = useEditorStore((s) => s.templateName)
   const templateId = useEditorStore((s) => s.templateId)
   const isPristine = useEditorStore((s) => s.isPristine)
   const setTemplateName = useEditorStore((s) => s.setTemplateName)
 
-  const [localValue, setLocalValue] = useState(templateName)
+  const templateNameUI = formatTemplateNameForUI(templateNameRaw)
+  const [localValue, setLocalValue] = useState(templateNameUI)
   const localValueRef = useRef(localValue)
   const inputRef = useRef<HTMLInputElement>(null)
   const isFocusedRef = useRef(false)
+  const didUserEditRef = useRef(false)
   const prevIsPristineRef = useRef(isPristine)
 
   localValueRef.current = localValue
@@ -23,9 +27,10 @@ export function TemplateNameInput() {
   // template from the dropdown) update the input without overwriting in-progress edits.
   useEffect(() => {
     if (!isFocusedRef.current) {
-      setLocalValue(templateName)
+      didUserEditRef.current = false
+      setLocalValue(formatTemplateNameForUI(templateNameRaw))
     }
-  }, [templateName])
+  }, [templateNameRaw])
 
   // Focus the input when starting a new unsaved template (reset → pristine with no id).
   // Do not focus when transitioning to pristine after a successful save (id stays set).
@@ -43,6 +48,12 @@ export function TemplateNameInput() {
     if (!trimmed) {
       setLocalValue(UNTITLED)
     }
+
+    // Avoid mutating store just because the persisted name was HTML-encoded.
+    if (!didUserEditRef.current && finalName === templateNameUI) {
+      return
+    }
+
     // setTemplateName only marks isPristine:false when the name actually changed,
     // which is what gates the auto-save in useAutoSaveTemplate.
     setTemplateName(finalName)
@@ -63,7 +74,8 @@ export function TemplateNameInput() {
       inputRef.current?.blur()
     }
     if (e.key === "Escape") {
-      setLocalValue(templateName)
+      didUserEditRef.current = false
+      setLocalValue(templateNameUI)
       inputRef.current?.blur()
     }
   }
@@ -71,10 +83,13 @@ export function TemplateNameInput() {
   const isDefault = localValue === UNTITLED
 
   return (
-    <Input
+    <InputAny
       ref={inputRef}
       value={localValue}
-      onChange={(e) => setLocalValue(e.target.value)}
+      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+        didUserEditRef.current = true
+        setLocalValue(e.target.value)
+      }}
       onBlur={handleBlur}
       onFocus={handleFocus}
       onKeyDown={handleKeyDown}

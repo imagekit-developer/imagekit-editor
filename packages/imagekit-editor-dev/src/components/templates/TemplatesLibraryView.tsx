@@ -39,7 +39,7 @@ import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import { useDebounce } from "../../hooks/useDebounce"
 import type { TemplateRecord } from "../../storage"
 import { useEditorStore } from "../../store"
-import { truncateTemplateName } from "../../utils"
+import { formatTemplateNameForUI, truncateTemplateName } from "../../utils"
 import FilterChipsField from "../common/FilterChipsField"
 import MultiSelectListField from "../common/MultiSelectListField"
 import { SettingsModal } from "../header/SettingsModal"
@@ -47,6 +47,20 @@ import { SettingsModal } from "../header/SettingsModal"
 interface Props {
   onClose(): void
 }
+
+const FlexAny = Flex as unknown as React.ElementType
+const TextAny = Text as unknown as React.ElementType
+const AvatarAny = Avatar as unknown as React.ElementType
+const ButtonAny = Button as unknown as React.ElementType
+const SpinnerAny = Spinner as unknown as React.ElementType
+const BadgeAny = Badge as unknown as React.ElementType
+const InputGroupAny = InputGroup as unknown as React.ElementType
+const InputLeftElementAny = InputLeftElement as unknown as React.ElementType
+const InputAny = Input as unknown as React.ElementType
+const IconAny = Icon as unknown as React.ElementType
+const PopoverContentAny = PopoverContent as unknown as React.ElementType
+const PopoverBodyAny = PopoverBody as unknown as React.ElementType
+const DividerAny = Divider as unknown as React.ElementType
 
 function formatRelativeTime(ts: number): string {
   const now = Date.now()
@@ -294,7 +308,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
   }
 
   return (
-    <Flex
+    <FlexAny
       flexDirection="column"
       width="full"
       flex="1 1 0"
@@ -311,36 +325,36 @@ export function TemplatesLibraryView({ onClose }: Props) {
           flexDirection="column"
           gap="4"
         >
-          <Button
+          <ButtonAny
             onClick={onClose}
             variant="ghost"
             size="xs"
             alignSelf="flex-start"
-            leftIcon={<Icon as={PiArrowLeft} boxSize={4} />}
+            leftIcon={<IconAny as={PiArrowLeft} boxSize={4} />}
             color="editorBattleshipGrey.500"
             _hover={{ color: "editorBattleshipGrey.700", bg: "transparent" }}
             px="0"
           >
             Go back
-          </Button>
+          </ButtonAny>
 
-          <Flex alignItems="center" justifyContent="space-between">
+          <FlexAny alignItems="center" justifyContent="space-between">
             <Box>
-              <Text
+              <TextAny
                 fontSize="lg"
                 fontWeight="semibold"
                 color="editorBattleshipGrey.900"
               >
                 All templates
-              </Text>
-              <Text fontSize="sm" color="editorBattleshipGrey.500">
+              </TextAny>
+              <TextAny fontSize="sm" color="editorBattleshipGrey.500">
                 Browse and load templates created by you or shared with you.
-              </Text>
+              </TextAny>
             </Box>
-            <Button
+            <ButtonAny
               size="md"
               colorScheme="blue"
-              leftIcon={<Icon as={PiPlus} boxSize={4} />}
+              leftIcon={<IconAny as={PiPlus} boxSize={4} />}
               px="4"
               onClick={() => {
                 resetToNewTemplate()
@@ -348,11 +362,11 @@ export function TemplatesLibraryView({ onClose }: Props) {
               }}
             >
               New template
-            </Button>
-          </Flex>
+            </ButtonAny>
+          </FlexAny>
 
           {/* Controls bar */}
-          <Flex
+          <FlexAny
             mt="2"
             gap="2"
             alignItems="center"
@@ -360,14 +374,16 @@ export function TemplatesLibraryView({ onClose }: Props) {
             w="100%"
             flexWrap="wrap"
           >
-            <InputGroup size="md" maxW="xs">
-              <InputLeftElement pointerEvents="none" pl="2">
-                <Icon as={PiMagnifyingGlass} color="gray.400" />
-              </InputLeftElement>
-              <Input
+            <InputGroupAny size="md" maxW="xs">
+              <InputLeftElementAny pointerEvents="none" pl="2">
+                <IconAny as={PiMagnifyingGlass} color="gray.400" />
+              </InputLeftElementAny>
+              <InputAny
                 placeholder="Search templates..."
                 value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setSearchInput(e.target.value)
+                }
                 onKeyDown={handleSearchKeyDown}
                 bg="white"
                 borderColor="gray.200"
@@ -382,7 +398,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
                   boxShadow: "0 0 0 1px #3182ce",
                 }}
               />
-            </InputGroup>
+            </InputGroupAny>
 
             <FilterChipsField
               options={[
@@ -423,25 +439,25 @@ export function TemplatesLibraryView({ onClose }: Props) {
                     },
                   }}
                 >
-                  <Flex align="center" gap="2">
-                    <Text
+                  <FlexAny align="center" gap="2">
+                    <TextAny
                       fontSize="sm"
                       fontWeight="400"
                       noOfLines={1}
                       opacity={creatorFilter.length > 0 ? 1 : 0.5}
                     >
                       Created by
-                    </Text>
+                    </TextAny>
                     {creatorFilter.length > 0 && (
-                      <Badge colorScheme="blue" fontSize="xs">
+                      <BadgeAny colorScheme="blue" fontSize="xs">
                         {creatorFilter.length}
-                      </Badge>
+                      </BadgeAny>
                     )}
-                    <Icon as={PiCaretDown} boxSize="16px" />
-                  </Flex>
+                    <IconAny as={PiCaretDown} boxSize="16px" />
+                  </FlexAny>
                 </Box>
               </PopoverTrigger>
-              <PopoverContent
+              <PopoverContentAny
                 width="320px"
                 p="0"
                 outline="none"
@@ -453,7 +469,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
                   borderColor: "transparent",
                 }}
               >
-                <PopoverBody p="0" display="flex" flexDirection="column">
+                <PopoverBodyAny p="0" display="flex" flexDirection="column">
                   <MultiSelectListField
                     options={uniqueCreators.map(({ userId, name, email }) => ({
                       label: name,
@@ -466,8 +482,12 @@ export function TemplatesLibraryView({ onClose }: Props) {
                     selectedFirst
                     showSelectedSeparator
                   />
-                  <Divider alignSelf="center" my="0" borderColor="gray.200" />
-                  <Button
+                  <DividerAny
+                    alignSelf="center"
+                    my="0"
+                    borderColor="gray.200"
+                  />
+                  <ButtonAny
                     w="full"
                     variant="ghost"
                     fontSize="sm"
@@ -482,16 +502,16 @@ export function TemplatesLibraryView({ onClose }: Props) {
                     onClick={() => setCreatorFilter([])}
                   >
                     Clear selected
-                  </Button>
-                </PopoverBody>
-              </PopoverContent>
+                  </ButtonAny>
+                </PopoverBodyAny>
+              </PopoverContentAny>
             </Popover>
-          </Flex>
+          </FlexAny>
         </Box>
       </Box>
 
       {/* Scrollable table area */}
-      <Flex
+      <FlexAny
         flexDirection="column"
         flex="1 1 0"
         minH={0}
@@ -511,13 +531,13 @@ export function TemplatesLibraryView({ onClose }: Props) {
           data-testid="templates-library-scroll"
         >
           {loading ? (
-            <Flex justifyContent="center" alignItems="center" py="16">
-              <Spinner size="md" color="editorBattleshipGrey.400" />
-            </Flex>
+            <FlexAny justifyContent="center" alignItems="center" py="16">
+              <SpinnerAny size="md" color="editorBattleshipGrey.400" />
+            </FlexAny>
           ) : (
             <>
               {/* Table header */}
-              <Flex
+              <FlexAny
                 px="5"
                 py="2"
                 alignItems="center"
@@ -531,30 +551,30 @@ export function TemplatesLibraryView({ onClose }: Props) {
                 {/* Pin column spacer to align with row */}
                 <Box flexShrink={0} w="8" />
                 <Box flex="3" minW={0} ml="2">
-                  <Text textAlign="left">Name</Text>
+                  <TextAny textAlign="left">Name</TextAny>
                 </Box>
                 <Box flex="2" minW={0}>
-                  <Text textAlign="left">Created by</Text>
+                  <TextAny textAlign="left">Created by</TextAny>
                 </Box>
                 <Box flex="1.5" minW={0}>
-                  <Text textAlign="left">Visibility</Text>
+                  <TextAny textAlign="left">Visibility</TextAny>
                 </Box>
                 <Box flex="1.5" minW={0}>
-                  <Text textAlign="left">Last updated</Text>
+                  <TextAny textAlign="left">Last updated</TextAny>
                 </Box>
                 <Box flexShrink={0} w="8" />
-              </Flex>
+              </FlexAny>
 
               {/* Filtered templates */}
               {filtered.length === 0 && !showCurrentRow ? (
-                <Flex
+                <FlexAny
                   justifyContent="center"
                   alignItems="center"
                   py="16"
                   flexDirection="column"
                   gap="2"
                 >
-                  <Text fontSize="sm" color="editorBattleshipGrey.500">
+                  <TextAny fontSize="sm" color="editorBattleshipGrey.500">
                     {search ||
                     visibilityFilter.length > 0 ||
                     creatorFilter.length > 0
@@ -562,8 +582,8 @@ export function TemplatesLibraryView({ onClose }: Props) {
                       : shouldShowCurrent
                         ? "No other saved templates"
                         : "No saved templates yet"}
-                  </Text>
-                </Flex>
+                  </TextAny>
+                </FlexAny>
               ) : (
                 <Box
                   height={`${rowVirtualizer.getTotalSize()}px`}
@@ -577,7 +597,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
 
                     return (
                       <Box
-                        key={virtualRow.key}
+                        key={String(virtualRow.key)}
                         position="absolute"
                         top={0}
                         left={0}
@@ -617,7 +637,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
             </>
           )}
         </Box>
-      </Flex>
+      </FlexAny>
       {isSettingsOpen && (
         <SettingsModal
           key={templateId ?? "new"}
@@ -625,7 +645,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
           onClose={() => setIsSettingsOpen(false)}
         />
       )}
-    </Flex>
+    </FlexAny>
   )
 }
 
@@ -653,8 +673,12 @@ function TemplateRow({
   canDelete = true,
 }: TemplateRowProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const recordNameUI = formatTemplateNameForUI(record.name)
+  const MenuButtonAny = MenuButton as unknown as React.ElementType
+  const MenuListAny = MenuList as unknown as React.ElementType
+  const MenuItemAny = MenuItem as unknown as React.ElementType
   return (
-    <Flex
+    <FlexAny
       px="5"
       py="4"
       alignItems="center"
@@ -679,7 +703,7 @@ function TemplateRow({
           }}
         >
           {isPinning ? (
-            <Spinner size="sm" color="editorBattleshipGrey.500" />
+            <SpinnerAny size="sm" color="editorBattleshipGrey.500" />
           ) : (
             <Icon
               as={record.isPinned ? PiPushPinFill : PiPushPin}
@@ -694,83 +718,83 @@ function TemplateRow({
 
       {/* Name + transform count */}
       <Box flex="3" minW={0} ml="2">
-        <Flex alignItems="center" gap="2" mb="1">
-          <Text
+        <FlexAny alignItems="center" gap="2" mb="1">
+          <TextAny
             fontSize="sm"
             fontWeight="medium"
             color={isCurrent ? "blue.800" : "editorBattleshipGrey.700"}
             isTruncated
-            title={record.name}
+            title={recordNameUI}
           >
             {truncateTemplateName(record.name)}
-          </Text>
+          </TextAny>
           {isCurrent && (
-            <Badge colorScheme="blue" fontSize="xs" flexShrink={0}>
+            <BadgeAny colorScheme="blue" fontSize="xs" flexShrink={0}>
               Current
-            </Badge>
+            </BadgeAny>
           )}
-        </Flex>
-        <Text
+        </FlexAny>
+        <TextAny
           fontSize="xs"
           color={isCurrent ? "blue.500" : "editorBattleshipGrey.500"}
           mt="0.5"
         >
           {record.transformations.length} transformation
           {record.transformations.length !== 1 ? "s" : ""}
-        </Text>
+        </TextAny>
       </Box>
 
       {/* Creator */}
-      <Flex flex="2" alignItems="center" gap="2" minW={0} overflow="hidden">
-        <Avatar
+      <FlexAny flex="2" alignItems="center" gap="2" minW={0} overflow="hidden">
+        <AvatarAny
           size="sm"
           name={record.createdBy.name || record.createdBy.email}
           flexShrink={0}
         />
         <Box minW={0}>
-          <Text
+          <TextAny
             fontSize="sm"
             color={isCurrent ? "blue.800" : "editorBattleshipGrey.500"}
             isTruncated
             fontWeight="medium"
           >
             {record.createdBy.name || record.createdBy.email}
-          </Text>
-          <Text
+          </TextAny>
+          <TextAny
             fontSize="sm"
             color={isCurrent ? "blue.500" : "editorBattleshipGrey.400"}
             isTruncated
           >
             {record.createdBy.email}
-          </Text>
+          </TextAny>
         </Box>
-      </Flex>
+      </FlexAny>
 
       {/* Visibility */}
       <Box flex="1.5" minW={0}>
-        <Flex alignItems="center" gap="2">
+        <FlexAny alignItems="center" gap="2">
           <Icon
             as={record.isPrivate ? PiLock : PiGlobe}
             boxSize={5}
             color={isCurrent ? "blue.700" : "editorBattleshipGrey.500"}
           />
-          <Text
+          <TextAny
             fontSize="sm"
             color={isCurrent ? "blue.800" : "editorBattleshipGrey.700"}
           >
             {record.isPrivate ? "Only to me" : "Shared with everyone"}
-          </Text>
-        </Flex>
+          </TextAny>
+        </FlexAny>
       </Box>
 
       {/* Last updated */}
       <Box flex="1.5" minW={0}>
-        <Text
+        <TextAny
           fontSize="sm"
           color={isCurrent ? "blue.700" : "editorBattleshipGrey.400"}
         >
           {formatRelativeTime(record.updatedAt)}
-        </Text>
+        </TextAny>
       </Box>
 
       {/* Row actions menu + delete confirmation popup */}
@@ -788,7 +812,7 @@ function TemplateRow({
             onClick={(e) => e.stopPropagation()}
           >
             <Menu isLazy>
-              <MenuButton
+              <MenuButtonAny
                 as={Button}
                 size="md"
                 variant="ghost"
@@ -800,50 +824,54 @@ function TemplateRow({
                 borderColor="transparent"
                 _hover={{ bg: "editorGray.200" }}
                 _focus={{ boxShadow: "none" }}
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e: React.MouseEvent<HTMLElement>) =>
+                  e.stopPropagation()
+                }
               >
-                <Icon
+                <IconAny
                   as={BsThreeDots}
                   boxSize={4}
                   color="editorBattleshipGrey.700"
                 />
-              </MenuButton>
-              <MenuList
+              </MenuButtonAny>
+              <MenuListAny
                 minW="32"
                 py="1"
                 borderWidth={0}
                 borderColor="transparent"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e: React.MouseEvent<HTMLElement>) =>
+                  e.stopPropagation()
+                }
               >
-                <MenuItem
-                  icon={<Icon as={PiGear} boxSize={4} />}
-                  onClick={(e) => {
+                <MenuItemAny
+                  icon={<IconAny as={PiGear} boxSize={4} />}
+                  onClick={(e: React.MouseEvent<HTMLElement>) => {
                     e.stopPropagation()
                     onSettings(record)
                   }}
                 >
                   Settings
-                </MenuItem>
-                <MenuItem
-                  icon={<Icon as={PiTrash} boxSize={4} />}
+                </MenuItemAny>
+                <MenuItemAny
+                  icon={<IconAny as={PiTrash} boxSize={4} />}
                   color={canDelete ? "red.500" : "gray.400"}
                   display="flex"
                   alignItems="center"
                   _hover={{ bg: canDelete ? "red.50" : "transparent" }}
                   isDisabled={!canDelete}
-                  onClick={(e) => {
+                  onClick={(e: React.MouseEvent<HTMLElement>) => {
                     if (!canDelete) return
                     e.stopPropagation()
                     setShowDeleteConfirm(true)
                   }}
                 >
                   Delete
-                </MenuItem>
-              </MenuList>
+                </MenuItemAny>
+              </MenuListAny>
             </Menu>
           </Box>
         </PopoverTrigger>
-        <PopoverContent
+        <PopoverContentAny
           p="4"
           fontSize="sm"
           maxW="md"
@@ -851,15 +879,15 @@ function TemplateRow({
           borderWidth={0}
           borderColor="transparent"
           _focus={{ boxShadow: "lg", outline: "none" }}
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e: React.MouseEvent<HTMLElement>) => e.stopPropagation()}
         >
-          <Flex direction="column" gap="3">
-            <Text color="gray.600" fontSize="md">
+          <FlexAny direction="column" gap="3">
+            <TextAny color="gray.600" fontSize="md">
               Are you sure you want to delete this template? This action is
               irreversible.
-            </Text>
-            <Flex justifyContent="flex-end" gap="2">
-              <Button
+            </TextAny>
+            <FlexAny justifyContent="flex-end" gap="2">
+              <ButtonAny
                 size="md"
                 variant="ghost"
                 onClick={() => setShowDeleteConfirm(false)}
@@ -870,8 +898,8 @@ function TemplateRow({
                 }}
               >
                 Cancel
-              </Button>
-              <Button
+              </ButtonAny>
+              <ButtonAny
                 size="md"
                 colorScheme="red"
                 leftIcon={<Icon as={PiTrash} boxSize={4} />}
@@ -881,11 +909,11 @@ function TemplateRow({
                 }}
               >
                 Delete
-              </Button>
-            </Flex>
-          </Flex>
-        </PopoverContent>
+              </ButtonAny>
+            </FlexAny>
+          </FlexAny>
+        </PopoverContentAny>
       </Popover>
-    </Flex>
+    </FlexAny>
   )
 }
