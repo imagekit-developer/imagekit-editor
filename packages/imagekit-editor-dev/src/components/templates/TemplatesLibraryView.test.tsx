@@ -1,6 +1,6 @@
 import { ChakraProvider } from "@chakra-ui/react"
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { TemplateStorageContextProvider } from "../../context/TemplateStorageContext"
 import type { TemplateRecord } from "../../storage"
 import { useEditorStore } from "../../store"
@@ -52,7 +52,8 @@ function renderWithProvider(opts: {
   )
 }
 
-function mockLayoutForVirtualizer() {
+function mockLayoutForVirtualizer(opts?: { estimatedRowCount?: number }) {
+  const estimatedRowCount = opts?.estimatedRowCount ?? 3000
   // TanStack Virtual measures element sizes; JSDOM reports 0 by default.
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
     function (this: HTMLElement) {
@@ -95,7 +96,7 @@ function mockLayoutForVirtualizer() {
   Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
     configurable: true,
     get() {
-      return 84 * 3000
+      return 84 * estimatedRowCount
     },
   })
 }
@@ -129,13 +130,25 @@ describe("TemplatesLibraryView (virtualized)", () => {
   beforeEach(() => {
     useEditorStore.getState().destroy()
     vi.useRealTimers()
-    mockLayoutForVirtualizer()
+    mockLayoutForVirtualizer({ estimatedRowCount: 1000 })
     mockResizeObserver()
+    // TanStack Virtual batches updates through rAF; make it deterministic in JSDOM.
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      cb(performance.now())
+      return 0
+    })
+    vi.stubGlobal("cancelAnimationFrame", () => {})
     // TanStack Virtual may use scrollTo on the scroll element.
     Object.defineProperty(HTMLElement.prototype, "scrollTo", {
       value: vi.fn(),
       writable: true,
     })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+    vi.useRealTimers()
   })
 
   it("does not render thousands of rows at once; renders more on scroll", async () => {
@@ -180,8 +193,7 @@ describe("TemplatesLibraryView (virtualized)", () => {
 
     // Scroll down enough to bring later items into view.
     act(() => {
-      ;(scrollEl as HTMLElement).scrollTop = 84 * 900
-      fireEvent.scroll(scrollEl)
+      fireEvent.scroll(scrollEl, { target: { scrollTop: 84 * 900 } })
     })
 
     await waitFor(() => {
