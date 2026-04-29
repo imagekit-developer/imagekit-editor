@@ -17,12 +17,12 @@
     "start": "turbo run start",
     "build": "turbo run build",
     "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage",
     "version": "yarn workspace @imagekit/editor version",
     "package": "yarn build && shx cp README.md ./packages/imagekit-editor/ && yarn workspace @imagekit/editor pack --out ../../builds/imagekit-editor-%v.tgz",
     "release": "yarn build && shx cp README.md ./packages/imagekit-editor/ && yarn workspace @imagekit/editor pack --out ../../builds/imagekit-editor-%v.tgz && yarn workspace @imagekit/editor publish",
     "prepare": "husky",
-    "lint": "biome ci",
-    "lint:fix": "biome format --write ./"
+    "lint:fix": "biome format --write ./ --files-ignore-unknown=true"
   },
   "devDependencies": {
     "@biomejs/biome": "2.1.1",
