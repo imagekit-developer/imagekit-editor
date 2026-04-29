@@ -32,8 +32,12 @@ import { useTemplateSync } from "../../hooks/useTemplateSync"
 import type { TemplateRecord } from "../../storage"
 import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
 import { useEditorStore } from "../../store"
-import { formatTemplateNameForUI, truncateTemplateName } from "../../utils"
-import { chakraAny } from "../../utils/chakraAny"
+import {
+  chakraAny,
+  formatTemplateNameForUI,
+  getDisplayTemplates,
+  truncateTemplateName,
+} from "../../utils"
 
 const PopoverContentAny = chakraAny(PopoverContent)
 const PopoverBodyAny = chakraAny(PopoverBody)
@@ -128,35 +132,15 @@ export function TemplatesDropdown({
     : transformations.length
 
   const filtered = useMemo(() => {
-    const base = templates
-      .filter((t) => t.id !== templateId)
-      .filter((t) => {
-        if (
-          shouldShowCurrent &&
-          templateId === null &&
-          t.name === templateName
-        ) {
-          return false
-        }
-        return true
-      })
-      .filter((t) => t.name.toLowerCase().includes(search.toLowerCase()))
-
-    // Sort by: pinned first, then by most recently used/updated
-    return [...base]
-      .sort((a, b) => {
-        const aPinned = a.isPinned ? 1 : 0
-        const bPinned = b.isPinned ? 1 : 0
-        if (aPinned !== bPinned) {
-          return bPinned - aPinned
-        }
-
-        const aTime = a.lastUsedAt ?? a.updatedAt
-        const bTime = b.lastUsedAt ?? b.updatedAt
-        return bTime - aTime
-      })
-      .slice(0, MAX_VISIBLE)
-  }, [templates, templateId, search, shouldShowCurrent, templateName])
+    return getDisplayTemplates({
+      templates,
+      templateId,
+      templateName,
+      shouldShowCurrent,
+      search,
+      searchMode: "name",
+    }).slice(0, MAX_VISIBLE)
+  }, [templates, templateId, templateName, shouldShowCurrent, search])
 
   useEffect(() => {
     if (!isOpen) return

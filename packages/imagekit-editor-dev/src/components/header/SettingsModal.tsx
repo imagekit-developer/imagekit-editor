@@ -10,8 +10,7 @@ import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
 import type { TemplateRecord } from "../../storage/types"
 import { useEditorStore } from "../../store"
-import { formatTemplateNameForUI } from "../../utils"
-import { chakraAny } from "../../utils/chakraAny"
+import { chakraAny, formatTemplateNameForUI } from "../../utils"
 
 // ---------------------------------------------------------------------------
 // Type casts — Chakra's strict generic signatures conflict with our JSX usage

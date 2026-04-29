@@ -2,8 +2,7 @@ import { Input } from "@chakra-ui/react"
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import { useEditorStore } from "../../store"
-import { formatTemplateNameForUI } from "../../utils"
-import { chakraAny } from "../../utils/chakraAny"
+import { chakraAny, formatTemplateNameForUI } from "../../utils"
 
 const UNTITLED = "Untitled Template"
 const InputAny = chakraAny(Input)

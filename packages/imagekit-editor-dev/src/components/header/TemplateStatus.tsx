@@ -18,7 +18,7 @@ import { useEffect, useRef, useState } from "react"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import { useSaveTemplate } from "../../hooks/useSaveTemplate"
 import { useEditorStore } from "../../store"
-import { chakraAny } from "../../utils/chakraAny"
+import { chakraAny } from "../../utils"
 
 const NOTIFICATION_DURATION_MS = 3000
 

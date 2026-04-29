@@ -35,8 +35,12 @@ import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import { useDebounce } from "../../hooks/useDebounce"
 import type { TemplateRecord } from "../../storage"
 import { useEditorStore } from "../../store"
-import { formatTemplateNameForUI, truncateTemplateName } from "../../utils"
-import { chakraAny } from "../../utils/chakraAny"
+import {
+  chakraAny,
+  formatTemplateNameForUI,
+  getDisplayTemplates,
+  truncateTemplateName,
+} from "../../utils"
 import FilterChipsField from "../common/FilterChipsField"
 import MultiSelectListField from "../common/MultiSelectListField"
 import { SettingsModal } from "../header/SettingsModal"
@@ -140,25 +144,14 @@ export function TemplatesLibraryView({ onClose }: Props) {
   }, [templates])
 
   const filtered = useMemo(() => {
-    const base = templates
-      .filter((t) => t.id !== templateId)
-      .filter((t) => {
-        if (
-          shouldShowCurrent &&
-          templateId === null &&
-          t.name === templateName
-        ) {
-          return false
-        }
-        return true
-      })
-      .filter((t) =>
-        search
-          ? t.name.toLowerCase().includes(search.toLowerCase()) ||
-            t.createdBy.name.toLowerCase().includes(search.toLowerCase()) ||
-            t.createdBy.email.toLowerCase().includes(search.toLowerCase())
-          : true,
-      )
+    const base = getDisplayTemplates({
+      templates,
+      templateId,
+      templateName,
+      shouldShowCurrent,
+      search,
+      searchMode: "nameOrCreator",
+    })
       .filter((t) => {
         if (visibilityFilter.length === 0) return true
         const allowPrivate = visibilityFilter.includes("private")
@@ -175,19 +168,8 @@ export function TemplatesLibraryView({ onClose }: Props) {
           : true,
       )
 
-    // Sort so that pinned templates (for the local user) come first,
-    // then all others by most recently used / updated.
-    return [...base].sort((a, b) => {
-      const aPinned = a.isPinned ? 1 : 0
-      const bPinned = b.isPinned ? 1 : 0
-      if (aPinned !== bPinned) {
-        return bPinned - aPinned
-      }
-
-      const aTime = a.lastUsedAt ?? a.updatedAt
-      const bTime = b.lastUsedAt ?? b.updatedAt
-      return bTime - aTime
-    })
+    // getDisplayTemplates already returns a pinned+recent sorted list.
+    return base
   }, [
     templates,
     templateId,
