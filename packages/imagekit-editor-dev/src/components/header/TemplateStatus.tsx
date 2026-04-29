@@ -14,24 +14,20 @@ import {
 import { IoMdCloudDone } from "@react-icons/all-files/io/IoMdCloudDone"
 import { MdSync } from "@react-icons/all-files/md/MdSync"
 import { MdSyncProblem } from "@react-icons/all-files/md/MdSyncProblem"
-import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import { useSaveTemplate } from "../../hooks/useSaveTemplate"
 import { useEditorStore } from "../../store"
+import { chakraAny } from "../../utils/chakraAny"
 
 const NOTIFICATION_DURATION_MS = 3000
 
-const TextAny = Text as unknown as React.FC<Record<string, unknown>>
-const TextAny2 = Text as unknown as React.FC<Record<string, unknown>>
-const FlexAny = Flex as unknown as React.FC<Record<string, unknown>>
-const PopoverContentAny = PopoverContent as unknown as React.FC<
-  Record<string, unknown>
->
-const TooltipAny = Tooltip as unknown as React.FC<Record<string, unknown>>
-const PopoverBodyAny = PopoverBody as unknown as React.FC<
-  Record<string, unknown>
->
+const TextAny = chakraAny(Text)
+const TextAny2 = chakraAny(Text)
+const FlexAny = chakraAny(Flex)
+const PopoverContentAny = chakraAny(PopoverContent)
+const TooltipAny = chakraAny(Tooltip)
+const PopoverBodyAny = chakraAny(PopoverBody)
 
 export function TemplateStatus() {
   const syncStatus = useEditorStore((s) => s.syncStatus)

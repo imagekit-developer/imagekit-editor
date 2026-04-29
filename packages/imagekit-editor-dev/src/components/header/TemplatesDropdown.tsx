@@ -33,27 +33,22 @@ import type { TemplateRecord } from "../../storage"
 import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
 import { useEditorStore } from "../../store"
 import { formatTemplateNameForUI, truncateTemplateName } from "../../utils"
+import { chakraAny } from "../../utils/chakraAny"
 
-const PopoverContentAny = PopoverContent as unknown as React.FC<
-  Record<string, unknown>
->
-
-const PopoverBodyAny = PopoverBody as unknown as React.FC<
-  Record<string, unknown>
->
-
-const BoxAny = Box as unknown as React.FC<Record<string, unknown>>
-const TextAny = Text as unknown as React.ElementType
-const FlexAny = Flex as unknown as React.ElementType
-const DividerAny = Divider as unknown as React.ElementType
-const ButtonAny = Button as unknown as React.ElementType
-const IconAny = Icon as unknown as React.ElementType
-const InputGroupAny = InputGroup as unknown as React.ElementType
-const InputLeftElementAny = InputLeftElement as unknown as React.ElementType
-const InputAny = Input as unknown as React.ElementType
-const BadgeAny = Badge as unknown as React.ElementType
-const AvatarAny = Avatar as unknown as React.ElementType
-const SpinnerAny = Spinner as unknown as React.ElementType
+const PopoverContentAny = chakraAny(PopoverContent)
+const PopoverBodyAny = chakraAny(PopoverBody)
+const BoxAny = chakraAny(Box)
+const TextAny = chakraAny(Text)
+const FlexAny = chakraAny(Flex)
+const DividerAny = chakraAny(Divider)
+const ButtonAny = chakraAny(Button)
+const IconAny = chakraAny(Icon)
+const InputGroupAny = chakraAny(InputGroup)
+const InputLeftElementAny = chakraAny(InputLeftElement)
+const InputAny = chakraAny(Input)
+const BadgeAny = chakraAny(Badge)
+const AvatarAny = chakraAny(Avatar)
+const SpinnerAny = chakraAny(Spinner)
 
 const MAX_VISIBLE = 5
 

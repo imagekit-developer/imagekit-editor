@@ -36,6 +36,7 @@ import { useDebounce } from "../../hooks/useDebounce"
 import type { TemplateRecord } from "../../storage"
 import { useEditorStore } from "../../store"
 import { formatTemplateNameForUI, truncateTemplateName } from "../../utils"
+import { chakraAny } from "../../utils/chakraAny"
 import FilterChipsField from "../common/FilterChipsField"
 import MultiSelectListField from "../common/MultiSelectListField"
 import { SettingsModal } from "../header/SettingsModal"
@@ -44,20 +45,20 @@ interface Props {
   onClose(): void
 }
 
-const FlexAny = Flex as unknown as React.ElementType
-const TextAny = Text as unknown as React.ElementType
-const AvatarAny = Avatar as unknown as React.ElementType
-const ButtonAny = Button as unknown as React.ElementType
-const SpinnerAny = Spinner as unknown as React.ElementType
-const BadgeAny = Badge as unknown as React.ElementType
-const InputGroupAny = InputGroup as unknown as React.ElementType
-const InputLeftElementAny = InputLeftElement as unknown as React.ElementType
-const InputAny = Input as unknown as React.ElementType
-const IconAny = Icon as unknown as React.ElementType
-const PopoverContentAny = PopoverContent as unknown as React.ElementType
-const PopoverBodyAny = PopoverBody as unknown as React.ElementType
-const DividerAny = Divider as unknown as React.ElementType
-const TooltipAny = Tooltip as unknown as React.ElementType
+const FlexAny = chakraAny(Flex)
+const TextAny = chakraAny(Text)
+const AvatarAny = chakraAny(Avatar)
+const ButtonAny = chakraAny(Button)
+const SpinnerAny = chakraAny(Spinner)
+const BadgeAny = chakraAny(Badge)
+const InputGroupAny = chakraAny(InputGroup)
+const InputLeftElementAny = chakraAny(InputLeftElement)
+const InputAny = chakraAny(Input)
+const IconAny = chakraAny(Icon)
+const PopoverContentAny = chakraAny(PopoverContent)
+const PopoverBodyAny = chakraAny(PopoverBody)
+const DividerAny = chakraAny(Divider)
+const TooltipAny = chakraAny(Tooltip)
 
 function formatRelativeTime(ts: number): string {
   const now = Date.now()

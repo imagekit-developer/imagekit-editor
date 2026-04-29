@@ -11,14 +11,15 @@ import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessE
 import type { TemplateRecord } from "../../storage/types"
 import { useEditorStore } from "../../store"
 import { formatTemplateNameForUI } from "../../utils"
+import { chakraAny } from "../../utils/chakraAny"
 
 // ---------------------------------------------------------------------------
 // Type casts — Chakra's strict generic signatures conflict with our JSX usage
 // ---------------------------------------------------------------------------
-const FlexAny = Flex as unknown as React.ElementType
-const TextAny = Text as unknown as React.ElementType
-const IconButtonAny = IconButton as unknown as React.ElementType
-const InputAny = Input as unknown as React.ElementType
+const FlexAny = chakraAny(Flex)
+const TextAny = chakraAny(Text)
+const IconButtonAny = chakraAny(IconButton)
+const InputAny = chakraAny(Input)
 
 // ---------------------------------------------------------------------------
 // Props

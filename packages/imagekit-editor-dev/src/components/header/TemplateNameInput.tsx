@@ -3,9 +3,10 @@ import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import { useEditorStore } from "../../store"
 import { formatTemplateNameForUI } from "../../utils"
+import { chakraAny } from "../../utils/chakraAny"
 
 const UNTITLED = "Untitled Template"
-const InputAny = Input as unknown as React.ElementType
+const InputAny = chakraAny(Input)
 
 export function TemplateNameInput() {
   const templateNameRaw = useEditorStore((s) => s.templateName)
