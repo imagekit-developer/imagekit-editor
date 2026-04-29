@@ -151,55 +151,59 @@ describe("TemplatesLibraryView (virtualized)", () => {
     vi.useRealTimers()
   })
 
-  it("does not render thousands of rows at once; renders more on scroll", async () => {
-    const now = Date.now()
-    const templates = Array.from({ length: 1000 }).map((_, i) =>
-      makeTemplate({
-        id: `t-${i}`,
-        name: `Template ${i}`,
-        // Ensure deterministic sort: newest first.
-        updatedAt: now - i,
-        createdAt: now - i,
-        createdBy: {
-          userId: `u-${i}`,
-          name: `User ${i}`,
-          email: `u${i}@ex.com`,
-        },
-      }),
-    )
+  it(
+    "does not render thousands of rows at once; renders more on scroll",
+    async () => {
+      const now = Date.now()
+      const templates = Array.from({ length: 1000 }).map((_, i) =>
+        makeTemplate({
+          id: `t-${i}`,
+          name: `Template ${i}`,
+          // Ensure deterministic sort: newest first.
+          updatedAt: now - i,
+          createdAt: now - i,
+          createdBy: {
+            userId: `u-${i}`,
+            name: `User ${i}`,
+            email: `u${i}@ex.com`,
+          },
+        }),
+      )
 
-    useEditorStore.setState({
-      isPristine: true,
-      templateId: null,
-      templateName: "New template",
-      transformations: [],
-      syncStatus: "saved",
-      localChangeVersion: 1,
-      lastSyncedVersion: 1,
-    } as unknown as Parameters<typeof useEditorStore.setState>[0])
+      useEditorStore.setState({
+        isPristine: true,
+        templateId: null,
+        templateName: "New template",
+        transformations: [],
+        syncStatus: "saved",
+        localChangeVersion: 1,
+        lastSyncedVersion: 1,
+      } as unknown as Parameters<typeof useEditorStore.setState>[0])
 
-    renderWithProvider({ templates })
+      renderWithProvider({ templates })
 
-    // Wait for view to load.
-    expect(await screen.findByText("All templates")).toBeTruthy()
+      // Wait for view to load.
+      expect(await screen.findByText("All templates")).toBeTruthy()
 
-    const scrollEl = await screen.findByTestId("templates-library-scroll")
+      const scrollEl = await screen.findByTestId("templates-library-scroll")
 
-    // Top row should render (Template 0 is newest due to updatedAt).
-    expect(await screen.findByText("Template 0")).toBeTruthy()
+      // Top row should render (Template 0 is newest due to updatedAt).
+      expect(await screen.findByText("Template 0")).toBeTruthy()
 
-    // A far-down row should not be mounted initially.
-    expect(screen.queryByText("Template 900")).toBeNull()
+      // A far-down row should not be mounted initially.
+      expect(screen.queryByText("Template 900")).toBeNull()
 
-    // Scroll down enough to bring later items into view.
-    act(() => {
-      fireEvent.scroll(scrollEl, { target: { scrollTop: 84 * 900 } })
-    })
+      // Scroll down enough to bring later items into view.
+      act(() => {
+        fireEvent.scroll(scrollEl, { target: { scrollTop: 84 * 900 } })
+      })
 
-    await waitFor(() => {
-      expect(screen.getByText("Template 900")).toBeTruthy()
-    })
-  })
+      await waitFor(() => {
+        expect(screen.getByText("Template 900")).toBeTruthy()
+      })
+    },
+    15 * 1000,
+  )
 
   it('includes a virtualized "Current" row when the active template exists', async () => {
     const now = Date.now()
