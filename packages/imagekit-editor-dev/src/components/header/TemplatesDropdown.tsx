@@ -52,6 +52,8 @@ const AlertDialogContentAny = AlertDialogContent as unknown as React.FC<
   Record<string, unknown>
 >
 
+const BoxAny = Box as unknown as React.FC<Record<string, unknown>>
+
 const MAX_VISIBLE = 5
 
 interface TemplatesDropdownProps {
@@ -71,6 +73,7 @@ export function TemplatesDropdown({
     null,
   )
   const searchRef = useRef<HTMLInputElement>(null)
+  const resultsScrollRef = useRef<HTMLDivElement>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
   const [isSavingAndContinuing, setIsSavingAndContinuing] = useState(false)
 
@@ -160,6 +163,33 @@ export function TemplatesDropdown({
   }, [templates, templateId, search, shouldShowCurrent, templateName])
 
   if (!provider) return null
+
+  const scrollRowIntoView = (templateIdToScroll: string) => {
+    const el = resultsScrollRef.current?.querySelector(
+      `[data-testid="templates-dropdown-row-${templateIdToScroll}"]`,
+    ) as HTMLElement | null
+    el?.scrollIntoView?.({ block: "nearest" })
+  }
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (filtered.length === 0) return
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return
+    e.preventDefault()
+
+    const currentIndex = hoveredTemplateId
+      ? filtered.findIndex((t) => t.id === hoveredTemplateId)
+      : -1
+
+    const nextIndex =
+      e.key === "ArrowDown"
+        ? (currentIndex + 1 + filtered.length) % filtered.length
+        : (currentIndex - 1 + filtered.length) % filtered.length
+
+    const next = filtered[nextIndex]
+    if (!next) return
+    setHoveredTemplateId(next.id)
+    scrollRowIntoView(next.id)
+  }
 
   const doLoadTemplate = (record: TemplateRecord) => {
     loadTemplate(record.transformations)
@@ -256,7 +286,7 @@ export function TemplatesDropdown({
         isLazy
       >
         <PopoverTrigger>
-          <Box
+          <BoxAny
             as="button"
             display="inline-flex"
             alignItems="center"
@@ -287,7 +317,7 @@ export function TemplatesDropdown({
               boxSize={4}
               color="editorBattleshipGrey.600"
             />
-          </Box>
+          </BoxAny>
         </PopoverTrigger>
         <PopoverContentAny
           width="md"
@@ -320,6 +350,7 @@ export function TemplatesDropdown({
                   placeholder="Search templates..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
                   bg="white"
                   borderColor="gray.200"
                   borderRadius="md"
@@ -347,7 +378,7 @@ export function TemplatesDropdown({
               </Button>
             </Flex>
 
-            <Box maxH="72" overflowY="auto">
+            <Box maxH="72" overflowY="auto" ref={resultsScrollRef}>
               {shouldShowCurrent && (
                 <Flex
                   px="4"

@@ -31,9 +31,10 @@ import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
 import { PiPushPin } from "@react-icons/all-files/pi/PiPushPin"
 import { PiPushPinFill } from "@react-icons/all-files/pi/PiPushPinFill"
 import { PiTrash } from "@react-icons/all-files/pi/PiTrash"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import humanDate from "human-date"
 import type React from "react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import { useDebounce } from "../../hooks/useDebounce"
 import type { TemplateRecord } from "../../storage"
@@ -70,6 +71,9 @@ export function TemplatesLibraryView({ onClose }: Props) {
   const [settingsKnownIsPrivate, setSettingsKnownIsPrivate] = useState<
     boolean | null
   >(null)
+  const [activeVirtualIndex, setActiveVirtualIndex] = useState<number | null>(
+    null,
+  )
 
   const { loadTemplate, resetToNewTemplate, hydrateTemplateMetadata } =
     useEditorStore()
@@ -100,6 +104,8 @@ export function TemplatesLibraryView({ onClose }: Props) {
   const activeTemplate = templateId
     ? (templates.find((t) => t.id === templateId) ?? null)
     : null
+
+  const scrollParentRef = useRef<HTMLDivElement | null>(null)
 
   const uniqueCreators = useMemo(() => {
     const seen = new Map<string, { name: string; email: string }>()
@@ -234,6 +240,59 @@ export function TemplatesLibraryView({ onClose }: Props) {
     [loadTemplate, hydrateTemplateMetadata],
   )
 
+  const showCurrentRow = shouldShowCurrent && activeTemplate !== null
+
+  const virtualRowCount = showCurrentRow ? filtered.length + 1 : filtered.length
+
+  const getRowByVirtualIndex = useCallback(
+    (virtualIndex: number): { record: TemplateRecord; isCurrent: boolean } => {
+      if (showCurrentRow) {
+        if (virtualIndex === 0) {
+          // biome-ignore lint/style/noNonNullAssertion: guarded by showCurrentRow
+          return { record: activeTemplate!, isCurrent: true }
+        }
+        return { record: filtered[virtualIndex - 1], isCurrent: false }
+      }
+
+      return { record: filtered[virtualIndex], isCurrent: false }
+    },
+    [filtered, showCurrentRow, activeTemplate],
+  )
+
+  const rowVirtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
+    count: virtualRowCount,
+    getScrollElement: () => scrollParentRef.current,
+    estimateSize: () => 84,
+    overscan: 10,
+    getItemKey: (index: number) => {
+      if (showCurrentRow && index === 0) {
+        return `current:${activeTemplate?.id ?? "unknown"}`
+      }
+      const row = getRowByVirtualIndex(index)
+      return row.record.id
+    },
+  })
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset active row on filter/search changes
+  useEffect(() => {
+    setActiveVirtualIndex(null)
+  }, [search, visibilityFilter, creatorFilter, templates.length, templateId])
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (virtualRowCount === 0) return
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return
+    e.preventDefault()
+
+    const current = activeVirtualIndex ?? -1
+    const next =
+      e.key === "ArrowDown"
+        ? (current + 1 + virtualRowCount) % virtualRowCount
+        : (current - 1 + virtualRowCount) % virtualRowCount
+
+    setActiveVirtualIndex(next)
+    rowVirtualizer.scrollToIndex(next, { align: "auto" })
+  }
+
   return (
     <Flex
       flexDirection="column"
@@ -309,6 +368,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
                 placeholder="Search templates..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
                 bg="white"
                 borderColor="gray.200"
                 borderRadius="md"
@@ -447,6 +507,8 @@ export function TemplatesLibraryView({ onClose }: Props) {
           flex="1 1 0"
           minH={0}
           overflowY="auto"
+          ref={scrollParentRef}
+          data-testid="templates-library-scroll"
         >
           {loading ? (
             <Flex justifyContent="center" alignItems="center" py="16">
@@ -483,24 +545,8 @@ export function TemplatesLibraryView({ onClose }: Props) {
                 <Box flexShrink={0} w="8" />
               </Flex>
 
-              {/* Current row */}
-              {shouldShowCurrent && activeTemplate && (
-                <TemplateRow
-                  record={activeTemplate}
-                  onSelect={() => {
-                    // Current row is informational; selecting it is a no-op.
-                  }}
-                  onTogglePin={handleTogglePin}
-                  isPinning={pinningId === activeTemplate.id}
-                  onDelete={handleDeleteTemplate}
-                  onSettings={handleOpenSettings}
-                  isCurrent
-                  canDelete
-                />
-              )}
-
               {/* Filtered templates */}
-              {filtered.length === 0 ? (
+              {filtered.length === 0 && !showCurrentRow ? (
                 <Flex
                   justifyContent="center"
                   alignItems="center"
@@ -519,17 +565,54 @@ export function TemplatesLibraryView({ onClose }: Props) {
                   </Text>
                 </Flex>
               ) : (
-                filtered.map((record) => (
-                  <TemplateRow
-                    key={record.id}
-                    record={record}
-                    onSelect={handleSelect}
-                    onTogglePin={handleTogglePin}
-                    isPinning={pinningId === record.id}
-                    onDelete={handleDeleteTemplate}
-                    onSettings={handleOpenSettings}
-                  />
-                ))
+                <Box
+                  height={`${rowVirtualizer.getTotalSize()}px`}
+                  position="relative"
+                >
+                  {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                    const { record, isCurrent } = getRowByVirtualIndex(
+                      virtualRow.index,
+                    )
+                    const isActive = activeVirtualIndex === virtualRow.index
+
+                    return (
+                      <Box
+                        key={virtualRow.key}
+                        position="absolute"
+                        top={0}
+                        left={0}
+                        width="100%"
+                        transform={`translateY(${virtualRow.start}px)`}
+                        ref={rowVirtualizer.measureElement}
+                        data-index={virtualRow.index}
+                        data-active={isActive ? "true" : undefined}
+                        data-testid={
+                          isCurrent
+                            ? `templates-library-row-current-${record.id}`
+                            : `templates-library-row-${record.id}`
+                        }
+                      >
+                        <TemplateRow
+                          record={record}
+                          onSelect={
+                            isCurrent
+                              ? () => {
+                                  // Current row is informational; selecting it is a no-op.
+                                }
+                              : handleSelect
+                          }
+                          onTogglePin={handleTogglePin}
+                          isPinning={pinningId === record.id}
+                          onDelete={handleDeleteTemplate}
+                          onSettings={handleOpenSettings}
+                          isCurrent={isCurrent}
+                          isActive={isActive}
+                          canDelete
+                        />
+                      </Box>
+                    )
+                  })}
+                </Box>
               )}
             </>
           )}
@@ -554,6 +637,7 @@ interface TemplateRowProps {
   onSettings(record: TemplateRecord): void
   isPinning: boolean
   isCurrent?: boolean
+  isActive?: boolean
   canDelete?: boolean
 }
 
@@ -565,6 +649,7 @@ function TemplateRow({
   onSettings,
   isPinning,
   isCurrent = false,
+  isActive = false,
   canDelete = true,
 }: TemplateRowProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -576,7 +661,7 @@ function TemplateRow({
       cursor={isCurrent ? "default" : "pointer"}
       borderBottomWidth="1px"
       borderColor="editorGray.200"
-      bg={isCurrent ? "blue.50" : "transparent"}
+      bg={isCurrent ? "blue.50" : isActive ? "editorGray.50" : "transparent"}
       _hover={isCurrent ? undefined : { bg: "editorGray.50" }}
       onClick={() => {
         if (!isCurrent) onSelect(record)
@@ -588,7 +673,7 @@ function TemplateRow({
           as="button"
           type="button"
           disabled={isPinning}
-          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+          onClick={(e: React.MouseEvent<HTMLElement>) => {
             e.stopPropagation()
             onTogglePin(record)
           }}

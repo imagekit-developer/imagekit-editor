@@ -66,6 +66,8 @@ describe("TemplatesDropdown", () => {
   beforeEach(() => {
     useEditorStore.getState().destroy()
     vi.useFakeTimers()
+    // JSDOM doesn't implement this; we use it for keyboard navigation.
+    Element.prototype.scrollIntoView = vi.fn()
   })
 
   it("shows only template name by default; shows creator + pin on hover", async () => {
@@ -160,5 +162,73 @@ describe("TemplatesDropdown", () => {
 
     expect(screen.getByText("Current")).toBeTruthy()
     expect(screen.getByText("In progress")).toBeTruthy()
+  })
+
+  it("supports ArrowUp/ArrowDown to hover + cycle through search results", async () => {
+    useEditorStore.setState({
+      isPristine: true,
+      templateId: null,
+      templateName: "New template",
+      transformations: [],
+      syncStatus: "saved",
+      localChangeVersion: 1,
+      lastSyncedVersion: 1,
+    } as unknown as Parameters<typeof useEditorStore.setState>[0])
+
+    const t1 = makeTemplate({
+      id: "t-1",
+      name: "Alpha",
+      isPinned: false,
+      createdBy: { userId: "u-1", name: "Ada", email: "ada@ex.com" },
+    })
+    const t2 = makeTemplate({
+      id: "t-2",
+      name: "Alpine",
+      isPinned: false,
+      createdBy: { userId: "u-2", name: "Grace", email: "grace@ex.com" },
+    })
+    const t3 = makeTemplate({
+      id: "t-3",
+      name: "Beta",
+      isPinned: false,
+      createdBy: { userId: "u-3", name: "Linus", email: "linus@ex.com" },
+    })
+
+    renderWithProvider({ templates: [t1, t2, t3] })
+    await openDropdown()
+
+    const input = await screen.findByPlaceholderText("Search templates...")
+    act(() => {
+      fireEvent.change(input, { target: { value: "al" } })
+    })
+
+    expect(await screen.findByText("Alpha")).toBeTruthy()
+    expect(screen.getByText("Alpine")).toBeTruthy()
+    expect(screen.queryByText("Beta")).toBeNull()
+
+    // ArrowDown should move "hover" to first result.
+    act(() => {
+      fireEvent.keyDown(input, { key: "ArrowDown" })
+    })
+    expect(screen.getByText("Ada")).toBeTruthy()
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+
+    // ArrowDown should move to next result.
+    act(() => {
+      fireEvent.keyDown(input, { key: "ArrowDown" })
+    })
+    expect(screen.getByText("Grace")).toBeTruthy()
+
+    // ArrowDown cycles back to the first result.
+    act(() => {
+      fireEvent.keyDown(input, { key: "ArrowDown" })
+    })
+    expect(screen.getByText("Ada")).toBeTruthy()
+
+    // ArrowUp cycles to the last result.
+    act(() => {
+      fireEvent.keyDown(input, { key: "ArrowUp" })
+    })
+    expect(screen.getByText("Grace")).toBeTruthy()
   })
 })
