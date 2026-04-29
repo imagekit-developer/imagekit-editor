@@ -17,6 +17,10 @@
     "test": {
       "cache": false,
       "outputs": []
+    },
+    "test:coverage": {
+      "cache": false,
+      "outputs": []
     }
   }
 }
