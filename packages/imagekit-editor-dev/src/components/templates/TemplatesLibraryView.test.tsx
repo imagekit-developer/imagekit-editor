@@ -151,6 +151,72 @@ describe("TemplatesLibraryView (virtualized)", () => {
     vi.useRealTimers()
   })
 
+  it("applies visibility filter consistently when both options are selected", async () => {
+    const templates: TemplateRecord[] = [
+      makeTemplate({
+        id: "t-private",
+        name: "Private template",
+        isPrivate: true,
+        updatedAt: Date.now(),
+        createdAt: Date.now(),
+      }),
+      makeTemplate({
+        id: "t-shared",
+        name: "Shared template",
+        isPrivate: false,
+        updatedAt: Date.now() - 1,
+        createdAt: Date.now() - 1,
+      }),
+    ]
+
+    useEditorStore.setState({
+      isPristine: true,
+      templateId: null,
+      templateName: "New template",
+      transformations: [],
+      syncStatus: "saved",
+      localChangeVersion: 1,
+      lastSyncedVersion: 1,
+    } as unknown as Parameters<typeof useEditorStore.setState>[0])
+
+    renderWithProvider({ templates })
+
+    expect(await screen.findByText("All templates")).toBeTruthy()
+
+    // Baseline: both templates are present.
+    expect(
+      await screen.findByTestId("templates-library-row-t-private"),
+    ).toBeTruthy()
+    expect(
+      await screen.findByTestId("templates-library-row-t-shared"),
+    ).toBeTruthy()
+
+    // Click each chip in a separate act() so React re-renders between clicks.
+    // Batching both inside one act() causes the second click to read stale
+    // visibilityFilter state (safeValue is captured at render time), making
+    // the final value ["shared"] instead of ["private","shared"].
+    const clickChip = (label: string) => {
+      const candidates = screen.getAllByText(label)
+      const chip = candidates
+        .map((n) => n.closest("[aria-checked]"))
+        .find((el): el is HTMLElement => Boolean(el))
+      if (!chip) throw new Error(`Filter chip not found for label: ${label}`)
+      fireEvent.click(chip)
+    }
+
+    act(() => {
+      clickChip("Only to me")
+    })
+    act(() => {
+      clickChip("Shared with everyone")
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTestId("templates-library-row-t-private")).toBeTruthy()
+      expect(screen.getByTestId("templates-library-row-t-shared")).toBeTruthy()
+    })
+  })
+
   it(
     "does not render thousands of rows at once; renders more on scroll",
     async () => {

@@ -160,8 +160,12 @@ export function TemplatesLibraryView({ onClose }: Props) {
       )
       .filter((t) => {
         if (visibilityFilter.length === 0) return true
-        if (visibilityFilter.includes("private")) return t.isPrivate
-        if (visibilityFilter.includes("shared")) return !t.isPrivate
+        const allowPrivate = visibilityFilter.includes("private")
+        const allowShared = visibilityFilter.includes("shared")
+        // If both are selected, visibility is effectively unfiltered (OR across both buckets).
+        if (allowPrivate && allowShared) return true
+        if (allowPrivate) return t.isPrivate
+        if (allowShared) return !t.isPrivate
         return true
       })
       .filter((t) =>

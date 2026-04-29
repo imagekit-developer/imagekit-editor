@@ -67,6 +67,7 @@ export const Header = ({
 }: HeaderProps) => {
   const { imageList, originalImageList, currentImage } = useEditorStore()
   const templateId = useEditorStore((s) => s.templateId)
+  const templateIsPrivate = useEditorStore((s) => s.templateIsPrivate)
   const syncStatus = useEditorStore((s) => s.syncStatus)
   const provider = useTemplateStorage()
 
@@ -119,7 +120,16 @@ export const Header = ({
           <Flex alignItems="center" gap="2" px="4" height="full" ml="-4">
             {templateId && (
               <Icon
-                as={activeRecord?.isPrivate === false ? PiGlobe : PiLock}
+                as={
+                  // Prefer the editor store for the active template visibility; it updates immediately after save.
+                  templateIsPrivate !== null
+                    ? templateIsPrivate === false
+                      ? PiGlobe
+                      : PiLock
+                    : activeRecord?.isPrivate === false
+                      ? PiGlobe
+                      : PiLock
+                }
                 boxSize={5}
                 color="editorBattleshipGrey.500"
               />

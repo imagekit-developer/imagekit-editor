@@ -78,6 +78,7 @@ export function SettingsModal({
 
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // Fetch authoritative visibility + creator check from the API.
   useEffect(() => {
@@ -159,10 +160,11 @@ export function SettingsModal({
   // -------------------------------------------------------------------------
   // Delete
   // -------------------------------------------------------------------------
-  const handleDelete = async () => {
+  const handleDeleteConfirmed = async () => {
     if (!provider || !provider.deleteTemplate) return
 
     setIsDeleting(true)
+    setShowDeleteConfirm(false)
     try {
       await provider.deleteTemplate(data.id)
       onDeleted?.()
@@ -222,10 +224,10 @@ export function SettingsModal({
         maxH="50vh"
         bg="white"
         borderRadius="xl"
-        overflow="hidden"
         boxShadow="xl"
         display="flex"
         flexDirection="column"
+        position="relative"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -317,6 +319,116 @@ export function SettingsModal({
           </FlexAny>
         </Box>
 
+        {/* Delete confirmation — blur overlay + centered floating card */}
+        {showDeleteConfirm && (
+          <>
+            {/* Frosted-glass overlay dims the modal content behind the popover */}
+            <Box
+              position="absolute"
+              inset={0}
+              bg="whiteAlpha.700"
+              backdropFilter="blur(3px)"
+              zIndex={9}
+              borderRadius="xl"
+            />
+            <Box
+              position="absolute"
+              top="50%"
+              left="50%"
+              transform="translate(-50%, -50%)"
+              w="75%"
+              bg="white"
+              borderRadius="lg"
+              borderWidth="1px"
+              borderColor="red.200"
+              boxShadow="0 8px 24px rgba(0,0,0,0.18), 0 2px 8px rgba(220,53,69,0.12)"
+              px="5"
+              py="4"
+              zIndex={10}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <FlexAny direction="column" gap="4">
+                <FlexAny alignItems="flex-start" gap="3">
+                  <Box
+                    flexShrink={0}
+                    mt="0.5"
+                    p="1.5"
+                    borderRadius="md"
+                    bg="red.50"
+                  >
+                    <Icon
+                      as={PiTrash}
+                      boxSize={4}
+                      color="red.500"
+                      display="block"
+                    />
+                  </Box>
+                  <Box>
+                    <TextAny
+                      fontSize="sm"
+                      fontWeight="semibold"
+                      color="gray.800"
+                    >
+                      Delete template?
+                    </TextAny>
+                    <TextAny
+                      fontSize="xs"
+                      color="gray.700"
+                      mt="1"
+                      lineHeight="1.5"
+                    >
+                      This will permanently delete &ldquo;
+                      {formatTemplateNameForUI(data.name)}&rdquo;. This action
+                      cannot be reversed.
+                    </TextAny>
+                  </Box>
+                </FlexAny>
+                <FlexAny gap="2" justifyContent="flex-end">
+                  <Box
+                    as="button"
+                    display="inline-flex"
+                    alignItems="center"
+                    px="3"
+                    py="1.5"
+                    borderRadius="md"
+                    borderWidth="1px"
+                    borderColor="gray.200"
+                    bg="white"
+                    fontSize="sm"
+                    fontWeight="medium"
+                    color="gray.600"
+                    cursor="pointer"
+                    _hover={{ bg: "gray.50" }}
+                    onClick={() => setShowDeleteConfirm(false)}
+                    data-testid="delete-confirm-cancel"
+                  >
+                    Cancel
+                  </Box>
+                  <Box
+                    as="button"
+                    display="inline-flex"
+                    alignItems="center"
+                    px="3"
+                    py="1.5"
+                    borderRadius="md"
+                    bg={isDeleting ? "red.300" : "red.500"}
+                    color="white"
+                    fontSize="sm"
+                    fontWeight="medium"
+                    cursor={isDeleting ? "not-allowed" : "pointer"}
+                    _hover={{ bg: isDeleting ? "red.300" : "red.600" }}
+                    onClick={isDeleting ? undefined : handleDeleteConfirmed}
+                    aria-disabled={isDeleting}
+                    data-testid="delete-confirm-submit"
+                  >
+                    {isDeleting ? "Deleting…" : "Yes, delete"}
+                  </Box>
+                </FlexAny>
+              </FlexAny>
+            </Box>
+          </>
+        )}
+
         {/* Footer */}
         <FlexAny
           px="6"
@@ -334,12 +446,24 @@ export function SettingsModal({
                 display="inline-flex"
                 alignItems="center"
                 gap="2"
-                color={isDeleting || isSaving ? "gray.400" : "red.500"}
-                cursor={isDeleting || isSaving ? "not-allowed" : "pointer"}
+                color={
+                  isDeleting || isSaving || showDeleteConfirm
+                    ? "gray.400"
+                    : "red.500"
+                }
+                cursor={
+                  isDeleting || isSaving || showDeleteConfirm
+                    ? "not-allowed"
+                    : "pointer"
+                }
                 fontSize="sm"
                 fontWeight="medium"
-                onClick={isDeleting || isSaving ? undefined : handleDelete}
-                aria-disabled={isDeleting || isSaving}
+                onClick={
+                  isDeleting || isSaving || showDeleteConfirm
+                    ? undefined
+                    : () => setShowDeleteConfirm(true)
+                }
+                aria-disabled={isDeleting || isSaving || showDeleteConfirm}
               >
                 <Icon as={PiTrash} boxSize={5} />
                 {isDeleting ? "Deleting…" : "Delete"}
