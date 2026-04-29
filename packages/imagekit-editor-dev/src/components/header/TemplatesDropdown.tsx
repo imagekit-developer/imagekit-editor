@@ -44,6 +44,14 @@ const PopoverContentAny = PopoverContent as unknown as React.FC<
   Record<string, unknown>
 >
 
+const PopoverBodyAny = PopoverBody as unknown as React.FC<
+  Record<string, unknown>
+>
+
+const AlertDialogContentAny = AlertDialogContent as unknown as React.FC<
+  Record<string, unknown>
+>
+
 const MAX_VISIBLE = 5
 
 interface TemplatesDropdownProps {
@@ -59,6 +67,9 @@ export function TemplatesDropdown({
   const [templates, setTemplates] = useState<TemplateRecord[]>([])
   const [search, setSearch] = useState("")
   const [pinningId, setPinningId] = useState<string | null>(null)
+  const [hoveredTemplateId, setHoveredTemplateId] = useState<string | null>(
+    null,
+  )
   const searchRef = useRef<HTMLInputElement>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
   const [isSavingAndContinuing, setIsSavingAndContinuing] = useState(false)
@@ -291,7 +302,7 @@ export function TemplatesDropdown({
             borderColor: "transparent",
           }}
         >
-          <PopoverBody p="0">
+          <PopoverBodyAny p="0">
             <Flex
               px="4"
               py="3"
@@ -397,98 +408,126 @@ export function TemplatesDropdown({
                   </Text>
                 </Flex>
               ) : (
-                filtered.map((record) => (
-                  // biome-ignore lint/a11y/useSemanticElements: Not necessary for this component
-                  <Flex
-                    key={record.id}
-                    px="4"
-                    py="2"
-                    cursor="pointer"
-                    alignItems="center"
-                    gap="3"
-                    role="group"
-                    _hover={{ bg: "editorGray.100" }}
-                    onClick={() => handleSelect(record)}
-                    transition="background-color 0.15s"
-                  >
-                    {/* Visibility Icon */}
-                    <Icon
-                      as={record.isPrivate ? PiLock : PiGlobe}
-                      boxSize={4}
-                      color="editorBattleshipGrey.500"
-                      flexShrink={0}
-                    />
+                filtered.map((record) =>
+                  (() => {
+                    const isHovered = hoveredTemplateId === record.id
+                    const shouldShowPinButton = isHovered || record.isPinned
+                    const creatorLabel =
+                      record.createdBy.name || record.createdBy.email
 
-                    {/* Template name */}
-                    <Text
-                      flex="1"
-                      minW={0}
-                      fontSize="sm"
-                      fontWeight="medium"
-                      isTruncated
-                      color="editorBattleshipGrey.800"
-                      title={record.name}
-                    >
-                      {truncateTemplateName(record.name)}
-                    </Text>
-
-                    {/* Creator on hover + pin (always visible for pinned, hover for others) */}
-                    <Flex alignItems="center" gap="3">
-                      {/* Creator: only on hover */}
+                    return (
+                      // biome-ignore lint/a11y/useSemanticElements: Not necessary for this component
                       <Flex
+                        key={record.id}
+                        px="4"
+                        py="2"
+                        cursor="pointer"
                         alignItems="center"
-                        gap="1.5"
-                        maxW="36"
-                        opacity={0}
-                        _groupHover={{ opacity: 1 }}
-                        transition="opacity 0.12s ease-in-out"
+                        gap="3"
+                        role="group"
+                        _hover={{ bg: "editorGray.100" }}
+                        data-testid={`templates-dropdown-row-${record.id}`}
+                        onClick={() => handleSelect(record)}
+                        onMouseEnter={() => setHoveredTemplateId(record.id)}
+                        onMouseLeave={() =>
+                          setHoveredTemplateId((current) =>
+                            current === record.id ? null : current,
+                          )
+                        }
+                        transition="background-color 0.15s"
                       >
-                        <Avatar
-                          name={record.createdBy.name || record.createdBy.email}
-                          size="xs"
-                          fontSize="xs"
-                          fontWeight="bold"
+                        {/* Visibility Icon */}
+                        <Icon
+                          as={record.isPrivate ? PiLock : PiGlobe}
+                          boxSize={4}
+                          color="editorBattleshipGrey.500"
                           flexShrink={0}
                         />
-                        <Text
-                          fontSize="xs"
-                          color="editorBattleshipGrey.500"
-                          isTruncated
-                        >
-                          {record.createdBy.name || record.createdBy.email}
-                        </Text>
-                      </Flex>
 
-                      {/* Pin */}
-                      <Box
-                        as="button"
-                        type="button"
-                        opacity={record.isPinned ? 1 : 0}
-                        _groupHover={{ opacity: 1 }}
-                        transition="opacity 0.12s ease-in-out"
-                        disabled={pinningId === record.id}
-                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                          e.stopPropagation()
-                          handleTogglePin(record)
-                        }}
-                      >
-                        {pinningId === record.id ? (
-                          <Spinner size="xs" color="editorBattleshipGrey.500" />
-                        ) : (
-                          <Icon
-                            as={record.isPinned ? PiPushPinFill : PiPushPin}
-                            boxSize={4}
-                            color={
-                              record.isPinned
-                                ? "editorBlue.500"
-                                : "editorBattleshipGrey.400"
-                            }
-                          />
-                        )}
-                      </Box>
-                    </Flex>
-                  </Flex>
-                ))
+                        {/* Template name */}
+                        <Text
+                          flex="1"
+                          minW={0}
+                          fontSize="sm"
+                          fontWeight="medium"
+                          isTruncated
+                          color="editorBattleshipGrey.800"
+                          title={record.name}
+                        >
+                          {truncateTemplateName(record.name)}
+                        </Text>
+
+                        {/* Creator on hover + pin (always visible for pinned, hover for others) */}
+                        <Flex alignItems="center" gap="3">
+                          {/* Creator: only on hover */}
+                          {isHovered ? (
+                            <Flex
+                              alignItems="center"
+                              gap="1.5"
+                              maxW="36"
+                              transition="opacity 0.12s ease-in-out"
+                              data-testid={`templates-dropdown-creator-${record.id}`}
+                            >
+                              <Avatar
+                                name={creatorLabel}
+                                size="xs"
+                                fontSize="xs"
+                                fontWeight="bold"
+                                flexShrink={0}
+                                data-testid={`templates-dropdown-creator-avatar-${record.id}`}
+                              />
+                              <Text
+                                fontSize="xs"
+                                color="editorBattleshipGrey.500"
+                                isTruncated
+                              >
+                                {creatorLabel}
+                              </Text>
+                            </Flex>
+                          ) : null}
+
+                          {/* Pin */}
+                          {shouldShowPinButton ? (
+                            <Box
+                              as="button"
+                              type="button"
+                              aria-label={
+                                record.isPinned
+                                  ? `Unpin template ${record.name}`
+                                  : `Pin template ${record.name}`
+                              }
+                              transition="opacity 0.12s ease-in-out"
+                              disabled={pinningId === record.id}
+                              onClick={(e: React.MouseEvent<HTMLElement>) => {
+                                e.stopPropagation()
+                                handleTogglePin(record)
+                              }}
+                            >
+                              {pinningId === record.id ? (
+                                <Spinner
+                                  size="xs"
+                                  color="editorBattleshipGrey.500"
+                                />
+                              ) : (
+                                <Icon
+                                  as={
+                                    record.isPinned ? PiPushPinFill : PiPushPin
+                                  }
+                                  boxSize={4}
+                                  color={
+                                    record.isPinned
+                                      ? "editorBlue.500"
+                                      : "editorBattleshipGrey.400"
+                                  }
+                                />
+                              )}
+                            </Box>
+                          ) : null}
+                        </Flex>
+                      </Flex>
+                    )
+                  })(),
+                )
               )}
             </Box>
 
@@ -523,7 +562,7 @@ export function TemplatesDropdown({
                 </Flex>
               </>
             ) : null}
-          </PopoverBody>
+          </PopoverBodyAny>
         </PopoverContentAny>
       </Popover>
 
@@ -537,7 +576,7 @@ export function TemplatesDropdown({
         isCentered
       >
         <AlertDialogOverlay>
-          <AlertDialogContent
+          <AlertDialogContentAny
             w="45vw"
             maxW="45vw"
             h="40vh"
@@ -607,7 +646,7 @@ export function TemplatesDropdown({
                 Save and continue
               </Button>
             </AlertDialogFooter>
-          </AlertDialogContent>
+          </AlertDialogContentAny>
         </AlertDialogOverlay>
       </AlertDialog>
     </>
