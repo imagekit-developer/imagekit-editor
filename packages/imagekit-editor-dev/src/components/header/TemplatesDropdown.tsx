@@ -1,10 +1,4 @@
 import {
-  AlertDialog,
-  AlertDialogBody,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogOverlay,
   Avatar,
   Badge,
   Box,
@@ -48,19 +42,12 @@ const PopoverBodyAny = PopoverBody as unknown as React.FC<
   Record<string, unknown>
 >
 
-const AlertDialogContentAny = AlertDialogContent as unknown as React.FC<
-  Record<string, unknown>
->
-
 const BoxAny = Box as unknown as React.FC<Record<string, unknown>>
 const TextAny = Text as unknown as React.ElementType
 const FlexAny = Flex as unknown as React.ElementType
 const DividerAny = Divider as unknown as React.ElementType
 const ButtonAny = Button as unknown as React.ElementType
 const IconAny = Icon as unknown as React.ElementType
-const AlertDialogHeaderAny = AlertDialogHeader as unknown as React.ElementType
-const AlertDialogBodyAny = AlertDialogBody as unknown as React.ElementType
-const AlertDialogFooterAny = AlertDialogFooter as unknown as React.ElementType
 const InputGroupAny = InputGroup as unknown as React.ElementType
 const InputLeftElementAny = InputLeftElement as unknown as React.ElementType
 const InputAny = Input as unknown as React.ElementType
@@ -88,7 +75,7 @@ export function TemplatesDropdown({
   )
   const searchRef = useRef<HTMLInputElement>(null)
   const resultsScrollRef = useRef<HTMLDivElement>(null)
-  const cancelRef = useRef<HTMLButtonElement>(null)
+
   const [isSavingAndContinuing, setIsSavingAndContinuing] = useState(false)
 
   const [pendingTemplate, setPendingTemplate] = useState<TemplateRecord | null>(
@@ -651,91 +638,164 @@ export function TemplatesDropdown({
         </PopoverContentAny>
       </Popover>
 
-      <AlertDialog
-        isOpen={pendingTemplate !== null}
-        leastDestructiveRef={cancelRef}
-        onClose={() => {
-          if (isSavingAndContinuing) return
-          setPendingTemplate(null)
-        }}
-        isCentered
-      >
-        <AlertDialogOverlay>
-          <AlertDialogContentAny
-            w="45vw"
-            maxW="45vw"
-            h="40vh"
-            maxH="40vh"
+      {pendingTemplate !== null && (
+        <Box
+          position="fixed"
+          inset={0}
+          bg="blackAlpha.400"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          zIndex={1500}
+          onClick={() => {
+            if (isSavingAndContinuing) return
+            setPendingTemplate(null)
+          }}
+        >
+          <Box
+            w="40vw"
+            maxW="40vw"
             bg="white"
             borderRadius="xl"
-            overflow="hidden"
             boxShadow="xl"
             display="flex"
             flexDirection="column"
+            onClick={(e) => e.stopPropagation()}
           >
-            <AlertDialogHeaderAny
-              fontSize="lg"
-              fontWeight="semibold"
-              color="editorGray.900"
+            {/* Header */}
+            <FlexAny
               px="6"
               py="4"
-              borderBottomWidth="0.5px"
-              borderColor="editorGray.50"
+              alignItems="center"
+              justifyContent="space-between"
+              borderBottomWidth="1px"
+              borderColor="editorGray.300"
             >
-              Unsaved changes
-            </AlertDialogHeaderAny>
-            <AlertDialogBodyAny
-              fontSize="lg"
-              color="editorGray.700"
-              p="6"
-              flex="1"
-              overflowY="auto"
-            >
-              Your current changes haven't been saved yet. What would you like
-              to do before switching to{" "}
-              <Box as="span" fontWeight="semibold">
-                {pendingTemplate
-                  ? formatTemplateNameForUI(pendingTemplate.name)
-                  : null}
-              </Box>
-              ?
-            </AlertDialogBodyAny>
-            <AlertDialogFooterAny
-              p="6"
-              borderTopWidth="0.5px"
-              borderColor="editorGray.50"
+              <TextAny
+                fontSize="lg"
+                fontWeight="semibold"
+                color="editorGray.900"
+              >
+                Unsaved changes
+              </TextAny>
+            </FlexAny>
+
+            {/* Body */}
+            <Box px="6" py="6" flex="1">
+              <TextAny fontSize="sm" color="editorGray.700" lineHeight="1.6">
+                Your current changes haven&apos;t been saved yet. What would you
+                like to do before switching to{" "}
+                <Box as="span" fontWeight="semibold" color="editorGray.900">
+                  {formatTemplateNameForUI(pendingTemplate.name)}
+                </Box>
+                ?
+              </TextAny>
+            </Box>
+
+            {/* Footer */}
+            <FlexAny
+              px="6"
+              py="4"
+              alignItems="center"
+              justifyContent="flex-end"
               gap="3"
+              borderTopWidth="1px"
+              borderColor="editorGray.300"
             >
-              <ButtonAny
-                ref={cancelRef}
-                size="md"
-                variant="ghost"
-                onClick={() => setPendingTemplate(null)}
-                isDisabled={isSavingAndContinuing}
+              {/* Cancel */}
+              <Box
+                as="button"
+                display="inline-flex"
+                alignItems="center"
+                px="4"
+                py="2"
+                borderRadius="md"
+                fontSize="sm"
+                fontWeight="medium"
+                color={isSavingAndContinuing ? "gray.400" : "editorGray.700"}
+                cursor={isSavingAndContinuing ? "not-allowed" : "pointer"}
+                _hover={{ bg: isSavingAndContinuing ? undefined : "gray.50" }}
+                onClick={
+                  isSavingAndContinuing
+                    ? undefined
+                    : () => setPendingTemplate(null)
+                }
+                aria-disabled={isSavingAndContinuing}
               >
                 Cancel
-              </ButtonAny>
-              <ButtonAny
-                size="md"
-                variant="outline"
-                onClick={handleContinueWithoutSaving}
-                isDisabled={isSavingAndContinuing}
+              </Box>
+
+              {/* Continue without saving */}
+              <Box
+                as="button"
+                display="inline-flex"
+                alignItems="center"
+                px="4"
+                py="2"
+                borderRadius="md"
+                borderWidth="1px"
+                borderColor={isSavingAndContinuing ? "gray.200" : "gray.300"}
+                fontSize="sm"
+                fontWeight="medium"
+                color={isSavingAndContinuing ? "gray.400" : "editorGray.700"}
+                cursor={isSavingAndContinuing ? "not-allowed" : "pointer"}
+                _hover={{ bg: isSavingAndContinuing ? undefined : "gray.50" }}
+                onClick={
+                  isSavingAndContinuing
+                    ? undefined
+                    : handleContinueWithoutSaving
+                }
+                aria-disabled={isSavingAndContinuing}
               >
                 Continue without saving
-              </ButtonAny>
-              <ButtonAny
-                size="md"
-                colorScheme="blue"
-                onClick={handleSaveAndContinue}
-                isLoading={isSavingAndContinuing}
-                isDisabled={templateStorageWriteBlocked}
+              </Box>
+
+              {/* Save and continue */}
+              <Box
+                as="button"
+                display="inline-flex"
+                alignItems="center"
+                gap="2"
+                px="4"
+                py="2"
+                borderRadius="md"
+                bg={
+                  isSavingAndContinuing || templateStorageWriteBlocked
+                    ? "blue.200"
+                    : "blue.500"
+                }
+                color="white"
+                fontSize="sm"
+                fontWeight="medium"
+                cursor={
+                  isSavingAndContinuing || templateStorageWriteBlocked
+                    ? "not-allowed"
+                    : "pointer"
+                }
+                _hover={{
+                  bg:
+                    isSavingAndContinuing || templateStorageWriteBlocked
+                      ? "blue.200"
+                      : "blue.600",
+                }}
+                onClick={
+                  isSavingAndContinuing || templateStorageWriteBlocked
+                    ? undefined
+                    : handleSaveAndContinue
+                }
+                aria-disabled={
+                  isSavingAndContinuing || templateStorageWriteBlocked
+                }
               >
-                Save and continue
-              </ButtonAny>
-            </AlertDialogFooterAny>
-          </AlertDialogContentAny>
-        </AlertDialogOverlay>
-      </AlertDialog>
+                {isSavingAndContinuing && (
+                  <SpinnerAny size="xs" color="white" />
+                )}
+                {isSavingAndContinuing ? "Saving…" : "Save and continue"}
+              </Box>
+            </FlexAny>
+          </Box>
+        </Box>
+      )}
     </>
   )
 }
