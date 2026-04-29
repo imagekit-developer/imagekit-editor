@@ -319,7 +319,6 @@ describe("TemplatesLibraryView (virtualized)", () => {
     // ArrowDown cycles back to first result.
     act(() => {
       fireEvent.keyDown(searchInput, { key: "ArrowDown" })
-      fireEvent.keyDown(searchInput, { key: "ArrowDown" })
     })
     expect(
       screen
@@ -338,5 +337,130 @@ describe("TemplatesLibraryView (virtualized)", () => {
     ).toBe("true")
 
     vi.useRealTimers()
+  })
+
+  it("does not cycle with ArrowUp/ArrowDown when list size exceeds 200", async () => {
+    const now = Date.now()
+    const templates = Array.from({ length: 205 }).map((_, i) =>
+      makeTemplate({
+        id: `t-${i}`,
+        name: `Template ${i}`,
+        updatedAt: now - i,
+        createdAt: now - i,
+        createdBy: {
+          userId: `u-${i}`,
+          name: `User ${i}`,
+          email: `u${i}@ex.com`,
+        },
+      }),
+    )
+
+    useEditorStore.setState({
+      isPristine: true,
+      templateId: null,
+      templateName: "New template",
+      transformations: [],
+      syncStatus: "saved",
+      localChangeVersion: 1,
+      lastSyncedVersion: 1,
+    } as unknown as Parameters<typeof useEditorStore.setState>[0])
+
+    renderWithProvider({ templates })
+
+    expect(await screen.findByText("All templates")).toBeTruthy()
+    const scrollEl = await screen.findByTestId("templates-library-scroll")
+
+    const searchInput = await screen.findByPlaceholderText(
+      "Search templates...",
+    )
+
+    // Move to the last row via ArrowDown.
+    act(() => {
+      for (let i = 0; i < 205; i++) {
+        fireEvent.keyDown(searchInput, { key: "ArrowDown" })
+      }
+    })
+
+    // Scroll near the bottom so the last row is mounted for assertion.
+    act(() => {
+      fireEvent.scroll(scrollEl, { target: { scrollTop: 84 * 204 } })
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText("Template 204")).toBeTruthy()
+    })
+
+    expect(
+      screen
+        .getByTestId("templates-library-row-t-204")
+        .getAttribute("data-active"),
+    ).toBe("true")
+
+    // One more ArrowDown should NOT wrap back to the first row.
+    act(() => {
+      fireEvent.keyDown(searchInput, { key: "ArrowDown" })
+    })
+
+    expect(
+      screen
+        .getByTestId("templates-library-row-t-204")
+        .getAttribute("data-active"),
+    ).toBe("true")
+  })
+
+  it("loads the selected template on Enter in the library", async () => {
+    const now = Date.now()
+    const t1 = makeTemplate({
+      id: "t-1",
+      name: "Template 1",
+      updatedAt: now,
+      createdAt: now,
+      createdBy: { userId: "u-1", name: "Ada", email: "ada@ex.com" },
+    })
+    const t2 = makeTemplate({
+      id: "t-2",
+      name: "Template 2",
+      updatedAt: now - 1,
+      createdAt: now - 1,
+      createdBy: { userId: "u-2", name: "Grace", email: "grace@ex.com" },
+    })
+    const templates = [t1, t2]
+
+    useEditorStore.setState({
+      isPristine: true,
+      templateId: null,
+      templateName: "New template",
+      transformations: [],
+      syncStatus: "saved",
+      localChangeVersion: 1,
+      lastSyncedVersion: 1,
+    } as unknown as Parameters<typeof useEditorStore.setState>[0])
+
+    renderWithProvider({ templates })
+
+    expect(await screen.findByText("All templates")).toBeTruthy()
+    const searchInput = await screen.findByPlaceholderText(
+      "Search templates...",
+    )
+
+    // Navigate to first template with ArrowDown
+    act(() => {
+      fireEvent.keyDown(searchInput, { key: "ArrowDown" })
+    })
+
+    expect(
+      screen
+        .getByTestId("templates-library-row-t-1")
+        .getAttribute("data-active"),
+    ).toBe("true")
+
+    // Press Enter to load it
+    act(() => {
+      fireEvent.keyDown(searchInput, { key: "Enter" })
+    })
+
+    // Verify the template was loaded into the store
+    expect(useEditorStore.getState().templateId).toBe("t-1")
+    expect(useEditorStore.getState().templateName).toBe("Template 1")
   })
 })

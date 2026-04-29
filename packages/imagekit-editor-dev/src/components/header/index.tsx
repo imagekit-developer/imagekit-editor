@@ -15,6 +15,7 @@ import { PiX } from "@react-icons/all-files/pi/PiX"
 import React, { useEffect, useState } from "react"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
+import type { TemplateRecord } from "../../storage/types"
 import {
   type FileElement,
   type RequiredMetadata,
@@ -69,14 +70,16 @@ export const Header = ({
   const syncStatus = useEditorStore((s) => s.syncStatus)
   const provider = useTemplateStorage()
 
-  const [isPrivate, setIsPrivate] = useState<boolean | null>(null)
+  const [activeRecord, setActiveRecord] = useState<TemplateRecord | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
+  // Fetch the active template record whenever templateId changes or after a save.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: syncStatus intentionally triggers a refetch after saves
   useEffect(() => {
     let cancelled = false
 
     if (!provider || !templateId) {
-      setIsPrivate(null)
+      setActiveRecord(null)
       return
     }
 
@@ -84,51 +87,13 @@ export const Header = ({
       .getTemplate(templateId)
       .then((record) => {
         if (cancelled) return
-        setIsPrivate(record ? record.isPrivate : null)
+        setActiveRecord(record ?? null)
       })
       .catch((err) => {
         if (cancelled) return
         const { denyTemplateStorageAccess } = useEditorStore.getState()
-        if (
-          applyTemplateStorageAccessFailure(err, {
-            denyTemplateStorageAccess,
-          })
-        ) {
-          return
-        }
-        setIsPrivate(null)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [provider, templateId])
-
-  // Refetch template visibility when it's saved
-  useEffect(() => {
-    let cancelled = false
-
-    if (!provider || !templateId || syncStatus !== "saved") {
-      return
-    }
-
-    provider
-      .getTemplate(templateId)
-      .then((record) => {
-        if (cancelled) return
-        setIsPrivate(record ? record.isPrivate : null)
-      })
-      .catch((err) => {
-        if (cancelled) return
-        const { denyTemplateStorageAccess } = useEditorStore.getState()
-        if (
-          applyTemplateStorageAccessFailure(err, {
-            denyTemplateStorageAccess,
-          })
-        ) {
-          return
-        }
-        setIsPrivate(null)
+        applyTemplateStorageAccessFailure(err, { denyTemplateStorageAccess })
+        setActiveRecord(null)
       })
 
     return () => {
@@ -154,7 +119,7 @@ export const Header = ({
           <Flex alignItems="center" gap="2" px="4" height="full" ml="-4">
             {templateId && (
               <Icon
-                as={isPrivate === false ? PiGlobe : PiLock}
+                as={activeRecord?.isPrivate === false ? PiGlobe : PiLock}
                 boxSize={5}
                 color="editorBattleshipGrey.500"
               />
@@ -277,11 +242,22 @@ export const Header = ({
         label="Close"
         onClick={onClose}
       />
-      {isSettingsOpen && (
+      {isSettingsOpen && activeRecord && (
         <SettingsModal
-          key={templateId ?? "new"}
-          knownIsPrivate={isPrivate}
+          key={activeRecord.id}
+          data={activeRecord}
           onClose={() => setIsSettingsOpen(false)}
+          onSaved={(updated) => {
+            setActiveRecord(updated)
+            useEditorStore.getState().hydrateTemplateMetadata({
+              templateId: updated.id,
+              templateName: updated.name,
+              templateIsPrivate: updated.isPrivate,
+            })
+          }}
+          onDeleted={() => {
+            useEditorStore.getState().resetToNewTemplate()
+          }}
         />
       )}
     </Flex>

@@ -92,8 +92,13 @@ describe("TemplatesDropdown", () => {
     await openDropdown()
 
     expect(await screen.findByText("Vintage Look")).toBeTruthy()
-    expect(screen.queryByText("Ada Lovelace")).toBeNull()
-    expect(screen.queryByLabelText(/Pin template Vintage Look/i)).toBeNull()
+    // Creator text exists in DOM but is hidden (not visible until hover)
+    const creatorElement = screen.queryByTestId(
+      `templates-dropdown-creator-${t.id}`,
+    )
+    expect(creatorElement).toBeTruthy()
+    // Pin button is in the DOM but hidden (visibility: hidden) before hover
+    expect(screen.getByLabelText(/Pin template Vintage Look/i)).toBeTruthy()
 
     const row = screen
       .getByText("Vintage Look")
@@ -104,6 +109,7 @@ describe("TemplatesDropdown", () => {
       fireEvent.mouseEnter(row as Element)
     })
 
+    // After hover, creator is visible
     expect(screen.getByText("Ada Lovelace")).toBeTruthy()
     expect(
       screen.getByTestId("templates-dropdown-creator-avatar-t-1"),
@@ -114,8 +120,8 @@ describe("TemplatesDropdown", () => {
       fireEvent.mouseLeave(row as Element)
     })
 
-    expect(screen.queryByText("Ada Lovelace")).toBeNull()
-    expect(screen.queryByLabelText(/Pin template Vintage Look/i)).toBeNull()
+    // After leaving, pin button is still in DOM (just hidden)
+    expect(screen.getByLabelText(/Pin template Vintage Look/i)).toBeTruthy()
   })
 
   it("keeps pin icon visible when a template is pinned (even without hover)", async () => {
@@ -143,7 +149,10 @@ describe("TemplatesDropdown", () => {
     expect(
       screen.getByLabelText(/Unpin template My Pinned Template/i),
     ).toBeTruthy()
-    expect(screen.queryByText("Grace")).toBeNull()
+    // Creator is in DOM but hidden (not interactable)
+    expect(
+      screen.queryByTestId(`templates-dropdown-creator-${pinned.id}`),
+    ).toBeTruthy()
   })
 
   it('shows a "Current" indicator row when the current template is active', async () => {
@@ -151,7 +160,7 @@ describe("TemplatesDropdown", () => {
       isPristine: false,
       templateId: null,
       templateName: "In progress",
-      transformations: [{ id: "x" }],
+      transformations: [],
       syncStatus: "saved",
       localChangeVersion: 1,
       lastSyncedVersion: 1,
@@ -212,6 +221,11 @@ describe("TemplatesDropdown", () => {
     })
     expect(screen.getByText("Ada")).toBeTruthy()
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+    expect(
+      screen
+        .getByTestId("templates-dropdown-row-t-1")
+        .getAttribute("data-active"),
+    ).toBe("true")
 
     // ArrowDown should move to next result.
     act(() => {
@@ -230,5 +244,96 @@ describe("TemplatesDropdown", () => {
       fireEvent.keyDown(input, { key: "ArrowUp" })
     })
     expect(screen.getByText("Grace")).toBeTruthy()
+  })
+
+  it("maintains consistent row height when hovering (no layout shift)", async () => {
+    useEditorStore.setState({
+      isPristine: true,
+      templateId: null,
+      templateName: "New template",
+      transformations: [],
+      syncStatus: "saved",
+      localChangeVersion: 1,
+      lastSyncedVersion: 1,
+    } as unknown as Parameters<typeof useEditorStore.setState>[0])
+
+    const t = makeTemplate({
+      id: "t-1",
+      name: "Test Template",
+      isPinned: false,
+      createdBy: { userId: "u-1", name: "John Doe", email: "john@ex.com" },
+    })
+
+    renderWithProvider({ templates: [t] })
+    await openDropdown()
+
+    expect(await screen.findByText("Test Template")).toBeTruthy()
+
+    const row = screen
+      .getByText("Test Template")
+      .closest('[data-testid="templates-dropdown-row-t-1"]')
+    expect(row).toBeTruthy()
+
+    // Count child nodes in the row before hover — the DOM structure must not change
+    const childCountBefore = (row as HTMLElement).querySelectorAll("*").length
+
+    // Hover over the row
+    act(() => {
+      fireEvent.mouseEnter(row as Element)
+    })
+
+    // DOM structure must be identical — no nodes added or removed
+    const childCountOnHover = (row as HTMLElement).querySelectorAll("*").length
+    expect(childCountOnHover).toBe(childCountBefore)
+
+    // Move away from row
+    act(() => {
+      fireEvent.mouseLeave(row as Element)
+    })
+
+    const childCountAfterHover = (row as HTMLElement).querySelectorAll(
+      "*",
+    ).length
+    expect(childCountAfterHover).toBe(childCountBefore)
+  })
+
+  it("loads the selected template on Enter (keyboard)", async () => {
+    useEditorStore.setState({
+      isPristine: true,
+      templateId: null,
+      templateName: "New template",
+      transformations: [],
+      syncStatus: "saved",
+      localChangeVersion: 1,
+      lastSyncedVersion: 1,
+    } as unknown as Parameters<typeof useEditorStore.setState>[0])
+
+    const t1 = makeTemplate({
+      id: "t-1",
+      name: "Alpha",
+      createdBy: { userId: "u-1", name: "Ada", email: "ada@ex.com" },
+    })
+    const t2 = makeTemplate({
+      id: "t-2",
+      name: "Alpine",
+      createdBy: { userId: "u-2", name: "Grace", email: "grace@ex.com" },
+    })
+
+    renderWithProvider({ templates: [t1, t2] })
+    await openDropdown()
+
+    const input = await screen.findByPlaceholderText("Search templates...")
+    act(() => {
+      fireEvent.change(input, { target: { value: "al" } })
+    })
+
+    // ArrowDown to activate first result, then Enter to load it.
+    act(() => {
+      fireEvent.keyDown(input, { key: "ArrowDown" })
+      fireEvent.keyDown(input, { key: "Enter" })
+    })
+
+    expect(useEditorStore.getState().templateId).toBe("t-1")
+    expect(useEditorStore.getState().templateName).toBe("Alpha")
   })
 })

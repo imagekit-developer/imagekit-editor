@@ -9,18 +9,14 @@ import {
   Input,
   InputGroup,
   InputLeftElement,
-  Menu,
-  MenuButton,
-  MenuItem,
-  MenuList,
   Popover,
   PopoverBody,
   PopoverContent,
   PopoverTrigger,
   Spinner,
   Text,
+  Tooltip,
 } from "@chakra-ui/react"
-import { BsThreeDots } from "@react-icons/all-files/bs/BsThreeDots"
 import { PiArrowLeft } from "@react-icons/all-files/pi/PiArrowLeft"
 import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
 import { PiGear } from "@react-icons/all-files/pi/PiGear"
@@ -61,6 +57,7 @@ const IconAny = Icon as unknown as React.ElementType
 const PopoverContentAny = PopoverContent as unknown as React.ElementType
 const PopoverBodyAny = PopoverBody as unknown as React.ElementType
 const DividerAny = Divider as unknown as React.ElementType
+const TooltipAny = Tooltip as unknown as React.ElementType
 
 function formatRelativeTime(ts: number): string {
   const now = Date.now()
@@ -82,12 +79,15 @@ export function TemplatesLibraryView({ onClose }: Props) {
   const [creatorFilter, setCreatorFilter] = useState<string[]>([])
   const [pinningId, setPinningId] = useState<string | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const [settingsKnownIsPrivate, setSettingsKnownIsPrivate] = useState<
-    boolean | null
-  >(null)
+  const [settingsRecord, setSettingsRecord] = useState<TemplateRecord | null>(
+    null,
+  )
   const [activeVirtualIndex, setActiveVirtualIndex] = useState<number | null>(
     null,
   )
+  // Used to make keyboard navigation deterministic even under batched updates
+  // (e.g. rapid key presses or tight loops in tests).
+  const activeVirtualIndexRef = useRef<number | null>(null)
 
   const { loadTemplate, resetToNewTemplate, hydrateTemplateMetadata } =
     useEditorStore()
@@ -240,19 +240,10 @@ export function TemplatesLibraryView({ onClose }: Props) {
     [provider, resetToNewTemplate],
   )
 
-  const handleOpenSettings = useCallback(
-    (record: TemplateRecord) => {
-      loadTemplate(record.transformations)
-      hydrateTemplateMetadata({
-        templateId: record.id,
-        templateName: record.name,
-        templateIsPrivate: record.isPrivate,
-      })
-      setSettingsKnownIsPrivate(record.isPrivate)
-      setIsSettingsOpen(true)
-    },
-    [loadTemplate, hydrateTemplateMetadata],
-  )
+  const handleOpenSettings = useCallback((record: TemplateRecord) => {
+    setSettingsRecord(record)
+    setIsSettingsOpen(true)
+  }, [])
 
   const showCurrentRow = shouldShowCurrent && activeTemplate !== null
 
@@ -290,19 +281,38 @@ export function TemplatesLibraryView({ onClose }: Props) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset active row on filter/search changes
   useEffect(() => {
     setActiveVirtualIndex(null)
+    activeVirtualIndexRef.current = null
   }, [search, visibilityFilter, creatorFilter, templates.length, templateId])
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (virtualRowCount === 0) return
+
+    if (e.key === "Enter") {
+      e.preventDefault()
+      const activeIndex = activeVirtualIndexRef.current
+      if (activeIndex === null) return
+
+      const { record } = getRowByVirtualIndex(activeIndex)
+      handleSelect(record)
+      return
+    }
+
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return
     e.preventDefault()
 
-    const current = activeVirtualIndex ?? -1
-    const next =
-      e.key === "ArrowDown"
+    // Avoid wrap-around (cyclic navigation) for very large lists. When the
+    // virtualized list is big, wrapping makes it too easy to "lose" your place.
+    const shouldCycle = virtualRowCount <= 200
+    const current = activeVirtualIndexRef.current ?? -1
+    const next = shouldCycle
+      ? e.key === "ArrowDown"
         ? (current + 1 + virtualRowCount) % virtualRowCount
         : (current - 1 + virtualRowCount) % virtualRowCount
+      : e.key === "ArrowDown"
+        ? Math.min(current + 1, virtualRowCount - 1)
+        : Math.max(current - 1, 0)
 
+    activeVirtualIndexRef.current = next
     setActiveVirtualIndex(next)
     rowVirtualizer.scrollToIndex(next, { align: "auto" })
   }
@@ -627,7 +637,6 @@ export function TemplatesLibraryView({ onClose }: Props) {
                           onSettings={handleOpenSettings}
                           isCurrent={isCurrent}
                           isActive={isActive}
-                          canDelete
                         />
                       </Box>
                     )
@@ -638,11 +647,25 @@ export function TemplatesLibraryView({ onClose }: Props) {
           )}
         </Box>
       </FlexAny>
-      {isSettingsOpen && (
+      {isSettingsOpen && settingsRecord && (
         <SettingsModal
-          key={templateId ?? "new"}
-          knownIsPrivate={settingsKnownIsPrivate}
-          onClose={() => setIsSettingsOpen(false)}
+          key={settingsRecord.id}
+          data={settingsRecord}
+          onClose={() => {
+            setIsSettingsOpen(false)
+            setSettingsRecord(null)
+          }}
+          onSaved={(updated) => {
+            // Refresh the template list so the updated name/visibility is reflected
+            setTemplates((prev) =>
+              prev.map((t) => (t.id === updated.id ? updated : t)),
+            )
+          }}
+          onDeleted={() => {
+            setTemplates((prev) =>
+              prev.filter((t) => t.id !== settingsRecord.id),
+            )
+          }}
         />
       )}
     </FlexAny>
@@ -658,7 +681,6 @@ interface TemplateRowProps {
   isPinning: boolean
   isCurrent?: boolean
   isActive?: boolean
-  canDelete?: boolean
 }
 
 function TemplateRow({
@@ -670,13 +692,9 @@ function TemplateRow({
   isPinning,
   isCurrent = false,
   isActive = false,
-  canDelete = true,
 }: TemplateRowProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const recordNameUI = formatTemplateNameForUI(record.name)
-  const MenuButtonAny = MenuButton as unknown as React.ElementType
-  const MenuListAny = MenuList as unknown as React.ElementType
-  const MenuItemAny = MenuItem as unknown as React.ElementType
   return (
     <FlexAny
       px="5"
@@ -797,7 +815,7 @@ function TemplateRow({
         </TextAny>
       </Box>
 
-      {/* Row actions menu + delete confirmation popup */}
+      {/* Row actions: Settings button + delete confirmation popup */}
       <Popover
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
@@ -811,8 +829,8 @@ function TemplateRow({
             w="8"
             onClick={(e) => e.stopPropagation()}
           >
-            <Menu isLazy>
-              <MenuButtonAny
+            <TooltipAny label="Template Settings" placement="top">
+              <ButtonAny
                 as={Button}
                 size="md"
                 variant="ghost"
@@ -824,51 +842,19 @@ function TemplateRow({
                 borderColor="transparent"
                 _hover={{ bg: "editorGray.200" }}
                 _focus={{ boxShadow: "none" }}
-                onClick={(e: React.MouseEvent<HTMLElement>) =>
+                onClick={(e: React.MouseEvent<HTMLElement>) => {
                   e.stopPropagation()
-                }
+                  onSettings(record)
+                }}
+                aria-label="Template Settings"
               >
                 <IconAny
-                  as={BsThreeDots}
-                  boxSize={4}
+                  as={PiGear}
+                  boxSize={5}
                   color="editorBattleshipGrey.700"
                 />
-              </MenuButtonAny>
-              <MenuListAny
-                minW="32"
-                py="1"
-                borderWidth={0}
-                borderColor="transparent"
-                onClick={(e: React.MouseEvent<HTMLElement>) =>
-                  e.stopPropagation()
-                }
-              >
-                <MenuItemAny
-                  icon={<IconAny as={PiGear} boxSize={4} />}
-                  onClick={(e: React.MouseEvent<HTMLElement>) => {
-                    e.stopPropagation()
-                    onSettings(record)
-                  }}
-                >
-                  Settings
-                </MenuItemAny>
-                <MenuItemAny
-                  icon={<IconAny as={PiTrash} boxSize={4} />}
-                  color={canDelete ? "red.500" : "gray.400"}
-                  display="flex"
-                  alignItems="center"
-                  _hover={{ bg: canDelete ? "red.50" : "transparent" }}
-                  isDisabled={!canDelete}
-                  onClick={(e: React.MouseEvent<HTMLElement>) => {
-                    if (!canDelete) return
-                    e.stopPropagation()
-                    setShowDeleteConfirm(true)
-                  }}
-                >
-                  Delete
-                </MenuItemAny>
-              </MenuListAny>
-            </Menu>
+              </ButtonAny>
+            </TooltipAny>
           </Box>
         </PopoverTrigger>
         <PopoverContentAny
