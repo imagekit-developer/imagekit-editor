@@ -15,6 +15,7 @@ import {
   PopoverTrigger,
   Spinner,
   Text,
+  Tooltip,
   useDisclosure,
 } from "@chakra-ui/react"
 import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
@@ -53,6 +54,7 @@ const InputAny = chakraAny(Input)
 const BadgeAny = chakraAny(Badge)
 const AvatarAny = chakraAny(Avatar)
 const SpinnerAny = chakraAny(Spinner)
+const TooltipAny = chakraAny(Tooltip)
 
 const MAX_VISIBLE = 5
 
@@ -300,7 +302,7 @@ export function TemplatesDropdown({
             paddingY="2"
             height="10"
             marginX="2"
-            _hover={{ bg: "editorGray.200" }}
+            _hover={{ bg: "gray.100" }}
             transition="background-color 0.15s"
             aria-label="Open templates dropdown"
           >
@@ -407,15 +409,21 @@ export function TemplatesDropdown({
                   {/* Name + badge */}
                   <Box flex="1" minW={0}>
                     <FlexAny alignItems="center" gap="2">
-                      <TextAny
-                        fontSize="sm"
-                        fontWeight="medium"
-                        isTruncated
-                        color="blue.800"
-                        title={templateNameUI}
+                      <TooltipAny
+                        label={templateNameUI}
+                        openDelay={300}
+                        placement="top-start"
+                        hasArrow
                       >
-                        {truncateTemplateName(templateName)}
-                      </TextAny>
+                        <TextAny
+                          fontSize="sm"
+                          fontWeight="medium"
+                          isTruncated
+                          color="blue.800"
+                        >
+                          {truncateTemplateName(templateName)}
+                        </TextAny>
+                      </TooltipAny>
                       <BadgeAny colorScheme="blue" fontSize="xs" flexShrink={0}>
                         Current
                       </BadgeAny>
@@ -494,17 +502,23 @@ export function TemplatesDropdown({
                         />
 
                         {/* Template name */}
-                        <TextAny
-                          flex="1"
-                          minW={0}
-                          fontSize="sm"
-                          fontWeight="medium"
-                          isTruncated
-                          color="editorBattleshipGrey.800"
-                          title={recordNameUI}
+                        <TooltipAny
+                          label={recordNameUI}
+                          openDelay={300}
+                          placement="top-start"
+                          hasArrow
                         >
-                          {truncateTemplateName(record.name)}
-                        </TextAny>
+                          <TextAny
+                            flex="1"
+                            minW={0}
+                            fontSize="sm"
+                            fontWeight="medium"
+                            isTruncated
+                            color="editorBattleshipGrey.800"
+                          >
+                            {truncateTemplateName(record.name)}
+                          </TextAny>
+                        </TooltipAny>
 
                         {/* Creator on hover + pin (always visible for pinned, hover for others) */}
                         <FlexAny alignItems="center" gap="3">

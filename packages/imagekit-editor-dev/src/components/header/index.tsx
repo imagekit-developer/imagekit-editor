@@ -21,6 +21,7 @@ import {
   type RequiredMetadata,
   useEditorStore,
 } from "../../store"
+import { chakraAny } from "../../utils"
 import { NavbarItem } from "./NavbarItem"
 import { SettingsModal } from "./SettingsModal"
 import { TemplateNameInput } from "./TemplateNameInput"
@@ -64,7 +65,13 @@ export const Header = ({
   onClose,
   exportOptions,
   onViewAllTemplates,
-}: HeaderProps) => {
+}: HeaderProps): React.ReactElement => {
+  const FlexAny = chakraAny(Flex)
+  const DividerAny = chakraAny(Divider)
+  const MenuButtonAny = chakraAny(MenuButton)
+  const MenuListAny = chakraAny(MenuList)
+  const MenuItemAny = chakraAny(MenuItem)
+
   const { imageList, originalImageList, currentImage } = useEditorStore()
   const templateId = useEditorStore((s) => s.templateId)
   const templateIsPrivate = useEditorStore((s) => s.templateIsPrivate)
@@ -102,8 +109,15 @@ export const Header = ({
     }
   }, [provider, templateId, syncStatus])
 
+  const visibleExportOptions =
+    exportOptions?.filter((exportOption) =>
+      typeof exportOption.isVisible === "boolean"
+        ? exportOption.isVisible
+        : exportOption.isVisible(imageList, currentImage),
+    ) ?? []
+
   return (
-    <Flex
+    <FlexAny
       as="header"
       width="full"
       h="16"
@@ -117,7 +131,7 @@ export const Header = ({
     >
       {provider ? (
         <>
-          <Flex alignItems="center" gap="2" px="4" height="full" ml="-4">
+          <FlexAny alignItems="center" gap="2" px="4" height="full" ml="-4">
             {templateId && (
               <Icon
                 as={
@@ -135,8 +149,8 @@ export const Header = ({
               />
             )}
             <TemplateNameInput />
-          </Flex>
-          <Divider
+          </FlexAny>
+          <DividerAny
             orientation="vertical"
             borderColor="editorBattleshipGrey.200"
             height="40%"
@@ -147,102 +161,103 @@ export const Header = ({
             variant="icon"
             onClick={() => setIsSettingsOpen(true)}
           />
-          <Divider
+          <DividerAny
             orientation="vertical"
             borderColor="editorBattleshipGrey.200"
             height="40%"
           />
-          <Flex alignItems="center">
+          <FlexAny alignItems="center">
             <TemplatesDropdown onViewAllTemplates={onViewAllTemplates} />
-          </Flex>
-          <Divider
+          </FlexAny>
+          <DividerAny
             orientation="vertical"
             borderColor="editorBattleshipGrey.200"
             height="40%"
           />
         </>
       ) : null}
-      <Flex ml="6">
+      <FlexAny ml="6">
         <TemplateStatus />
-      </Flex>
+      </FlexAny>
       <Spacer />
-      {exportOptions
-        ?.filter((exportOption) =>
-          typeof exportOption.isVisible === "boolean"
-            ? exportOption.isVisible
-            : exportOption.isVisible(imageList, currentImage),
-        )
-        .map((exportOption) => (
-          <React.Fragment key={`export-option-${exportOption.label}`}>
-            {exportOption.type === "button" ? (
-              <NavbarItem
-                key={`export-button-${exportOption.label}`}
+      {visibleExportOptions.map((exportOption, exportOptionIndex) => (
+        <React.Fragment key={`export-option-${exportOption.label}`}>
+          {exportOption.type === "button" ? (
+            <NavbarItem
+              key={`export-button-${exportOption.label}`}
+              icon={exportOption.icon}
+              label={exportOption.label}
+              onClick={() => {
+                const images = imageList.map((image, index) => ({
+                  url: image,
+                  file: originalImageList[index],
+                }))
+                const cImage = images.find(
+                  (image) => image.url === currentImage,
+                )
+                exportOption.onClick(images, {
+                  // biome-ignore lint/style/noNonNullAssertion: <required here>
+                  url: cImage!.url,
+                  // biome-ignore lint/style/noNonNullAssertion: <required here>
+                  file: cImage!.file,
+                })
+              }}
+            />
+          ) : (
+            <Menu
+              key={`export-menu-${exportOption.label}`}
+              placement="bottom-end"
+              strategy="fixed"
+            >
+              <MenuButtonAny
+                as={NavbarItem}
                 icon={exportOption.icon}
                 label={exportOption.label}
-                onClick={() => {
-                  const images = imageList.map((image, index) => ({
-                    url: image,
-                    file: originalImageList[index],
-                  }))
-                  const cImage = images.find(
-                    (image) => image.url === currentImage,
-                  )
-                  exportOption.onClick(images, {
-                    // biome-ignore lint/style/noNonNullAssertion: <required here>
-                    url: cImage!.url,
-                    // biome-ignore lint/style/noNonNullAssertion: <required here>
-                    file: cImage!.file,
-                  })
-                }}
-              />
-            ) : (
-              <Menu
-                key={`export-menu-${exportOption.label}`}
-                placement="bottom-end"
-                strategy="fixed"
               >
-                <MenuButton
-                  as={NavbarItem}
-                  icon={exportOption.icon}
-                  label={exportOption.label}
-                >
-                  {exportOption.label}
-                </MenuButton>
-                <MenuList>
-                  {exportOption.options
-                    .filter((option) =>
-                      typeof option.isVisible === "boolean"
-                        ? option.isVisible
-                        : option.isVisible(imageList, currentImage),
-                    )
-                    .map((option) => (
-                      <MenuItem
-                        key={`export-menu-option-${option.label}`}
-                        onClick={() => {
-                          const images = imageList.map((image, index) => ({
-                            url: image,
-                            file: originalImageList[index],
-                          }))
-                          const cImage = images.find(
-                            (image) => image.url === currentImage,
-                          )
-                          option.onClick(images, {
-                            // biome-ignore lint/style/noNonNullAssertion: <required here>
-                            url: cImage!.url,
-                            // biome-ignore lint/style/noNonNullAssertion: <required here>
-                            file: cImage!.file,
-                          })
-                        }}
-                      >
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                </MenuList>
-              </Menu>
-            )}
-          </React.Fragment>
-        ))}
-      <Divider
+                {exportOption.label}
+              </MenuButtonAny>
+              <MenuListAny>
+                {exportOption.options
+                  .filter((option) =>
+                    typeof option.isVisible === "boolean"
+                      ? option.isVisible
+                      : option.isVisible(imageList, currentImage),
+                  )
+                  .map((option) => (
+                    <MenuItemAny
+                      key={`export-menu-option-${option.label}`}
+                      onClick={() => {
+                        const images = imageList.map((image, index) => ({
+                          url: image,
+                          file: originalImageList[index],
+                        }))
+                        const cImage = images.find(
+                          (image) => image.url === currentImage,
+                        )
+                        option.onClick(images, {
+                          // biome-ignore lint/style/noNonNullAssertion: <required here>
+                          url: cImage!.url,
+                          // biome-ignore lint/style/noNonNullAssertion: <required here>
+                          file: cImage!.file,
+                        })
+                      }}
+                    >
+                      {option.label}
+                    </MenuItemAny>
+                  ))}
+              </MenuListAny>
+            </Menu>
+          )}
+          {exportOptionIndex < visibleExportOptions.length - 1 ? (
+            <DividerAny
+              orientation="vertical"
+              borderColor="editorBattleshipGrey.200"
+              height="40%"
+            />
+          ) : null}
+        </React.Fragment>
+      ))}
+      <DividerAny
         orientation="vertical"
         borderColor="editorBattleshipGrey.200"
         height="40%"
@@ -270,6 +285,6 @@ export const Header = ({
           }}
         />
       )}
-    </Flex>
+    </FlexAny>
   )
 }

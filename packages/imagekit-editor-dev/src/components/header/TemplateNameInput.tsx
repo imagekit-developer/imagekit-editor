@@ -107,8 +107,8 @@ export function TemplateNameInput() {
       px="2"
       py="1"
       borderRadius="md"
-      _hover={{ bg: "editorGray.200" }}
-      _focus={{ bg: "editorGray.200", outline: "none", boxShadow: "none" }}
+      _hover={{ bg: "gray.100" }}
+      _focus={{ bg: "gray.100", outline: "none", boxShadow: "none" }}
       cursor="text"
     />
   )

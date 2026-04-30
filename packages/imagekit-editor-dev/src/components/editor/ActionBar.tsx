@@ -66,6 +66,7 @@ export const ActionBar: FC<ActionBarProps> = ({
           size="md"
           fontWeight="normal"
           leftIcon={<Icon boxSize={4} as={PiImageSquare} />}
+          _hover={{ bg: "gray.100" }}
           onClick={() => setShowOriginal(!showOriginal)}
         >
           {showOriginal ? "Show Transformed" : "Show Original"}
@@ -105,6 +106,7 @@ export const ActionBar: FC<ActionBarProps> = ({
             variant="ghost"
             size="md"
             fontWeight="normal"
+            _hover={{ bg: "gray.100" }}
             onClick={() => window.open(currentImage, "_blank")}
           >
             Open image in new tab

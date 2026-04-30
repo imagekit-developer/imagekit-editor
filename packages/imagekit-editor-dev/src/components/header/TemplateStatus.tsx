@@ -28,6 +28,7 @@ const FlexAny = chakraAny(Flex)
 const PopoverContentAny = chakraAny(PopoverContent)
 const TooltipAny = chakraAny(Tooltip)
 const PopoverBodyAny = chakraAny(PopoverBody)
+const ButtonAny = chakraAny(Button)
 
 export function TemplateStatus() {
   const syncStatus = useEditorStore((s) => s.syncStatus)
@@ -195,7 +196,7 @@ export function TemplateStatus() {
                 cursor={isInteractive ? "pointer" : "default"}
                 pointerEvents={isInteractive ? "auto" : "none"}
                 _hover={{
-                  bg: isInteractive ? "editorGray.200" : "transparent",
+                  bg: isInteractive ? "gray.100" : "transparent",
                 }}
               >
                 <Icon
@@ -226,7 +227,7 @@ export function TemplateStatus() {
             </TextAny2>
             {isUnsavedState && (
               <Box mt="3">
-                <Button
+                <ButtonAny
                   size="sm"
                   colorScheme="blue"
                   onClick={() => void save()}
@@ -234,7 +235,7 @@ export function TemplateStatus() {
                   isDisabled={templateStorageWriteBlocked}
                 >
                   Save
-                </Button>
+                </ButtonAny>
               </Box>
             )}
           </PopoverBodyAny>

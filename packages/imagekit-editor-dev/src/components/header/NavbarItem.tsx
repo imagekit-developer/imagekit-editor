@@ -1,6 +1,7 @@
 import { Button, type ButtonProps, Icon, IconButton } from "@chakra-ui/react"
 import type React from "react"
 import { forwardRef } from "react"
+import { chakraAny } from "../../utils"
 
 interface NavbarItemProps extends Omit<ButtonProps, "variant" | "size"> {
   icon?: React.ReactElement
@@ -13,6 +14,8 @@ export const NavbarItem = forwardRef<HTMLButtonElement, NavbarItemProps>(
     { icon, label, variant = "button", children, ...props },
     ref,
   ) {
+    const ButtonAny = chakraAny(Button)
+    const IconButtonAny = chakraAny(IconButton)
     const commonStyles = {
       variant: "ghost" as const,
       borderRadius: "md" as const,
@@ -21,35 +24,39 @@ export const NavbarItem = forwardRef<HTMLButtonElement, NavbarItemProps>(
       mx: "2" as const,
       fontSize: "sm" as const,
       fontWeight: "medium" as const,
+      color: "editorBattleshipGrey.700",
       _hover: {
-        bg: "editorBattleshipGrey.50",
+        bg: "gray.100",
       },
     }
 
     // If only icon is provided (no children or label to display), use icon variant
     if (variant === "icon" || (!children && icon && !label)) {
       return (
-        <IconButton
+        <IconButtonAny
           ref={ref}
           aria-label={label}
-          icon={icon ? <Icon as={icon.type} boxSize={5} /> : undefined}
-          color="editorBattleshipGrey.500"
+          icon={
+            icon ? (
+              <Icon as={icon.type as React.ElementType} boxSize={5} />
+            ) : undefined
+          }
           {...commonStyles}
-          {...props}
+          {...(props as unknown as Record<string, unknown>)}
         />
       )
     }
 
     return (
-      <Button
+      <ButtonAny
         ref={ref}
         leftIcon={icon}
         aria-label={label}
         {...commonStyles}
-        {...props}
+        {...(props as unknown as Record<string, unknown>)}
       >
         {children || label}
-      </Button>
+      </ButtonAny>
     )
   },
 )

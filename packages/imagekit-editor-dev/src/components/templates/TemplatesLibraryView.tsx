@@ -58,11 +58,11 @@ const BadgeAny = chakraAny(Badge)
 const InputGroupAny = chakraAny(InputGroup)
 const InputLeftElementAny = chakraAny(InputLeftElement)
 const InputAny = chakraAny(Input)
+const TooltipAny = chakraAny(Tooltip)
 const IconAny = chakraAny(Icon)
 const PopoverContentAny = chakraAny(PopoverContent)
 const PopoverBodyAny = chakraAny(PopoverBody)
 const DividerAny = chakraAny(Divider)
-const TooltipAny = chakraAny(Tooltip)
 
 function formatRelativeTime(ts: number): string {
   const now = Date.now()
@@ -724,15 +724,22 @@ function TemplateRow({
       {/* Name + transform count */}
       <Box flex="3" minW={0} ml="2">
         <FlexAny alignItems="center" gap="2" mb="1">
-          <TextAny
-            fontSize="sm"
-            fontWeight="medium"
-            color={isCurrent ? "blue.800" : "editorBattleshipGrey.700"}
-            isTruncated
-            title={recordNameUI}
+          <TooltipAny
+            label={recordNameUI}
+            openDelay={300}
+            placement="top-start"
+            hasArrow
+            shouldWrapChildren
           >
-            {truncateTemplateName(record.name)}
-          </TextAny>
+            <TextAny
+              fontSize="sm"
+              fontWeight="medium"
+              color={isCurrent ? "blue.800" : "editorBattleshipGrey.700"}
+              isTruncated
+            >
+              {truncateTemplateName(record.name)}
+            </TextAny>
+          </TooltipAny>
           {isCurrent && (
             <BadgeAny colorScheme="blue" fontSize="xs" flexShrink={0}>
               Current

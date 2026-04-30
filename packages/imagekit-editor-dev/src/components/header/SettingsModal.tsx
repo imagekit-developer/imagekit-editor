@@ -203,6 +203,11 @@ export function SettingsModal({
     [canChangeVisibility],
   )
 
+  // Get height of the current viewport
+  const viewportHeight = useMemo(() => {
+    return window.innerHeight
+  }, [])
+
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
@@ -301,6 +306,7 @@ export function SettingsModal({
                   { value: "onlyMe", label: "Only to me" },
                   { value: "everyone", label: "Shared with everyone" },
                 ]}
+                menuPlacement={viewportHeight > 900 ? "auto" : "top"}
                 formatOptionLabel={(opt) => (
                   <Box display="flex" alignItems="center" gap="2">
                     <Icon
