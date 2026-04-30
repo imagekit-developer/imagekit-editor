@@ -99,8 +99,10 @@ export const Header = ({
       })
       .catch((err) => {
         if (cancelled) return
-        const { denyTemplateStorageAccess } = useEditorStore.getState()
-        applyTemplateStorageAccessFailure(err, { denyTemplateStorageAccess })
+        const { denyTemplateStorageAccessAndReset } = useEditorStore.getState()
+        applyTemplateStorageAccessFailure(err, {
+          denyTemplateStorageAccessAndReset,
+        })
         setActiveRecord(null)
       })
 
@@ -159,7 +161,15 @@ export const Header = ({
             label="Settings"
             icon={<PiGear />}
             variant="icon"
-            onClick={() => setIsSettingsOpen(true)}
+            onClick={() => {
+              if (!templateId) return
+              setIsSettingsOpen(true)
+            }}
+            disabled={!templateId}
+            _disabled={{
+              cursor: "not-allowed",
+              opacity: 0.5,
+            }}
           />
           <DividerAny
             orientation="vertical"

@@ -13,7 +13,7 @@ import type { GetTemplatePermissions } from "./context/TemplatePermissionsContex
 import { TemplatePermissionsContextProvider } from "./context/TemplatePermissionsContext"
 import { TemplateStorageContextProvider } from "./context/TemplateStorageContext"
 import {
-  applyTemplateStorageAccessFailure,
+  isTemplateAccessDeniedError,
   type TemplateStorageProvider,
 } from "./storage"
 import {
@@ -159,13 +159,14 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
       }
       after.setLastSavedAt(Date.now())
     } catch (err) {
-      const { denyTemplateStorageAccess } = useEditorStore.getState()
-      // Reuse existing access-denied mapping.
-      if (
-        applyTemplateStorageAccessFailure(err, {
-          denyTemplateStorageAccess,
-        })
-      ) {
+      if (isTemplateAccessDeniedError(err)) {
+        useEditorStore
+          .getState()
+          .blockTemplateStorageWrites(
+            err instanceof Error
+              ? err.message
+              : "You no longer have access to this template.",
+          )
         return
       }
       state.setSyncStatus(

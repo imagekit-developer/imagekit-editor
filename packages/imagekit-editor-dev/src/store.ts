@@ -180,7 +180,17 @@ export type EditorActions<
   setLastSavedAt: (ts: number | null) => void
   setTransformationConfigFormDirty: (dirty: boolean) => void
   resetToNewTemplate: () => void
-  denyTemplateStorageAccess: (message?: string) => void
+  /**
+   * Blocks any further writes to template storage while keeping the current
+   * template state intact (so the user can keep viewing/editing locally).
+   * Intended for 401/403 write failures.
+   */
+  blockTemplateStorageWrites: (message?: string) => void
+  /**
+   * Clears the loaded template and surfaces an error when access is revoked
+   * for viewing/loading the template.
+   */
+  denyTemplateStorageAccessAndReset: (message?: string) => void
 
   _setSidebarState: (state: "none" | "type" | "config") => void
   _setSelectedTransformationKey: (key: string | null) => void
@@ -627,7 +637,15 @@ const useEditorStore = create<EditorState & EditorActions>()(
       })
     },
 
-    denyTemplateStorageAccess: (message) => {
+    blockTemplateStorageWrites: (message) => {
+      set({
+        syncStatus: "error",
+        storageError: message ?? "You no longer have access to this template.",
+        templateStorageWriteBlocked: true,
+      })
+    },
+
+    denyTemplateStorageAccessAndReset: (message) => {
       set({
         transformations: [],
         visibleTransformations: {},

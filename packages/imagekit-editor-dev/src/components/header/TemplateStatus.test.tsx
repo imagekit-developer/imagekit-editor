@@ -67,6 +67,7 @@ describe("TemplateStatus", () => {
       syncStatus: "saved",
       localChangeVersion: 1,
       lastSyncedVersion: 1,
+      lastSavedAt: Date.now(),
       ...(partial ?? {}),
     } as unknown as Parameters<typeof useEditorStore.setState>[0])
   }
@@ -93,6 +94,7 @@ describe("TemplateStatus", () => {
       syncStatus: "saved",
       localChangeVersion: 2,
       lastSyncedVersion: 1,
+      lastSavedAt: Date.now(),
     } as unknown as Parameters<typeof useEditorStore.setState>[0])
 
     renderWithProvider()
@@ -107,6 +109,7 @@ describe("TemplateStatus", () => {
       localChangeVersion: 1,
       lastSyncedVersion: 1,
       transformationConfigFormDirty: true,
+      lastSavedAt: Date.now(),
     } as unknown as Parameters<typeof useEditorStore.setState>[0])
 
     renderWithProvider()
@@ -120,6 +123,7 @@ describe("TemplateStatus", () => {
       syncStatus: "saved",
       localChangeVersion: 2,
       lastSyncedVersion: 1,
+      lastSavedAt: Date.now(),
     } as unknown as Parameters<typeof useEditorStore.setState>[0])
 
     renderWithProvider()
@@ -149,6 +153,7 @@ describe("TemplateStatus", () => {
       syncStatus: "saved",
       localChangeVersion: 1,
       lastSyncedVersion: 1,
+      lastSavedAt: Date.now(),
     } as unknown as Parameters<typeof useEditorStore.setState>[0])
 
     renderWithProvider({ saveTemplate })
@@ -197,6 +202,7 @@ describe("TemplateStatus", () => {
       syncStatus: "saved",
       localChangeVersion: 1,
       lastSyncedVersion: 1,
+      lastSavedAt: Date.now(),
       transformations: [
         {
           id: "t1",
@@ -273,6 +279,7 @@ describe("TemplateStatus", () => {
       syncStatus: "saved",
       localChangeVersion: 1,
       lastSyncedVersion: 1,
+      lastSavedAt: Date.now(),
       transformations: [
         {
           id: "t2",
@@ -353,6 +360,7 @@ describe("TemplateStatus", () => {
       syncStatus: "saved",
       localChangeVersion: 1,
       lastSyncedVersion: 1,
+      lastSavedAt: Date.now(),
       transformations: [
         {
           id: "t3",
@@ -599,6 +607,7 @@ describe("TemplateStatus", () => {
       syncStatus: "saved",
       localChangeVersion: 1,
       lastSyncedVersion: 1,
+      lastSavedAt: Date.now(),
     } as unknown as Parameters<typeof useEditorStore.setState>[0])
 
     renderWithProvider()
@@ -639,5 +648,21 @@ describe("TemplateStatus", () => {
         "You don't have permission to save changes to this template.",
       ),
     ).toBeTruthy()
+  })
+
+  it("does not flash a saved success state on initial mount when no save has happened yet", () => {
+    // Initial template load paths set syncStatus="saved" even though no save completed in this session.
+    // In that case, we should not show the transient green success notification.
+    useEditorStore.setState({
+      isPristine: false,
+      syncStatus: "saved",
+      localChangeVersion: 1,
+      lastSyncedVersion: 1,
+      lastSavedAt: null,
+    } as unknown as Parameters<typeof useEditorStore.setState>[0])
+
+    renderWithProvider()
+    expect(screen.queryByText(/Saved to library/i)).toBeNull()
+    expect(screen.queryByLabelText("template-status-saved")).toBeNull()
   })
 })

@@ -1,7 +1,7 @@
 import { useCallback, useRef } from "react"
 import { useTemplateStorage } from "../context/TemplateStorageContext"
 import type { SaveTemplateInput, TemplateRecord } from "../storage"
-import { applyTemplateStorageAccessFailure } from "../storage/templateAccessError"
+import { isTemplateAccessDeniedError } from "../storage/templateAccessError"
 import { useEditorStore } from "../store"
 import { shouldMarkSyncedAfterSave } from "../sync/templateSyncVersioning"
 
@@ -72,12 +72,14 @@ export function useTemplateSync() {
 
         return record
       } catch (err) {
-        const { denyTemplateStorageAccess } = useEditorStore.getState()
-        if (
-          applyTemplateStorageAccessFailure(err, {
-            denyTemplateStorageAccess,
-          })
-        ) {
+        if (isTemplateAccessDeniedError(err)) {
+          useEditorStore
+            .getState()
+            .blockTemplateStorageWrites(
+              err instanceof Error
+                ? err.message
+                : "You no longer have access to this template.",
+            )
           return null
         }
         useEditorStore

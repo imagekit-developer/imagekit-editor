@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import Select, { type StylesConfig } from "react-select"
 import { useTemplatePermissions } from "../../context/TemplatePermissionsContext"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
-import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
+import { isTemplateAccessDeniedError } from "../../storage/templateAccessError"
 import type { TemplateRecord } from "../../storage/types"
 import { useEditorStore } from "../../store"
 import { chakraAny, formatTemplateNameForUI } from "../../utils"
@@ -66,9 +66,6 @@ export function SettingsModal({
   const templateStorageWriteBlocked = useEditorStore(
     (s) => s.templateStorageWriteBlocked,
   )
-  const denyTemplateStorageAccess = useEditorStore(
-    (s) => s.denyTemplateStorageAccess,
-  )
 
   const onCloseRef = useRef(onClose)
   useEffect(() => {
@@ -116,10 +113,16 @@ export function SettingsModal({
       onSaved?.(updated)
       onClose()
     } catch (err) {
-      if (
-        applyTemplateStorageAccessFailure(err, { denyTemplateStorageAccess })
-      ) {
+      if (isTemplateAccessDeniedError(err)) {
+        useEditorStore
+          .getState()
+          .blockTemplateStorageWrites(
+            err instanceof Error
+              ? err.message
+              : "You no longer have access to this template.",
+          )
         onClose()
+        return
       }
     } finally {
       setIsSaving(false)
@@ -138,9 +141,14 @@ export function SettingsModal({
       await onDeleteRequested(data.id)
       onClose()
     } catch (err) {
-      if (
-        applyTemplateStorageAccessFailure(err, { denyTemplateStorageAccess })
-      ) {
+      if (isTemplateAccessDeniedError(err)) {
+        useEditorStore
+          .getState()
+          .blockTemplateStorageWrites(
+            err instanceof Error
+              ? err.message
+              : "You no longer have access to this template.",
+          )
         onClose()
         return
       }
@@ -422,12 +430,18 @@ export function SettingsModal({
                 as="button"
                 display="inline-flex"
                 alignItems="center"
+                px="4"
+                py="2"
+                borderRadius="md"
                 gap="2"
                 color={
                   isDeleting || isSaving || showDeleteConfirm
                     ? "gray.400"
                     : "red.500"
                 }
+                _hover={{
+                  bg: "red.50",
+                }}
                 cursor={
                   isDeleting || isSaving || showDeleteConfirm
                     ? "not-allowed"
@@ -471,6 +485,9 @@ export function SettingsModal({
               cursor={isDeleting || isSaving ? "not-allowed" : "pointer"}
               onClick={isDeleting || isSaving ? undefined : onClose}
               aria-disabled={isDeleting || isSaving}
+              _hover={{
+                bg: "gray.50",
+              }}
             >
               Cancel
             </Box>
@@ -489,6 +506,9 @@ export function SettingsModal({
                   ? "blue.200"
                   : "blue.500"
               }
+              _hover={{
+                bg: "blue.600",
+              }}
               color="white"
               fontSize="sm"
               fontWeight="medium"

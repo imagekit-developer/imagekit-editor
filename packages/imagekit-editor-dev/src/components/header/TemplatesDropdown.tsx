@@ -32,7 +32,7 @@ import { useTemplatePermissions } from "../../context/TemplatePermissionsContext
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import { useTemplateSync } from "../../hooks/useTemplateSync"
 import type { TemplateRecord } from "../../storage"
-import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
+import { isTemplateAccessDeniedError } from "../../storage/templateAccessError"
 import { useEditorStore } from "../../store"
 import {
   chakraAny,
@@ -372,13 +372,14 @@ export function TemplatesDropdown({
         prev.map((t) => (t.id === updated.id ? updated : t)),
       )
     } catch (err) {
-      const { denyTemplateStorageAccess } = useEditorStore.getState()
-      if (
-        record.id === templateId &&
-        applyTemplateStorageAccessFailure(err, {
-          denyTemplateStorageAccess,
-        })
-      ) {
+      if (record.id === templateId && isTemplateAccessDeniedError(err)) {
+        useEditorStore
+          .getState()
+          .blockTemplateStorageWrites(
+            err instanceof Error
+              ? err.message
+              : "You no longer have access to this template.",
+          )
         return
       }
     } finally {
@@ -396,13 +397,15 @@ export function TemplatesDropdown({
       if (!saved) return
       doLoadTemplate(pendingTemplate)
     } catch (err) {
-      const { denyTemplateStorageAccess, setSyncStatus } =
-        useEditorStore.getState()
-      if (
-        applyTemplateStorageAccessFailure(err, {
-          denyTemplateStorageAccess,
-        })
-      ) {
+      const { setSyncStatus } = useEditorStore.getState()
+      if (isTemplateAccessDeniedError(err)) {
+        useEditorStore
+          .getState()
+          .blockTemplateStorageWrites(
+            err instanceof Error
+              ? err.message
+              : "You no longer have access to this template.",
+          )
         return
       }
       setSyncStatus(

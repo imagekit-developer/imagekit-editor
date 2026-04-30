@@ -33,6 +33,7 @@ const ButtonAny = chakraAny(Button)
 export function TemplateStatus() {
   const syncStatus = useEditorStore((s) => s.syncStatus)
   const isPristine = useEditorStore((s) => s.isPristine)
+  const lastSavedAt = useEditorStore((s) => s.lastSavedAt)
   const templateStorageWriteBlocked = useEditorStore(
     (s) => s.templateStorageWriteBlocked,
   )
@@ -49,6 +50,7 @@ export function TemplateStatus() {
     "success" | "error" | null
   >(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const prevSyncStatusRef = useRef(syncStatus)
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current)
@@ -56,12 +58,18 @@ export function TemplateStatus() {
     if (syncStatus === "saving") {
       setNotificationVisible(true)
     } else if (syncStatus === "saved") {
-      setLastSyncResult("success")
-      setNotificationVisible(true)
-      timerRef.current = setTimeout(
-        () => setNotificationVisible(false),
-        NOTIFICATION_DURATION_MS,
-      )
+      // Avoid flashing a "Saved" success state on initial template load.
+      // Only treat "saved" as a success event when it follows an actual save.
+      const prev = prevSyncStatusRef.current
+      const isSaveCompletion = prev === "saving" || lastSavedAt !== null
+      if (isSaveCompletion) {
+        setLastSyncResult("success")
+        setNotificationVisible(true)
+        timerRef.current = setTimeout(
+          () => setNotificationVisible(false),
+          NOTIFICATION_DURATION_MS,
+        )
+      }
     } else if (syncStatus === "unsaved" || hasPendingLocalWork) {
       setNotificationVisible(true)
       timerRef.current = setTimeout(
@@ -80,7 +88,11 @@ export function TemplateStatus() {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [syncStatus, hasPendingLocalWork])
+  }, [syncStatus, hasPendingLocalWork, lastSavedAt])
+
+  useEffect(() => {
+    prevSyncStatusRef.current = syncStatus
+  }, [syncStatus])
 
   if (
     !provider ||

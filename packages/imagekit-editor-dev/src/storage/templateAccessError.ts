@@ -28,7 +28,7 @@ export function isTemplateAccessDeniedError(err: unknown): boolean {
 }
 
 export type TemplateStorageFailureActions = {
-  denyTemplateStorageAccess: (message?: string) => void
+  denyTemplateStorageAccessAndReset: (message?: string) => void
 }
 
 /** Clears the loaded template and surfaces an error when access was revoked. */
@@ -43,6 +43,6 @@ export function applyTemplateStorageAccessFailure(
     err instanceof TemplateAccessDeniedError
       ? err.message
       : "You no longer have access to this template."
-  actions.denyTemplateStorageAccess(message)
+  actions.denyTemplateStorageAccessAndReset(message)
   return true
 }
