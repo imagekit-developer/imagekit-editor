@@ -592,4 +592,52 @@ describe("TemplateStatus", () => {
     expectStaysUnsavedAfterDelay(3500)
     expectStaysUnsavedAfterDelay(10_000)
   })
+
+  it("shows a permission-specific error label when writes are blocked (401/403)", async () => {
+    useEditorStore.setState({
+      isPristine: false,
+      syncStatus: "saved",
+      localChangeVersion: 1,
+      lastSyncedVersion: 1,
+    } as unknown as Parameters<typeof useEditorStore.setState>[0])
+
+    renderWithProvider()
+
+    act(() => {
+      useEditorStore.setState({
+        templateStorageWriteBlocked: true,
+        storageError: "You no longer have access to this template.",
+      } as unknown as Parameters<typeof useEditorStore.setState>[0])
+      useEditorStore
+        .getState()
+        .setSyncStatus("error", "You no longer have access to this template.")
+    })
+
+    expect(screen.getByText("Save failed")).toBeTruthy()
+    expect(screen.getByLabelText("template-status-error")).toBeTruthy()
+
+    // After the transient notification text disappears, the icon becomes interactive
+    // and hovering it should show the detailed popover contents.
+    act(() => {
+      vi.advanceTimersByTime(3500)
+    })
+    expect(screen.queryByText("Save failed")).toBeNull()
+
+    const errorIcon = screen.getByLabelText("template-status-error")
+    const popoverTrigger = errorIcon.closest(
+      '[aria-haspopup="dialog"]',
+    ) as HTMLElement | null
+    expect(popoverTrigger).toBeTruthy()
+
+    act(() => {
+      fireEvent.click(popoverTrigger as HTMLElement)
+    })
+
+    expect(await screen.findByText("Access required")).toBeTruthy()
+    expect(
+      screen.getByText(
+        "You don't have permission to save changes to this template.",
+      ),
+    ).toBeTruthy()
+  })
 })

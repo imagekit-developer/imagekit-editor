@@ -32,7 +32,6 @@ const ButtonAny = chakraAny(Button)
 
 export function TemplateStatus() {
   const syncStatus = useEditorStore((s) => s.syncStatus)
-  const storageError = useEditorStore((s) => s.storageError)
   const isPristine = useEditorStore((s) => s.isPristine)
   const templateStorageWriteBlocked = useEditorStore(
     (s) => s.templateStorageWriteBlocked,
@@ -119,6 +118,8 @@ export function TemplateStatus() {
     | "template-status-error"
 
   const isUnsavedState = hasPendingLocalWork || syncStatus === "unsaved"
+  const isPermissionDeniedError =
+    syncStatus === "error" && templateStorageWriteBlocked
 
   if (notificationVisible) {
     // Unsynced edits take precedence over the last successful save result.
@@ -135,7 +136,7 @@ export function TemplateStatus() {
       iconAriaLabel = "template-status-saved"
     } else if (syncStatus === "error") {
       activeIcon = MdSyncProblem
-      activeColor = "yellow.600"
+      activeColor = isPermissionDeniedError ? "red.600" : "yellow.600"
       notifText = "Save failed"
       iconAriaLabel = "template-status-error"
     } else {
@@ -166,13 +167,17 @@ export function TemplateStatus() {
     ? "Unsaved changes"
     : lastSyncResult === "success"
       ? "All changes saved"
-      : "Sync failed"
+      : isPermissionDeniedError
+        ? "Access required"
+        : "Save failed"
 
   const popupBody = isUnsavedState
-    ? "Your current local changes haven't been synced to the library yet."
+    ? "Your current local changes haven't been saved to the library yet."
     : lastSyncResult === "success"
-      ? `Your changes are synced to ${providerName} successfully.`
-      : (storageError ?? "Failed to save changes. Please try again.")
+      ? `Your changes are saved to ${providerName} successfully.`
+      : isPermissionDeniedError
+        ? "You don't have permission to save changes to this template."
+        : "Failed to save changes. If this problem persists, please contact support."
 
   return (
     <FlexAny alignItems="center" gap="1.5">
