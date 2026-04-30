@@ -213,7 +213,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
     }
   }
 
-  const handleDeleteTemplate = useCallback(
+  const deleteTemplateAndCleanup = useCallback(
     async (record: TemplateRecord) => {
       if (!provider) return
       if (!provider.deleteTemplate) return
@@ -621,7 +621,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
                           }
                           onTogglePin={handleTogglePin}
                           isPinning={pinningId === record.id}
-                          onDelete={handleDeleteTemplate}
+                          onDelete={deleteTemplateAndCleanup}
                           onSettings={handleOpenSettings}
                           isCurrent={isCurrent}
                           isActive={isActive}
@@ -649,10 +649,8 @@ export function TemplatesLibraryView({ onClose }: Props) {
               prev.map((t) => (t.id === updated.id ? updated : t)),
             )
           }}
-          onDeleted={() => {
-            setTemplates((prev) =>
-              prev.filter((t) => t.id !== settingsRecord.id),
-            )
+          onDeleteRequested={async () => {
+            await deleteTemplateAndCleanup(settingsRecord)
           }}
         />
       )}

@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { TemplateStorageContextProvider } from "../../context/TemplateStorageContext"
 import type { TemplateRecord } from "../../storage"
+import type { TemplateStorageProvider } from "../../storage/types"
 import { useEditorStore } from "../../store"
 import { SettingsModal } from "./SettingsModal"
 
@@ -31,36 +32,30 @@ function renderModal(opts: {
   data?: TemplateRecord
   onClose?: () => void
   onSaved?: (r: TemplateRecord) => void
-  onDeleted?: () => void
-  deleteTemplate?: ((id: string) => Promise<void>) | undefined
-  // biome-ignore lint/suspicious/noExplicitAny: test stub
-  saveTemplate?: (r: any) => Promise<TemplateRecord>
+  onDeleteRequested?: ((id: string) => Promise<void>) | undefined
+  saveTemplate?: (r: unknown) => Promise<TemplateRecord>
 }) {
   const data = opts.data ?? makeTemplate()
 
-  const provider = {
+  const provider: TemplateStorageProvider = {
     getProviderName: () => "test",
     getCurrentUserSession: () => ({ id: "u1" }),
     listTemplates: async () => [],
     getTemplate: async () => data,
-    // biome-ignore lint/suspicious/noExplicitAny: test stub
     saveTemplate:
-      opts.saveTemplate ?? (async (_r: any) => makeTemplate({ id: "saved" })),
+      opts.saveTemplate ??
+      (async (_r: unknown) => makeTemplate({ id: "saved" })),
     setTemplatePinned: vi.fn(),
-    ...(opts.deleteTemplate !== undefined
-      ? { deleteTemplate: opts.deleteTemplate }
-      : {}),
   }
 
   return render(
     <ChakraProvider>
-      {/* biome-ignore lint/suspicious/noExplicitAny: test stub */}
-      <TemplateStorageContextProvider provider={provider as any}>
+      <TemplateStorageContextProvider provider={provider}>
         <SettingsModal
           data={data}
           onClose={opts.onClose ?? vi.fn()}
           onSaved={opts.onSaved}
-          onDeleted={opts.onDeleted}
+          onDeleteRequested={opts.onDeleteRequested}
         />
       </TemplateStorageContextProvider>
     </ChakraProvider>,
@@ -77,9 +72,9 @@ describe("SettingsModal", () => {
   })
 
   describe("delete confirmation flow", () => {
-    it("does NOT call deleteTemplate immediately when Delete is clicked", async () => {
-      const deleteTemplate = vi.fn(async () => {})
-      renderModal({ deleteTemplate })
+    it("does NOT call onDeleteRequested immediately when Delete is clicked", async () => {
+      const onDeleteRequested = vi.fn(async () => {})
+      renderModal({ onDeleteRequested })
 
       expect(await screen.findByText("Template Settings")).toBeTruthy()
 
@@ -87,12 +82,12 @@ describe("SettingsModal", () => {
         fireEvent.click(screen.getByText("Delete"))
       })
 
-      // deleteTemplate must NOT have been called yet
-      expect(deleteTemplate).not.toHaveBeenCalled()
+      // onDeleteRequested must NOT have been called yet
+      expect(onDeleteRequested).not.toHaveBeenCalled()
     })
 
     it("shows the confirmation panel after clicking Delete", async () => {
-      renderModal({ deleteTemplate: vi.fn(async () => {}) })
+      renderModal({ onDeleteRequested: vi.fn(async () => {}) })
 
       expect(await screen.findByText("Template Settings")).toBeTruthy()
 
@@ -106,9 +101,9 @@ describe("SettingsModal", () => {
       expect(screen.getByText("Yes, delete")).toBeTruthy()
     })
 
-    it("does NOT call deleteTemplate when confirmation is dismissed with Cancel", async () => {
-      const deleteTemplate = vi.fn(async () => {})
-      renderModal({ deleteTemplate })
+    it("does NOT call onDeleteRequested when confirmation is dismissed with Cancel", async () => {
+      const onDeleteRequested = vi.fn(async () => {})
+      renderModal({ onDeleteRequested })
 
       expect(await screen.findByText("Template Settings")).toBeTruthy()
 
@@ -126,16 +121,15 @@ describe("SettingsModal", () => {
 
       // Panel should be gone
       expect(screen.queryByText("Delete template?")).toBeNull()
-      // deleteTemplate still must not have been called
-      expect(deleteTemplate).not.toHaveBeenCalled()
+      // onDeleteRequested still must not have been called
+      expect(onDeleteRequested).not.toHaveBeenCalled()
     })
 
-    it("calls deleteTemplate only after clicking Yes, delete", async () => {
-      const deleteTemplate = vi.fn(async () => {})
-      const onDeleted = vi.fn()
+    it("calls onDeleteRequested only after clicking Yes, delete", async () => {
+      const onDeleteRequested = vi.fn(async () => {})
       const onClose = vi.fn()
 
-      renderModal({ deleteTemplate, onDeleted, onClose })
+      renderModal({ onDeleteRequested, onClose })
 
       expect(await screen.findByText("Template Settings")).toBeTruthy()
 
@@ -152,16 +146,15 @@ describe("SettingsModal", () => {
       })
 
       await waitFor(() => {
-        expect(deleteTemplate).toHaveBeenCalledTimes(1)
-        expect(deleteTemplate).toHaveBeenCalledWith("t-1")
+        expect(onDeleteRequested).toHaveBeenCalledTimes(1)
+        expect(onDeleteRequested).toHaveBeenCalledWith("t-1")
       })
 
-      expect(onDeleted).toHaveBeenCalledTimes(1)
       expect(onClose).toHaveBeenCalled()
     })
 
     it("Delete button is disabled while confirmation panel is open", async () => {
-      renderModal({ deleteTemplate: vi.fn(async () => {}) })
+      renderModal({ onDeleteRequested: vi.fn(async () => {}) })
 
       expect(await screen.findByText("Template Settings")).toBeTruthy()
 

@@ -280,7 +280,9 @@ export const Header = ({
               templateIsPrivate: updated.isPrivate,
             })
           }}
-          onDeleted={() => {
+          onDeleteRequested={async (id) => {
+            if (!provider?.deleteTemplate) return
+            await provider.deleteTemplate(id)
             useEditorStore.getState().resetToNewTemplate()
           }}
         />

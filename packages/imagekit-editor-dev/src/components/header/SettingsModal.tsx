@@ -31,8 +31,14 @@ export interface SettingsModalProps {
   onClose(): void
   /** Called with the updated record after a successful save. */
   onSaved?(updated: TemplateRecord): void
-  /** Called after the template is successfully deleted. */
-  onDeleted?(): void
+  /**
+   * Called after the user confirms deletion.
+   *
+   * `SettingsModal` does not delete templates itself. Callers must provide a
+   * single delete implementation that can also handle required side-effects
+   * (list refresh, editor reset, etc.).
+   */
+  onDeleteRequested?(id: string): Promise<void> | void
 }
 
 // ---------------------------------------------------------------------------
@@ -53,7 +59,7 @@ export function SettingsModal({
   data,
   onClose,
   onSaved,
-  onDeleted,
+  onDeleteRequested,
 }: SettingsModalProps) {
   const provider = useTemplateStorage()
   const permissions = useTemplatePermissions(data)
@@ -124,13 +130,12 @@ export function SettingsModal({
   // Delete
   // -------------------------------------------------------------------------
   const handleDeleteConfirmed = async () => {
-    if (!provider || !provider.deleteTemplate) return
+    if (!onDeleteRequested) return
 
     setIsDeleting(true)
     setShowDeleteConfirm(false)
     try {
-      await provider.deleteTemplate(data.id)
-      onDeleted?.()
+      await onDeleteRequested(data.id)
       onClose()
     } catch (err) {
       if (
@@ -410,8 +415,8 @@ export function SettingsModal({
           borderTopWidth="1px"
           borderColor="editorGray.300"
         >
-          {/* Delete button — only shown when deleteTemplate is supported */}
-          {provider?.deleteTemplate ? (
+          {/* Delete button — only shown when deletion is supported */}
+          {onDeleteRequested ? (
             <FlexAny>
               <Box
                 as="button"
@@ -432,10 +437,8 @@ export function SettingsModal({
                 fontWeight="medium"
                 onClick={() => {
                   if (!permissions.delete) return
-
-                  return isDeleting || isSaving || showDeleteConfirm
-                    ? undefined
-                    : () => setShowDeleteConfirm(true)
+                  if (isDeleting || isSaving || showDeleteConfirm) return
+                  setShowDeleteConfirm(true)
                 }}
                 aria-disabled={isDeleting || isSaving || showDeleteConfirm}
                 disabled={!permissions.delete}
