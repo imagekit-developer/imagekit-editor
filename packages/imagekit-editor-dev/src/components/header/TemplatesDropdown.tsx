@@ -28,6 +28,7 @@ import { PiPushPinFill } from "@react-icons/all-files/pi/PiPushPinFill"
 import { PiSquaresFourLight } from "@react-icons/all-files/pi/PiSquaresFourLight"
 import type React from "react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useTemplatePermissions } from "../../context/TemplatePermissionsContext"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import { useTemplateSync } from "../../hooks/useTemplateSync"
 import type { TemplateRecord } from "../../storage"
@@ -57,6 +58,142 @@ const SpinnerAny = chakraAny(Spinner)
 const TooltipAny = chakraAny(Tooltip)
 
 const MAX_VISIBLE = 5
+
+// ---------------------------------------------------------------------------
+// DropdownTemplateRow — extracted so hooks (useTemplatePermissions) can be used
+// ---------------------------------------------------------------------------
+
+interface DropdownTemplateRowProps {
+  record: TemplateRecord
+  isHovered: boolean
+  pinningId: string | null
+  onSelect(record: TemplateRecord): void
+  onTogglePin(record: TemplateRecord): void
+  onMouseEnter(): void
+  onMouseLeave(): void
+}
+
+function DropdownTemplateRow({
+  record,
+  isHovered,
+  pinningId,
+  onSelect,
+  onTogglePin,
+  onMouseEnter,
+  onMouseLeave,
+}: DropdownTemplateRowProps) {
+  const permissions = useTemplatePermissions(record)
+  const creatorLabel = record.createdBy.name || record.createdBy.email
+  const recordNameUI = formatTemplateNameForUI(record.name)
+
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: Not necessary for this component
+    <FlexAny
+      px="4"
+      py="2"
+      cursor="pointer"
+      alignItems="center"
+      gap="3"
+      role="group"
+      data-active={isHovered ? "true" : undefined}
+      bg={isHovered ? "editorGray.100" : "transparent"}
+      _hover={{ bg: "editorGray.100" }}
+      data-testid={`templates-dropdown-row-${record.id}`}
+      onClick={() => onSelect(record)}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      transition="background-color 0.15s"
+    >
+      {/* Visibility Icon */}
+      <IconAny
+        as={record.isPrivate ? PiLock : PiGlobe}
+        boxSize={4}
+        color="editorBattleshipGrey.500"
+        flexShrink={0}
+      />
+
+      {/* Template name */}
+      <TooltipAny
+        label={recordNameUI}
+        openDelay={300}
+        placement="top-start"
+        hasArrow
+      >
+        <TextAny
+          flex="1"
+          minW={0}
+          fontSize="sm"
+          fontWeight="medium"
+          isTruncated
+          color="editorBattleshipGrey.800"
+        >
+          {truncateTemplateName(record.name)}
+        </TextAny>
+      </TooltipAny>
+
+      {/* Creator on hover + pin (always visible for pinned, hover for others) */}
+      <FlexAny alignItems="center" gap="3">
+        {/* Creator: always rendered, shown/hidden via opacity to avoid layout shift */}
+        <FlexAny
+          alignItems="center"
+          gap="1.5"
+          maxW="36"
+          transition="opacity 0.12s ease-in-out"
+          opacity={isHovered ? 1 : 0}
+          visibility={isHovered ? "visible" : "hidden"}
+          data-testid={`templates-dropdown-creator-${record.id}`}
+        >
+          <AvatarAny
+            name={creatorLabel}
+            size="xs"
+            fontSize="xs"
+            fontWeight="bold"
+            flexShrink={0}
+            data-testid={`templates-dropdown-creator-avatar-${record.id}`}
+          />
+          <TextAny fontSize="xs" color="editorBattleshipGrey.500" isTruncated>
+            {creatorLabel}
+          </TextAny>
+        </FlexAny>
+
+        {/* Pin: only rendered when user has permission */}
+        {permissions.pin && (
+          <Box
+            as="button"
+            type="button"
+            aria-label={
+              record.isPinned
+                ? `Unpin template ${recordNameUI}`
+                : `Pin template ${recordNameUI}`
+            }
+            transition="opacity 0.12s ease-in-out"
+            opacity={isHovered || record.isPinned ? 1 : 0}
+            visibility={isHovered || record.isPinned ? "visible" : "hidden"}
+            disabled={pinningId === record.id}
+            onClick={(e: React.MouseEvent<HTMLElement>) => {
+              e.stopPropagation()
+              onTogglePin(record)
+            }}
+          >
+            {pinningId === record.id ? (
+              <SpinnerAny size="xs" color="editorBattleshipGrey.500" />
+            ) : (
+              <IconAny
+                as={record.isPinned ? PiPushPinFill : PiPushPin}
+                boxSize={4}
+                color={
+                  record.isPinned
+                    ? "editorBlue.500"
+                    : "editorBattleshipGrey.400"
+                }
+              />
+            )}
+          </Box>
+        )}
+      </FlexAny>
+    </FlexAny>
+  )
+}
 
 interface TemplatesDropdownProps {
   onViewAllTemplates?: () => void
@@ -463,136 +600,22 @@ export function TemplatesDropdown({
                   </TextAny>
                 </FlexAny>
               ) : (
-                filtered.map((record) =>
-                  (() => {
-                    const isHovered = hoveredTemplateId === record.id
-                    const creatorLabel =
-                      record.createdBy.name || record.createdBy.email
-                    const recordNameUI = formatTemplateNameForUI(record.name)
-
-                    return (
-                      // biome-ignore lint/a11y/useSemanticElements: Not necessary for this component
-                      <FlexAny
-                        key={record.id}
-                        px="4"
-                        py="2"
-                        cursor="pointer"
-                        alignItems="center"
-                        gap="3"
-                        role="group"
-                        data-active={isHovered ? "true" : undefined}
-                        bg={isHovered ? "editorGray.100" : "transparent"}
-                        _hover={{ bg: "editorGray.100" }}
-                        data-testid={`templates-dropdown-row-${record.id}`}
-                        onClick={() => handleSelect(record)}
-                        onMouseEnter={() => setHoveredTemplateId(record.id)}
-                        onMouseLeave={() =>
-                          setHoveredTemplateId((current) =>
-                            current === record.id ? null : current,
-                          )
-                        }
-                        transition="background-color 0.15s"
-                      >
-                        {/* Visibility Icon */}
-                        <IconAny
-                          as={record.isPrivate ? PiLock : PiGlobe}
-                          boxSize={4}
-                          color="editorBattleshipGrey.500"
-                          flexShrink={0}
-                        />
-
-                        {/* Template name */}
-                        <TooltipAny
-                          label={recordNameUI}
-                          openDelay={300}
-                          placement="top-start"
-                          hasArrow
-                        >
-                          <TextAny
-                            flex="1"
-                            minW={0}
-                            fontSize="sm"
-                            fontWeight="medium"
-                            isTruncated
-                            color="editorBattleshipGrey.800"
-                          >
-                            {truncateTemplateName(record.name)}
-                          </TextAny>
-                        </TooltipAny>
-
-                        {/* Creator on hover + pin (always visible for pinned, hover for others) */}
-                        <FlexAny alignItems="center" gap="3">
-                          {/* Creator: always rendered, shown/hidden via opacity to avoid layout shift */}
-                          <FlexAny
-                            alignItems="center"
-                            gap="1.5"
-                            maxW="36"
-                            transition="opacity 0.12s ease-in-out"
-                            opacity={isHovered ? 1 : 0}
-                            visibility={isHovered ? "visible" : "hidden"}
-                            data-testid={`templates-dropdown-creator-${record.id}`}
-                          >
-                            <AvatarAny
-                              name={creatorLabel}
-                              size="xs"
-                              fontSize="xs"
-                              fontWeight="bold"
-                              flexShrink={0}
-                              data-testid={`templates-dropdown-creator-avatar-${record.id}`}
-                            />
-                            <TextAny
-                              fontSize="xs"
-                              color="editorBattleshipGrey.500"
-                              isTruncated
-                            >
-                              {creatorLabel}
-                            </TextAny>
-                          </FlexAny>
-
-                          {/* Pin: always rendered, shown/hidden via opacity to avoid layout shift */}
-                          <Box
-                            as="button"
-                            type="button"
-                            aria-label={
-                              record.isPinned
-                                ? `Unpin template ${recordNameUI}`
-                                : `Pin template ${recordNameUI}`
-                            }
-                            transition="opacity 0.12s ease-in-out"
-                            opacity={isHovered || record.isPinned ? 1 : 0}
-                            visibility={
-                              isHovered || record.isPinned
-                                ? "visible"
-                                : "hidden"
-                            }
-                            disabled={pinningId === record.id}
-                            onClick={(e: React.MouseEvent<HTMLElement>) => {
-                              e.stopPropagation()
-                              handleTogglePin(record)
-                            }}
-                          >
-                            {pinningId === record.id ? (
-                              <SpinnerAny
-                                size="xs"
-                                color="editorBattleshipGrey.500"
-                              />
-                            ) : (
-                              <IconAny
-                                as={record.isPinned ? PiPushPinFill : PiPushPin}
-                                boxSize={4}
-                                color={
-                                  record.isPinned
-                                    ? "editorBlue.500"
-                                    : "editorBattleshipGrey.400"
-                                }
-                              />
-                            )}
-                          </Box>
-                        </FlexAny>
-                      </FlexAny>
-                    )
-                  })(),
-                )
+                filtered.map((record) => (
+                  <DropdownTemplateRow
+                    key={record.id}
+                    record={record}
+                    isHovered={hoveredTemplateId === record.id}
+                    pinningId={pinningId}
+                    onSelect={handleSelect}
+                    onTogglePin={handleTogglePin}
+                    onMouseEnter={() => setHoveredTemplateId(record.id)}
+                    onMouseLeave={() =>
+                      setHoveredTemplateId((current) =>
+                        current === record.id ? null : current,
+                      )
+                    }
+                  />
+                ))
               )}
             </Box>
 

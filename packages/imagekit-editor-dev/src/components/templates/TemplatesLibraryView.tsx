@@ -31,6 +31,7 @@ import { useVirtualizer } from "@tanstack/react-virtual"
 import humanDate from "human-date"
 import type React from "react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useTemplatePermissions } from "../../context/TemplatePermissionsContext"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import { useDebounce } from "../../hooks/useDebounce"
 import type { TemplateRecord } from "../../storage"
@@ -681,6 +682,7 @@ function TemplateRow({
   isActive = false,
 }: TemplateRowProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const permissions = useTemplatePermissions(record)
   const recordNameUI = formatTemplateNameForUI(record.name)
   return (
     <FlexAny
@@ -698,27 +700,31 @@ function TemplateRow({
     >
       {/* Pin */}
       <Box flexShrink={0} w="8">
-        <Box
-          as="button"
-          type="button"
-          disabled={isPinning}
-          onClick={(e: React.MouseEvent<HTMLElement>) => {
-            e.stopPropagation()
-            onTogglePin(record)
-          }}
-        >
-          {isPinning ? (
-            <SpinnerAny size="sm" color="editorBattleshipGrey.500" />
-          ) : (
-            <Icon
-              as={record.isPinned ? PiPushPinFill : PiPushPin}
-              boxSize={5}
-              color={
-                record.isPinned ? "editorBlue.500" : "editorBattleshipGrey.400"
-              }
-            />
-          )}
-        </Box>
+        {permissions.pin && (
+          <Box
+            as="button"
+            type="button"
+            disabled={isPinning}
+            onClick={(e: React.MouseEvent<HTMLElement>) => {
+              e.stopPropagation()
+              onTogglePin(record)
+            }}
+          >
+            {isPinning ? (
+              <SpinnerAny size="sm" color="editorBattleshipGrey.500" />
+            ) : (
+              <Icon
+                as={record.isPinned ? PiPushPinFill : PiPushPin}
+                boxSize={5}
+                color={
+                  record.isPinned
+                    ? "editorBlue.500"
+                    : "editorBattleshipGrey.400"
+                }
+              />
+            )}
+          </Box>
+        )}
       </Box>
 
       {/* Name + transform count */}
@@ -851,48 +857,50 @@ function TemplateRow({
             </TooltipAny>
           </Box>
         </PopoverTrigger>
-        <PopoverContentAny
-          p="4"
-          fontSize="sm"
-          maxW="md"
-          w="md"
-          borderWidth={0}
-          borderColor="transparent"
-          _focus={{ boxShadow: "lg", outline: "none" }}
-          onClick={(e: React.MouseEvent<HTMLElement>) => e.stopPropagation()}
-        >
-          <FlexAny direction="column" gap="3">
-            <TextAny color="gray.600" fontSize="md">
-              Are you sure you want to delete this template? This action is
-              irreversible.
-            </TextAny>
-            <FlexAny justifyContent="flex-end" gap="2">
-              <ButtonAny
-                size="md"
-                variant="ghost"
-                onClick={() => setShowDeleteConfirm(false)}
-                color="editorBattleshipGrey.500"
-                _hover={{
-                  color: "editorBattleshipGrey.800",
-                  bg: "editorGray.50",
-                }}
-              >
-                Cancel
-              </ButtonAny>
-              <ButtonAny
-                size="md"
-                colorScheme="red"
-                leftIcon={<Icon as={PiTrash} boxSize={4} />}
-                onClick={() => {
-                  setShowDeleteConfirm(false)
-                  onDelete(record)
-                }}
-              >
-                Delete
-              </ButtonAny>
+        {permissions.delete && (
+          <PopoverContentAny
+            p="4"
+            fontSize="sm"
+            maxW="md"
+            w="md"
+            borderWidth={0}
+            borderColor="transparent"
+            _focus={{ boxShadow: "lg", outline: "none" }}
+            onClick={(e: React.MouseEvent<HTMLElement>) => e.stopPropagation()}
+          >
+            <FlexAny direction="column" gap="3">
+              <TextAny color="gray.600" fontSize="md">
+                Are you sure you want to delete this template? This action is
+                irreversible.
+              </TextAny>
+              <FlexAny justifyContent="flex-end" gap="2">
+                <ButtonAny
+                  size="md"
+                  variant="ghost"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  color="editorBattleshipGrey.500"
+                  _hover={{
+                    color: "editorBattleshipGrey.800",
+                    bg: "editorGray.50",
+                  }}
+                >
+                  Cancel
+                </ButtonAny>
+                <ButtonAny
+                  size="md"
+                  colorScheme="red"
+                  leftIcon={<Icon as={PiTrash} boxSize={4} />}
+                  onClick={() => {
+                    setShowDeleteConfirm(false)
+                    onDelete(record)
+                  }}
+                >
+                  Delete
+                </ButtonAny>
+              </FlexAny>
             </FlexAny>
-          </FlexAny>
-        </PopoverContentAny>
+          </PopoverContentAny>
+        )}
       </Popover>
     </FlexAny>
   )

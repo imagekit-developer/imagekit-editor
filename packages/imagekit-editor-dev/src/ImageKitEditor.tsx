@@ -9,6 +9,8 @@ import React, {
 } from "react"
 import { EditorLayout, EditorWrapper } from "./components/editor"
 import type { HeaderProps } from "./components/header"
+import type { GetTemplatePermissions } from "./context/TemplatePermissionsContext"
+import { TemplatePermissionsContextProvider } from "./context/TemplatePermissionsContext"
 import { TemplateStorageContextProvider } from "./context/TemplateStorageContext"
 import {
   applyTemplateStorageAccessFailure,
@@ -89,13 +91,25 @@ interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
    * Omit or pass `null` to disable template sync UI.
    */
   templateStorage?: TemplateStorageProvider | null
+  /**
+   * Host-controlled, per-template permissions for template management UI.
+   * If omitted, the editor defaults to allowing all actions.
+   */
+  getTemplatePermissions?: GetTemplatePermissions
 }
 
 function ImageKitEditorImpl<M extends RequiredMetadata>(
   props: EditorProps<M>,
   ref: React.Ref<ImageKitEditorRef>,
 ) {
-  const { theme, initialImages, signer, focusObjects, templateStorage } = props
+  const {
+    theme,
+    initialImages,
+    signer,
+    focusObjects,
+    templateStorage,
+    getTemplatePermissions,
+  } = props
   const {
     addImage,
     addImages,
@@ -217,15 +231,19 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
   return (
     <React.StrictMode>
       <ChakraProvider cssVarsRoot="#ik-editor" theme={mergedThemes} resetCSS>
-        <TemplateStorageContextProvider provider={resolvedProvider}>
-          <EditorWrapper>
-            <EditorLayout
-              onAddImage={props.onAddImage}
-              onClose={handleOnClose}
-              exportOptions={props.exportOptions}
-            />
-          </EditorWrapper>
-        </TemplateStorageContextProvider>
+        <TemplatePermissionsContextProvider
+          getTemplatePermissions={getTemplatePermissions}
+        >
+          <TemplateStorageContextProvider provider={resolvedProvider}>
+            <EditorWrapper>
+              <EditorLayout
+                onAddImage={props.onAddImage}
+                onClose={handleOnClose}
+                exportOptions={props.exportOptions}
+              />
+            </EditorWrapper>
+          </TemplateStorageContextProvider>
+        </TemplatePermissionsContextProvider>
       </ChakraProvider>
     </React.StrictMode>
   )

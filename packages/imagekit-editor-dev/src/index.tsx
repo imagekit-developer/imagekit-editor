@@ -1,3 +1,8 @@
+export type {
+  GetTemplatePermissions,
+  TemplatePermissionBuckets,
+  TemplatePermissions,
+} from "./context/TemplatePermissionsContext"
 export type { ImageKitEditorProps, ImageKitEditorRef } from "./ImageKitEditor"
 export { ImageKitEditor } from "./ImageKitEditor"
 export { DEFAULT_FOCUS_OBJECTS } from "./schema"

@@ -6,6 +6,7 @@ import { PiX } from "@react-icons/all-files/pi/PiX"
 import type React from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import Select, { type StylesConfig } from "react-select"
+import { useTemplatePermissions } from "../../context/TemplatePermissionsContext"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
 import type { TemplateRecord } from "../../storage/types"
@@ -55,6 +56,7 @@ export function SettingsModal({
   onDeleted,
 }: SettingsModalProps) {
   const provider = useTemplateStorage()
+  const permissions = useTemplatePermissions(data)
   const templateStorageWriteBlocked = useEditorStore(
     (s) => s.templateStorageWriteBlocked,
   )
@@ -73,49 +75,10 @@ export function SettingsModal({
   const [localVisibility, setLocalVisibility] = useState<Visibility>(() =>
     visibilityFromRecord(data),
   )
-  // Whether the current user is allowed to change visibility (only the creator can).
-  const [canChangeVisibility, setCanChangeVisibility] = useState(true)
 
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-
-  // Fetch authoritative visibility + creator check from the API.
-  useEffect(() => {
-    let cancelled = false
-
-    if (!provider) {
-      setCanChangeVisibility(true)
-      return
-    }
-
-    provider
-      .getTemplate(data.id)
-      .then((record) => {
-        if (cancelled) return
-        if (!record) {
-          setCanChangeVisibility(true)
-          return
-        }
-        setLocalVisibility(visibilityFromRecord(record))
-        const session = provider.getCurrentUserSession() as {
-          id?: string
-        } | null
-        setCanChangeVisibility(record.createdBy.userId === session?.id)
-      })
-      .catch((err) => {
-        if (cancelled) return
-        if (
-          applyTemplateStorageAccessFailure(err, { denyTemplateStorageAccess })
-        ) {
-          onCloseRef.current()
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [provider, data.id, denyTemplateStorageAccess])
 
   // Close on Escape
   useEffect(() => {
@@ -194,13 +157,15 @@ export function SettingsModal({
         fontSize: "12px",
         minHeight: "32px",
         borderColor: "#E2E8F0",
-        backgroundColor: canChangeVisibility ? base.backgroundColor : "#F7FAFC",
-        opacity: canChangeVisibility ? 1 : 0.6,
+        backgroundColor: permissions.changeVisibility
+          ? base.backgroundColor
+          : "#F7FAFC",
+        opacity: permissions.changeVisibility ? 1 : 0.6,
       }),
       menu: (base) => ({ ...base, zIndex: 10 }),
       option: (base) => ({ ...base, fontSize: "12px" }),
     }),
-    [canChangeVisibility],
+    [permissions.changeVisibility],
   )
 
   // Get height of the current viewport
@@ -276,6 +241,7 @@ export function SettingsModal({
                 }
                 placeholder="Enter template name"
                 fontSize="sm"
+                isDisabled={!permissions.rename}
               />
             </Box>
 
@@ -299,7 +265,7 @@ export function SettingsModal({
                       : "Only to me",
                 }}
                 onChange={(option) => {
-                  if (!canChangeVisibility || !option) return
+                  if (!permissions.changeVisibility || !option) return
                   setLocalVisibility(option.value as Visibility)
                 }}
                 options={[
@@ -319,7 +285,7 @@ export function SettingsModal({
                 )}
                 styles={selectStyles}
                 isSearchable={false}
-                isDisabled={!canChangeVisibility}
+                isDisabled={!permissions.changeVisibility}
               />
             </Box>
           </FlexAny>
@@ -464,12 +430,19 @@ export function SettingsModal({
                 }
                 fontSize="sm"
                 fontWeight="medium"
-                onClick={
-                  isDeleting || isSaving || showDeleteConfirm
+                onClick={() => {
+                  if (!permissions.delete) return
+
+                  return isDeleting || isSaving || showDeleteConfirm
                     ? undefined
                     : () => setShowDeleteConfirm(true)
-                }
+                }}
                 aria-disabled={isDeleting || isSaving || showDeleteConfirm}
+                disabled={!permissions.delete}
+                _disabled={{
+                  color: "gray.400",
+                  cursor: "not-allowed",
+                }}
               >
                 <Icon as={PiTrash} boxSize={5} />
                 {isDeleting ? "Deleting…" : "Delete"}
@@ -538,6 +511,11 @@ export function SettingsModal({
                 isSaving ||
                 templateStorageWriteBlocked
               }
+              disabled={!permissions.save}
+              _disabled={{
+                bg: "blue.200",
+                cursor: "not-allowed",
+              }}
             >
               {isSaving ? "Saving…" : "Save"}
             </Box>
