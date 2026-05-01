@@ -12,6 +12,7 @@ A powerful, React-based image editor component powered by ImageKit transformatio
 
 - 🖼️ **Visual Image Editor**: Interactive UI for applying ImageKit transformations
 - 📝 **Transformation History**: Track and manage applied transformations using ImageKit's chain transformations
+- 💾 **Template Management**: Save and restore editor templates with built-in serialization support
 - 🎨 **Multiple Transformation Types**: Support for resize, crop, focus, quality adjustments, and more
 - 🖥️ **Desktop Interface**: Modern interface built with Chakra UI for desktop environments
 - 🔧 **TypeScript Support**: Full TypeScript support with comprehensive type definitions
@@ -141,8 +142,14 @@ interface ImageKitEditorRef {
   loadImage: (image: string | FileElement) => void;
   loadImages: (images: Array<string | FileElement>) => void;
   setCurrentImage: (imageSrc: string) => void;
+  getTemplate: () => Transformation[];
+  loadTemplate: (template: Omit<Transformation, 'id'>[]) => void;
 }
 ```
+
+**Template Management Methods:**
+- `getTemplate()` - Returns the current editor template (transformation stack)
+- `loadTemplate(template)` - Loads a previously saved template into the editor
 
 ### Export Options
 
@@ -212,6 +219,124 @@ The `metadata` object can contain any contextual information your application ne
 
 ## Advanced Usage
 
+### Template Management
+
+You can save and restore editor templates, enabling features like:
+- Template library
+- Preset transformation stacks
+- Collaborative editing workflows
+- Quick application of common transformations
+
+**Template Versioning:** All templates are versioned (currently `v1`) to ensure backward compatibility and safe schema evolution.
+
+#### Saving a Template
+
+```tsx
+import { useRef } from 'react';
+import { ImageKitEditor, type ImageKitEditorRef, type Transformation } from '@imagekit/editor';
+
+function MyComponent() {
+  const editorRef = useRef<ImageKitEditorRef>(null);
+
+  const handleSaveTemplate = () => {
+    const template = editorRef.current?.getTemplate();
+    if (template) {
+      // Remove the auto-generated 'id' field before saving
+      const templateToSave = template.map(({ id, ...rest }) => rest);
+      
+      // Save to localStorage
+      localStorage.setItem('editorTemplate', JSON.stringify(templateToSave));
+      
+      // Or save to your backend
+      await api.saveTemplate(templateToSave);
+    }
+  };
+
+  return (
+    <ImageKitEditor
+      ref={editorRef}
+      // ... other props
+      exportOptions={[
+        {
+          type: 'button',
+          label: 'Save Template',
+          isVisible: true,
+          onClick: handleSaveTemplate
+        }
+      ]}
+    />
+  );
+}
+```
+
+#### Loading a Template
+
+```tsx
+const handleLoadTemplate = () => {
+  // Load from localStorage
+  const saved = localStorage.getItem('editorTemplate');
+  
+  // Or load from your backend
+  // const saved = await api.getTemplate();
+  
+  if (saved) {
+    const template = JSON.parse(saved);
+    editorRef.current?.loadTemplate(template);
+  }
+};
+```
+
+#### Template Structure
+
+A template is an array of transformation objects with version information:
+
+```tsx
+interface Transformation {
+  id: string;           // Auto-generated, omit when saving
+  key: string;          // e.g., 'adjust-background'
+  name: string;         // e.g., 'Background'
+  type: 'transformation';
+  value: Record<string, unknown>; // Transformation parameters
+  version?: 'v1';       // Template version for compatibility
+}
+
+// Version constant
+import { TRANSFORMATION_STATE_VERSION } from '@imagekit/editor';
+console.log(TRANSFORMATION_STATE_VERSION); // 'v1'
+```
+
+**Example template:**
+```json
+[
+  {
+    "key": "adjust-background",
+    "name": "Background",
+    "type": "transformation",
+    "value": {
+      "backgroundType": "color",
+      "background": "#FFFFFF"
+    },
+    "version": "v1"
+  },
+  {
+    "key": "resize_and_crop-resize_and_crop",
+    "name": "Resize and Crop",
+    "type": "transformation",
+    "value": {
+      "width": 800,
+      "height": 600,
+      "mode": "pad_resize"
+    },
+    "version": "v1"
+  }
+]
+```
+
+**Version Compatibility:**
+- `v1` - Current version with all transformation features
+- The `version` field is optional for backward compatibility
+- Future versions will maintain backward compatibility where possible
+
 ### Signed URLs
 
 For private images that require signed URLs, you can pass file metadata that will be available in the signer function:
@@ -269,9 +394,39 @@ import type {
   ImageKitEditorProps, 
   ImageKitEditorRef, 
   FileElement, 
-  Signer 
+  Signer,
+  Transformation  // For template management
 } from '@imagekit/editor';
+
+// Version constant for template compatibility
+import { TRANSFORMATION_STATE_VERSION } from '@imagekit/editor';
 ```
+
+## Testing
+
+The package includes comprehensive tests to ensure schema stability and API consistency. Run tests:
+
+```bash
+# Run tests once
+yarn test
+
+# Watch mode
+yarn test:watch
+
+# With UI
+yarn test:ui
+```
+
+### Schema Versioning
+
+The transformation schema is locked down with tests to ensure:
+- All transformation categories exist and are stable
+- All transformation items have required properties
+- Schemas validate correctly
+- Template serialization/deserialization works consistently
+- Version compatibility is maintained
+
+Current schema version: **v1**
 
 ## Contributing
 

@@ -20,3 +20,4 @@ packages/imagekit-editor/*.tgz
 builds
 packages/imagekit-editor/README.md
 .cursor
+coverage

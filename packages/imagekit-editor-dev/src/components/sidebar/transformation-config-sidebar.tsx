@@ -38,12 +38,13 @@ import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
 import { PiInfo } from "@react-icons/all-files/pi/PiInfo"
 import { PiX } from "@react-icons/all-files/pi/PiX"
 import startCase from "lodash/startCase"
-import { useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import type { ColorPickerProps } from "react-best-gradient-color-picker"
 import { Controller, type SubmitHandler, useForm } from "react-hook-form"
 import Select from "react-select"
 import CreateableSelect from "react-select/creatable"
 import { z } from "zod/v3"
+import { useTemplateSync } from "../../hooks/useTemplateSync"
 import type { TransformationField } from "../../schema"
 import {
   DEFAULT_FOCUS_OBJECTS,
@@ -51,7 +52,7 @@ import {
   RESIZE_CROP_MODES,
   transformationSchema,
 } from "../../schema"
-import { useEditorStore } from "../../store"
+import { type SyncStatus, useEditorStore } from "../../store"
 import { isStepAligned } from "../../utils"
 import AnchorField from "../common/AnchorField"
 import CheckboxCardField from "../common/CheckboxCardField"
@@ -78,6 +79,70 @@ import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
 import { SidebarRoot } from "./sidebar-root"
 
+export type TransformationFooterActionMode =
+  | "fullySynced"
+  | "applyFlow"
+  | "saveFlow"
+
+/** Pure state machine for transformation sidebar footer primary + menu labels and disabled flags. */
+export function getTransformationFooterActionsConfig(input: {
+  isDirty: boolean
+  syncStatus: SyncStatus
+  hasAppliedInSession: boolean
+  templateStorageWriteBlocked: boolean
+  hasUnsyncedChanges: boolean
+}): {
+  mode: TransformationFooterActionMode
+  primary: { label: string; disabled: boolean }
+  menu: Array<{ label: string; disabled: boolean }>
+  menuTriggerDisabled: boolean
+} {
+  const {
+    isDirty,
+    syncStatus,
+    hasAppliedInSession,
+    templateStorageWriteBlocked,
+    hasUnsyncedChanges,
+  } = input
+
+  const fullySynced = !isDirty && !hasUnsyncedChanges && syncStatus === "saved"
+  if (fullySynced) {
+    return {
+      mode: "fullySynced",
+      primary: { label: "Apply", disabled: true },
+      menu: [
+        { label: "Apply & Close", disabled: true },
+        { label: "Apply & Save", disabled: true },
+      ],
+      menuTriggerDisabled: true,
+    }
+  }
+
+  const showApplyFlow = !hasAppliedInSession || isDirty
+  if (showApplyFlow) {
+    const canApply = isDirty
+    const primaryDisabled = !canApply
+    return {
+      mode: "applyFlow",
+      primary: { label: "Apply", disabled: primaryDisabled },
+      menu: [
+        { label: "Apply & Close", disabled: primaryDisabled },
+        { label: "Apply & Save", disabled: primaryDisabled },
+      ],
+      menuTriggerDisabled: primaryDisabled,
+    }
+  }
+
+  const saveDisabled = templateStorageWriteBlocked || syncStatus === "saving"
+
+  return {
+    mode: "saveFlow",
+    primary: { label: "Save Changes", disabled: saveDisabled },
+    menu: [{ label: "Save & Close", disabled: saveDisabled }],
+    menuTriggerDisabled: saveDisabled,
+  }
+}
+
 export const TransformationConfigSidebar: React.FC = () => {
   const {
     transformations,
@@ -89,7 +154,17 @@ export const TransformationConfigSidebar: React.FC = () => {
     _internalState,
     _setTransformationToEdit,
     _setSelectedTransformationKey,
+    setTransformationConfigFormDirty,
   } = useEditorStore()
+  const syncStatus = useEditorStore((s) => s.syncStatus)
+  const templateStorageWriteBlocked = useEditorStore(
+    (s) => s.templateStorageWriteBlocked,
+  )
+  const { saveNow } = useTemplateSync()
+  const hasUnsyncedChanges = useEditorStore(
+    (s) => s.localChangeVersion !== s.lastSyncedVersion,
+  )
+  const save = useCallback(() => saveNow({ reason: "sidebar" }), [saveNow])
 
   const selectedTransformation = useMemo(() => {
     return transformationSchema
@@ -115,6 +190,15 @@ export const TransformationConfigSidebar: React.FC = () => {
         transformation.id === transformationToEdit.transformationId,
     )
   }, [transformations, transformationToEdit])
+
+  const [hasAppliedInSession, setHasAppliedInSession] = useState(false)
+
+  const footerSessionResetKey = `${_internalState.selectedTransformationKey ?? ""}:${editedTransformation?.id ?? ""}`
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: must reset when switching transformation / edit target
+  useEffect(() => {
+    setHasAppliedInSession(false)
+  }, [footerSessionResetKey])
 
   const editedTransformationValue = editedTransformation?.value as
     | Record<string, unknown>
@@ -170,9 +254,21 @@ export const TransformationConfigSidebar: React.FC = () => {
     reset(defaultValues)
   }, [reset, defaultValues])
 
+  useEffect(() => {
+    setTransformationConfigFormDirty(isDirty)
+    return () => setTransformationConfigFormDirty(false)
+  }, [isDirty, setTransformationConfigFormDirty])
+
+  const setDirtyValue = useCallback(
+    (name: string, value: unknown) => {
+      setValue(name, value, { shouldDirty: true, shouldTouch: true })
+    },
+    [setValue],
+  )
+
   const values = watch()
 
-  const onClose = () => {
+  const onClose = useCallback(() => {
     if (transformations.length === 0) {
       _setSidebarState("type")
     } else {
@@ -180,101 +276,203 @@ export const TransformationConfigSidebar: React.FC = () => {
     }
     _setSelectedTransformationKey(null)
     _setTransformationToEdit(null)
-  }
+  }, [
+    transformations.length,
+    _setSidebarState,
+    _setSelectedTransformationKey,
+    _setTransformationToEdit,
+  ])
 
   const onBack = () => {
     _setSidebarState("type")
   }
 
-  const onApply = (data: Record<string, unknown>) => {
-    if (!selectedTransformation) {
-      return
-    }
-
-    const transformationToEdit = _internalState.transformationToEdit
-
-    // Generate display name for resize_and_crop transformation
-    let displayName = selectedTransformation.name
-    if (
-      selectedTransformation.key === "resize_and_crop-resize_and_crop" &&
-      data.mode
-    ) {
-      const modeInfo = RESIZE_CROP_MODES.find((m) => m.value === data.mode)
-      if (modeInfo) {
-        displayName = `Resize and Crop (${modeInfo.label})`
+  const onApply = useCallback(
+    (data: Record<string, unknown>) => {
+      if (!selectedTransformation) {
+        return
       }
-    }
 
-    // Helper to check if a name is auto-generated for resize_and_crop
-    const isAutoGeneratedName = (name: string) => {
-      if (name === "Resize and Crop") return true
-      // Check if it matches pattern "Resize and Crop (ModeName)"
-      return RESIZE_CROP_MODES.some(
-        (mode) => name === `Resize and Crop (${mode.label})`,
-      )
-    }
+      const transformationToEdit = _internalState.transformationToEdit
 
-    if (transformationToEdit && transformationToEdit.position === "inplace") {
-      // For resize_and_crop, only update name if it's still auto-generated
-      // If user has manually changed it, preserve their custom name
-      let finalName = editedTransformation?.name ?? displayName
+      // Generate display name for resize_and_crop transformation
+      let displayName = selectedTransformation.name
       if (
         selectedTransformation.key === "resize_and_crop-resize_and_crop" &&
-        editedTransformation?.name
+        data.mode
       ) {
-        if (isAutoGeneratedName(editedTransformation.name)) {
-          finalName = displayName
+        const modeInfo = RESIZE_CROP_MODES.find((m) => m.value === data.mode)
+        if (modeInfo) {
+          displayName = `Resize and Crop (${modeInfo.label})`
         }
       }
 
-      updateTransformation(transformationToEdit.transformationId, {
-        type: "transformation",
-        name: finalName,
-        key: selectedTransformation.key,
-        value: data,
-      })
-    } else if (
-      transformationToEdit &&
-      (transformationToEdit.position === "above" ||
-        transformationToEdit.position === "below")
-    ) {
-      const index = transformations.findIndex(
-        (transformation) => transformation.id === transformationToEdit.targetId,
-      )
+      // Helper to check if a name is auto-generated for resize_and_crop
+      const isAutoGeneratedName = (name: string) => {
+        if (name === "Resize and Crop") return true
+        // Check if it matches pattern "Resize and Crop (ModeName)"
+        return RESIZE_CROP_MODES.some(
+          (mode) => name === `Resize and Crop (${mode.label})`,
+        )
+      }
 
-      const transformationId = addTransformation(
-        {
+      if (transformationToEdit && transformationToEdit.position === "inplace") {
+        // For resize_and_crop, only update name if it's still auto-generated
+        // If user has manually changed it, preserve their custom name
+        let finalName = editedTransformation?.name ?? displayName
+        if (
+          selectedTransformation.key === "resize_and_crop-resize_and_crop" &&
+          editedTransformation?.name
+        ) {
+          if (isAutoGeneratedName(editedTransformation.name)) {
+            finalName = displayName
+          }
+        }
+
+        updateTransformation(transformationToEdit.transformationId, {
+          type: "transformation",
+          name: finalName,
+          key: selectedTransformation.key,
+          value: data,
+        })
+      } else if (
+        transformationToEdit &&
+        (transformationToEdit.position === "above" ||
+          transformationToEdit.position === "below")
+      ) {
+        const index = transformations.findIndex(
+          (transformation) =>
+            transformation.id === transformationToEdit.targetId,
+        )
+
+        const transformationId = addTransformation(
+          {
+            type: "transformation",
+            name: displayName,
+            key: selectedTransformation.key,
+            value: data,
+          },
+          index + (transformationToEdit.position === "above" ? 0 : 1),
+        )
+
+        _setTransformationToEdit(transformationId, "inplace")
+      } else {
+        const transformationId = addTransformation({
           type: "transformation",
           name: displayName,
           key: selectedTransformation.key,
           value: data,
-        },
-        index + (transformationToEdit.position === "above" ? 0 : 1),
-      )
+        })
 
-      _setTransformationToEdit(transformationId, "inplace")
-    } else {
-      const transformationId = addTransformation({
-        type: "transformation",
-        name: displayName,
-        key: selectedTransformation.key,
-        value: data,
-      })
-
-      _setTransformationToEdit(transformationId, "inplace")
-    }
-  }
-
-  const onSubmit = (
-    shouldClose = false,
-  ): SubmitHandler<Record<string, unknown>> => {
-    return (data) => {
-      onApply(data)
-      if (shouldClose) {
-        onClose()
+        _setTransformationToEdit(transformationId, "inplace")
       }
+
+      setHasAppliedInSession(true)
+    },
+    [
+      _internalState.transformationToEdit,
+      addTransformation,
+      editedTransformation,
+      selectedTransformation,
+      transformations,
+      updateTransformation,
+      _setTransformationToEdit,
+    ],
+  )
+
+  const onSubmit = useCallback(
+    (shouldClose = false): SubmitHandler<Record<string, unknown>> => {
+      return (data) => {
+        onApply(data)
+        if (shouldClose) {
+          onClose()
+        }
+      }
+    },
+    [onApply, onClose],
+  )
+
+  const footerActionsConfig = useMemo(
+    () =>
+      getTransformationFooterActionsConfig({
+        isDirty,
+        syncStatus,
+        hasAppliedInSession,
+        templateStorageWriteBlocked,
+        hasUnsyncedChanges,
+      }),
+    [
+      isDirty,
+      syncStatus,
+      hasAppliedInSession,
+      templateStorageWriteBlocked,
+      hasUnsyncedChanges,
+    ],
+  )
+
+  const footerActions = useMemo(() => {
+    const noop = () => {}
+    const applySubmit = handleSubmit(onSubmit())
+    const applyCloseSubmit = handleSubmit(onSubmit(true))
+    const applySaveSubmit = handleSubmit((data) => {
+      onApply(data)
+      void save()
+    })
+
+    switch (footerActionsConfig.mode) {
+      case "fullySynced":
+        return {
+          primary: { ...footerActionsConfig.primary, onClick: noop },
+          menuItems: footerActionsConfig.menu.map((item) => ({
+            ...item,
+            onClick: noop,
+          })),
+          menuTriggerDisabled: footerActionsConfig.menuTriggerDisabled,
+        }
+      case "applyFlow":
+        return {
+          primary: {
+            ...footerActionsConfig.primary,
+            onClick: () => {
+              void applySubmit()
+            },
+          },
+          menuItems: [
+            {
+              ...footerActionsConfig.menu[0],
+              onClick: () => {
+                void applyCloseSubmit()
+              },
+            },
+            {
+              ...footerActionsConfig.menu[1],
+              onClick: () => {
+                void applySaveSubmit()
+              },
+            },
+          ],
+          menuTriggerDisabled: footerActionsConfig.menuTriggerDisabled,
+        }
+      case "saveFlow":
+        return {
+          primary: {
+            ...footerActionsConfig.primary,
+            onClick: () => {
+              void save()
+            },
+          },
+          menuItems: [
+            {
+              ...footerActionsConfig.menu[0],
+              onClick: () => {
+                void save().finally(() => onClose())
+              },
+            },
+          ],
+          menuTriggerDisabled: footerActionsConfig.menuTriggerDisabled,
+        }
     }
-  }
+  }, [footerActionsConfig, handleSubmit, onSubmit, onApply, save, onClose])
 
   if (!selectedTransformation) {
     return null
@@ -392,9 +590,6 @@ export const TransformationConfigSidebar: React.FC = () => {
                     const isCreatable = field.fieldProps?.isCreatable === true
                     const isClearable: boolean =
                       field.fieldProps?.isClearable ?? false
-                    const SelectComponent = isCreatable
-                      ? CreateableSelect
-                      : Select
 
                     // For creatable selects, find the value in options or create a custom one
                     const selectedValue = isCreatable
@@ -411,12 +606,41 @@ export const TransformationConfigSidebar: React.FC = () => {
                           (option) => option.value === controllerField.value,
                         )
 
-                    return (
-                      <SelectComponent
+                    return isCreatable ? (
+                      <CreateableSelect
                         id={field.name}
-                        formatCreateLabel={(inputValue) =>
+                        formatCreateLabel={(inputValue: string) =>
                           `Use "${inputValue}"`
                         }
+                        isClearable={isClearable}
+                        placeholder="Select"
+                        menuPlacement="auto"
+                        options={selectOptions}
+                        value={selectedValue}
+                        onChange={(selectedOption) =>
+                          controllerField.onChange(selectedOption?.value)
+                        }
+                        onBlur={controllerField.onBlur}
+                        styles={{
+                          control: (base) => ({
+                            ...base,
+                            fontSize: "12px",
+                            minHeight: "32px",
+                            borderColor: "#E2E8F0",
+                          }),
+                          menu: (base) => ({
+                            ...base,
+                            zIndex: 10,
+                          }),
+                          option: (base) => ({
+                            ...base,
+                            fontSize: "12px",
+                          }),
+                        }}
+                      />
+                    ) : (
+                      <Select
+                        id={field.name}
                         isClearable={isClearable}
                         placeholder="Select"
                         menuPlacement="auto"
@@ -564,7 +788,10 @@ export const TransformationConfigSidebar: React.FC = () => {
                         }
                         const finalValue =
                           v < 0 && isNumberWithN ? `N${Math.abs(v)}` : String(v)
-                        setValue(field.name, finalValue)
+                        setValue(field.name, finalValue, {
+                          shouldDirty: true,
+                          shouldTouch: true,
+                        })
                       }}
                       onChange={(e) => {
                         const val = e.target.value
@@ -577,12 +804,18 @@ export const TransformationConfigSidebar: React.FC = () => {
                           val.toUpperCase().startsWith("N")
 
                         if (val === "") {
-                          setValue(field.name, "")
+                          setValue(field.name, "", {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          })
                           return
                         }
 
                         if (val === "-") {
-                          setValue(field.name, "-")
+                          setValue(field.name, "-", {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          })
                           return
                         }
 
@@ -590,7 +823,10 @@ export const TransformationConfigSidebar: React.FC = () => {
                           field.fieldProps?.autoOption &&
                           val.match(/au?t?o?/i)
                         ) {
-                          setValue(field.name, "auto")
+                          setValue(field.name, "auto", {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          })
                         } else if (
                           !field.fieldProps?.skipStepCheck &&
                           field.fieldProps?.step &&
@@ -605,14 +841,23 @@ export const TransformationConfigSidebar: React.FC = () => {
                             field.fieldProps.min < 0 && isNumberWithN
                               ? `N${Math.abs(field.fieldProps.min)}`
                               : String(field.fieldProps.min)
-                          setValue(field.name, finalVal)
+                          setValue(field.name, finalVal, {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          })
                         } else if (
                           field.fieldProps?.max !== undefined &&
                           Number(numSafeVal) > field.fieldProps.max
                         ) {
-                          setValue(field.name, field.fieldProps.max)
+                          setValue(field.name, field.fieldProps.max, {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          })
                         } else {
-                          setValue(field.name, val)
+                          setValue(field.name, val, {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          })
                         }
                       }}
                     />
@@ -622,7 +867,12 @@ export const TransformationConfigSidebar: React.FC = () => {
                         colorScheme={
                           watch(field.name) === "auto" ? "blue" : "gray"
                         }
-                        onClick={() => setValue(field.name, "auto")}
+                        onClick={() =>
+                          setValue(field.name, "auto", {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          })
+                        }
                       >
                         Auto
                       </Button>
@@ -649,7 +899,12 @@ export const TransformationConfigSidebar: React.FC = () => {
                           )
                     }
                     defaultValue={field.fieldProps?.defaultValue as number}
-                    onChange={(val) => setValue(field.name, val.toString())}
+                    onChange={(val) =>
+                      setValue(field.name, val.toString(), {
+                        shouldDirty: true,
+                        shouldTouch: true,
+                      })
+                    }
                     focusThumbOnChange={false}
                   >
                     <SliderTrack>
@@ -663,7 +918,12 @@ export const TransformationConfigSidebar: React.FC = () => {
                 <ColorPickerField
                   fieldName={field.name}
                   value={watch(field.name) as string}
-                  setValue={setValue}
+                  setValue={
+                    setDirtyValue as unknown as (
+                      name: string,
+                      value: string,
+                    ) => void
+                  }
                   fieldProps={field.fieldProps as ColorPickerProps}
                   isClearable={field.fieldProps?.isClearable ?? false}
                 />
@@ -672,7 +932,12 @@ export const TransformationConfigSidebar: React.FC = () => {
                 <GradientPicker
                   fieldName={field.name}
                   value={watch(field.name) as GradientPickerState}
-                  setValue={setValue}
+                  setValue={
+                    setDirtyValue as unknown as (
+                      name: string,
+                      value: GradientPickerState | string,
+                    ) => void
+                  }
                   errors={errors}
                 />
               ) : null}
@@ -680,14 +945,24 @@ export const TransformationConfigSidebar: React.FC = () => {
                 <AnchorField
                   value={watch(field.name) as string}
                   positions={field.fieldProps?.positions as string[]}
-                  onChange={(value) => setValue(field.name, value)}
+                  onChange={(value) =>
+                    setValue(field.name, value, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                    })
+                  }
                 />
               ) : null}
               {field.fieldType === "radio-card" ? (
                 <RadioCardField
                   value={watch(field.name) as string}
                   options={field.fieldProps?.options ?? []}
-                  onChange={(value) => setValue(field.name, value)}
+                  onChange={(value) =>
+                    setValue(field.name, value, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                    })
+                  }
                   {...field.fieldProps}
                 />
               ) : null}
@@ -695,14 +970,22 @@ export const TransformationConfigSidebar: React.FC = () => {
                 <CheckboxCardField
                   value={watch(field.name) as string[]}
                   options={field.fieldProps?.options ?? []}
-                  onChange={(value) => setValue(field.name, value)}
+                  onChange={(value) =>
+                    setValue(field.name, value, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                    })
+                  }
                   {...field.fieldProps}
                 />
               ) : null}
               {field.fieldType === "padding-input" ? (
                 <PaddingInputField
                   onChange={(value) => {
-                    setValue(field.name, value)
+                    setValue(field.name, value, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                    })
                     trigger(field.name)
                   }}
                   errors={errors as PaddingErrors}
@@ -714,14 +997,26 @@ export const TransformationConfigSidebar: React.FC = () => {
               {field.fieldType === "zoom" ? (
                 <ZoomInput
                   value={watch(field.name) as number}
-                  onChange={(value) => setValue(field.name, value)}
-                  {...field.fieldProps}
+                  onChange={(value) =>
+                    setValue(field.name, value, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                    })
+                  }
+                  defaultValue={
+                    typeof field.fieldProps?.defaultValue === "number"
+                      ? (field.fieldProps.defaultValue as number)
+                      : undefined
+                  }
                 />
               ) : null}
               {field.fieldType === "distort-perspective-input" ? (
                 <DistortPerspectiveInput
                   onChange={(value) => {
-                    setValue(field.name, value)
+                    setValue(field.name, value, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                    })
                     trigger(field.name)
                   }}
                   errors={errors as PerspectiveErrors}
@@ -733,7 +1028,10 @@ export const TransformationConfigSidebar: React.FC = () => {
               {field.fieldType === "radius-input" ? (
                 <RadiusInputField
                   onChange={(value) => {
-                    setValue(field.name, value)
+                    setValue(field.name, value, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                    })
                     trigger(field.name)
                   }}
                   errors={errors as RadiusErrors}
@@ -815,19 +1113,19 @@ export const TransformationConfigSidebar: React.FC = () => {
             {isDirty ? "Discard changes" : "Close"}
           </Button>
 
-          <ButtonGroup
-            size="md"
-            isAttached
-            variant="solid"
-            colorScheme="editorBlue"
-          >
-            <Button type="submit" onClick={handleSubmit(onSubmit())}>
-              Apply
+          <ButtonGroup size="md" isAttached variant="solid" colorScheme="blue">
+            <Button
+              type="button"
+              isDisabled={footerActions.primary.disabled}
+              onClick={footerActions.primary.onClick}
+            >
+              {footerActions.primary.label}
             </Button>
             <Menu placement="top-end" closeOnSelect>
               <MenuButton
                 as={Button}
-                colorScheme="editorBlue"
+                isDisabled={footerActions.menuTriggerDisabled}
+                colorScheme="blue"
                 borderLeft="1px"
                 borderLeftColor="blue.300"
                 px="2"
@@ -835,9 +1133,15 @@ export const TransformationConfigSidebar: React.FC = () => {
                 <Icon as={PiCaretDown} />
               </MenuButton>
               <MenuList minW="160px">
-                <MenuItem onClick={handleSubmit(onSubmit(true))}>
-                  Apply & Close
-                </MenuItem>
+                {footerActions.menuItems.map((item) => (
+                  <MenuItem
+                    key={item.label}
+                    isDisabled={item.disabled}
+                    onClick={item.onClick}
+                  >
+                    {item.label}
+                  </MenuItem>
+                ))}
               </MenuList>
             </Menu>
           </ButtonGroup>

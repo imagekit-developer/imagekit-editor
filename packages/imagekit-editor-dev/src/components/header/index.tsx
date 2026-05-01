@@ -1,5 +1,4 @@
 import {
-  Button,
   Divider,
   Flex,
   Icon,
@@ -8,17 +7,26 @@ import {
   MenuItem,
   MenuList,
   Spacer,
-  Text,
 } from "@chakra-ui/react"
-import { PiImageSquare } from "@react-icons/all-files/pi/PiImageSquare"
-import { PiImagesSquare } from "@react-icons/all-files/pi/PiImagesSquare"
+import { PiGear } from "@react-icons/all-files/pi/PiGear"
+import { PiGlobe } from "@react-icons/all-files/pi/PiGlobe"
+import { PiLock } from "@react-icons/all-files/pi/PiLock"
 import { PiX } from "@react-icons/all-files/pi/PiX"
-import React, { useMemo } from "react"
+import React, { useEffect, useState } from "react"
+import { useTemplateStorage } from "../../context/TemplateStorageContext"
+import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
+import type { TemplateRecord } from "../../storage/types"
 import {
   type FileElement,
   type RequiredMetadata,
   useEditorStore,
 } from "../../store"
+import { chakraAny } from "../../utils"
+import { NavbarItem } from "./NavbarItem"
+import { SettingsModal } from "./SettingsModal"
+import { TemplateNameInput } from "./TemplateNameInput"
+import { TemplateStatus } from "./TemplateStatus"
+import { TemplatesDropdown } from "./TemplatesDropdown"
 
 interface ExportOptionButton<
   Metadata extends RequiredMetadata = RequiredMetadata,
@@ -50,22 +58,68 @@ export interface HeaderProps<
   exportOptions?: Array<
     ExportOptionButton<Metadata> | ExportOptionMenu<Metadata>
   >
+  onViewAllTemplates?: () => void
 }
 
-export const Header = ({ onClose, exportOptions }: HeaderProps) => {
-  const { imageList, originalImageList, currentImage } = useEditorStore()
+export const Header = ({
+  onClose,
+  exportOptions,
+  onViewAllTemplates,
+}: HeaderProps): React.ReactElement => {
+  const FlexAny = chakraAny(Flex)
+  const DividerAny = chakraAny(Divider)
+  const MenuButtonAny = chakraAny(MenuButton)
+  const MenuListAny = chakraAny(MenuList)
+  const MenuItemAny = chakraAny(MenuItem)
 
-  const headerText = useMemo(() => {
-    if (imageList.length === 1) {
-      return decodeURIComponent(
-        currentImage?.split("/").pop()?.split("?")?.[0] || "",
-      )
+  const { imageList, originalImageList, currentImage } = useEditorStore()
+  const templateId = useEditorStore((s) => s.templateId)
+  const templateIsPrivate = useEditorStore((s) => s.templateIsPrivate)
+  const syncStatus = useEditorStore((s) => s.syncStatus)
+  const provider = useTemplateStorage()
+
+  const [activeRecord, setActiveRecord] = useState<TemplateRecord | null>(null)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+
+  // Fetch the active template record whenever templateId changes or after a save.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: syncStatus intentionally triggers a refetch after saves
+  useEffect(() => {
+    let cancelled = false
+
+    if (!provider || !templateId) {
+      setActiveRecord(null)
+      return
     }
-    return `${imageList.length} Images`
-  }, [imageList, currentImage])
+
+    provider
+      .getTemplate(templateId)
+      .then((record) => {
+        if (cancelled) return
+        setActiveRecord(record ?? null)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        const { denyTemplateStorageAccessAndReset } = useEditorStore.getState()
+        applyTemplateStorageAccessFailure(err, {
+          denyTemplateStorageAccessAndReset,
+        })
+        setActiveRecord(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [provider, templateId, syncStatus])
+
+  const visibleExportOptions =
+    exportOptions?.filter((exportOption) =>
+      typeof exportOption.isVisible === "boolean"
+        ? exportOption.isVisible
+        : exportOption.isVisible(imageList, currentImage),
+    ) ?? []
 
   return (
-    <Flex
+    <FlexAny
       as="header"
       width="full"
       h="16"
@@ -77,117 +131,172 @@ export const Header = ({ onClose, exportOptions }: HeaderProps) => {
       borderBottomColor="editorBattleshipGrey.100"
       flexShrink={0}
     >
-      <Icon
-        boxSize={"5"}
-        mr="4"
-        as={imageList.length === 1 ? PiImageSquare : PiImagesSquare}
-      />
-      <Text>{headerText}</Text>
+      {provider ? (
+        <>
+          <FlexAny alignItems="center" gap="2" px="4" height="full" ml="-4">
+            {templateId && (
+              <Icon
+                as={
+                  // Prefer the editor store for the active template visibility; it updates immediately after save.
+                  templateIsPrivate !== null
+                    ? templateIsPrivate === false
+                      ? PiGlobe
+                      : PiLock
+                    : activeRecord?.isPrivate === false
+                      ? PiGlobe
+                      : PiLock
+                }
+                boxSize={5}
+                color="editorBattleshipGrey.500"
+              />
+            )}
+            <TemplateNameInput />
+          </FlexAny>
+          <DividerAny
+            orientation="vertical"
+            borderColor="editorBattleshipGrey.200"
+            height="40%"
+          />
+          <NavbarItem
+            label="Settings"
+            icon={<PiGear />}
+            variant="icon"
+            onClick={() => {
+              if (!templateId) return
+              setIsSettingsOpen(true)
+            }}
+            disabled={!templateId}
+            _disabled={{
+              cursor: "not-allowed",
+              opacity: 0.5,
+            }}
+          />
+          <DividerAny
+            orientation="vertical"
+            borderColor="editorBattleshipGrey.200"
+            height="40%"
+          />
+          <FlexAny alignItems="center">
+            <TemplatesDropdown onViewAllTemplates={onViewAllTemplates} />
+          </FlexAny>
+          <DividerAny
+            orientation="vertical"
+            borderColor="editorBattleshipGrey.200"
+            height="40%"
+          />
+        </>
+      ) : null}
+      <FlexAny ml="6">
+        <TemplateStatus />
+      </FlexAny>
       <Spacer />
-      {exportOptions
-        ?.filter((exportOption) =>
-          typeof exportOption.isVisible === "boolean"
-            ? exportOption.isVisible
-            : exportOption.isVisible(imageList, currentImage),
-        )
-        .map((exportOption) => (
-          <React.Fragment key={`export-option-${exportOption.label}`}>
-            <Divider
-              orientation="vertical"
-              borderColor="editorBattleshipGrey.100"
+      {visibleExportOptions.map((exportOption, exportOptionIndex) => (
+        <React.Fragment key={`export-option-${exportOption.label}`}>
+          {exportOption.type === "button" ? (
+            <NavbarItem
+              key={`export-button-${exportOption.label}`}
+              icon={exportOption.icon}
+              label={exportOption.label}
+              onClick={() => {
+                const images = imageList.map((image, index) => ({
+                  url: image,
+                  file: originalImageList[index],
+                }))
+                const cImage = images.find(
+                  (image) => image.url === currentImage,
+                )
+                exportOption.onClick(images, {
+                  // biome-ignore lint/style/noNonNullAssertion: <required here>
+                  url: cImage!.url,
+                  // biome-ignore lint/style/noNonNullAssertion: <required here>
+                  file: cImage!.file,
+                })
+              }}
             />
-            {exportOption.type === "button" ? (
-              <Button
-                key={`export-button-${exportOption.label}`}
-                leftIcon={exportOption.icon}
-                aria-label={exportOption.label}
-                variant="ghost"
-                fontWeight="normal"
-                height="full"
-                borderRadius="0"
-                px="8"
-                size="sm"
-                onClick={() => {
-                  const images = imageList.map((image, index) => ({
-                    url: image,
-                    file: originalImageList[index],
-                  }))
-                  const cImage = images.find(
-                    (image) => image.url === currentImage,
-                  )
-                  exportOption.onClick(images, {
-                    // biome-ignore lint/style/noNonNullAssertion: <required here>
-                    url: cImage!.url,
-                    // biome-ignore lint/style/noNonNullAssertion: <required here>
-                    file: cImage!.file,
-                  })
-                }}
+          ) : (
+            <Menu
+              key={`export-menu-${exportOption.label}`}
+              placement="bottom-end"
+              strategy="fixed"
+            >
+              <MenuButtonAny
+                as={NavbarItem}
+                icon={exportOption.icon}
+                label={exportOption.label}
               >
                 {exportOption.label}
-              </Button>
-            ) : (
-              <Menu key={`export-menu-${exportOption.label}`}>
-                <MenuButton
-                  as={Button}
-                  leftIcon={exportOption.icon}
-                  aria-label={exportOption.label}
-                  variant="ghost"
-                  fontWeight="normal"
-                  height="full"
-                  borderRadius="0"
-                  px="8"
-                  size="sm"
-                >
-                  {exportOption.label}
-                </MenuButton>
-                <MenuList>
-                  {exportOption.options
-                    .filter((option) =>
-                      typeof option.isVisible === "boolean"
-                        ? option.isVisible
-                        : option.isVisible(imageList, currentImage),
-                    )
-                    .map((option) => (
-                      <MenuItem
-                        key={`export-menu-option-${option.label}`}
-                        onClick={() => {
-                          const images = imageList.map((image, index) => ({
-                            url: image,
-                            file: originalImageList[index],
-                          }))
-                          const cImage = images.find(
-                            (image) => image.url === currentImage,
-                          )
-                          option.onClick(images, {
-                            // biome-ignore lint/style/noNonNullAssertion: <required here>
-                            url: cImage!.url,
-                            // biome-ignore lint/style/noNonNullAssertion: <required here>
-                            file: cImage!.file,
-                          })
-                        }}
-                      >
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                </MenuList>
-              </Menu>
-            )}
-          </React.Fragment>
-        ))}
-      <Divider orientation="vertical" borderColor="editorBattleshipGrey.100" />
-      <Button
-        leftIcon={<Icon boxSize={"5"} as={PiX} />}
-        aria-label="Close Button"
+              </MenuButtonAny>
+              <MenuListAny>
+                {exportOption.options
+                  .filter((option) =>
+                    typeof option.isVisible === "boolean"
+                      ? option.isVisible
+                      : option.isVisible(imageList, currentImage),
+                  )
+                  .map((option) => (
+                    <MenuItemAny
+                      key={`export-menu-option-${option.label}`}
+                      onClick={() => {
+                        const images = imageList.map((image, index) => ({
+                          url: image,
+                          file: originalImageList[index],
+                        }))
+                        const cImage = images.find(
+                          (image) => image.url === currentImage,
+                        )
+                        option.onClick(images, {
+                          // biome-ignore lint/style/noNonNullAssertion: <required here>
+                          url: cImage!.url,
+                          // biome-ignore lint/style/noNonNullAssertion: <required here>
+                          file: cImage!.file,
+                        })
+                      }}
+                    >
+                      {option.label}
+                    </MenuItemAny>
+                  ))}
+              </MenuListAny>
+            </Menu>
+          )}
+          {exportOptionIndex < visibleExportOptions.length - 1 ? (
+            <DividerAny
+              orientation="vertical"
+              borderColor="editorBattleshipGrey.200"
+              height="40%"
+            />
+          ) : null}
+        </React.Fragment>
+      ))}
+      <DividerAny
+        orientation="vertical"
+        borderColor="editorBattleshipGrey.200"
+        height="40%"
+      />
+      <NavbarItem
+        icon={<Icon boxSize={"5"} as={PiX} />}
+        label="Close"
         onClick={onClose}
-        variant="ghost"
-        fontWeight="normal"
-        height="full"
-        borderRadius="0"
-        px="8"
-        size="sm"
-      >
-        Close
-      </Button>
-    </Flex>
+      />
+      {isSettingsOpen && activeRecord && (
+        <SettingsModal
+          key={activeRecord.id}
+          data={activeRecord}
+          onClose={() => setIsSettingsOpen(false)}
+          onSaved={(updated) => {
+            setActiveRecord(updated)
+            useEditorStore.getState().hydrateTemplateMetadata({
+              templateId: updated.id,
+              templateName: updated.name,
+              templateIsPrivate: updated.isPrivate,
+            })
+          }}
+          onDeleteRequested={async (id) => {
+            if (!provider?.deleteTemplate) return
+            await provider.deleteTemplate(id)
+            useEditorStore.getState().resetToNewTemplate()
+          }}
+        />
+      )}
+    </FlexAny>
   )
 }

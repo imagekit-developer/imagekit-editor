@@ -9,19 +9,17 @@ import {
 } from "@chakra-ui/react"
 import type * as React from "react"
 
-type CheckboxCardOption = {
+type FilterChipsOption = {
   label: string
   value: string
   icon?: React.ReactNode
-  isDisabled?: boolean
 }
 
-type CheckboxCardFieldProps = {
+type FilterChipsFieldProps = {
   id?: string
   value?: string[]
-  options: CheckboxCardOption[]
+  options: FilterChipsOption[]
   onChange: (values: string[]) => void
-  columns?: number
   maxSelections?: number
 }
 
@@ -30,25 +28,22 @@ const toggleValue = (
   v: string,
   max?: number,
 ): string[] => {
-  // Guard: a stored string must never be spread into characters via new Set(string).
   const currentArray = Array.isArray(current) ? current : []
   const set = new Set(currentArray)
   if (set.has(v)) {
     set.delete(v)
     return Array.from(set)
   }
-  // add
   if (typeof max === "number" && currentArray.length >= max) return currentArray
   set.add(v)
   return Array.from(set)
 }
 
-export const CheckboxCardField: React.FC<CheckboxCardFieldProps> = ({
+export const FilterChipsField: React.FC<FilterChipsFieldProps> = ({
   id,
   value = [],
   options,
   onChange,
-  columns = 3,
   maxSelections,
 }) => {
   const selectedBg = useColorModeValue("blue.50", "blue.900")
@@ -71,30 +66,13 @@ export const CheckboxCardField: React.FC<CheckboxCardFieldProps> = ({
   }
 
   return (
-    // biome-ignore lint/a11y/useSemanticElements: <role used to concur to chakra standard>
-    <HStack
-      as="fieldset"
-      id={id}
-      role="group"
-      align="stretch"
-      spacing="2"
-      wrap="wrap"
-      sx={{
-        "& > [data-checkbox-card]": {
-          flexBasis: `calc(${100 / columns}% - 8px)`,
-          minWidth: 0,
-        },
-      }}
-    >
+    <HStack as="fieldset" id={id} align="center" spacing="2" wrap="wrap">
       {options.map((opt) => {
         const isChecked = safeValue.includes(opt.value)
         const disabled = opt.isDisabled || (!isChecked && isMaxed)
         return (
-          // biome-ignore lint/a11y/useSemanticElements: <role used to concur to chakra standard>
           <Box
             key={opt.value}
-            data-checkbox-card
-            role="checkbox"
             aria-checked={isChecked}
             aria-disabled={disabled || undefined}
             tabIndex={disabled ? -1 : 0}
@@ -119,7 +97,7 @@ export const CheckboxCardField: React.FC<CheckboxCardFieldProps> = ({
               outline: "none",
             }}
           >
-            <Flex align="center" gap="2">
+            <Flex align="center" gap="2" opacity={isChecked ? 1 : 0.5}>
               {opt.icon ? <Icon as={opt.icon as As} boxSize="16px" /> : null}
               <Text fontSize="sm" noOfLines={1}>
                 {opt.label}
@@ -132,4 +110,4 @@ export const CheckboxCardField: React.FC<CheckboxCardFieldProps> = ({
   )
 }
 
-export default CheckboxCardField
+export default FilterChipsField

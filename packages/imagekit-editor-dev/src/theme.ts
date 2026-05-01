@@ -1,7 +1,25 @@
 export const themeOverrides = {
+  styles: {
+    global: {
+      "#ik-editor *": {
+        scrollbarWidth: "thin",
+      },
+      "#ik-editor *::-webkit-scrollbar": {
+        width: "6px",
+        height: "6px",
+      },
+      "#ik-editor *::-webkit-scrollbar-thumb": {
+        background: "rgba(160, 174, 192, 0.8)",
+        borderRadius: "999px",
+      },
+      "#ik-editor *::-webkit-scrollbar-track": {
+        background: "transparent",
+      },
+    },
+  },
   colors: {
     editorBattleshipGrey: {
-      "50": "#f9f6fd",
+      "50": "#f7fafc",
       "100": "#e2dfe5",
       "200": "#c7c5ca",
       "300": "#a7a5aa",
@@ -13,6 +31,21 @@ export const themeOverrides = {
       "900": "#343334",
     },
     editorBlue: {
+      "50": "#E6EFFF",
+      "100": "#B9D2FE",
+      "200": "#8CB5FD",
+      "300": "#5F98FC",
+      "400": "#327BFB",
+      "500": "#055EFA",
+      "600": "#044BC8",
+      "700": "#033896",
+      "800": "#022664",
+      "900": "#011332",
+    },
+    // Alias Chakra's default "blue" palette to our editor brand blue.
+    // This keeps MenuItem active/focus states, focus rings, and all `colorScheme="blue"`
+    // components visually consistent across the editor.
+    blue: {
       "50": "#E6EFFF",
       "100": "#B9D2FE",
       "200": "#8CB5FD",

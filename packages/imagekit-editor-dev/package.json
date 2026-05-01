@@ -1,6 +1,6 @@
 {
   "name": "imagekit-editor-dev",
-  "version": "0.0.0",
+  "version": "3.0.0",
   "description": "AI Image Editor powered by ImageKit",
   "scripts": {
     "prepack": "yarn build",
@@ -8,7 +8,11 @@
     "dev": "DEBUG=* vite build --watch",
     "start": "vite build --watch",
     "analyze": "vite build --mode analyze",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [],
   "author": {
@@ -48,6 +52,7 @@
     "@hookform/resolvers": "^5.1.1",
     "@imagekit/javascript": "^5.1.0",
     "@react-icons/all-files": "https://github.com/react-icons/react-icons/releases/download/v5.4.0/react-icons-all-files-5.4.0.tgz",
+    "@tanstack/react-virtual": "^3.13.12",
     "framer-motion": "6.5.1",
     "imagekit-javascript": "^3.0.2",
     "lodash": "^4.17.21",

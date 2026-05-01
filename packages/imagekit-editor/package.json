@@ -1,6 +1,6 @@
 {
   "name": "@imagekit/editor",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "description": "Image Editor powered by ImageKit",
   "main": "dist/index.cjs.js",
   "module": "dist/index.es.js",
@@ -18,6 +18,9 @@
     "url": "https://github.com/imagekit-developer/imagekit-editor/issues"
   },
   "homepage": "https://imagekit.io",
+  "scripts": {
+    "test": "echo \"No tests in this package\""
+  },
   "peerDependencies": {
     "@chakra-ui/icons": "1.1.1",
     "@chakra-ui/react": "~1.8.9",

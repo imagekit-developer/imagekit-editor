@@ -13,6 +13,14 @@
       "cache": false,
       "persistent": true,
       "dependsOn": []
+    },
+    "test": {
+      "cache": false,
+      "outputs": []
+    },
+    "test:coverage": {
+      "cache": false,
+      "outputs": []
     }
   }
 }

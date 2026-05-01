@@ -22,10 +22,11 @@ jobs:
           node-version: 20.x
           cache: yarn
 
-      - name: 📦  Install deps, build, pack
+      - name: 📦  Install deps, lint, test, build, pack
         run: |
           yarn install --frozen-lockfile
           yarn lint
+          yarn test:coverage
           yarn package
         env:
           CI: true

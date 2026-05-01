@@ -16,6 +16,25 @@ export default defineConfig({
       outDir: "../imagekit-editor/dist/types",
     }),
   ],
+  test: {
+    globals: true,
+    environment: "happy-dom",
+    setupFiles: [],
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json", "html"],
+      include: ["src/schema/**/*.{ts,tsx}"],
+      exclude: ["src/**/*.{test,spec}.{ts,tsx}", "node_modules/**"],
+      thresholds: {
+        // Only enforced on src/schema files - focusing on validation logic
+        lines: 90, // Realistic threshold given UI visibility code
+        branches: 90,
+        statements: 90,
+        perFile: false, // Global threshold across all schema files
+      },
+    },
+  },
   build: {
     lib: {
       entry: path.resolve(__dirname, "src/index.tsx"),

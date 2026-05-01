@@ -1,0 +1,176 @@
+import { ChakraProvider } from "@chakra-ui/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { TemplateStorageContextProvider } from "../../context/TemplateStorageContext"
+import type { TemplateRecord } from "../../storage"
+import type { TemplateStorageProvider } from "../../storage/types"
+import { useEditorStore } from "../../store"
+import { SettingsModal } from "./SettingsModal"
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function makeTemplate(partial: Partial<TemplateRecord> = {}): TemplateRecord {
+  const now = Date.now()
+  return {
+    id: "t-1",
+    clientNumber: "c1",
+    isPrivate: false,
+    name: "My Template",
+    transformations: [],
+    isPinned: false,
+    createdBy: { userId: "u1", name: "Creator", email: "creator@example.com" },
+    updatedBy: { userId: "u1", name: "Creator", email: "creator@example.com" },
+    createdAt: now,
+    updatedAt: now,
+    ...partial,
+  }
+}
+
+function renderModal(opts: {
+  data?: TemplateRecord
+  onClose?: () => void
+  onSaved?: (r: TemplateRecord) => void
+  onDeleteRequested?: ((id: string) => Promise<void>) | undefined
+  saveTemplate?: (r: unknown) => Promise<TemplateRecord>
+}) {
+  const data = opts.data ?? makeTemplate()
+
+  const provider: TemplateStorageProvider = {
+    getProviderName: () => "test",
+    getCurrentUserSession: () => ({ id: "u1" }),
+    listTemplates: async () => [],
+    getTemplate: async () => data,
+    saveTemplate:
+      opts.saveTemplate ??
+      (async (_r: unknown) => makeTemplate({ id: "saved" })),
+    setTemplatePinned: vi.fn(),
+  }
+
+  return render(
+    <ChakraProvider>
+      <TemplateStorageContextProvider provider={provider}>
+        <SettingsModal
+          data={data}
+          onClose={opts.onClose ?? vi.fn()}
+          onSaved={opts.onSaved}
+          onDeleteRequested={opts.onDeleteRequested}
+        />
+      </TemplateStorageContextProvider>
+    </ChakraProvider>,
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe("SettingsModal", () => {
+  beforeEach(() => {
+    useEditorStore.getState().destroy()
+  })
+
+  describe("delete confirmation flow", () => {
+    it("does NOT call onDeleteRequested immediately when Delete is clicked", async () => {
+      const onDeleteRequested = vi.fn(async () => {})
+      renderModal({ onDeleteRequested })
+
+      expect(await screen.findByText("Template Settings")).toBeTruthy()
+
+      act(() => {
+        fireEvent.click(screen.getByText("Delete"))
+      })
+
+      // onDeleteRequested must NOT have been called yet
+      expect(onDeleteRequested).not.toHaveBeenCalled()
+    })
+
+    it("shows the confirmation panel after clicking Delete", async () => {
+      renderModal({ onDeleteRequested: vi.fn(async () => {}) })
+
+      expect(await screen.findByText("Template Settings")).toBeTruthy()
+
+      act(() => {
+        fireEvent.click(screen.getByText("Delete"))
+      })
+
+      // Confirmation panel should now be visible
+      expect(screen.getByText("Delete template?")).toBeTruthy()
+      expect(screen.getByText(/This action cannot be reversed/)).toBeTruthy()
+      expect(screen.getByText("Yes, delete")).toBeTruthy()
+    })
+
+    it("does NOT call onDeleteRequested when confirmation is dismissed with Cancel", async () => {
+      const onDeleteRequested = vi.fn(async () => {})
+      renderModal({ onDeleteRequested })
+
+      expect(await screen.findByText("Template Settings")).toBeTruthy()
+
+      // Open confirmation panel
+      act(() => {
+        fireEvent.click(screen.getByText("Delete"))
+      })
+
+      expect(screen.getByText("Delete template?")).toBeTruthy()
+
+      // Dismiss without confirming — click the Cancel inside the confirmation panel
+      act(() => {
+        fireEvent.click(screen.getByTestId("delete-confirm-cancel"))
+      })
+
+      // Panel should be gone
+      expect(screen.queryByText("Delete template?")).toBeNull()
+      // onDeleteRequested still must not have been called
+      expect(onDeleteRequested).not.toHaveBeenCalled()
+    })
+
+    it("calls onDeleteRequested only after clicking Yes, delete", async () => {
+      const onDeleteRequested = vi.fn(async () => {})
+      const onClose = vi.fn()
+
+      renderModal({ onDeleteRequested, onClose })
+
+      expect(await screen.findByText("Template Settings")).toBeTruthy()
+
+      // Open confirmation panel
+      act(() => {
+        fireEvent.click(screen.getByText("Delete"))
+      })
+
+      expect(screen.getByTestId("delete-confirm-submit")).toBeTruthy()
+
+      // Confirm deletion
+      act(() => {
+        fireEvent.click(screen.getByTestId("delete-confirm-submit"))
+      })
+
+      await waitFor(() => {
+        expect(onDeleteRequested).toHaveBeenCalledTimes(1)
+        expect(onDeleteRequested).toHaveBeenCalledWith("t-1")
+      })
+
+      expect(onClose).toHaveBeenCalled()
+    })
+
+    it("Delete button is disabled while confirmation panel is open", async () => {
+      renderModal({ onDeleteRequested: vi.fn(async () => {}) })
+
+      expect(await screen.findByText("Template Settings")).toBeTruthy()
+
+      // Before opening: Delete button is NOT disabled
+      const deleteBtn = screen.getByText("Delete")
+      expect(deleteBtn.closest("[aria-disabled='true']")).toBeNull()
+
+      // Open confirmation panel
+      act(() => {
+        fireEvent.click(deleteBtn)
+      })
+
+      // After opening: the footer Delete button should be aria-disabled="true"
+      const deleteBtnsAfter = screen.getAllByText("Delete")
+      const footerDelete = deleteBtnsAfter[deleteBtnsAfter.length - 1]
+      expect(footerDelete.closest("[aria-disabled='true']")).not.toBeNull()
+    })
+  })
+})

@@ -146,25 +146,6 @@ export const commonNumberAndExpressionValidator = z
     })
   })
 
-const overlayBlockExpr = z
-  .string()
-  .regex(/^(?:bh|bw|bar)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/, {
-    message: "String must be a valid expression string.",
-  })
-
-export const overlayBlockExprValidator = z.any().superRefine((val, ctx) => {
-  if (commonNumber.safeParse(val).success) {
-    return
-  }
-  if (overlayBlockExpr.safeParse(val).success) {
-    return
-  }
-  ctx.addIssue({
-    code: z.ZodIssueCode.custom,
-    message: "Must be a positive number or a valid expression string.",
-  })
-})
-
 const lineHeightInteger = z.coerce.string().regex(/^\d+$/)
 
 const lineHeightExpr = z

@@ -13,7 +13,10 @@ import {
   transformationFormatters,
   transformationSchema,
 } from "./schema"
+import { bumpLocalChangeVersion as bumpVersion } from "./sync/templateSyncVersioning"
 import { extractImagePath } from "./utils"
+
+export const TRANSFORMATION_STATE_VERSION = "v1" as const
 
 export interface Transformation {
   id: string
@@ -21,6 +24,9 @@ export interface Transformation {
   name: string
   type: "transformation"
   value: IKTransformation
+  version?: typeof TRANSFORMATION_STATE_VERSION
+  /** Persisted visibility flag. Absent or true = visible; false = hidden. */
+  enabled?: boolean
 }
 
 export type RequiredMetadata = { requireSignedUrl: boolean }
@@ -69,6 +75,8 @@ export type FocusObjects =
   | (typeof DEFAULT_FOCUS_OBJECTS)[number]
   | (string & {})
 
+export type SyncStatus = "unsaved" | "saving" | "saved" | "error"
+
 export interface EditorState<
   Metadata extends RequiredMetadata = RequiredMetadata,
 > {
@@ -85,6 +93,37 @@ export interface EditorState<
   currentTransformKey: string
   focusObjects?: ReadonlyArray<FocusObjects>
   _internalState: InternalState
+  templateName: string
+  templateId: string | null
+  /**
+   * Template visibility scope. For dashboard integration this maps to:
+   * - true  => onlyMe (private)
+   * - false => everyone (shared)
+   * - null  => unknown/unloaded
+   */
+  templateIsPrivate: boolean | null
+  syncStatus: SyncStatus
+  storageError?: string
+  isPristine: boolean
+  /**
+   * After a 401/403 template write failure, saves are blocked so a follow-up
+   * save cannot POST a duplicate after the store clears `templateId`.
+   */
+  templateStorageWriteBlocked: boolean
+
+  /** Versioned sync model to keep UI stable under save/edit races. */
+  localChangeVersion: number
+  lastSyncedVersion: number
+  /**
+   * Timestamp (ms) of the last successful save to remote storage.
+   * Used to debounce/reset periodic auto-save scheduling.
+   */
+  lastSavedAt: number | null
+  /**
+   * True while the transformation config sidebar form has unapplied edits (RHF isDirty).
+   * Used by header status and close confirmation alongside versioned unsynced state.
+   */
+  transformationConfigFormDirty: boolean
 }
 
 export type EditorActions<
@@ -94,6 +133,8 @@ export type EditorActions<
     imageList?: Array<string | InputFileElement<Metadata>>
     signer?: Signer<Metadata>
     focusObjects?: ReadonlyArray<FocusObjects>
+    templateName?: string
+    templateId?: string
   }) => void
   destroy: () => void
   setCurrentImage: (imageSrc: string | undefined) => void
@@ -104,7 +145,7 @@ export type EditorActions<
   addImage: (imageSrc: string | InputFileElement<Metadata>) => void
   addImages: (imageSrcs: Array<string | InputFileElement<Metadata>>) => void
   removeImage: (imageSrc: string) => void
-  setTransformations: (transformations: Omit<Transformation, "id">[]) => void
+  loadTemplate: (template: Omit<Transformation, "id">[]) => void
   moveTransformation: (
     activeId: UniqueIdentifier,
     overId: UniqueIdentifier,
@@ -120,6 +161,36 @@ export type EditorActions<
     updatedTransformation: Omit<Transformation, "id">,
   ) => void
   setShowOriginal: (showOriginal: boolean) => void
+  setTemplateName: (name: string) => void
+  setTemplateId: (id: string | null) => void
+  setTemplateIsPrivate: (isPrivate: boolean | null) => void
+  /**
+   * Sets template metadata from storage responses without bumping local version.
+   * Use this when hydrating from server/list responses (save success, load from library).
+   */
+  hydrateTemplateMetadata: (meta: {
+    templateId: string | null
+    templateName: string
+    templateIsPrivate: boolean | null
+  }) => void
+  setSyncStatus: (status: SyncStatus, error?: string) => void
+  setIsPristine: (pristine: boolean) => void
+  bumpLocalChangeVersion: () => void
+  markSynced: (version?: number) => void
+  setLastSavedAt: (ts: number | null) => void
+  setTransformationConfigFormDirty: (dirty: boolean) => void
+  resetToNewTemplate: () => void
+  /**
+   * Blocks any further writes to template storage while keeping the current
+   * template state intact (so the user can keep viewing/editing locally).
+   * Intended for 401/403 write failures.
+   */
+  blockTemplateStorageWrites: (message?: string) => void
+  /**
+   * Clears the loaded template and surfaces an error when access is revoked
+   * for viewing/loading the template.
+   */
+  denyTemplateStorageAccessAndReset: (message?: string) => void
 
   _setSidebarState: (state: "none" | "type" | "config") => void
   _setSelectedTransformationKey: (key: string | null) => void
@@ -181,6 +252,17 @@ const DEFAULT_STATE: EditorState = {
     selectedTransformationKey: null,
     transformationToEdit: null,
   },
+  templateName: "Untitled Template",
+  templateId: null,
+  templateIsPrivate: null,
+  syncStatus: "unsaved",
+  storageError: undefined,
+  isPristine: true,
+  templateStorageWriteBlocked: false,
+  localChangeVersion: 0,
+  lastSyncedVersion: 0,
+  lastSavedAt: null,
+  transformationConfigFormDirty: false,
 }
 
 const useEditorStore = create<EditorState & EditorActions>()(
@@ -200,6 +282,20 @@ const useEditorStore = create<EditorState & EditorActions>()(
       }
       if (initialData?.focusObjects) {
         updates.focusObjects = initialData.focusObjects
+      }
+      if (initialData?.templateName) {
+        updates.templateName = initialData.templateName
+        updates.isPristine = false
+      }
+      if (initialData?.templateId) {
+        updates.templateId = initialData.templateId
+        updates.isPristine = false
+      }
+      // If host provides a template id/name, assume we're starting from a synced template.
+      if (initialData?.templateId || initialData?.templateName) {
+        updates.syncStatus = "saved"
+        updates.localChangeVersion = 0
+        updates.lastSyncedVersion = 0
       }
       if (Object.keys(updates).length > 0) {
         set(updates as EditorState)
@@ -302,12 +398,41 @@ const useEditorStore = create<EditorState & EditorActions>()(
       })
     },
 
-    setTransformations: (transformations) => {
-      const transformationsWithIds = transformations.map((transformation) => ({
+    loadTemplate: (template) => {
+      const transformationsWithIds = template.map((transformation, index) => ({
         ...transformation,
-        id: `transformation-${Date.now()}`,
+        id: `transformation-${Date.now()}-${index}`,
+        version: TRANSFORMATION_STATE_VERSION,
       }))
-      set({ transformations: transformationsWithIds })
+
+      const visibleTransformations: Record<string, boolean> = {}
+      transformationsWithIds.forEach((t) => {
+        // enabled absent or true → visible; false → hidden
+        visibleTransformations[t.id] = t.enabled !== false
+      })
+
+      set((state) => {
+        const nextVersion = bumpVersion(state.localChangeVersion)
+        return {
+          transformations: transformationsWithIds,
+          visibleTransformations: {
+            ...state.visibleTransformations,
+            ...visibleTransformations,
+          },
+          _internalState: {
+            sidebarState: "none",
+            selectedTransformationKey: null,
+            transformationToEdit: null,
+          },
+          isPristine: false,
+          // Loading an existing template implies we're in sync with storage.
+          syncStatus: "saved",
+          localChangeVersion: nextVersion,
+          lastSyncedVersion: nextVersion,
+          templateStorageWriteBlocked: false,
+          transformationConfigFormDirty: false,
+        }
+      })
     },
 
     moveTransformation: (activeId, overId) => {
@@ -322,24 +447,38 @@ const useEditorStore = create<EditorState & EditorActions>()(
         )
 
         if (oldIndex !== -1 && newIndex !== -1) {
-          // Create a new array with the moved item
           const updatedTransformations = [...state.transformations]
           const [removed] = updatedTransformations.splice(oldIndex, 1)
           updatedTransformations.splice(newIndex, 0, removed)
 
-          return { transformations: updatedTransformations }
+          return {
+            transformations: updatedTransformations,
+            isPristine: false,
+            localChangeVersion: bumpVersion(state.localChangeVersion),
+          }
         }
         return { transformations: state.transformations }
       })
     },
 
     toggleTransformationVisibility: (id) => {
-      set((state) => ({
-        visibleTransformations: {
-          ...state.visibleTransformations,
-          [id]: !state.visibleTransformations[id],
-        },
-      }))
+      set((state) => {
+        const newVisible = !state.visibleTransformations[id]
+        return {
+          visibleTransformations: {
+            ...state.visibleTransformations,
+            [id]: newVisible,
+          },
+          // Sync enabled into the transformations array so the auto-save
+          // subscription (which watches `transformations`) fires, and so the
+          // visibility state is persisted alongside the transformation data.
+          transformations: state.transformations.map((t) =>
+            t.id === id ? { ...t, enabled: newVisible } : t,
+          ),
+          isPristine: false,
+          localChangeVersion: bumpVersion(state.localChangeVersion),
+        }
+      })
     },
 
     addTransformation: (transformation, position) => {
@@ -355,6 +494,8 @@ const useEditorStore = create<EditorState & EditorActions>()(
               ...state.visibleTransformations,
               [id]: true,
             },
+            isPristine: false,
+            localChangeVersion: bumpVersion(state.localChangeVersion),
           }
         })
 
@@ -371,6 +512,8 @@ const useEditorStore = create<EditorState & EditorActions>()(
             ...state.visibleTransformations,
             [id]: true,
           },
+          isPristine: false,
+          localChangeVersion: bumpVersion(state.localChangeVersion),
         }
       })
 
@@ -382,6 +525,8 @@ const useEditorStore = create<EditorState & EditorActions>()(
         transformations: state.transformations.filter(
           (transformation) => transformation.id !== id,
         ),
+        isPristine: false,
+        localChangeVersion: bumpVersion(state.localChangeVersion),
       }))
     },
 
@@ -393,6 +538,8 @@ const useEditorStore = create<EditorState & EditorActions>()(
         transformations: state.transformations.map((t) =>
           t.id === id ? { ...updatedTransformation, id } : t,
         ),
+        isPristine: false,
+        localChangeVersion: bumpVersion(state.localChangeVersion),
       }))
     },
 
@@ -400,6 +547,125 @@ const useEditorStore = create<EditorState & EditorActions>()(
       set(() => ({
         showOriginal,
       }))
+    },
+
+    setTemplateName: (name) => {
+      set((state) => ({
+        templateName: name,
+        isPristine: state.templateName === name ? state.isPristine : false,
+        localChangeVersion:
+          state.templateName === name
+            ? state.localChangeVersion
+            : bumpVersion(state.localChangeVersion),
+      }))
+    },
+
+    setTemplateId: (id) => {
+      set({ templateId: id })
+    },
+
+    setTemplateIsPrivate: (isPrivate) => {
+      set((state) => ({
+        templateIsPrivate: isPrivate,
+        localChangeVersion:
+          state.templateIsPrivate === isPrivate
+            ? state.localChangeVersion
+            : bumpVersion(state.localChangeVersion),
+      }))
+    },
+
+    hydrateTemplateMetadata: ({
+      templateId,
+      templateName,
+      templateIsPrivate,
+    }) => {
+      set(() => ({
+        templateId,
+        templateName,
+        templateIsPrivate,
+      }))
+    },
+
+    setSyncStatus: (status, error?) => {
+      set({ syncStatus: status, storageError: error })
+    },
+
+    bumpLocalChangeVersion: () => {
+      set((state) => ({
+        localChangeVersion: bumpVersion(state.localChangeVersion),
+      }))
+    },
+
+    markSynced: (version) => {
+      set((state) => ({
+        lastSyncedVersion: version ?? state.localChangeVersion,
+      }))
+    },
+
+    setLastSavedAt: (ts) => {
+      set({ lastSavedAt: ts })
+    },
+
+    setTransformationConfigFormDirty: (dirty) => {
+      set({ transformationConfigFormDirty: dirty })
+    },
+
+    setIsPristine: (pristine: boolean) => {
+      set({ isPristine: pristine })
+    },
+
+    resetToNewTemplate: () => {
+      set({
+        transformations: [],
+        visibleTransformations: {},
+        templateName: "Untitled Template",
+        templateId: null,
+        templateIsPrivate: null,
+        syncStatus: "unsaved",
+        storageError: undefined,
+        isPristine: true,
+        templateStorageWriteBlocked: false,
+        localChangeVersion: 0,
+        lastSyncedVersion: 0,
+        lastSavedAt: null,
+        transformationConfigFormDirty: false,
+        _internalState: {
+          sidebarState: "none",
+          selectedTransformationKey: null,
+          transformationToEdit: null,
+        },
+      })
+    },
+
+    blockTemplateStorageWrites: (message) => {
+      set({
+        syncStatus: "error",
+        storageError: message ?? "You no longer have access to this template.",
+        templateStorageWriteBlocked: true,
+      })
+    },
+
+    denyTemplateStorageAccessAndReset: (message) => {
+      set({
+        transformations: [],
+        visibleTransformations: {},
+        templateName: "Untitled Template",
+        templateId: null,
+        templateIsPrivate: null,
+        syncStatus: "error",
+        storageError: message ?? "You no longer have access to this template.",
+        isPristine: true,
+        templateStorageWriteBlocked: true,
+        localChangeVersion: 0,
+        lastSyncedVersion: 0,
+        lastSavedAt: null,
+        transformationConfigFormDirty: false,
+        _internalState: {
+          sidebarState: "none",
+          selectedTransformationKey: null,
+          transformationToEdit: null,
+        },
+      })
     },
 
     _setSidebarState: (sidebarState) => {
