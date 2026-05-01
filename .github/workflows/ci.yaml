@@ -25,7 +25,7 @@ jobs:
       - name: 📦  Install deps, lint, test, build, pack
         run: |
           yarn install --frozen-lockfile
-          yarn test
+          yarn lint
           yarn test:coverage
           yarn package
         env:

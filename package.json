@@ -22,6 +22,7 @@
     "package": "yarn build && shx cp README.md ./packages/imagekit-editor/ && yarn workspace @imagekit/editor pack --out ../../builds/imagekit-editor-%v.tgz",
     "release": "yarn build && shx cp README.md ./packages/imagekit-editor/ && yarn workspace @imagekit/editor pack --out ../../builds/imagekit-editor-%v.tgz && yarn workspace @imagekit/editor publish",
     "prepare": "husky",
+    "lint": "biome ci --files-ignore-unknown=true",
     "lint:fix": "biome format --write ./ --files-ignore-unknown=true"
   },
   "devDependencies": {
