@@ -6,12 +6,23 @@ import React, {
   useCallback,
   useImperativeHandle,
   useMemo,
+  useState,
 } from "react"
-import { EditorLayout, EditorWrapper } from "./components/editor"
+import {
+  EditorLayout,
+  EditorWrapper,
+  ResumeSessionModal,
+} from "./components/editor"
 import type { HeaderProps } from "./components/header"
 import type { GetTemplatePermissions } from "./context/TemplatePermissionsContext"
 import { TemplatePermissionsContextProvider } from "./context/TemplatePermissionsContext"
 import { TemplateStorageContextProvider } from "./context/TemplateStorageContext"
+import {
+  clearEditorSessionFromLocalStorage,
+  EDITOR_SESSION_STORAGE_KEY,
+  type PersistedEditorSession,
+  readEditorSessionFromLocalStorage,
+} from "./persistence/editorSessionStorage"
 import {
   isTemplateAccessDeniedError,
   type TemplateStorageProvider,
@@ -124,6 +135,17 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     () => templateStorage ?? null,
     [templateStorage],
   )
+
+  const [resumeSession, setResumeSession] =
+    useState<PersistedEditorSession | null>(null)
+
+  React.useEffect(() => {
+    const resumableSession = readEditorSessionFromLocalStorage(
+      EDITOR_SESSION_STORAGE_KEY,
+    )
+    if (!resumableSession) return
+    setResumeSession(resumableSession)
+  }, [])
 
   const saveTemplateImperative = useCallback(async () => {
     // Avoid importing hooks here; implement via store+provider with version gating.
@@ -241,7 +263,28 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
                 onAddImage={props.onAddImage}
                 onClose={handleOnClose}
                 exportOptions={props.exportOptions}
+                pauseLocalSessionPersistence={Boolean(resumeSession)}
               />
+              {resumeSession ? (
+                <ResumeSessionModal
+                  onRestore={() => {
+                    useEditorStore
+                      .getState()
+                      .restoreSession(resumeSession.state)
+                    setResumeSession(null)
+                  }}
+                  onStartNew={() => {
+                    clearEditorSessionFromLocalStorage(
+                      EDITOR_SESSION_STORAGE_KEY,
+                    )
+                    useEditorStore.getState().resetToNewTemplate()
+                    setResumeSession(null)
+                  }}
+                  onCloseEditor={() => {
+                    handleOnClose()
+                  }}
+                />
+              ) : null}
             </EditorWrapper>
           </TemplateStorageContextProvider>
         </TemplatePermissionsContextProvider>

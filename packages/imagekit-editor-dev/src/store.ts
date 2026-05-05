@@ -180,6 +180,21 @@ export type EditorActions<
   setLastSavedAt: (ts: number | null) => void
   setTransformationConfigFormDirty: (dirty: boolean) => void
   resetToNewTemplate: () => void
+  restoreSession: (
+    state: Pick<
+      EditorState,
+      | "transformations"
+      | "visibleTransformations"
+      | "templateName"
+      | "templateId"
+      | "templateIsPrivate"
+      | "syncStatus"
+      | "isPristine"
+      | "localChangeVersion"
+      | "lastSyncedVersion"
+      | "lastSavedAt"
+    >,
+  ) => void
   /**
    * Blocks any further writes to template storage while keeping the current
    * template state intact (so the user can keep viewing/editing locally).
@@ -635,6 +650,29 @@ const useEditorStore = create<EditorState & EditorActions>()(
           transformationToEdit: null,
         },
       })
+    },
+
+    restoreSession: (persisted) => {
+      set(() => ({
+        transformations: persisted.transformations,
+        visibleTransformations: persisted.visibleTransformations,
+        templateName: persisted.templateName,
+        templateId: persisted.templateId,
+        templateIsPrivate: persisted.templateIsPrivate,
+        syncStatus: persisted.syncStatus,
+        isPristine: persisted.isPristine,
+        localChangeVersion: persisted.localChangeVersion,
+        lastSyncedVersion: persisted.lastSyncedVersion,
+        lastSavedAt: persisted.lastSavedAt,
+        storageError: undefined,
+        templateStorageWriteBlocked: false,
+        transformationConfigFormDirty: false,
+        _internalState: {
+          sidebarState: "none",
+          selectedTransformationKey: null,
+          transformationToEdit: null,
+        },
+      }))
     },
 
     blockTemplateStorageWrites: (message) => {
