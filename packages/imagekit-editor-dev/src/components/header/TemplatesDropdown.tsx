@@ -529,6 +529,8 @@ export function TemplatesDropdown({
                 variant="ghost"
                 leftIcon={<IconAny as={PiPlus} boxSize={4} />}
                 px="4"
+                h="10"
+                minH="10"
                 flexShrink={0}
                 fontWeight="normal"
                 onClick={handleNewTemplate}
