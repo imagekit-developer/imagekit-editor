@@ -29,6 +29,14 @@ export function useTemplateSync() {
 
       const state = useEditorStore.getState()
       if (state.templateStorageWriteBlocked) return null
+      // Auto-save must never create a brand new template (noise on blank slate).
+      // Creating a new template is reserved for explicit user actions (manual/imperative/etc).
+      if (
+        state.templateId === null &&
+        (args.reason === "auto_metadata" || args.reason === "auto_interval")
+      ) {
+        return null
+      }
 
       const saveStartedAtVersion = state.localChangeVersion
       savingRef.current = true
