@@ -1,7 +1,25 @@
+import { execSync } from "node:child_process"
 import * as path from "node:path"
 import react from "@vitejs/plugin-react"
-import { defineConfig } from "vite"
+import { defineConfig, type Plugin } from "vite"
 import dts from "vite-plugin-dts"
+
+function yalcPublish(): Plugin {
+  const editorPkgDir = path.resolve(__dirname, "../imagekit-editor")
+  return {
+    name: "vite-plugin-yalc-publish",
+    closeBundle() {
+      try {
+        execSync("yalc publish --push --changed", {
+          cwd: editorPkgDir,
+          stdio: "inherit",
+        })
+      } catch (e) {
+        console.error("[yalc] publish failed:", e)
+      }
+    },
+  }
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -15,6 +33,7 @@ export default defineConfig({
       exclude: ["node_modules", "lib"],
       outDir: "../imagekit-editor/dist/types",
     }),
+    yalcPublish(),
   ],
   test: {
     globals: true,
