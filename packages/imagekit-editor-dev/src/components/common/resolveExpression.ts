@@ -25,16 +25,24 @@ function applyOp(lhs: number, op: Op, rhs: number) {
 }
 
 function precedence(op: Op) {
-  // Match backend-style arithmetic precedence.
-  // pow > mul/div/mod > add/sub
-  if (op === "pow") return 3
-  if (op === "mul" || op === "div" || op === "mod") return 2
-  return 1
+  /**
+   * ImageKit expression evaluation order (docs):
+   * 1) mul/div (L→R)
+   * 2) add/sub (L→R)
+   * 3) mod     (L→R)
+   * 4) pow     (L→R)
+   *
+   * Higher number => higher precedence (reduced earlier).
+   */
+  if (op === "mul" || op === "div") return 4
+  if (op === "add" || op === "sub") return 3
+  if (op === "mod") return 2
+  return 1 // pow
 }
 
 function isRightAssociative(op: Op) {
-  // Exponentiation is typically right-associative.
-  return op === "pow"
+  // ImageKit docs specify left-to-right evaluation for power too.
+  return false
 }
 
 /**
