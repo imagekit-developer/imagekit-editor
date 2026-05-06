@@ -1,6 +1,8 @@
 import { z } from "zod/v3"
 
 const IMG_VAR_CODE_REGEX = "(?:iw|ih|iar|cw|ch|car|bw|bh|bar)"
+const IMG_OR_NUMBER_OPERAND_REGEX = `(?:\\d+(?:\\.\\d{1,2})?|${IMG_VAR_CODE_REGEX})`
+const IMG_VAR_CHAIN_EXPR_REGEX = `^${IMG_VAR_CODE_REGEX}(?:_(?:add|sub|mul|div|mod|pow)_${IMG_OR_NUMBER_OPERAND_REGEX})+$`
 
 const widthNumber = z.coerce
   .number({ invalid_type_error: "Should be a number." })
@@ -8,16 +10,9 @@ const widthNumber = z.coerce
     message: "Width must be a positive number.",
   })
 
-const widthExpr = z
-  .string()
-  .regex(
-    new RegExp(
-      `^${IMG_VAR_CODE_REGEX}_(?:add|sub|mul|div|mod|pow)_(?:\\d+(\\.\\d{1,2})?)$`,
-    ),
-    {
-      message: "Width string must be a valid expression string.",
-    },
-  )
+const widthExpr = z.string().regex(new RegExp(IMG_VAR_CHAIN_EXPR_REGEX), {
+  message: "Width string must be a valid expression string.",
+})
 
 const widthVar = z.string().regex(new RegExp(`^${IMG_VAR_CODE_REGEX}$`), {
   message: "Width must be a valid image variable.",
@@ -44,16 +39,9 @@ const heightNumber = z.coerce
   .min(0, {
     message: "Height must be a positive number.",
   })
-const heightExpr = z
-  .string()
-  .regex(
-    new RegExp(
-      `^${IMG_VAR_CODE_REGEX}_(?:add|sub|mul|div|mod|pow)_(?:\\d+(\\.\\d{1,2})?)$`,
-    ),
-    {
-      message: "Height string must be a valid expression string.",
-    },
-  )
+const heightExpr = z.string().regex(new RegExp(IMG_VAR_CHAIN_EXPR_REGEX), {
+  message: "Height string must be a valid expression string.",
+})
 
 const heightVar = z.string().regex(new RegExp(`^${IMG_VAR_CODE_REGEX}$`), {
   message: "Height must be a valid image variable.",
@@ -87,7 +75,11 @@ const aspectRatioValueValidator = z
 
 const aspectRatioExpressionValidator = z
   .string()
-  .regex(/^(?:iar|car)_(?:add|sub|mul|div|mod|pow)_(\d+(\.\d{1,2})?)$/)
+  .regex(
+    new RegExp(
+      `^(?:iar|car)(?:_(?:add|sub|mul|div|mod|pow)_${IMG_OR_NUMBER_OPERAND_REGEX})+$`,
+    ),
+  )
 
 export const aspectRatioValidator = z.any().superRefine((val, ctx) => {
   if (val === undefined || val === "") return
@@ -105,13 +97,7 @@ export const aspectRatioValidator = z.any().superRefine((val, ctx) => {
 
 const layerXNumber = z.coerce.string().regex(/^[N-]?\d+(\.\d{1,2})?$/)
 
-const layerXExpr = z
-  .string()
-  .regex(
-    new RegExp(
-      `^${IMG_VAR_CODE_REGEX}_(?:add|sub|mul|div|mod|pow)_(?:\\d+(\\.\\d{1,2})?)$`,
-    ),
-  )
+const layerXExpr = z.string().regex(new RegExp(IMG_VAR_CHAIN_EXPR_REGEX))
 
 export const layerXValidator = z.any().superRefine((val, ctx) => {
   if (val === undefined || val === "") return
@@ -129,13 +115,7 @@ export const layerXValidator = z.any().superRefine((val, ctx) => {
 
 const layerYNumber = z.coerce.string().regex(/^[N-]?\d+(\.\d{1,2})?$/)
 
-const layerYExpr = z
-  .string()
-  .regex(
-    new RegExp(
-      `^${IMG_VAR_CODE_REGEX}_(?:add|sub|mul|div|mod|pow)_(?:\\d+(\\.\\d{1,2})?)$`,
-    ),
-  )
+const layerYExpr = z.string().regex(new RegExp(IMG_VAR_CHAIN_EXPR_REGEX))
 
 export const layerYValidator = z.any().superRefine((val, ctx) => {
   if (val === undefined || val === "") return
@@ -156,16 +136,9 @@ const commonNumber = z.coerce
   .min(0, {
     message: "Must be a positive number.",
   })
-const commonExpr = z
-  .string()
-  .regex(
-    new RegExp(
-      `^${IMG_VAR_CODE_REGEX}_(?:add|sub|mul|div|mod|pow)_(?:\\d+(\\.\\d{1,2})?)$`,
-    ),
-    {
-      message: "String must be a valid expression string.",
-    },
-  )
+const commonExpr = z.string().regex(new RegExp(IMG_VAR_CHAIN_EXPR_REGEX), {
+  message: "String must be a valid expression string.",
+})
 
 export const commonNumberAndExpressionValidator = z
   .any()
@@ -184,13 +157,7 @@ export const commonNumberAndExpressionValidator = z
 
 const lineHeightInteger = z.coerce.string().regex(/^\d+$/)
 
-const lineHeightExpr = z
-  .string()
-  .regex(
-    new RegExp(
-      `^${IMG_VAR_CODE_REGEX}_(?:add|sub|mul|div|mod|pow)_(?:\\d+(\\.\\d{1,2})?)$`,
-    ),
-  )
+const lineHeightExpr = z.string().regex(new RegExp(IMG_VAR_CHAIN_EXPR_REGEX))
 
 export const lineHeightValidator = z.any().superRefine((val, ctx) => {
   if (val === undefined || val === "") return

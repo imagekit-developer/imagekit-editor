@@ -24,6 +24,19 @@ function applyOp(lhs: number, op: Op, rhs: number) {
   return null
 }
 
+function precedence(op: Op) {
+  // Match backend-style arithmetic precedence.
+  // pow > mul/div/mod > add/sub
+  if (op === "pow") return 3
+  if (op === "mul" || op === "div" || op === "mod") return 2
+  return 1
+}
+
+function isRightAssociative(op: Op) {
+  // Exponentiation is typically right-associative.
+  return op === "pow"
+}
+
 /**
  * Best-effort resolver for the "Resolves to" strip.
  * Supports left-to-right evaluation of chains like:
@@ -61,25 +74,48 @@ export function resolveExpressionTokensToNumber(
   }
 
   // Expect alternating number/op/number/op/number...
-  let acc: number | null = null
-  let pendingOp: Op | null = null
+  const nums: number[] = []
+  const ops: Op[] = []
+
+  const pushOp = (op: Op) => {
+    while (ops.length > 0) {
+      const top = ops[ops.length - 1]!
+      const pTop = precedence(top)
+      const pOp = precedence(op)
+      const shouldReduce =
+        pTop > pOp || (pTop === pOp && !isRightAssociative(op))
+      if (!shouldReduce) break
+
+      ops.pop()
+      const rhs = nums.pop()
+      const lhs = nums.pop()
+      if (lhs === undefined || rhs === undefined) return null
+      const r = applyOp(lhs, top, rhs)
+      if (r === null || !Number.isFinite(r)) return null
+      nums.push(r)
+    }
+    ops.push(op)
+    return true
+  }
 
   for (const v of values) {
     if (typeof v === "string") {
-      pendingOp = v
+      if (!pushOp(v)) return null
       continue
     }
-    if (acc === null) {
-      acc = v
-      continue
-    }
-    if (!pendingOp) return null
-    const next = applyOp(acc, pendingOp, v)
-    if (next === null || !Number.isFinite(next)) return null
-    acc = next
-    pendingOp = null
+    nums.push(v)
   }
 
-  if (pendingOp) return null
-  return acc
+  while (ops.length > 0) {
+    const op = ops.pop()!
+    const rhs = nums.pop()
+    const lhs = nums.pop()
+    if (lhs === undefined || rhs === undefined) return null
+    const r = applyOp(lhs, op, rhs)
+    if (r === null || !Number.isFinite(r)) return null
+    nums.push(r)
+  }
+
+  if (nums.length !== 1) return null
+  return nums[0] ?? null
 }

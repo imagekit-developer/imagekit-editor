@@ -81,6 +81,13 @@ export interface VariableSuggestionsDropdownProps {
    * Intended for "opened via focus" behavior.
    */
   showAdvanced?: boolean
+  showOperators?: boolean
+  /**
+   * Which set of items should participate in keyboard highlight navigation.
+   * - "default": image vars + user vars only (operators are clickable but not highlighted)
+   * - "operators": only operators are highlightable (for operator-triggered queries)
+   */
+  highlightMode?: "default" | "operators"
   userVariables: UserVariableSuggestion[]
   imageDimensionVariables?: ImageDimensionVariableSuggestion[]
   operators?: Array<{
@@ -104,6 +111,8 @@ export interface VariableSuggestionsDropdownProps {
 export function VariableSuggestionsDropdown({
   query,
   showAdvanced = true,
+  showOperators = true,
+  highlightMode = "default",
   userVariables,
   imageDimensionVariables = DEFAULT_IMAGE_DIMENSION_VARIABLES,
   operators = DEFAULT_OPERATORS,
@@ -117,7 +126,11 @@ export function VariableSuggestionsDropdown({
   // Operators are intentionally excluded (they're a fixed footer; arrow keys should
   // navigate variables and scroll the list, not land on operators).
   const items: VariableSuggestion[] = []
-  if (!showAdvanced) {
+  if (highlightMode === "operators") {
+    operators.forEach((op) =>
+      items.push({ kind: "operator", operator: op.operator }),
+    )
+  } else if (!showAdvanced) {
     userVariables.forEach((v) =>
       items.push({ kind: "userVariable", variableId: v.id }),
     )
@@ -301,28 +314,32 @@ export function VariableSuggestionsDropdown({
       shadow="lg"
       overflow="hidden"
     >
-      <Box maxH="220px" overflowY="auto" px="1" py="1">
-        {!showAdvanced ? (
-          userRows
-        ) : showImageFirst ? (
-          <>
-            {imgRows}
-            <Divider my="2" borderColor="editorGray.300" />
-            {userRows}
-          </>
-        ) : (
-          <>
-            {userRows}
-            <Divider my="2" borderColor="editorGray.300" />
-            {imgRows}
-          </>
-        )}
-      </Box>
+      {highlightMode !== "operators" ? (
+        <Box maxH="220px" overflowY="auto" px="1" py="1">
+          {!showAdvanced ? (
+            userRows
+          ) : showImageFirst ? (
+            <>
+              {imgRows}
+              <Divider my="2" borderColor="editorGray.300" />
+              {userRows}
+            </>
+          ) : (
+            <>
+              {userRows}
+              <Divider my="2" borderColor="editorGray.300" />
+              {imgRows}
+            </>
+          )}
+        </Box>
+      ) : null}
 
-      {showAdvanced ? <Divider borderColor="editorGray.300" /> : null}
+      {showAdvanced && showOperators ? (
+        <Divider borderColor="editorGray.300" />
+      ) : null}
 
       {/* Operators strip (fixed footer) */}
-      {showAdvanced ? (
+      {showAdvanced && showOperators ? (
         <Box bg="editorGray.50" px="3" py="2">
           <Flex align="center" gap="2" mb="2">
             <Box
@@ -353,14 +370,35 @@ export function VariableSuggestionsDropdown({
                 onClick={() =>
                   onSelect({ kind: "operator", operator: op.operator })
                 }
+                data-sidx={
+                  highlightMode === "operators"
+                    ? indexOfSuggestion({
+                        kind: "operator",
+                        operator: op.operator,
+                      })
+                    : undefined
+                }
                 px="2.5"
                 py="1"
                 rounded="md"
                 borderWidth="1px"
                 borderColor="editorGray.300"
-                bg="white"
+                bg={
+                  highlightMode === "operators" &&
+                  isHighlighted({ kind: "operator", operator: op.operator })
+                    ? "editorGray.200"
+                    : "white"
+                }
                 _hover={{ bg: "editorBlue.50", borderColor: "editorBlue.200" }}
                 transition="background-color 0.12s, border-color 0.12s"
+                onMouseEnter={() => {
+                  if (highlightMode !== "operators") return
+                  const idx = indexOfSuggestion({
+                    kind: "operator",
+                    operator: op.operator,
+                  })
+                  if (idx >= 0) onHoverIndex?.(idx)
+                }}
               >
                 <Text
                   fontSize="xs"

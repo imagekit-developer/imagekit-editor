@@ -122,6 +122,19 @@ export function VariableAwareInput({
   const tokens = useMemo(() => parseExpressionTokens(value), [value])
   const query = useMemo(() => getQueryFromValue(literalDraft), [literalDraft])
 
+  const canInsertOperator = useMemo(() => {
+    if (tokens.length === 0) return false
+    const last = tokens[tokens.length - 1]
+    if (!last) return false
+    if (last.kind === "op") return false
+    if (last.kind === "imgVar" || last.kind === "userVar") return true
+    if (last.kind === "literal") {
+      const n = Number(last.value)
+      return Number.isFinite(n)
+    }
+    return false
+  }, [tokens])
+
   const operatorFromQuery = useCallback((raw: string) => {
     const q = raw.trim().toLowerCase()
     if (!q) return null
@@ -133,6 +146,14 @@ export function VariableAwareInput({
     if (q === "^" || q === "pow") return "pow"
     return null
   }, [])
+
+  const operatorIndex = useCallback(
+    (op: "add" | "sub" | "mul" | "div" | "mod" | "pow") => {
+      const order = ["add", "sub", "mul", "div", "mod", "pow"] as const
+      return order.indexOf(op)
+    },
+    [],
+  )
 
   const imgNumericMap = useMemo(() => {
     const map: Record<string, number> = {}
@@ -169,6 +190,18 @@ export function VariableAwareInput({
     const isPrefix = startsWithImageDimPrefix(query)
     const items: VariableSuggestion[] = []
 
+    // Operator-triggered query: arrow keys should cycle operators only.
+    if (pendingOperator) {
+      return [
+        { kind: "operator", operator: "add" },
+        { kind: "operator", operator: "sub" },
+        { kind: "operator", operator: "mul" },
+        { kind: "operator", operator: "div" },
+        { kind: "operator", operator: "mod" },
+        { kind: "operator", operator: "pow" },
+      ] as any
+    }
+
     if (!showAdvanced) {
       userVariables.forEach((v) =>
         items.push({ kind: "userVariable", variableId: v.id }),
@@ -191,7 +224,14 @@ export function VariableAwareInput({
       items.push(...userItems, ...imgItems)
     }
     return items
-  }, [imageDimensionVariables, isOpen, query, showAdvanced, userVariables])
+  }, [
+    imageDimensionVariables,
+    isOpen,
+    pendingOperator,
+    query,
+    showAdvanced,
+    userVariables,
+  ])
 
   const getBestHighlightIndex = useCallback(
     (rawQuery: string, advanced: boolean) => {
@@ -238,11 +278,13 @@ export function VariableAwareInput({
 
   useEffect(() => {
     if (!isOpen) return
+    // In operator-query mode, keep the operator highlight stable.
+    if (pendingOperator) return
     // Keep the highlighted item contextual as the user continues typing.
     const next = getBestHighlightIndex(query, showAdvanced)
     setHighlightedIndex(next)
     // biome-ignore lint/correctness/useExhaustiveDependencies: depends on computed helpers and flags only
-  }, [query, showAdvanced, isOpen, getBestHighlightIndex])
+  }, [query, showAdvanced, isOpen, getBestHighlightIndex, pendingOperator])
 
   const refreshAnchor = useCallback(() => {
     const el = anchorRef.current
@@ -379,11 +421,16 @@ export function VariableAwareInput({
             }
             const op = operatorFromQuery(q)
             if (op) {
+              // Only show/allow operators when context permits.
+              if (!canInsertOperator) {
+                setPendingOperator(null)
+                setIsOpen(false)
+                return
+              }
               setIsOpen(true)
               setShowAdvanced(true)
               setPendingOperator(op)
-              // Keep highlight on non-operator items; Enter will quick-insert op.
-              setHighlightedIndex(-1)
+              setHighlightedIndex(operatorIndex(op))
               requestAnimationFrame(() => refreshAnchor())
               return
             }
@@ -461,11 +508,18 @@ export function VariableAwareInput({
                 setPendingOperator(null)
               }
             }
-            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            if (
+              e.key === "ArrowDown" ||
+              e.key === "ArrowUp" ||
+              e.key === "ArrowLeft" ||
+              e.key === "ArrowRight"
+            ) {
               e.preventDefault()
               ensureOpen()
               dropdownRootRef.current?.focus()
-              cycleHighlight(e.key === "ArrowDown" ? 1 : -1)
+              const delta =
+                e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : -1
+              cycleHighlight(delta)
               return
             }
             if (e.key === "Escape") {
@@ -519,9 +573,16 @@ export function VariableAwareInput({
             ref={dropdownRootRef}
             tabIndex={-1}
             onKeyDown={(e) => {
-              if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              if (
+                e.key === "ArrowDown" ||
+                e.key === "ArrowUp" ||
+                e.key === "ArrowLeft" ||
+                e.key === "ArrowRight"
+              ) {
                 e.preventDefault()
-                cycleHighlight(e.key === "ArrowDown" ? 1 : -1)
+                const delta =
+                  e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : -1
+                cycleHighlight(delta)
                 return
               }
               if (e.key === "Backspace") {
@@ -556,6 +617,10 @@ export function VariableAwareInput({
             <VariableSuggestionsDropdown
               query={query}
               showAdvanced={showAdvanced}
+              showOperators={
+                pendingOperator ? true : showAdvanced && canInsertOperator
+              }
+              highlightMode={pendingOperator ? "operators" : "default"}
               userVariables={userVariables}
               imageDimensionVariables={imageDimensionVariables}
               onSelect={handleSelect}
