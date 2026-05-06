@@ -768,15 +768,15 @@ export const TransformationConfigSidebar: React.FC = () => {
                   imageDimensionVariables={
                     imageDimensionVariablesForDropdown as any
                   }
+                  {...(field.fieldProps ?? {})}
                   disabled={
                     // Disable aspect ratio when both width and height are set
                     selectedTransformation.key ===
                       "resize_and_crop-resize_and_crop" &&
                     field.name === "aspectRatio" &&
-                    !!values.width &&
-                    !!values.height
+                    String(values.width ?? "").trim() !== "" &&
+                    String(values.height ?? "").trim() !== ""
                   }
-                  {...(field.fieldProps ?? {})}
                 />
               ) : null}
               {field.fieldType === "textarea" ? (
@@ -1101,8 +1101,8 @@ export const TransformationConfigSidebar: React.FC = () => {
                   {selectedTransformation.key ===
                     "resize_and_crop-resize_and_crop" &&
                     field.name === "aspectRatio" &&
-                    values.width &&
-                    values.height && (
+                    String(values.width ?? "").trim() !== "" &&
+                    String(values.height ?? "").trim() !== "" && (
                       <Text as="span" color="orange.500" display="block" mt={1}>
                         Note: Aspect ratio is ignored when both width and height
                         are specified.
