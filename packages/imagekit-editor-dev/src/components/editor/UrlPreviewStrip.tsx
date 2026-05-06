@@ -1,6 +1,7 @@
 import {
   Box,
   Flex,
+  Grid,
   Icon,
   IconButton,
   Tab,
@@ -193,6 +194,28 @@ export function UrlPreviewStrip({
             <TabPanel />
           </TabPanels>
         </Tabs>
+      </Flex>
+
+      <Grid
+        w="full"
+        templateColumns="1fr auto"
+        alignItems="center"
+        gap="2"
+        px="4"
+        pb="3"
+        pt="2"
+      >
+        <Box
+          minW={0}
+          maxW="100%"
+          fontFamily="mono"
+          fontSize="xs"
+          color="editorBattleshipGrey.800"
+          overflowX="auto"
+          whiteSpace="nowrap"
+        >
+          {tabIndex === 0 ? renderHighlightedUrl(exprDisplay) : resolvedDisplay}
+        </Box>
 
         <Tooltip label="Copy URL" hasArrow>
           <IconButton
@@ -201,22 +224,10 @@ export function UrlPreviewStrip({
             size="sm"
             variant="ghost"
             onClick={copy}
+            flexShrink={0}
           />
         </Tooltip>
-      </Flex>
-
-      <Box
-        px="4"
-        pb="3"
-        pt="2"
-        fontFamily="mono"
-        fontSize="xs"
-        color="editorBattleshipGrey.800"
-        overflowX="auto"
-        whiteSpace="nowrap"
-      >
-        {tabIndex === 0 ? renderHighlightedUrl(exprDisplay) : resolvedDisplay}
-      </Box>
+      </Grid>
     </Box>
   )
 }
