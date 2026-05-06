@@ -96,6 +96,7 @@ export interface VariableAwareInputProps extends Omit<InputProps, "onChange"> {
   onChange: (next: string) => void
   userVariables: UserVariableSuggestion[]
   imageDimensionVariables?: ImageDimensionVariableSuggestion[]
+  showResolveStrip?: boolean
 }
 
 export function VariableAwareInput({
@@ -103,6 +104,7 @@ export function VariableAwareInput({
   onChange,
   userVariables,
   imageDimensionVariables = DEFAULT_IMAGE_DIMENSION_VARIABLES,
+  showResolveStrip = true,
   onFocus,
   onKeyDown,
   ...props
@@ -293,9 +295,20 @@ export function VariableAwareInput({
       return
     }
     const r = el.getBoundingClientRect()
+    const dropdownH =
+      dropdownRootRef.current?.getBoundingClientRect().height ?? 220
+    const gutter = 6
+    const margin = 8
+    const preferBelowTop = r.bottom + gutter
+    const canFitBelow =
+      preferBelowTop + dropdownH <= window.innerHeight - margin
+    const canFitAbove = r.top - gutter - dropdownH >= margin
     // Always set something stable; even (0,0) is better than never rendering.
     setAnchorPos({
-      top: r.bottom + 6,
+      top:
+        !canFitBelow && canFitAbove
+          ? r.top - gutter - dropdownH
+          : preferBelowTop,
       left: r.left,
       width: r.width,
     })
@@ -529,7 +542,7 @@ export function VariableAwareInput({
           }}
           disabled={(props as any).disabled}
         />
-        {tokens.length > 0 ? (
+        {showResolveStrip && tokens.length > 0 ? (
           <Flex
             mt="1.5"
             px="2.5"

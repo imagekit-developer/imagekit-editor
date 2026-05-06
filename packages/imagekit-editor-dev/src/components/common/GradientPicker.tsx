@@ -18,6 +18,11 @@ import type { FieldErrors } from "react-hook-form"
 import { useDebounce } from "../../hooks/useDebounce"
 import AnchorField from "./AnchorField"
 import RadioCardField from "./RadioCardField"
+import { VariableAwareInput } from "./VariableAwareInput"
+import type {
+  ImageDimensionVariableSuggestion,
+  UserVariableSuggestion,
+} from "./variableSuggestionTypes"
 
 export type GradientPickerState = {
   from: string
@@ -58,11 +63,15 @@ const GradientPickerField = ({
   setValue,
   value,
   errors,
+  userVariables,
+  imageDimensionVariables,
 }: {
   fieldName: string
   setValue: (name: string, value: GradientPickerState | string) => void
   value?: GradientPickerState | null
   errors?: FieldErrors<Record<string, unknown>>
+  userVariables?: UserVariableSuggestion[]
+  imageDimensionVariables?: ImageDimensionVariableSuggestion[]
 }) => {
   function getLinearGradientString(value: GradientPickerState): string {
     let direction = ""
@@ -76,7 +85,8 @@ const GradientPickerField = ({
       typeof value.stopPoint === "number"
         ? value.stopPoint
         : Number(value.stopPoint)
-    return `linear-gradient(${direction}, ${value.from} 0%, ${value.to} ${stopPoint}%)`
+    const safeStopPoint = Number.isFinite(stopPoint) ? stopPoint : 100
+    return `linear-gradient(${direction}, ${value.from} 0%, ${value.to} ${safeStopPoint}%)`
   }
 
   const [localValue, setLocalValue] = useState<GradientPickerState>(
@@ -341,28 +351,15 @@ const GradientPickerField = ({
         <FormLabel htmlFor="stop_point" fontSize="sm">
           Stop Point (%)
         </FormLabel>
-        <Input
-          size="md"
-          value={localValue.stopPoint}
-          type="number"
-          min={1}
-          max={100}
-          onChange={(e) => {
-            const newValue = e.target.value.trim()
-            if (newValue === "") {
-              applyGradientInputChanges({ ...localValue, stopPoint: "" })
-              return
-            }
-            const intVal = Number(newValue)
-            if (intVal < 1 || intVal > 100) return
-            applyGradientInputChanges({
-              ...localValue,
-              stopPoint: intVal,
-            })
+        <VariableAwareInput
+          id="stop_point"
+          value={String(localValue.stopPoint ?? "")}
+          onChange={(next) => {
+            applyGradientInputChanges({ ...localValue, stopPoint: next })
           }}
-          borderColor="gray.200"
-          placeholder="100"
-          borderRadius="4px"
+          userVariables={userVariables ?? []}
+          imageDimensionVariables={imageDimensionVariables}
+          showResolveStrip={false}
         />
         <Text fontSize="xs" color={errorRed}>
           {errors?.[fieldName]?.stopPoint?.message}

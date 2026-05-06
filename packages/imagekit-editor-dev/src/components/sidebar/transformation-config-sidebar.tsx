@@ -984,6 +984,10 @@ export const TransformationConfigSidebar: React.FC = () => {
                     ) => void
                   }
                   errors={errors}
+                  userVariables={userVariablesForDropdown as any}
+                  imageDimensionVariables={
+                    imageDimensionVariablesForDropdown as any
+                  }
                 />
               ) : null}
               {field.fieldType === "anchor" ? (

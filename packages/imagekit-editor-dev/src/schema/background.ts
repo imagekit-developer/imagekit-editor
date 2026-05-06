@@ -318,12 +318,16 @@ export const background = {
             z.string(),
           ])
           .optional(),
-        stopPoint: z.coerce
-          .number({
-            invalid_type_error: "Should be a number.",
-          })
-          .min(1)
-          .max(100)
+        stopPoint: z
+          .union([
+            z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .min(1)
+              .max(100),
+            z.string(),
+          ])
           .optional(),
       })
       .optional(),

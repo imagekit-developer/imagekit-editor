@@ -213,7 +213,7 @@ export function TokenizedExpressionInput({
           autoCorrect="off"
           autoCapitalize="off"
           spellCheck={false}
-          placeholder={tokens.length === 0 ? "Type…" : ""}
+          placeholder=""
         />
       </Flex>
     </Box>

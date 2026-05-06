@@ -431,12 +431,16 @@ const baseTransformationSchema: TransformationSchema[] = [
                     z.string(),
                   ])
                   .optional(),
-                stopPoint: z.coerce
-                  .number({
-                    invalid_type_error: "Should be a number.",
-                  })
-                  .min(1)
-                  .max(100)
+                stopPoint: z
+                  .union([
+                    z.coerce
+                      .number({
+                        invalid_type_error: "Should be a number.",
+                      })
+                      .min(1)
+                      .max(100),
+                    z.string(),
+                  ])
                   .optional(),
               })
               .optional(),
@@ -2189,12 +2193,16 @@ const baseTransformationSchema: TransformationSchema[] = [
                     z.string(),
                   ])
                   .optional(),
-                stopPoint: z.coerce
-                  .number({
-                    invalid_type_error: "Should be a number.",
-                  })
-                  .min(1)
-                  .max(100)
+                stopPoint: z
+                  .union([
+                    z.coerce
+                      .number({
+                        invalid_type_error: "Should be a number.",
+                      })
+                      .min(1)
+                      .max(100),
+                    z.string(),
+                  ])
                   .optional(),
               })
               .optional(),
@@ -3163,6 +3171,27 @@ export const transformationSchema: TransformationSchema[] =
     items: [...category.items].sort((a, b) => a.name.localeCompare(b.name)),
   }))
 
+function gradientStopPointToDecimalExpr(stopPoint: unknown): string {
+  if (stopPoint === undefined || stopPoint === null || stopPoint === "")
+    return "1"
+
+  if (typeof stopPoint === "number") {
+    return String((stopPoint || 100) / 100)
+  }
+
+  const raw = String(stopPoint).trim()
+  if (!raw) return "1"
+
+  const asNumber = Number(raw)
+  if (Number.isFinite(asNumber)) {
+    return String((asNumber || 100) / 100)
+  }
+
+  // Non-numeric expression: pass through as-is.
+  // Backend/ImageKit handles stop-point scaling for expressions.
+  return raw
+}
+
 export const transformationFormatters: Record<
   string,
   (
@@ -3210,7 +3239,7 @@ export const transformationFormatters: Record<
         const fromColor = from?.replace("#", "") || "FFFFFF"
         const toColor = to?.replace("#", "") || "000000"
         const gradientDirection = direction || "bottom"
-        const stopPointDecimal = ((stopPoint as number) || 100) / 100
+        const stopPointDecimal = gradientStopPointToDecimalExpr(stopPoint)
 
         // Create the full layer syntax with placeholder for image path
         // This will be replaced with actual image path in the store per image
@@ -3754,18 +3783,21 @@ export const transformationFormatters: Record<
     }
     if (gradientSwitch && gradient) {
       const { from, to, direction, stopPoint } = gradient
+      const stopPointIs100 =
+        stopPoint === 100 ||
+        (typeof stopPoint === "string" && stopPoint.trim() === "100")
       const isDefaultGradient =
         (from.toUpperCase() === "#FFFFFFFF" ||
           from.toUpperCase() === "#FFFFFF") &&
         to.toUpperCase() === "#00000000" &&
         (direction === "bottom" || direction === 180) &&
-        stopPoint === 100
+        stopPointIs100
       if (isDefaultGradient) {
         transforms.gradient = ""
       } else {
         const fromColor = from.replace("#", "")
         const toColor = to.replace("#", "")
-        const stopPointDecimal = (stopPoint as number) / 100
+        const stopPointDecimal = gradientStopPointToDecimalExpr(stopPoint)
         const gradientStr = `ld-${direction}_from-${fromColor}_to-${toColor}_sp-${stopPointDecimal}`
         transforms.gradient = gradientStr
       }
