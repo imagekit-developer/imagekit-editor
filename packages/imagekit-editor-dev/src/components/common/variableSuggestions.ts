@@ -9,8 +9,8 @@ export const DEFAULT_OPERATORS: Array<{
   label: string
 }> = [
   { operator: "add", symbol: "+", label: "Add" },
-  { operator: "sub", symbol: "-", label: "Subtract" },
-  { operator: "mul", symbol: "x", label: "Multiply" },
+  { operator: "sub", symbol: "−", label: "Subtract" },
+  { operator: "mul", symbol: "×", label: "Multiply" },
   { operator: "div", symbol: "÷", label: "Divide" },
   { operator: "mod", symbol: "%", label: "Modulo (remainder)" },
   { operator: "pow", symbol: "^", label: "Power" },

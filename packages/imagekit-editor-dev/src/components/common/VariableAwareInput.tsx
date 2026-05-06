@@ -115,9 +115,24 @@ export function VariableAwareInput({
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1)
   const [literalDraft, setLiteralDraft] = useState("")
+  const [pendingOperator, setPendingOperator] = useState<
+    "add" | "sub" | "mul" | "div" | "mod" | "pow" | null
+  >(null)
 
   const tokens = useMemo(() => parseExpressionTokens(value), [value])
   const query = useMemo(() => getQueryFromValue(literalDraft), [literalDraft])
+
+  const operatorFromQuery = useCallback((raw: string) => {
+    const q = raw.trim().toLowerCase()
+    if (!q) return null
+    if (q === "+" || q === "add") return "add"
+    if (q === "-" || q === "sub") return "sub"
+    if (q === "/" || q === "÷" || q === "div") return "div"
+    if (q === "*" || q === "x" || q === "mul" || q === "×") return "mul"
+    if (q === "%" || q === "mod") return "mod"
+    if (q === "^" || q === "pow") return "pow"
+    return null
+  }, [])
 
   const imgNumericMap = useMemo(() => {
     const map: Record<string, number> = {}
@@ -300,6 +315,8 @@ export function VariableAwareInput({
         lowerLit === "{" ||
         lowerLit === "{{" ||
         lowerLit.startsWith("{{") ||
+        // operator query (+, -, /, *, x, add, sub, etc.)
+        operatorFromQuery(lowerLit) !== null ||
         // image-dimension code query (iw/ih/cw/bw/iar/bh/ch...)
         /^[a-z]{1,3}$/.test(lowerLit)
 
@@ -313,7 +330,7 @@ export function VariableAwareInput({
       setIsOpen(false)
       requestAnimationFrame(() => tokenInputRef.current?.focus())
     },
-    [literalDraft, onChange, tokens, userVariables],
+    [literalDraft, onChange, operatorFromQuery, tokens, userVariables],
   )
 
   const ensureOpen = useCallback(() => {
@@ -358,8 +375,20 @@ export function VariableAwareInput({
             const q = getQueryFromValue(next)
             if (!q) {
               setIsOpen(false)
+              setPendingOperator(null)
               return
             }
+            const op = operatorFromQuery(q)
+            if (op) {
+              setIsOpen(true)
+              setShowAdvanced(true)
+              setPendingOperator(op)
+              // Keep highlight on non-operator items; Enter will quick-insert op.
+              setHighlightedIndex(-1)
+              requestAnimationFrame(() => refreshAnchor())
+              return
+            }
+            setPendingOperator(null)
             if (
               q.toLowerCase() === "i" ||
               q.toLowerCase() === "b" ||
@@ -411,6 +440,14 @@ export function VariableAwareInput({
               ) {
                 e.preventDefault()
                 handleSelect(selectable[highlightedIndex])
+                return
+              }
+              if (isOpen && pendingOperator) {
+                e.preventDefault()
+                handleSelect({
+                  kind: "operator",
+                  operator: pendingOperator,
+                } as any)
                 return
               }
             }

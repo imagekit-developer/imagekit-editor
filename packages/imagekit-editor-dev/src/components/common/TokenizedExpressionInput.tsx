@@ -23,7 +23,10 @@ function opSymbol(op: VariableSuggestionOperator) {
   if (op === "mul") return "×"
   if (op === "div") return "÷"
   if (op === "add") return "+"
-  return "−"
+  if (op === "sub") return "−"
+  if (op === "mod") return "%"
+  if (op === "pow") return "^"
+  return "-"
 }
 
 export interface TokenizedExpressionInputProps {
