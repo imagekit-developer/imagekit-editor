@@ -29,30 +29,46 @@ const isImgVar = (s: string): s is ImageDimensionVariableSuggestion["code"] =>
 const isOp = (s: string): s is VariableSuggestionOperator =>
   (OP_CODES as readonly string[]).includes(s)
 
-const USER_VAR_RE = /^\{\{([a-zA-Z0-9_]+)\}\}$/
+const USER_VAR_NAME_RE = /^[a-zA-Z0-9_]+$/
 
 export function parseExpressionTokens(raw: string): ExpressionToken[] {
   const trimmed = (raw ?? "").trim()
   if (!trimmed) return []
 
-  const parts = trimmed.split("_").filter(Boolean)
   const tokens: ExpressionToken[] = []
 
-  for (const p of parts) {
-    const m = p.match(USER_VAR_RE)
-    if (m?.[1]) {
-      tokens.push({ kind: "userVar", name: m[1] })
-      continue
+  let i = 0
+  while (i < trimmed.length) {
+    // skip separators / empty chunks
+    while (trimmed[i] === "_") i++
+    if (i >= trimmed.length) break
+
+    // User variable: {{...}} should be atomic (underscores allowed inside).
+    if (trimmed.startsWith("{{", i)) {
+      const end = trimmed.indexOf("}}", i + 2)
+      if (end !== -1) {
+        const name = trimmed.slice(i + 2, end)
+        if (USER_VAR_NAME_RE.test(name)) {
+          tokens.push({ kind: "userVar", name })
+          i = end + 2
+          continue
+        }
+        // If malformed, fall through and treat as literal chunk.
+      }
     }
-    if (isImgVar(p)) {
-      tokens.push({ kind: "imgVar", code: p })
-      continue
+
+    // Regular chunk: read until next underscore
+    let j = i
+    while (j < trimmed.length && trimmed[j] !== "_") j++
+    const chunk = trimmed.slice(i, j)
+    if (isImgVar(chunk)) {
+      tokens.push({ kind: "imgVar", code: chunk })
+    } else if (isOp(chunk)) {
+      tokens.push({ kind: "op", op: chunk })
+    } else if (chunk) {
+      tokens.push({ kind: "literal", value: chunk })
     }
-    if (isOp(p)) {
-      tokens.push({ kind: "op", op: p })
-      continue
-    }
-    tokens.push({ kind: "literal", value: p })
+    i = j
   }
 
   return tokens

@@ -387,6 +387,17 @@ export function VariableAwareInput({
     [literalDraft, onChange, operatorFromQuery, tokens, userVariables],
   )
 
+  const getUserVarState = useCallback(
+    (name: string) => {
+      const uv = userVariables.find((v) => v.name === name)
+      if (!uv) return "unresolved" as const
+      const rv = String(uv.resolvedValue ?? "").trim()
+      if (!rv) return "unresolved" as const
+      return "resolved" as const
+    },
+    [userVariables],
+  )
+
   const ensureOpen = useCallback(() => {
     if (!isOpen) setIsOpen(true)
     requestAnimationFrame(() => refreshAnchor())
@@ -425,6 +436,20 @@ export function VariableAwareInput({
           tokens={tokens}
           literalDraft={literalDraft}
           onLiteralDraftChange={(next) => {
+            const auto = next.trim().match(/^\{\{([a-zA-Z0-9_]+)\}\}$/)
+            if (auto?.[1]) {
+              onChange(
+                serializeExpressionTokens([
+                  ...tokens,
+                  { kind: "userVar", name: auto[1] },
+                ]),
+              )
+              setLiteralDraft("")
+              setIsOpen(false)
+              setPendingOperator(null)
+              requestAnimationFrame(() => tokenInputRef.current?.focus())
+              return
+            }
             setLiteralDraft(next)
             const q = getQueryFromValue(next)
             if (!q) {
@@ -486,6 +511,7 @@ export function VariableAwareInput({
             )
           }}
           inputRef={tokenInputRef}
+          getUserVarState={getUserVarState as any}
           onFocus={(e) => {
             requestAnimationFrame(() => refreshAnchor())
             onFocus?.(e as any)

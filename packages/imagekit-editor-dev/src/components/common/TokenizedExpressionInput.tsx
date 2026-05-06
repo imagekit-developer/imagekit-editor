@@ -4,13 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import type { ExpressionToken } from "./expressionTokens"
 import type { VariableSuggestionOperator } from "./variableSuggestionTypes"
 
+type UserVarChipState = "resolved" | "unresolved" | "unknown" | "error"
+
 const tokenBase: BoxProps = {
   display: "inline-flex",
   alignItems: "center",
   gap: 1.5,
   px: 2,
   py: 0.5,
-  rounded: "sm",
+  rounded: "md",
   fontSize: "xs",
   fontFamily: "mono",
   fontWeight: "semibold",
@@ -18,6 +20,26 @@ const tokenBase: BoxProps = {
   userSelect: "none",
   flexShrink: 0,
 } satisfies BoxProps
+
+const USER_VAR_CHIP_PROPS_BY_STATE: Record<
+  "resolved" | "error",
+  Pick<BoxProps, "bg" | "color" | "borderColor" | "borderStyle" | "_hover">
+> = {
+  resolved: {
+    bg: "editorPale",
+    color: "editorBattleshipGrey.800",
+    borderColor: "editorYellowOrange",
+    borderStyle: "solid",
+    _hover: { borderColor: "editorYellowOrange" },
+  },
+  error: {
+    bg: "red.100",
+    color: "red.600",
+    borderColor: "red.300",
+    borderStyle: "dotted",
+    _hover: { borderColor: "red.600", bg: "red.100", color: "red.800" },
+  },
+}
 
 function opSymbol(op: VariableSuggestionOperator) {
   if (op === "mul") return "×"
@@ -40,6 +62,7 @@ export interface TokenizedExpressionInputProps {
   onFocus?: React.FocusEventHandler<HTMLInputElement>
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
   disabled?: boolean
+  getUserVarState?: (name: string) => UserVarChipState
 }
 
 /**
@@ -57,6 +80,7 @@ export function TokenizedExpressionInput({
   onFocus,
   onKeyDown,
   disabled,
+  getUserVarState,
 }: TokenizedExpressionInputProps) {
   const innerRef = useRef<HTMLInputElement | null>(null)
   const inputRef = inputRefProp ?? innerRef
@@ -92,18 +116,24 @@ export function TokenizedExpressionInput({
           )
         }
         if (t.kind === "userVar") {
+          const state = getUserVarState?.(t.name) ?? "unknown"
+          const chipState =
+            state === "unresolved" || state === "error" ? "error" : "resolved"
+          const chipProps = USER_VAR_CHIP_PROPS_BY_STATE[chipState]
           return (
             <Box
               key={`${t.kind}-${idx}`}
               {...tokenBase}
-              bg="editorPale"
-              color="editorBattleshipGrey.800"
+              {...chipProps}
               borderWidth="1px"
-              borderColor="editorYellowOrange"
               cursor="pointer"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => onRemoveToken(idx)}
-              title="Click to remove"
+              title={
+                chipState === "error"
+                  ? "Undefined variable (click to remove)"
+                  : "Click to remove"
+              }
             >
               {`{{${t.name}}}`}
               <Text as="span" opacity={0.6} fontFamily="body">
