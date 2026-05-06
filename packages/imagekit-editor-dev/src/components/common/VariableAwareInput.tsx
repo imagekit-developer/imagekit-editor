@@ -198,6 +198,7 @@ export function VariableAwareInput({
       const q = rawQuery.trim()
       if (!q) return -1
       const lower = q.toLowerCase()
+      if (lower.includes("_")) return -1
 
       // User variable typing: treat anything starting with "{{" as a user-var prefix.
       if (lower.startsWith("{{")) {
@@ -215,14 +216,12 @@ export function VariableAwareInput({
       }
 
       // Image dimension typing: match by code prefix (iw/ih/cw/bw...).
-      if (advanced && /^[icb]/.test(lower)) {
+      if (advanced && /^[a-z]{1,3}$/.test(lower) && /^[icb]/.test(lower)) {
         const idx = selectable.findIndex(
           (s) => s.kind === "imageDimension" && s.code.startsWith(lower),
         )
         if (idx >= 0) return idx
-        // Fall back to first image dimension entry if no prefix match.
-        const anyImg = selectable.findIndex((s) => s.kind === "imageDimension")
-        return anyImg >= 0 ? anyImg : 0
+        return -1
       }
 
       // Otherwise: best-effort match user variables by name prefix.
@@ -241,7 +240,7 @@ export function VariableAwareInput({
     if (!isOpen) return
     // Keep the highlighted item contextual as the user continues typing.
     const next = getBestHighlightIndex(query, showAdvanced)
-    if (next >= 0) setHighlightedIndex(next)
+    setHighlightedIndex(next)
     // biome-ignore lint/correctness/useExhaustiveDependencies: depends on computed helpers and flags only
   }, [query, showAdvanced, isOpen, getBestHighlightIndex])
 
@@ -433,11 +432,17 @@ export function VariableAwareInput({
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
-              if (
+              const draft = literalDraft.trim().toLowerCase()
+              const shouldAcceptHighlighted =
                 isOpen &&
                 highlightedIndex >= 0 &&
-                selectable[highlightedIndex]
-              ) {
+                !!selectable[highlightedIndex] &&
+                !draft.includes("_") &&
+                (draft.startsWith("{{") ||
+                  /^[a-z]{1,3}$/.test(draft) ||
+                  operatorFromQuery(draft) !== null)
+
+              if (shouldAcceptHighlighted) {
                 e.preventDefault()
                 handleSelect(selectable[highlightedIndex])
                 return
@@ -449,6 +454,11 @@ export function VariableAwareInput({
                   operator: pendingOperator,
                 } as any)
                 return
+              }
+              // User is committing a full literal/expression; close dropdown.
+              if (isOpen) {
+                setIsOpen(false)
+                setPendingOperator(null)
               }
             }
             if (e.key === "ArrowDown" || e.key === "ArrowUp") {
