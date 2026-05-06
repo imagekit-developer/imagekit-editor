@@ -561,6 +561,15 @@ export function VariableAwareInput({
               color="editorBattleshipGrey.600"
               fontFamily="mono"
               noOfLines={1}
+              cursor="pointer"
+              title="Click to copy"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(value || "")
+                } catch {
+                  // ignore
+                }
+              }}
             >
               {value || "—"}
             </Text>
