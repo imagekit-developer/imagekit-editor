@@ -64,6 +64,25 @@ function replaceTrailingQueryAtCursor(input: HTMLInputElement, query: string) {
   input.setSelectionRange(nextPos, nextPos)
 }
 
+function deleteBackwardAtCursor(input: HTMLInputElement) {
+  const start = input.selectionStart ?? input.value.length
+  const end = input.selectionEnd ?? input.value.length
+
+  if (start !== end) {
+    const next = input.value.slice(0, start) + input.value.slice(end)
+    const nextPos = start
+    return { next, nextPos }
+  }
+
+  if (start <= 0) {
+    return { next: input.value, nextPos: 0 }
+  }
+
+  const next = input.value.slice(0, start - 1) + input.value.slice(end)
+  const nextPos = start - 1
+  return { next, nextPos }
+}
+
 export interface VariableAwareInputProps extends Omit<InputProps, "onChange"> {
   value: string
   onChange: (next: string) => void
@@ -310,6 +329,19 @@ export function VariableAwareInput({
               if (e.key === "ArrowDown" || e.key === "ArrowUp") {
                 e.preventDefault()
                 cycleHighlight(e.key === "ArrowDown" ? 1 : -1)
+                return
+              }
+              if (e.key === "Backspace") {
+                e.preventDefault()
+                setIsOpen(false)
+                const input = inputRef.current
+                if (!input) return
+                const { next, nextPos } = deleteBackwardAtCursor(input)
+                onChange(next)
+                requestAnimationFrame(() => {
+                  input.focus()
+                  input.setSelectionRange(nextPos, nextPos)
+                })
                 return
               }
               if (e.key === "Enter") {
