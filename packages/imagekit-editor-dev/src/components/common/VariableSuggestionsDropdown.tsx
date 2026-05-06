@@ -43,8 +43,10 @@ const CodePill: React.FC<{
     py="0.5"
     rounded="sm"
     flexShrink={0}
-    bg={tone === "user" ? "editorBlue.50" : "editorGray.100"}
-    color={tone === "user" ? "editorBlue.600" : "editorBattleshipGrey.700"}
+    bg={tone === "img" ? "editorBlue.50" : "editorPale"}
+    color={tone === "img" ? "editorBlue.700" : "editorBattleshipGrey.800"}
+    borderWidth="1px"
+    borderColor={tone === "img" ? "editorBlue.100" : "editorYellowOrange"}
   >
     {children}
   </Box>

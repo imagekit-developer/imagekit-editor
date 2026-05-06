@@ -1,6 +1,5 @@
 /** biome-ignore-all lint/a11y/noStaticElementInteractions: <explanation> */
 import {
-  Input,
   type InputProps,
   Portal,
   Textarea,
@@ -14,11 +13,17 @@ import {
   useRef,
   useState,
 } from "react"
+import {
+  type ExpressionToken,
+  parseExpressionTokens,
+  serializeExpressionTokens,
+  suggestionToToken,
+} from "./expressionTokens"
+import { TokenizedExpressionInput } from "./TokenizedExpressionInput"
 import { VariableSuggestionsDropdown } from "./VariableSuggestionsDropdown"
 import {
   DEFAULT_IMAGE_DIMENSION_VARIABLES,
   getQueryFromValue,
-  OPERATOR_INSERT,
   startsWithImageDimPrefix,
 } from "./variableSuggestions"
 import type {
@@ -99,14 +104,17 @@ export function VariableAwareInput({
   onKeyDown,
   ...props
 }: VariableAwareInputProps) {
-  const inputRef = useRef<HTMLInputElement | null>(null)
+  const anchorRef = useRef<HTMLDivElement | null>(null)
+  const tokenInputRef = useRef<HTMLInputElement | null>(null)
   const [isOpen, setIsOpen] = useState(false)
   const [anchorPos, setAnchorPos] = useState<AnchorPosition>(null)
   const dropdownRootRef = useRef<HTMLDivElement | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1)
+  const [literalDraft, setLiteralDraft] = useState("")
 
-  const query = useMemo(() => getQueryFromValue(value), [value])
+  const tokens = useMemo(() => parseExpressionTokens(value), [value])
+  const query = useMemo(() => getQueryFromValue(literalDraft), [literalDraft])
 
   const selectable = useMemo((): VariableSuggestion[] => {
     if (!isOpen) return []
@@ -137,8 +145,60 @@ export function VariableAwareInput({
     return items
   }, [imageDimensionVariables, isOpen, query, showAdvanced, userVariables])
 
+  const getBestHighlightIndex = useCallback(
+    (rawQuery: string, advanced: boolean) => {
+      const q = rawQuery.trim()
+      if (!q) return -1
+      const lower = q.toLowerCase()
+
+      // User variable typing: treat anything starting with "{{" as a user-var prefix.
+      if (lower.startsWith("{{")) {
+        const prefix = lower.slice(2)
+        const idx = selectable.findIndex((s) => {
+          if (s.kind !== "userVariable") return false
+          const uv = userVariables.find((v) => v.id === s.variableId)
+          if (!uv) return false
+          return uv.name.toLowerCase().startsWith(prefix)
+        })
+        if (idx >= 0) return idx
+        // If prefix doesn't match any, fall back to the first user variable.
+        const anyUser = selectable.findIndex((s) => s.kind === "userVariable")
+        return anyUser >= 0 ? anyUser : -1
+      }
+
+      // Image dimension typing: match by code prefix (iw/ih/cw/bw...).
+      if (advanced && /^[icb]/.test(lower)) {
+        const idx = selectable.findIndex(
+          (s) => s.kind === "imageDimension" && s.code.startsWith(lower),
+        )
+        if (idx >= 0) return idx
+        // Fall back to first image dimension entry if no prefix match.
+        const anyImg = selectable.findIndex((s) => s.kind === "imageDimension")
+        return anyImg >= 0 ? anyImg : 0
+      }
+
+      // Otherwise: best-effort match user variables by name prefix.
+      const userIdx = selectable.findIndex((s) => {
+        if (s.kind !== "userVariable") return false
+        const uv = userVariables.find((v) => v.id === s.variableId)
+        if (!uv) return false
+        return uv.name.toLowerCase().startsWith(lower)
+      })
+      return userIdx
+    },
+    [selectable, userVariables],
+  )
+
+  useEffect(() => {
+    if (!isOpen) return
+    // Keep the highlighted item contextual as the user continues typing.
+    const next = getBestHighlightIndex(query, showAdvanced)
+    if (next >= 0) setHighlightedIndex(next)
+    // biome-ignore lint/correctness/useExhaustiveDependencies: depends on computed helpers and flags only
+  }, [query, showAdvanced, isOpen, getBestHighlightIndex])
+
   const refreshAnchor = useCallback(() => {
-    const el = inputRef.current
+    const el = anchorRef.current
     if (!el) {
       setAnchorPos(null)
       return
@@ -176,7 +236,7 @@ export function VariableAwareInput({
     const onDocMouseDown = (e: MouseEvent) => {
       const t = e.target as Node | null
       if (!t) return
-      const anchor = inputRef.current
+      const anchor = anchorRef.current
       if (anchor?.contains(t)) return
       const dropdown = dropdownRootRef.current
       if (dropdown?.contains(t)) return
@@ -189,48 +249,23 @@ export function VariableAwareInput({
 
   const handleSelect = useCallback(
     (s: VariableSuggestion) => {
-      const el = inputRef.current
-      if (!el) return
+      const token = suggestionToToken(s as any, userVariables)
+      if (!token) return
 
-      // If the dropdown was opened by typing a trigger token (e.g. "i", "b", "c", "{", "{{"),
-      // replace that token instead of appending to it (so selecting "bw" doesn't yield "ibw").
-      if (query === "{" || query === "{{" || /^[icb]$/i.test(query.trim())) {
-        replaceTrailingQueryAtCursor(el, query)
-      }
+      const nextTokens: ExpressionToken[] = [...tokens]
+      const lit = literalDraft.trim()
+      // If the dropdown was opened by a trigger prefix ("i"/"b"/"c") or "{" / "{{",
+      // do NOT commit that as a literal token.
+      const isTrigger = lit === "{" || lit === "{{" || /^[icb]$/i.test(lit)
+      if (lit && !isTrigger) nextTokens.push({ kind: "literal", value: lit })
+      nextTokens.push(token)
 
-      if (s.kind === "operator") {
-        const ins = OPERATOR_INSERT[s.operator].insert
-        const { next, nextPos } = insertAtCursor(el, ins)
-        onChange(next)
-        requestAnimationFrame(() => {
-          el.focus()
-          el.setSelectionRange(nextPos, nextPos)
-        })
-        return
-      }
-
-      if (s.kind === "imageDimension") {
-        const { next, nextPos } = insertAtCursor(el, s.code)
-        onChange(next)
-        requestAnimationFrame(() => {
-          el.focus()
-          el.setSelectionRange(nextPos, nextPos)
-        })
-        return
-      }
-
-      // User variables are inserted as {{name}} tokens for now. (The parent
-      // can later switch to $(varId) or another canonical syntax.)
-      const v = userVariables.find((uv) => uv.id === s.variableId)
-      const insert = v ? `{{${v.name}}}` : "{{variable}}"
-      const { next, nextPos } = insertAtCursor(el, insert)
-      onChange(next)
-      requestAnimationFrame(() => {
-        el.focus()
-        el.setSelectionRange(nextPos, nextPos)
-      })
+      onChange(serializeExpressionTokens(nextTokens))
+      setLiteralDraft("")
+      setIsOpen(false)
+      requestAnimationFrame(() => tokenInputRef.current?.focus())
     },
-    [onChange, query, userVariables],
+    [literalDraft, onChange, tokens, userVariables],
   )
 
   const ensureOpen = useCallback(() => {
@@ -266,60 +301,75 @@ export function VariableAwareInput({
 
   return (
     <>
-      <Input
-        ref={inputRef}
-        {...props}
-        value={value}
-        autoComplete="off"
-        autoCorrect="off"
-        autoCapitalize="off"
-        spellCheck={false}
-        onChange={(e) => {
-          const next = e.target.value
-          onChange(next)
-          const q = getQueryFromValue(next)
-          if (!q) {
-            setIsOpen(false)
-            return
-          }
-          if (
-            q.toLowerCase() === "i" ||
-            q.toLowerCase() === "b" ||
-            q.toLowerCase() === "c"
-          ) {
-            setIsOpen(true)
-            setShowAdvanced(true)
-            // Ensure we have an anchor for immediate rendering.
+      <div ref={anchorRef}>
+        <TokenizedExpressionInput
+          tokens={tokens}
+          literalDraft={literalDraft}
+          onLiteralDraftChange={(next) => {
+            setLiteralDraft(next)
+            const q = getQueryFromValue(next)
+            if (!q) {
+              setIsOpen(false)
+              return
+            }
+            if (
+              q.toLowerCase() === "i" ||
+              q.toLowerCase() === "b" ||
+              q.toLowerCase() === "c"
+            ) {
+              setIsOpen(true)
+              setShowAdvanced(true)
+              setHighlightedIndex(getBestHighlightIndex(q, true))
+              requestAnimationFrame(() => refreshAnchor())
+            } else if (q === "{{" || q === "{") {
+              setIsOpen(true)
+              setShowAdvanced(false)
+              setHighlightedIndex(getBestHighlightIndex(q, false))
+              requestAnimationFrame(() => refreshAnchor())
+            }
+          }}
+          onCommitLiteral={() => {
+            const lit = literalDraft.trim()
+            if (!lit) return
+            onChange(
+              serializeExpressionTokens([
+                ...tokens,
+                { kind: "literal", value: lit },
+              ]),
+            )
+            setLiteralDraft("")
+          }}
+          onBackspaceAtEmpty={() => {
+            if (tokens.length === 0) return
+            const next = tokens.slice(0, -1)
+            onChange(serializeExpressionTokens(next))
+          }}
+          onRemoveToken={(idx) => {
+            onChange(
+              serializeExpressionTokens(tokens.filter((_, i) => i !== idx)),
+            )
+          }}
+          inputRef={tokenInputRef}
+          onFocus={(e) => {
             requestAnimationFrame(() => refreshAnchor())
-          } else if (q === "{{" || q === "{") {
-            setIsOpen(true)
-            setShowAdvanced(false)
-            requestAnimationFrame(() => refreshAnchor())
-          }
-        }}
-        onFocus={(e) => {
-          requestAnimationFrame(() => refreshAnchor())
-          onFocus?.(e)
-        }}
-        onClick={() => {
-          // Keep anchor position fresh for potential triggered open.
-          requestAnimationFrame(() => refreshAnchor())
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-            e.preventDefault()
-            ensureOpen()
-            // entering keyboard navigation mode moves "focus" to dropdown container
-            dropdownRootRef.current?.focus()
-            cycleHighlight(e.key === "ArrowDown" ? 1 : -1)
-            return
-          }
-          if (e.key === "Escape") {
-            setIsOpen(false)
-          }
-          onKeyDown?.(e)
-        }}
-      />
+            onFocus?.(e as any)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              e.preventDefault()
+              ensureOpen()
+              dropdownRootRef.current?.focus()
+              cycleHighlight(e.key === "ArrowDown" ? 1 : -1)
+              return
+            }
+            if (e.key === "Escape") {
+              setIsOpen(false)
+            }
+            onKeyDown?.(e as any)
+          }}
+          disabled={(props as any).disabled}
+        />
+      </div>
       {isOpen && anchorPos ? (
         <Portal>
           <div
@@ -334,14 +384,10 @@ export function VariableAwareInput({
               if (e.key === "Backspace") {
                 e.preventDefault()
                 setIsOpen(false)
-                const input = inputRef.current
-                if (!input) return
-                const { next, nextPos } = deleteBackwardAtCursor(input)
-                onChange(next)
-                requestAnimationFrame(() => {
-                  input.focus()
-                  input.setSelectionRange(nextPos, nextPos)
-                })
+                // Return focus to the field; the input inside token field will receive it.
+                anchorRef.current
+                  ?.querySelector<HTMLInputElement>("input")
+                  ?.focus()
                 return
               }
               if (e.key === "Enter") {
