@@ -36,6 +36,15 @@ export interface FileElement<
 > {
   url: string
   metadata: Metadata
+  /**
+   * Dimensions of the original asset (iw/ih/iar).
+   * Set once when we first learn dimensions; never overwritten by transformed renders.
+   */
+  originalImageDimensions: { width: number; height: number } | null
+  /**
+   * Latest known rendered dimensions for this asset in the editor (cw/ch/car).
+   * This may reflect transformed preview renders.
+   */
   imageDimensions: { width: number; height: number } | null
 }
 
@@ -219,6 +228,7 @@ function normalizeImage<Metadata extends RequiredMetadata = RequiredMetadata>(
     return {
       url: image,
       metadata: { requireSignedUrl: false } as Metadata,
+      originalImageDimensions: null,
       imageDimensions: null,
     }
   }
@@ -230,6 +240,7 @@ function normalizeImage<Metadata extends RequiredMetadata = RequiredMetadata>(
           requireSignedUrl: image.metadata.requireSignedUrl ?? false,
         }
       : ({ requireSignedUrl: false } as Metadata),
+    originalImageDimensions: null,
     imageDimensions: null,
   }
 }
@@ -318,6 +329,11 @@ const useEditorStore = create<EditorState & EditorActions>()(
         )
         if (index === -1) return state
         const updatedImageList = [...state.originalImageList]
+        // Preserve the original asset dimensions the first time we see them.
+        if (!updatedImageList[index].originalImageDimensions) {
+          updatedImageList[index].originalImageDimensions = imageDimensions
+        }
+        // Always update current (rendered) dimensions.
         updatedImageList[index].imageDimensions = imageDimensions
         return { originalImageList: updatedImageList }
       })

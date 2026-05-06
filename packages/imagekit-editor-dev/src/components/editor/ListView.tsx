@@ -3,6 +3,7 @@ import type { FC } from "react"
 import { useEditorStore } from "../../store"
 import RetryableImage from "../RetryableImage"
 import { Toolbar } from "../toolbar"
+import { UrlPreviewStrip } from "./UrlPreviewStrip"
 
 interface ListViewProps {
   onAddImage?: () => void
@@ -68,6 +69,7 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
           />
         </Flex>
       </Flex>
+      {currentImage ? <UrlPreviewStrip expressionUrl={currentImage} /> : null}
       <Toolbar
         onAddImage={onAddImage}
         onSelectImage={(imageSrc: string) => {

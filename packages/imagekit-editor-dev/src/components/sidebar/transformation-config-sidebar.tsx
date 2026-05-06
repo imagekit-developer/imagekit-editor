@@ -276,14 +276,18 @@ export const TransformationConfigSidebar: React.FC = () => {
     const idx = currentImage
       ? imageList.findIndex((img) => img === currentImage)
       : -1
-    const dims = idx >= 0 ? originalImageList[idx]?.imageDimensions : null
-    const iw = dims?.width
-    const ih = dims?.height
+    const file = idx >= 0 ? originalImageList[idx] : null
+    const originalDims = file?.originalImageDimensions ?? null
+    const currentDims = file?.imageDimensions ?? null
+
+    // Initial: original asset (iw/ih/iar)
+    const iw = originalDims?.width
+    const ih = originalDims?.height
     const iar = iw && ih ? iw / ih : null
 
-    // For now, treat "current" canvas dimensions as the currently active image dimensions.
-    const cw = iw
-    const ch = ih
+    // Current: result from last applied transform (cw/ch/car)
+    const cw = currentDims?.width
+    const ch = currentDims?.height
     const car = cw && ch ? cw / ch : null
 
     const px = (n: number | undefined | null) =>
