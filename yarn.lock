@@ -986,7 +986,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@chakra-ui/react@npm:1.8.9":
+"@chakra-ui/react@npm:1.8.9, @chakra-ui/react@npm:~1.8.9":
   version: 1.8.9
   resolution: "@chakra-ui/react@npm:1.8.9"
   dependencies:
@@ -6266,13 +6266,19 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "react-example@workspace:examples/react-example"
   dependencies:
+    "@chakra-ui/icons": "npm:1.1.1"
+    "@chakra-ui/react": "npm:~1.8.9"
+    "@emotion/react": "npm:^11.14.0"
+    "@emotion/styled": "npm:^11.14.1"
     "@imagekit/editor": "workspace:*"
     "@types/node": "npm:^20.11.24"
     "@types/react": "npm:^17.0.2"
     "@types/react-dom": "npm:^17.0.2"
     "@vitejs/plugin-react": "npm:^4.5.2"
+    framer-motion: "npm:6.5.1"
     react: "npm:^17.0.2"
     react-dom: "npm:^17.0.2"
+    react-select: "npm:^5.2.1"
     typescript: "npm:4.9.3"
     vite: "npm:^6.3.5"
   languageName: unknown
