@@ -1,5 +1,7 @@
 import { z } from "zod/v3"
 
+const IMG_VAR_CODE_REGEX = "(?:iw|ih|iar|cw|ch|car|bw|bh|bar)"
+
 const widthNumber = z.coerce
   .number({ invalid_type_error: "Should be a number." })
   .min(0, {
@@ -8,12 +10,24 @@ const widthNumber = z.coerce
 
 const widthExpr = z
   .string()
-  .regex(/^(?:iw|bw|cw)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/, {
-    message: "Width string must be a valid expression string.",
-  })
+  .regex(
+    new RegExp(
+      `^${IMG_VAR_CODE_REGEX}_(?:add|sub|mul|div|mod|pow)_(?:\\d+(\\.\\d{1,2})?)$`,
+    ),
+    {
+      message: "Width string must be a valid expression string.",
+    },
+  )
+
+const widthVar = z.string().regex(new RegExp(`^${IMG_VAR_CODE_REGEX}$`), {
+  message: "Width must be a valid image variable.",
+})
 
 export const widthValidator = z.any().superRefine((val, ctx) => {
   if (widthNumber.safeParse(val).success) {
+    return
+  }
+  if (widthVar.safeParse(val).success) {
     return
   }
   if (widthExpr.safeParse(val).success) {
@@ -32,12 +46,24 @@ const heightNumber = z.coerce
   })
 const heightExpr = z
   .string()
-  .regex(/^(?:ih|bh|ch)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/, {
-    message: "Height string must be a valid expression string.",
-  })
+  .regex(
+    new RegExp(
+      `^${IMG_VAR_CODE_REGEX}_(?:add|sub|mul|div|mod|pow)_(?:\\d+(\\.\\d{1,2})?)$`,
+    ),
+    {
+      message: "Height string must be a valid expression string.",
+    },
+  )
+
+const heightVar = z.string().regex(new RegExp(`^${IMG_VAR_CODE_REGEX}$`), {
+  message: "Height must be a valid image variable.",
+})
 
 export const heightValidator = z.any().superRefine((val, ctx) => {
   if (heightNumber.safeParse(val).success) {
+    return
+  }
+  if (heightVar.safeParse(val).success) {
     return
   }
   if (heightExpr.safeParse(val).success) {
@@ -81,7 +107,11 @@ const layerXNumber = z.coerce.string().regex(/^[N-]?\d+(\.\d{1,2})?$/)
 
 const layerXExpr = z
   .string()
-  .regex(/^(?:bw|cw)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/)
+  .regex(
+    new RegExp(
+      `^${IMG_VAR_CODE_REGEX}_(?:add|sub|mul|div|mod|pow)_(?:\\d+(\\.\\d{1,2})?)$`,
+    ),
+  )
 
 export const layerXValidator = z.any().superRefine((val, ctx) => {
   if (val === undefined || val === "") return
@@ -101,7 +131,11 @@ const layerYNumber = z.coerce.string().regex(/^[N-]?\d+(\.\d{1,2})?$/)
 
 const layerYExpr = z
   .string()
-  .regex(/^(?:bh|ch)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/)
+  .regex(
+    new RegExp(
+      `^${IMG_VAR_CODE_REGEX}_(?:add|sub|mul|div|mod|pow)_(?:\\d+(\\.\\d{1,2})?)$`,
+    ),
+  )
 
 export const layerYValidator = z.any().superRefine((val, ctx) => {
   if (val === undefined || val === "") return
@@ -125,7 +159,9 @@ const commonNumber = z.coerce
 const commonExpr = z
   .string()
   .regex(
-    /^(?:ih|bh|ch|iw|bw|cw)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/,
+    new RegExp(
+      `^${IMG_VAR_CODE_REGEX}_(?:add|sub|mul|div|mod|pow)_(?:\\d+(\\.\\d{1,2})?)$`,
+    ),
     {
       message: "String must be a valid expression string.",
     },
@@ -151,7 +187,9 @@ const lineHeightInteger = z.coerce.string().regex(/^\d+$/)
 const lineHeightExpr = z
   .string()
   .regex(
-    /^(?:ih|bh|ch|iw|bw|cw)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/,
+    new RegExp(
+      `^${IMG_VAR_CODE_REGEX}_(?:add|sub|mul|div|mod|pow)_(?:\\d+(\\.\\d{1,2})?)$`,
+    ),
   )
 
 export const lineHeightValidator = z.any().superRefine((val, ctx) => {
