@@ -1,7 +1,9 @@
 /** biome-ignore-all lint/a11y/noStaticElementInteractions: <explanation> */
 import {
+  Flex,
   type InputProps,
   Portal,
+  Text,
   Textarea,
   type TextareaProps,
 } from "@chakra-ui/react"
@@ -19,6 +21,7 @@ import {
   serializeExpressionTokens,
   suggestionToToken,
 } from "./expressionTokens"
+import { resolveExpressionTokensToNumber } from "./resolveExpression"
 import { TokenizedExpressionInput } from "./TokenizedExpressionInput"
 import { VariableSuggestionsDropdown } from "./VariableSuggestionsDropdown"
 import {
@@ -115,6 +118,36 @@ export function VariableAwareInput({
 
   const tokens = useMemo(() => parseExpressionTokens(value), [value])
   const query = useMemo(() => getQueryFromValue(literalDraft), [literalDraft])
+
+  const imgNumericMap = useMemo(() => {
+    const map: Record<string, number> = {}
+    imageDimensionVariables.forEach((v) => {
+      // Supports "1234 px" and plain numeric strings like "1.000".
+      const pxMatch = String(v.resolvedValue ?? "").match(
+        /^(\d+(?:\.\d+)?)\s*px$/i,
+      )
+      const raw = pxMatch?.[1] ?? String(v.resolvedValue ?? "")
+      const n = Number(raw)
+      if (Number.isFinite(n)) {
+        map[v.code] = n
+      }
+    })
+    return map
+  }, [imageDimensionVariables])
+
+  const resolvedNumber = useMemo(() => {
+    if (tokens.length === 0) return null
+    return resolveExpressionTokensToNumber(tokens, imgNumericMap as any)
+  }, [imgNumericMap, tokens])
+
+  const resolveLabel = useMemo(() => {
+    // Match the prototype's intent:
+    // - "Resolves to" for arithmetic / image-dimension expressions
+    // - "Resolved value" for plain values or simple placeholders
+    const hasOperator = tokens.some((t) => t.kind === "op")
+    const hasImgVar = tokens.some((t) => t.kind === "imgVar")
+    return hasOperator || hasImgVar ? "Resolves to" : "Resolved value"
+  }, [tokens])
 
   const selectable = useMemo((): VariableSuggestion[] => {
     if (!isOpen) return []
@@ -395,6 +428,43 @@ export function VariableAwareInput({
           }}
           disabled={(props as any).disabled}
         />
+        {tokens.length > 0 ? (
+          <Flex
+            mt="1.5"
+            px="2.5"
+            py="1.5"
+            rounded="md"
+            bg="editorGray.100"
+            borderWidth="1px"
+            borderColor="editorGray.300"
+            align="center"
+            gap="2"
+            fontSize="xs"
+          >
+            <Text color="editorBattleshipGrey.700" fontWeight="semibold">
+              {resolveLabel}
+            </Text>
+            <Text
+              color="editorGreenishTeal"
+              fontFamily="mono"
+              fontWeight="semibold"
+            >
+              {resolvedNumber === null
+                ? "—"
+                : Number.isInteger(resolvedNumber)
+                  ? `${resolvedNumber} px`
+                  : `${resolvedNumber.toFixed(2)} px`}
+            </Text>
+            <Text
+              ml="auto"
+              color="editorBattleshipGrey.600"
+              fontFamily="mono"
+              noOfLines={1}
+            >
+              {value || "—"}
+            </Text>
+          </Flex>
+        ) : null}
       </div>
       {isOpen && anchorPos ? (
         <Portal>

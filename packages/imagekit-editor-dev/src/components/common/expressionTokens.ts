@@ -12,13 +12,15 @@ export type ExpressionToken =
 
 export const IMG_VAR_CODES: ReadonlyArray<
   ImageDimensionVariableSuggestion["code"]
-> = ["iw", "ih", "iar", "cw", "ch", "bw", "bh"]
+> = ["iw", "ih", "iar", "cw", "ch", "car", "bw", "bh", "bar"]
 
 export const OP_CODES: ReadonlyArray<VariableSuggestionOperator> = [
   "mul",
   "div",
   "add",
   "sub",
+  "mod",
+  "pow",
 ]
 
 const isImgVar = (s: string): s is ImageDimensionVariableSuggestion["code"] =>

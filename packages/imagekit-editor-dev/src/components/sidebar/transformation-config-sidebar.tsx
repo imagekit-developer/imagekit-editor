@@ -150,6 +150,8 @@ export const TransformationConfigSidebar: React.FC = () => {
     addTransformation,
     updateTransformation,
     imageList,
+    originalImageList,
+    currentImage,
     focusObjects,
     _setSidebarState,
     _internalState,
@@ -269,6 +271,39 @@ export const TransformationConfigSidebar: React.FC = () => {
 
   const values = watch()
   const userVariablesForDropdown = useMemo(() => [], [])
+
+  const imageDimensionVariablesForDropdown = useMemo(() => {
+    const idx = currentImage
+      ? imageList.findIndex((img) => img === currentImage)
+      : -1
+    const dims = idx >= 0 ? originalImageList[idx]?.imageDimensions : null
+    const iw = dims?.width
+    const ih = dims?.height
+    const iar = iw && ih ? iw / ih : null
+
+    // For now, treat "current" canvas dimensions as the currently active image dimensions.
+    const cw = iw
+    const ch = ih
+    const car = cw && ch ? cw / ch : null
+
+    const px = (n: number | undefined | null) =>
+      typeof n === "number" && Number.isFinite(n) ? `${n} px` : "—"
+    const ratio = (n: number | null) =>
+      typeof n === "number" && Number.isFinite(n) ? n.toFixed(3) : "—"
+
+    return [
+      { code: "iw", label: "Initial width", resolvedValue: px(iw) },
+      { code: "ih", label: "Initial height", resolvedValue: px(ih) },
+      { code: "iar", label: "Initial Aspect ratio", resolvedValue: ratio(iar) },
+      { code: "cw", label: "Current width", resolvedValue: px(cw) },
+      { code: "ch", label: "Current height", resolvedValue: px(ch) },
+      { code: "car", label: "Current Aspect ratio", resolvedValue: ratio(car) },
+      // bw/bh/bar are layer-only (ignore calculations for now).
+      { code: "bw", label: "Base width", resolvedValue: "—" },
+      { code: "bh", label: "Base height", resolvedValue: "—" },
+      { code: "bar", label: "Base Aspect ratio", resolvedValue: "—" },
+    ] as const
+  }, [currentImage, imageList, originalImageList])
 
   const onClose = useCallback(() => {
     if (transformations.length === 0) {
@@ -726,6 +761,9 @@ export const TransformationConfigSidebar: React.FC = () => {
                     })
                   }
                   userVariables={userVariablesForDropdown}
+                  imageDimensionVariables={
+                    imageDimensionVariablesForDropdown as any
+                  }
                   disabled={
                     // Disable aspect ratio when both width and height are set
                     selectedTransformation.key ===
