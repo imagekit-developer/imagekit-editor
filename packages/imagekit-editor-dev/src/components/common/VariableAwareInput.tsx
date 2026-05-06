@@ -370,6 +370,17 @@ export function VariableAwareInput({
             onFocus?.(e as any)
           }}
           onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              if (
+                isOpen &&
+                highlightedIndex >= 0 &&
+                selectable[highlightedIndex]
+              ) {
+                e.preventDefault()
+                handleSelect(selectable[highlightedIndex])
+                return
+              }
+            }
             if (e.key === "ArrowDown" || e.key === "ArrowUp") {
               e.preventDefault()
               ensureOpen()

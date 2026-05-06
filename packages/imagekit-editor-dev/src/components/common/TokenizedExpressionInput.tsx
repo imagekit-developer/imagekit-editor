@@ -186,6 +186,9 @@ export function TokenizedExpressionInput({
           }}
           onBlur={() => setIsFocused(false)}
           onKeyDown={(e) => {
+            // Let the parent intercept first (e.g. accept highlighted dropdown item on Enter).
+            onKeyDown?.(e)
+            if (e.defaultPrevented) return
             if (e.key === "Backspace" && literalDraft.length === 0) {
               // Treat the previous token like a single character.
               e.preventDefault()
@@ -197,7 +200,6 @@ export function TokenizedExpressionInput({
               onCommitLiteral()
               return
             }
-            onKeyDown?.(e)
           }}
           variant="unstyled"
           fontSize="sm"
