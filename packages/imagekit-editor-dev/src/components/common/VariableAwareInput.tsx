@@ -254,10 +254,25 @@ export function VariableAwareInput({
 
       const nextTokens: ExpressionToken[] = [...tokens]
       const lit = literalDraft.trim()
-      // If the dropdown was opened by a trigger prefix ("i"/"b"/"c") or "{" / "{{",
-      // do NOT commit that as a literal token.
-      const isTrigger = lit === "{" || lit === "{{" || /^[icb]$/i.test(lit)
-      if (lit && !isTrigger) nextTokens.push({ kind: "literal", value: lit })
+      /**
+       * Do not commit the current `literalDraft` as a literal token when it's being
+       * used purely as an autocomplete query.
+       *
+       * Examples:
+       * - typing "iw" then selecting "ih" should yield only "ih" (not "iw" + "ih")
+       * - typing "{{mar" then selecting "{{margin_x}}" should yield only that variable
+       */
+      const lowerLit = lit.toLowerCase()
+      const isAutocompleteQuery =
+        lowerLit === "{" ||
+        lowerLit === "{{" ||
+        lowerLit.startsWith("{{") ||
+        // image-dimension code query (iw/ih/cw/bw/iar/bh/ch...)
+        /^[a-z]{1,3}$/.test(lowerLit)
+
+      if (lit && !isAutocompleteQuery) {
+        nextTokens.push({ kind: "literal", value: lit })
+      }
       nextTokens.push(token)
 
       onChange(serializeExpressionTokens(nextTokens))
