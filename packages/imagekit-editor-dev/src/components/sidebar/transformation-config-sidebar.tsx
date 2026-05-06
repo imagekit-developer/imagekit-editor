@@ -37,8 +37,9 @@ import { PiArrowLeft } from "@react-icons/all-files/pi/PiArrowLeft"
 import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
 import { PiInfo } from "@react-icons/all-files/pi/PiInfo"
 import { PiX } from "@react-icons/all-files/pi/PiX"
+import { PiCodeBold } from "@react-icons/all-files/pi/PiCodeBold"
 import startCase from "lodash/startCase"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ColorPickerProps } from "react-best-gradient-color-picker"
 import { Controller, type SubmitHandler, useForm } from "react-hook-form"
 import Select from "react-select"
@@ -54,6 +55,7 @@ import {
 } from "../../schema"
 import { type SyncStatus, useEditorStore } from "../../store"
 import { isStepAligned } from "../../utils"
+import { validateVariableName, isVariableNameUnique } from "../../utils/params"
 import AnchorField from "../common/AnchorField"
 import CheckboxCardField from "../common/CheckboxCardField"
 import ColorPickerField from "../common/ColorPickerField"
@@ -143,6 +145,147 @@ export function getTransformationFooterActionsConfig(input: {
   }
 }
 
+/** Inline param variable name editor for a single form field. */
+function FieldParamToggle({
+  transformationId,
+  fieldName,
+  currentVariable,
+  onSetParam,
+}: {
+  transformationId: string | undefined
+  fieldName: string
+  currentVariable: string | undefined
+  onSetParam?: (
+    fieldName: string,
+    variableName: string | undefined,
+  ) => { success: boolean; error?: string }
+}) {
+  const setFieldParam = useEditorStore((s) => s.setFieldParam)
+  const [isEditing, setIsEditing] = useState(false)
+  const [localValue, setLocalValue] = useState(currentVariable ?? "")
+  const [error, setError] = useState<string | undefined>()
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Sync from store when not editing
+  useEffect(() => {
+    if (!isEditing) {
+      setLocalValue(currentVariable ?? "")
+      setError(undefined)
+    }
+  }, [currentVariable, isEditing])
+
+  useEffect(() => {
+    if (isEditing) {
+      inputRef.current?.focus()
+    }
+  }, [isEditing])
+
+  const commitParam = useCallback(
+    (fName: string, varName: string | undefined) => {
+      if (onSetParam) {
+        return onSetParam(fName, varName)
+      }
+      if (!transformationId) {
+        return { success: false, error: "Transformation not found." }
+      }
+      return setFieldParam(transformationId, fName, varName)
+    },
+    [onSetParam, transformationId, setFieldParam],
+  )
+
+  const handleCommit = () => {
+    const trimmed = localValue.trim()
+    if (!trimmed) {
+      // Remove binding
+      commitParam(fieldName, undefined)
+      setError(undefined)
+      setIsEditing(false)
+      return
+    }
+    const result = commitParam(fieldName, trimmed)
+    if (result.success) {
+      setError(undefined)
+      setIsEditing(false)
+    } else {
+      setError(result.error)
+    }
+  }
+
+  if (!isEditing && !currentVariable) {
+    return (
+      <IconButton
+        icon={<Icon as={PiCodeBold} />}
+        size="xs"
+        variant="ghost"
+        aria-label={`Parameterize ${fieldName}`}
+        title="Assign a variable name to this field"
+        opacity={0.5}
+        _hover={{ opacity: 1 }}
+        onClick={() => setIsEditing(true)}
+      />
+    )
+  }
+
+  if (!isEditing && currentVariable) {
+    return (
+      <HStack spacing={1}>
+        <Text
+          fontSize="xs"
+          color="purple.600"
+          fontFamily="mono"
+          cursor="pointer"
+          onClick={() => setIsEditing(true)}
+          title={`Variable: ${currentVariable} (click to edit)`}
+        >
+          {`{${currentVariable}}`}
+        </Text>
+        <IconButton
+          icon={<Icon as={PiX} />}
+          size="xs"
+          variant="ghost"
+          aria-label={`Remove param ${currentVariable}`}
+          onClick={() => {
+            commitParam(fieldName, undefined)
+          }}
+        />
+      </HStack>
+    )
+  }
+
+  return (
+    <VStack align="stretch" spacing={0}>
+      <HStack spacing={1}>
+        <Input
+          ref={inputRef}
+          size="xs"
+          fontSize="xs"
+          fontFamily="mono"
+          placeholder="variable_name"
+          value={localValue}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            setLocalValue(e.target.value)
+          }
+          onKeyDown={(e: React.KeyboardEvent) => {
+            if (e.key === "Enter") handleCommit()
+            if (e.key === "Escape") {
+              setIsEditing(false)
+              setError(undefined)
+            }
+          }}
+          onBlur={handleCommit}
+          isInvalid={!!error}
+          width="120px"
+        />
+      </HStack>
+      {error && (
+        <Text fontSize="xs" color="red.500" mt={0.5}>
+          {error}
+        </Text>
+      )}
+    </VStack>
+  )
+}
+
 export const TransformationConfigSidebar: React.FC = () => {
   const {
     transformations,
@@ -192,12 +335,14 @@ export const TransformationConfigSidebar: React.FC = () => {
   }, [transformations, transformationToEdit])
 
   const [hasAppliedInSession, setHasAppliedInSession] = useState(false)
+  const [draftParams, setDraftParams] = useState<Record<string, string>>({})
 
   const footerSessionResetKey = `${_internalState.selectedTransformationKey ?? ""}:${editedTransformation?.id ?? ""}`
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: must reset when switching transformation / edit target
   useEffect(() => {
     setHasAppliedInSession(false)
+    setDraftParams({})
   }, [footerSessionResetKey])
 
   const editedTransformationValue = editedTransformation?.value as
@@ -268,6 +413,39 @@ export const TransformationConfigSidebar: React.FC = () => {
 
   const values = watch()
 
+  const handleDraftParam = useCallback(
+    (
+      fieldName: string,
+      variableName: string | undefined,
+    ): { success: boolean; error?: string } => {
+      if (!variableName) {
+        setDraftParams((prev) => {
+          const { [fieldName]: _, ...rest } = prev
+          return rest
+        })
+        return { success: true }
+      }
+      const validation = validateVariableName(variableName)
+      if (!validation.valid) {
+        return { success: false, error: validation.error }
+      }
+      // Check uniqueness across store transformations
+      const state = useEditorStore.getState()
+      if (!isVariableNameUnique(variableName, "", fieldName, state.transformations)) {
+        return { success: false, error: `Variable name "${variableName}" is already in use.` }
+      }
+      // Check uniqueness within draft params
+      for (const [fn, vn] of Object.entries(draftParams)) {
+        if (fn !== fieldName && vn === variableName) {
+          return { success: false, error: `Variable name "${variableName}" is already in use.` }
+        }
+      }
+      setDraftParams((prev) => ({ ...prev, [fieldName]: variableName }))
+      return { success: true }
+    },
+    [draftParams],
+  )
+
   const onClose = useCallback(() => {
     if (transformations.length === 0) {
       _setSidebarState("type")
@@ -334,6 +512,7 @@ export const TransformationConfigSidebar: React.FC = () => {
           name: finalName,
           key: selectedTransformation.key,
           value: data,
+          params: editedTransformation?.params,
         })
       } else if (
         transformationToEdit &&
@@ -345,33 +524,39 @@ export const TransformationConfigSidebar: React.FC = () => {
             transformation.id === transformationToEdit.targetId,
         )
 
+        const pendingParams = Object.keys(draftParams).length > 0 ? draftParams : undefined
         const transformationId = addTransformation(
           {
             type: "transformation",
             name: displayName,
             key: selectedTransformation.key,
             value: data,
+            params: pendingParams,
           },
           index + (transformationToEdit.position === "above" ? 0 : 1),
         )
 
         _setTransformationToEdit(transformationId, "inplace")
       } else {
+        const pendingParams = Object.keys(draftParams).length > 0 ? draftParams : undefined
         const transformationId = addTransformation({
           type: "transformation",
           name: displayName,
           key: selectedTransformation.key,
           value: data,
+          params: pendingParams,
         })
 
         _setTransformationToEdit(transformationId, "inplace")
       }
 
+      setDraftParams({})
       setHasAppliedInSession(true)
     },
     [
       _internalState.transformationToEdit,
       addTransformation,
+      draftParams,
       editedTransformation,
       selectedTransformation,
       transformations,
@@ -565,9 +750,21 @@ export const TransformationConfigSidebar: React.FC = () => {
                 )
               }
             >
-              <FormLabel htmlFor={field.name} fontSize="sm">
-                {field.label}
-              </FormLabel>
+              <Flex justify="space-between" align="center">
+                <FormLabel htmlFor={field.name} fontSize="sm" mb={0}>
+                  {field.label}
+                </FormLabel>
+                <FieldParamToggle
+                  transformationId={transformationToEdit?.transformationId}
+                  fieldName={field.name}
+                  currentVariable={
+                    transformationToEdit
+                      ? editedTransformation?.params?.[field.name]
+                      : draftParams[field.name]
+                  }
+                  onSetParam={!transformationToEdit ? handleDraftParam : undefined}
+                />
+              </Flex>
               {field.fieldType === "select" ? (
                 <Controller
                   name={field.name}

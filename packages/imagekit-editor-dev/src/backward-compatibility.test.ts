@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest"
 import { transformationFormatters, transformationSchema } from "./schema"
 import type { Transformation } from "./store"
 import { TRANSFORMATION_STATE_VERSION } from "./store"
+import {
+  getTemplateParams,
+  resolveTemplateParams,
+} from "./utils/params"
 
 /**
  * V1 Template Fixtures
@@ -3102,5 +3106,110 @@ describe("Backward Compatibility - V1 Templates", () => {
       const result = validateTransformation(template)
       expect(result.valid).toBe(false)
     })
+  })
+})
+
+describe("Parameterized Templates", () => {
+  const PARAMETERIZED_TEMPLATE: Omit<Transformation, "id">[] = [
+    {
+      key: "adjust-shadow",
+      name: "Shadow",
+      type: "transformation",
+      value: {
+        shadow: true,
+        shadowBlur: 10,
+        shadowOffsetX: 2,
+      },
+      version: "v1",
+      params: { shadowBlur: "hero_blur", shadowOffsetX: "hero_offset_x" },
+    },
+    {
+      key: "adjust-background",
+      name: "Background",
+      type: "transformation",
+      value: {
+        backgroundType: "color",
+        background: "#FFFFFF",
+      },
+      version: "v1",
+      params: { background: "brand_color" },
+    },
+  ]
+
+  it("should round-trip parameterized templates through JSON", () => {
+    const json = JSON.stringify(PARAMETERIZED_TEMPLATE)
+    const parsed = JSON.parse(json) as Omit<Transformation, "id">[]
+    expect(parsed[0].params).toEqual({
+      shadowBlur: "hero_blur",
+      shadowOffsetX: "hero_offset_x",
+    })
+    expect(parsed[1].params).toEqual({ background: "brand_color" })
+  })
+
+  it("should load v1 templates without params (backward compat)", () => {
+    const legacy: Omit<Transformation, "id">[] = [
+      {
+        key: "adjust-blur",
+        name: "Blur",
+        type: "transformation",
+        value: { blur: 5 },
+        version: "v1",
+      },
+    ]
+    expect(legacy[0].params).toBeUndefined()
+    // getTemplateParams should return empty for templates without params
+    expect(getTemplateParams(legacy)).toEqual([])
+  })
+
+  it("should extract all param bindings with getTemplateParams", () => {
+    const bindings = getTemplateParams(PARAMETERIZED_TEMPLATE)
+    expect(bindings).toHaveLength(3)
+    expect(bindings).toContainEqual({
+      variableName: "hero_blur",
+      fieldName: "shadowBlur",
+      transformationKey: "adjust-shadow",
+      transformationName: "Shadow",
+      defaultValue: 10,
+    })
+    expect(bindings).toContainEqual({
+      variableName: "brand_color",
+      fieldName: "background",
+      transformationKey: "adjust-background",
+      transformationName: "Background",
+      defaultValue: "#FFFFFF",
+    })
+  })
+
+  it("should resolve param overrides with resolveTemplateParams", () => {
+    const resolved = resolveTemplateParams(PARAMETERIZED_TEMPLATE, {
+      hero_blur: 20,
+      brand_color: "#FF0000",
+    })
+    expect(
+      (resolved[0].value as Record<string, unknown>).shadowBlur,
+    ).toBe(20)
+    // Non-overridden params keep defaults
+    expect(
+      (resolved[0].value as Record<string, unknown>).shadowOffsetX,
+    ).toBe(2)
+    expect(
+      (resolved[1].value as Record<string, unknown>).background,
+    ).toBe("#FF0000")
+  })
+
+  it("should keep defaults when no overrides are provided", () => {
+    const resolved = resolveTemplateParams(PARAMETERIZED_TEMPLATE, {})
+    expect(
+      (resolved[0].value as Record<string, unknown>).shadowBlur,
+    ).toBe(10)
+    expect(
+      (resolved[1].value as Record<string, unknown>).background,
+    ).toBe("#FFFFFF")
+  })
+
+  it("should not mutate original template during resolution", () => {
+    const original = JSON.parse(JSON.stringify(PARAMETERIZED_TEMPLATE))
+    resolveTemplateParams(PARAMETERIZED_TEMPLATE, { hero_blur: 99 })
+    expect(PARAMETERIZED_TEMPLATE).toEqual(original)
   })
 })

@@ -5,8 +5,18 @@ import type { SaveTemplateInput } from "./types"
 export function normalizeTransformationStepsForPersistence(
   transformations: SaveTemplateInput["transformations"],
 ): SaveTemplateInput["transformations"] {
-  return transformations.map((step) => ({
-    ...step,
-    version: step.version ?? TRANSFORMATION_STATE_VERSION,
-  }))
+  return transformations.map((step) => {
+    const normalized = {
+      ...step,
+      version: step.version ?? TRANSFORMATION_STATE_VERSION,
+    }
+    // Strip empty params to keep stored data clean
+    if (
+      normalized.params &&
+      Object.keys(normalized.params).length === 0
+    ) {
+      delete normalized.params
+    }
+    return normalized
+  })
 }

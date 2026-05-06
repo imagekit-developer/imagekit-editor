@@ -20,3 +20,4 @@ export {
 } from "./storage"
 export type { FileElement, Signer, Transformation } from "./store"
 export { TRANSFORMATION_STATE_VERSION } from "./store"
+export { getTemplateParams, resolveTemplateParams } from "./utils/params"

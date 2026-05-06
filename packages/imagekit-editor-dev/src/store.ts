@@ -15,6 +15,10 @@ import {
 } from "./schema"
 import { bumpLocalChangeVersion as bumpVersion } from "./sync/templateSyncVersioning"
 import { extractImagePath } from "./utils"
+import {
+  isVariableNameUnique,
+  validateVariableName,
+} from "./utils/params"
 
 export const TRANSFORMATION_STATE_VERSION = "v1" as const
 
@@ -27,6 +31,12 @@ export interface Transformation {
   version?: typeof TRANSFORMATION_STATE_VERSION
   /** Persisted visibility flag. Absent or true = visible; false = hidden. */
   enabled?: boolean
+  /**
+   * Maps field names to variable names for parameterized templates.
+   * e.g. { shadowBlur: "hero_blur" } means the shadowBlur field can be
+   * overridden at runtime by providing a value for "hero_blur".
+   */
+  params?: Record<string, string>
 }
 
 export type RequiredMetadata = { requireSignedUrl: boolean }
@@ -191,6 +201,16 @@ export type EditorActions<
    * for viewing/loading the template.
    */
   denyTemplateStorageAccessAndReset: (message?: string) => void
+
+  /**
+   * Sets or removes a parameter variable binding for a specific field in a transformation.
+   * Returns { success: true } or { success: false, error: string } on validation failure.
+   */
+  setFieldParam: (
+    transformationId: string,
+    fieldName: string,
+    variableName: string | undefined,
+  ) => { success: boolean; error?: string }
 
   _setSidebarState: (state: "none" | "type" | "config") => void
   _setSelectedTransformationKey: (key: string | null) => void
@@ -666,6 +686,71 @@ const useEditorStore = create<EditorState & EditorActions>()(
           transformationToEdit: null,
         },
       })
+    },
+
+    setFieldParam: (transformationId, fieldName, variableName) => {
+      const state = get()
+      const transformation = state.transformations.find(
+        (t) => t.id === transformationId,
+      )
+      if (!transformation) {
+        return { success: false, error: "Transformation not found." }
+      }
+
+      // Removing a param binding
+      if (!variableName) {
+        const currentParams = transformation.params
+        if (!currentParams || !(fieldName in currentParams)) {
+          return { success: true }
+        }
+        const { [fieldName]: _, ...rest } = currentParams
+        const newParams = Object.keys(rest).length > 0 ? rest : undefined
+        set((s) => ({
+          transformations: s.transformations.map((t) =>
+            t.id === transformationId ? { ...t, params: newParams } : t,
+          ),
+          isPristine: false,
+          localChangeVersion: bumpVersion(s.localChangeVersion),
+        }))
+        return { success: true }
+      }
+
+      // No-op if the value is already set to the same variable name
+      if (transformation.params?.[fieldName] === variableName) {
+        return { success: true }
+      }
+
+      // Validate format
+      const validation = validateVariableName(variableName)
+      if (!validation.valid) {
+        return { success: false, error: validation.error }
+      }
+
+      // Validate uniqueness
+      if (
+        !isVariableNameUnique(
+          variableName,
+          transformationId,
+          fieldName,
+          state.transformations,
+        )
+      ) {
+        return {
+          success: false,
+          error: `Variable name "${variableName}" is already in use.`,
+        }
+      }
+
+      set((s) => ({
+        transformations: s.transformations.map((t) =>
+          t.id === transformationId
+            ? { ...t, params: { ...t.params, [fieldName]: variableName } }
+            : t,
+        ),
+        isPristine: false,
+        localChangeVersion: bumpVersion(s.localChangeVersion),
+      }))
+      return { success: true }
     },
 
     _setSidebarState: (sidebarState) => {

@@ -215,9 +215,28 @@ export const SortableTransformationItem = ({
               </Text>
             </Box>
           ) : (
-            <Text fontSize="md" opacity={isVisible ? 1 : 0.5}>
-              {transformation.name}
-            </Text>
+            <HStack spacing={2}>
+              <Text fontSize="md" opacity={isVisible ? 1 : 0.5}>
+                {transformation.name}
+              </Text>
+              {transformation.params &&
+                Object.keys(transformation.params).length > 0 && (
+                  <Tooltip
+                    label={Object.values(transformation.params).join(", ")}
+                    placement="top"
+                    hasArrow
+                  >
+                    <Tag
+                      size="sm"
+                      colorScheme="purple"
+                      variant="subtle"
+                      fontSize="xs"
+                    >
+                      {`{${Object.keys(transformation.params).length}}`}
+                    </Tag>
+                  </Tooltip>
+                )}
+            </HStack>
           )}
           <Box flex={1} />
           {isHover && !isRenaming && (
