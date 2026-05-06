@@ -21,3 +21,5 @@ builds
 packages/imagekit-editor/README.md
 .cursor
 coverage
+.yalc
+yalc.lock
