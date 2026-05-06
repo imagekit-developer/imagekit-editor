@@ -553,8 +553,8 @@ export function VariableAwareInput({
               {resolvedNumber === null
                 ? "—"
                 : Number.isInteger(resolvedNumber)
-                  ? `${resolvedNumber} px`
-                  : `${resolvedNumber.toFixed(2)} px`}
+                  ? `${resolvedNumber}`
+                  : `${resolvedNumber.toFixed(2)}`}
             </Text>
             <Text
               ml="auto"
