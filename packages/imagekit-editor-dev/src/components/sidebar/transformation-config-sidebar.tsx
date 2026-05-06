@@ -73,6 +73,7 @@ import PaddingInputField, {
   type PaddingState,
 } from "../common/PaddingInput"
 import RadioCardField from "../common/RadioCardField"
+import { VariableAwareInput } from "../common/VariableAwareInput"
 import ZoomInput from "../common/ZoomInput"
 import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
@@ -267,6 +268,7 @@ export const TransformationConfigSidebar: React.FC = () => {
   )
 
   const values = watch()
+  const userVariablesForDropdown = useMemo(() => [], [])
 
   const onClose = useCallback(() => {
     if (transformations.length === 0) {
@@ -712,18 +714,18 @@ export const TransformationConfigSidebar: React.FC = () => {
                 />
               ) : null}
               {field.fieldType === "input" ? (
-                <Input
+                <VariableAwareInput
                   id={field.name}
+                  name={field.name}
                   fontSize="sm"
-                  {...register(field.name)}
-                  {...(field.fieldProps ?? {})}
-                  defaultValue={
-                    field.fieldProps?.defaultValue as
-                      | string
-                      | number
-                      | readonly string[]
-                      | undefined
+                  value={String(watch(field.name) ?? "")}
+                  onChange={(next) =>
+                    setValue(field.name, next, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                    })
                   }
+                  userVariables={userVariablesForDropdown}
                   disabled={
                     // Disable aspect ratio when both width and height are set
                     selectedTransformation.key ===
@@ -732,6 +734,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                     !!values.width &&
                     !!values.height
                   }
+                  {...(field.fieldProps ?? {})}
                 />
               ) : null}
               {field.fieldType === "textarea" ? (
