@@ -1,4 +1,4 @@
-import type { Transformation } from "../store"
+import type { CanvasConfig, EditorMode, Transformation } from "../store"
 
 export interface TemplateCreator {
   userId: string
@@ -19,6 +19,14 @@ export interface TemplateRecord {
   createdAt: number
   updatedAt: number
   lastUsedAt?: number
+  /**
+   * Authoring mode for this template. Absent or "editing" means a regular
+   * media-editing template; "canvas" means a layer-only template authored
+   * against a sized blank canvas.
+   */
+  mode?: EditorMode
+  /** Canvas dimensions/background. Required only when `mode === "canvas"`. */
+  canvas?: CanvasConfig | null
 }
 
 export type SaveTemplateInput = {
@@ -36,6 +44,8 @@ export type SaveTemplateInput = {
    * will respect this value instead of always touching updatedAt.
    */
   updatedAt?: number
+  mode?: EditorMode
+  canvas?: CanvasConfig | null
 }
 
 export interface TemplateStorageProvider {

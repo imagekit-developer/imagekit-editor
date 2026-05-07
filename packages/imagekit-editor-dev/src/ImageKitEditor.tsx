@@ -19,6 +19,8 @@ import {
 } from "./storage"
 import {
   applyTemplateRecord,
+  type CanvasConfig,
+  type EditorMode,
   type FocusObjects,
   type InputFileElement,
   type RequiredMetadata,
@@ -107,6 +109,17 @@ interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
    * via the standard sync-status error UI; the editor still opens empty.
    */
   initialTemplateId?: string
+  /**
+   * Editor authoring mode. Defaults to `"editing"` (regular media editing).
+   * Pass `"canvas"` to author a layer-only template against a sized blank
+   * canvas; `canvas` prop must also be provided in that case.
+   *
+   * If `initialTemplateId` is supplied and the loaded template has its own
+   * `mode`, that wins (the template carries its authoring context).
+   */
+  mode?: EditorMode
+  /** Canvas dimensions and optional background. Required when `mode === "canvas"`. */
+  canvas?: CanvasConfig
 }
 
 function ImageKitEditorImpl<M extends RequiredMetadata>(
@@ -121,6 +134,8 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     templateStorage,
     getTemplatePermissions,
     initialTemplateId,
+    mode,
+    canvas,
   } = props
   const {
     addImage,
@@ -155,6 +170,8 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
         ...(state.templateIsPrivate !== null
           ? { isPrivate: state.templateIsPrivate }
           : {}),
+        mode: state.mode,
+        ...(state.mode === "canvas" ? { canvas: state.canvas } : {}),
       })
       const after = useEditorStore.getState()
       after.hydrateTemplateMetadata({
@@ -216,8 +233,10 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
       imageList: initialImages,
       signer,
       focusObjects,
+      mode,
+      canvas,
     })
-  }, [initialImages, signer, focusObjects, initialize])
+  }, [initialImages, signer, focusObjects, initialize, mode, canvas])
 
   // Load template by id from the configured storage provider when
   // `initialTemplateId` is supplied. This runs after `initialize` so it can

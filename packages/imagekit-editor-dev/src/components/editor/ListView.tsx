@@ -17,9 +17,11 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
     originalImageList,
     signingImages,
     setImageDimensions,
+    mode,
     _internalState,
   } = useEditorStore()
 
+  const isCanvas = mode === "canvas"
   const isEmpty = imageList.length === 0
 
   return (
@@ -101,12 +103,14 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
           )}
         </Flex>
       </Flex>
-      <Toolbar
-        onAddImage={onAddImage}
-        onSelectImage={(imageSrc: string) => {
-          setCurrentImage(imageSrc)
-        }}
-      />
+      {!isCanvas && (
+        <Toolbar
+          onAddImage={onAddImage}
+          onSelectImage={(imageSrc: string) => {
+            setCurrentImage(imageSrc)
+          }}
+        />
+      )}
     </>
   )
 }

@@ -18,7 +18,13 @@ export {
   normalizeTransformationStepsForPersistence,
   TemplateAccessDeniedError,
 } from "./storage"
-export type { FileElement, Signer, Transformation } from "./store"
+export type {
+  CanvasConfig,
+  EditorMode,
+  FileElement,
+  Signer,
+  Transformation,
+} from "./store"
 export { TRANSFORMATION_STATE_VERSION } from "./store"
 export {
   buildEditorTransformationString,

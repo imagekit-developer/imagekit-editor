@@ -39,7 +39,10 @@ export const ActionBar: FC<ActionBarProps> = ({
     originalImageList,
     showOriginal,
     setShowOriginal,
+    mode,
+    canvas,
   } = useEditorStore()
+  const isCanvas = mode === "canvas"
 
   const imageDimensions = useMemo(() => {
     const idx = imageList.findIndex((img) => img === currentImage)
@@ -61,18 +64,20 @@ export const ActionBar: FC<ActionBarProps> = ({
       alignItems="center"
     >
       <HStack spacing={2} flex="1" minW={0} mr={8}>
-        <Button
-          variant="ghost"
-          size="md"
-          fontWeight="normal"
-          leftIcon={<Icon boxSize={4} as={PiImageSquare} />}
-          _hover={{ bg: "gray.100" }}
-          onClick={() => setShowOriginal(!showOriginal)}
-        >
-          {showOriginal ? "Show Transformed" : "Show Original"}
-        </Button>
+        {!isCanvas && (
+          <Button
+            variant="ghost"
+            size="md"
+            fontWeight="normal"
+            leftIcon={<Icon boxSize={4} as={PiImageSquare} />}
+            _hover={{ bg: "gray.100" }}
+            onClick={() => setShowOriginal(!showOriginal)}
+          >
+            {showOriginal ? "Show Transformed" : "Show Original"}
+          </Button>
+        )}
 
-        {viewMode === "list" && imageDimensions && (
+        {viewMode === "list" && imageDimensions && !isCanvas && (
           <>
             <Divider
               orientation="vertical"
@@ -88,6 +93,28 @@ export const ActionBar: FC<ActionBarProps> = ({
               Dimensions:{" "}
               <Text as="span" fontWeight="normal">
                 {imageDimensions.width} x {imageDimensions.height}
+              </Text>
+            </Text>
+          </>
+        )}
+
+        {isCanvas && canvas && (
+          <>
+            <Divider
+              orientation="vertical"
+              h="6"
+              borderColor="editorBattleshipGrey.200"
+            />
+            <Text
+              fontSize="md"
+              fontWeight="medium"
+              whiteSpace="nowrap"
+              paddingX="4"
+            >
+              Canvas:{" "}
+              <Text as="span" fontWeight="normal">
+                {canvas.width} × {canvas.height}
+                {canvas.background ? ` • #${canvas.background}` : ""}
               </Text>
             </Text>
           </>
@@ -150,6 +177,7 @@ export const ActionBar: FC<ActionBarProps> = ({
             size="md"
             variant="ghost"
             aria-label="Toggle view"
+            isDisabled={isCanvas}
             icon={
               <Icon
                 boxSize={6}

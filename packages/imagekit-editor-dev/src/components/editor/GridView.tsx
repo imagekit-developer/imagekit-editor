@@ -28,7 +28,9 @@ export const GridView: FC<GridViewProps> = ({ imageSize, onAddImage }) => {
     signingImages,
     removeImage,
     setImageDimensions,
+    mode,
   } = useEditorStore()
+  const isCanvas = mode === "canvas"
   return (
     <Flex
       flex="1"
@@ -41,29 +43,31 @@ export const GridView: FC<GridViewProps> = ({ imageSize, onAddImage }) => {
     >
       <Box width="full">
         <Flex flexWrap="wrap" gap={4} justifyContent="flex-start" width="full">
-          <Flex
-            width={`${imageSize}px`}
-            height={`${imageSize}px`}
-            borderWidth="1px"
-            borderStyle="dashed"
-            borderColor="gray.300"
-            borderRadius="md"
-            justifyContent="center"
-            alignItems="center"
-            cursor="pointer"
-            transition="all 0.2s"
-            bg="gray.50"
-            onClick={onAddImage}
-            _hover={{ bg: "gray.100", transform: "scale(1.02)" }}
-            mb={2}
-          >
-            <Flex direction="column" alignItems="center">
-              <Icon as={PiPlus} boxSize={8} color="gray.500" />
-              <Text mt={2} fontSize="md" color="gray.500">
-                Add New Image
-              </Text>
+          {!isCanvas && (
+            <Flex
+              width={`${imageSize}px`}
+              height={`${imageSize}px`}
+              borderWidth="1px"
+              borderStyle="dashed"
+              borderColor="gray.300"
+              borderRadius="md"
+              justifyContent="center"
+              alignItems="center"
+              cursor="pointer"
+              transition="all 0.2s"
+              bg="gray.50"
+              onClick={onAddImage}
+              _hover={{ bg: "gray.100", transform: "scale(1.02)" }}
+              mb={2}
+            >
+              <Flex direction="column" alignItems="center">
+                <Icon as={PiPlus} boxSize={8} color="gray.500" />
+                <Text mt={2} fontSize="md" color="gray.500">
+                  Add New Image
+                </Text>
+              </Flex>
             </Flex>
-          </Flex>
+          )}
 
           {imageList.map((imageSrc, index) => {
             const originalUrl = originalImageList[index]?.url

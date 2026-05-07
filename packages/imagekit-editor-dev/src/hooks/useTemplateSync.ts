@@ -46,6 +46,10 @@ export function useTemplateSync() {
             : state.templateIsPrivate !== null
               ? { isPrivate: state.templateIsPrivate }
               : {}),
+          // Persist authoring mode + canvas config so the template re-opens
+          // in the correct mode regardless of how the host invoked the editor.
+          mode: state.mode,
+          ...(state.mode === "canvas" ? { canvas: state.canvas } : {}),
         })
 
         const after = useEditorStore.getState()

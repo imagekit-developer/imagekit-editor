@@ -13,6 +13,32 @@ import { extractImagePath } from "./utils"
 
 export const TRANSFORMATION_STATE_VERSION = "v1" as const
 
+/**
+ * Editor mode.
+ * - `editing`: regular media-editing flow (host provides one or more images;
+ *   future: videos). The user edits real source media.
+ * - `canvas`: creative-template authoring on a sized blank canvas. The editor
+ *   uses a hardcoded 1×1 transparent pixel as the source and prepends a
+ *   resize step sized to `canvas.width×canvas.height` so the user sees a
+ *   solid preview while authoring layer-only templates.
+ */
+export type EditorMode = "editing" | "canvas"
+
+export interface CanvasConfig {
+  width: number
+  height: number
+  /** Optional fill color (hex without `#`, e.g. "FFFFFF"). */
+  background?: string
+}
+
+/**
+ * Hardcoded source for canvas mode. A 1×1 fully transparent PNG hosted by
+ * ImageKit; the resize step we inject in the preview pipeline expands it to
+ * the configured canvas size.
+ */
+export const CANVAS_SOURCE_URL =
+  "https://ik.imagekit.io/demo/pixel_transparent.png"
+
 export interface Transformation {
   id: string
   key: string
@@ -119,6 +145,15 @@ export interface EditorState<
    * Used by header status and close confirmation alongside versioned unsynced state.
    */
   transformationConfigFormDirty: boolean
+
+  /** Editor mode. See {@link EditorMode}. */
+  mode: EditorMode
+  /**
+   * Canvas configuration when `mode === "canvas"`. Persisted as part of the
+   * template record so re-opening a canvas template restores both the mode
+   * and the dimensions.
+   */
+  canvas: CanvasConfig | null
 }
 
 export type EditorActions<
@@ -130,6 +165,8 @@ export type EditorActions<
     focusObjects?: ReadonlyArray<FocusObjects>
     templateName?: string
     templateId?: string
+    mode?: EditorMode
+    canvas?: CanvasConfig | null
   }) => void
   destroy: () => void
   setCurrentImage: (imageSrc: string | undefined) => void
@@ -175,6 +212,13 @@ export type EditorActions<
   setLastSavedAt: (ts: number | null) => void
   setTransformationConfigFormDirty: (dirty: boolean) => void
   resetToNewTemplate: () => void
+  /**
+   * Switches editor mode and updates the source image list accordingly.
+   * - canvas: replaces source list with the hardcoded transparent pixel.
+   * - editing: clears the source list (host should provide images via
+   *   `addImage`/`addImages`).
+   */
+  setMode: (mode: EditorMode, canvas?: CanvasConfig | null) => void
   /**
    * Blocks any further writes to template storage while keeping the current
    * template state intact (so the user can keep viewing/editing locally).
@@ -258,6 +302,8 @@ const DEFAULT_STATE: EditorState = {
   lastSyncedVersion: 0,
   lastSavedAt: null,
   transformationConfigFormDirty: false,
+  mode: "editing",
+  canvas: null,
 }
 
 const useEditorStore = create<EditorState & EditorActions>()(
@@ -266,7 +312,23 @@ const useEditorStore = create<EditorState & EditorActions>()(
 
     initialize: (initialData) => {
       const updates: Partial<EditorState> = {}
-      if (initialData?.imageList && initialData.imageList.length > 0) {
+
+      // Canvas mode: synthesize a single virtual image (the hardcoded
+      // transparent pixel) so the existing preview pipeline has a source to
+      // run transformations against. The user never sees this in the image
+      // grid because canvas-mode UI hides image management.
+      if (initialData?.mode === "canvas") {
+        updates.mode = "canvas"
+        updates.canvas = initialData.canvas ?? null
+        const canvasImg: FileElement = {
+          url: CANVAS_SOURCE_URL,
+          metadata: { requireSignedUrl: false },
+          imageDimensions: null,
+        }
+        updates.originalImageList = [canvasImg]
+        updates.imageList = [canvasImg.url]
+        updates.currentImage = canvasImg.url
+      } else if (initialData?.imageList && initialData.imageList.length > 0) {
         const imgs = initialData.imageList.map(normalizeImage)
         updates.originalImageList = imgs
         updates.imageList = imgs.map((i) => i.url)
@@ -319,6 +381,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
     },
 
     addImage: (imageSrc) => {
+      if (get().mode === "canvas") return
       const img = normalizeImage(imageSrc)
       if (!get().originalImageList.some((i) => i.url === img.url)) {
         set((state) => ({
@@ -331,6 +394,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
     },
 
     addImages: (imageSrcs) => {
+      if (get().mode === "canvas") return
       const existing = get().originalImageList
       const uniqueImages = imageSrcs
         .map(normalizeImage)
@@ -341,6 +405,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
     },
 
     removeImage: (imageSrc) => {
+      if (get().mode === "canvas") return
       set((state) => {
         const index = state.originalImageList.findIndex(
           (img) => img.url === imageSrc,
@@ -609,6 +674,31 @@ const useEditorStore = create<EditorState & EditorActions>()(
       set({ isPristine: pristine })
     },
 
+    setMode: (mode, canvas) => {
+      if (mode === "canvas") {
+        const canvasImg: FileElement = {
+          url: CANVAS_SOURCE_URL,
+          metadata: { requireSignedUrl: false },
+          imageDimensions: null,
+        }
+        set({
+          mode: "canvas",
+          canvas: canvas ?? null,
+          originalImageList: [canvasImg],
+          imageList: [canvasImg.url],
+          currentImage: canvasImg.url,
+        })
+      } else {
+        set({
+          mode: "editing",
+          canvas: null,
+          originalImageList: [],
+          imageList: [],
+          currentImage: undefined,
+        })
+      }
+    },
+
     resetToNewTemplate: () => {
       set({
         transformations: [],
@@ -753,10 +843,29 @@ const calculateImageList = (
   signer: Signer | undefined,
   activeImageIndex: number,
   signedUrlCache: Record<string, string>,
+  canvas: CanvasConfig | null,
 ) => {
-  const IKTransformations = transformations
+  const userTransformations = transformations
     .filter((transformation) => visibleTransformations[transformation.id])
     .map((transformation) => convertTransformationToIK(transformation))
+
+  // In canvas mode the source is a 1×1 transparent pixel; prepend a resize
+  // step so the user sees a properly sized preview as the base for their
+  // layer-only template. Skipped when `showOriginal` is true so the user can
+  // still toggle to see the raw source.
+  const canvasTransformation: IKTransformation | null =
+    canvas && !showOriginal
+      ? {
+          width: canvas.width,
+          height: canvas.height,
+          cropMode: "pad_resize",
+          ...(canvas.background ? { background: canvas.background } : {}),
+        }
+      : null
+
+  const IKTransformations = canvasTransformation
+    ? [canvasTransformation, ...userTransformations]
+    : userTransformations
 
   const transformKey = showOriginal
     ? "original"
@@ -844,6 +953,7 @@ function recomputeImages() {
     state.signer,
     currentIndex,
     state.signedUrlCache,
+    state.canvas,
   )
 
   const transformationsChanged = transformKey !== state.currentTransformKey
@@ -945,6 +1055,13 @@ useEditorStore.subscribe(
   },
 )
 
+useEditorStore.subscribe(
+  (state) => state.canvas,
+  () => {
+    recomputeImages()
+  },
+)
+
 export { useEditorStore }
 
 /**
@@ -958,8 +1075,18 @@ export function applyTemplateRecord(record: {
   name: string
   isPrivate: boolean | null
   transformations: Omit<Transformation, "id">[]
+  mode?: EditorMode
+  canvas?: CanvasConfig | null
 }) {
   const store = useEditorStore.getState()
+  // Switch mode first so canvas-mode templates get their source pixel set up
+  // before the preview pipeline runs against the loaded transformations.
+  if (record.mode && record.mode !== store.mode) {
+    store.setMode(record.mode, record.canvas ?? null)
+  } else if (record.mode === "canvas") {
+    // Same mode but canvas dims may differ; refresh.
+    store.setMode("canvas", record.canvas ?? null)
+  }
   store.loadTemplate(record.transformations)
   store.hydrateTemplateMetadata({
     templateId: record.id,
