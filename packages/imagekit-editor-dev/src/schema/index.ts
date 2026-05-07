@@ -4264,3 +4264,55 @@ function validatePerspectiveDistort(
     }
   }
 }
+
+/**
+ * Schema for the Canvas configuration sidebar.
+ * This is NOT part of the regular transformation schema — it's a special
+ * first-class element that controls the canvas dimensions and background.
+ */
+export const canvasSchema = z.object({
+  width: z.coerce.number().int().min(1).max(10000),
+  height: z.coerce.number().int().min(1).max(10000),
+  color: z.string().min(1, { message: "Color is required." }),
+})
+
+export const canvasFields: TransformationField[] = [
+  {
+    label: "Width",
+    name: "width",
+    fieldType: "input",
+    fieldProps: {
+      defaultValue: 1080,
+      min: 1,
+      max: 10000,
+    },
+    helpText: "Canvas width in pixels.",
+    isTransformation: true,
+    transformationKey: "width",
+  },
+  {
+    label: "Height",
+    name: "height",
+    fieldType: "input",
+    fieldProps: {
+      defaultValue: 1080,
+      min: 1,
+      max: 10000,
+    },
+    helpText: "Canvas height in pixels.",
+    isTransformation: true,
+    transformationKey: "height",
+  },
+  {
+    label: "Background Color",
+    name: "color",
+    fieldType: "color-picker",
+    fieldProps: {
+      defaultValue: "#00000000",
+    },
+    helpText:
+      "Background color of the canvas. Use transparent (#00000000) for no background.",
+    isTransformation: true,
+    transformationKey: "color",
+  },
+]

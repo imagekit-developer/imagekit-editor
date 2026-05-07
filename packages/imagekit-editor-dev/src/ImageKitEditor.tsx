@@ -17,7 +17,9 @@ import {
   type TemplateStorageProvider,
 } from "./storage"
 import {
+  DEFAULT_CANVAS,
   type FocusObjects,
+  getTransformationsForPersistence,
   type InputFileElement,
   type RequiredMetadata,
   type Signer,
@@ -96,6 +98,12 @@ interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
    * If omitted, the editor defaults to allowing all actions.
    */
   getTemplatePermissions?: GetTemplatePermissions
+  /**
+   * When true, the editor starts in canvas mode with a default blank canvas
+   * (1080×1080, transparent). No base images are required.
+   * When false or omitted, the editor works in the traditional image-based mode.
+   */
+  canvasMode?: boolean
 }
 
 function ImageKitEditorImpl<M extends RequiredMetadata>(
@@ -109,6 +117,7 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     focusObjects,
     templateStorage,
     getTemplatePermissions,
+    canvasMode,
   } = props
   const {
     addImage,
@@ -137,9 +146,7 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
       const saved = await resolvedProvider.saveTemplate({
         id: state.templateId ?? undefined,
         name: state.templateName,
-        transformations: state.transformations.map(
-          ({ id: _id, ...rest }) => rest,
-        ),
+        transformations: getTransformationsForPersistence(),
         ...(state.templateIsPrivate !== null
           ? { isPrivate: state.templateIsPrivate }
           : {}),
@@ -204,8 +211,9 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
       imageList: initialImages,
       signer,
       focusObjects,
+      canvas: canvasMode ? DEFAULT_CANVAS : undefined,
     })
-  }, [initialImages, signer, focusObjects, initialize])
+  }, [initialImages, signer, focusObjects, canvasMode, initialize])
 
   useImperativeHandle(
     ref,

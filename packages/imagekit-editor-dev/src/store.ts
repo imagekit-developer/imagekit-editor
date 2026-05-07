@@ -22,6 +22,20 @@ import {
 
 export const TRANSFORMATION_STATE_VERSION = "v1" as const
 
+/**
+ * Well-known ImageKit path that generates a blank canvas.
+ * Used as the `src` in `buildSrc` when the editor is in canvas mode.
+ */
+export const CANVAS_IMAGE_PATH =
+  "/110d1680-0875-470c-8afc-409bdb6b0a8e/canvas_layer"
+
+export interface CanvasState {
+  width: number
+  height: number
+  /** Hex color string including alpha, e.g. "#00000000" for transparent */
+  color: string
+}
+
 export interface Transformation {
   id: string
   key: string
@@ -67,7 +81,7 @@ export type Signer<Metadata extends RequiredMetadata = RequiredMetadata> = (
 ) => Promise<string>
 
 interface InternalState {
-  sidebarState: "none" | "type" | "config"
+  sidebarState: "none" | "type" | "config" | "canvas"
   selectedTransformationKey: string | null
   transformationToEdit:
     | {
@@ -134,6 +148,14 @@ export interface EditorState<
    * Used by header status and close confirmation alongside versioned unsynced state.
    */
   transformationConfigFormDirty: boolean
+
+  /**
+   * Canvas state for canvas-first template mode.
+   * When non-null, the editor works without base images — the preview is generated
+   * from the ImageKit canvas_layer path with a solid color overlay.
+   * null = image mode (backward compatible default).
+   */
+  canvas: CanvasState | null
 }
 
 export type EditorActions<
@@ -145,6 +167,8 @@ export type EditorActions<
     focusObjects?: ReadonlyArray<FocusObjects>
     templateName?: string
     templateId?: string
+    /** When provided, the editor starts in canvas mode with this canvas config. */
+    canvas?: CanvasState
   }) => void
   destroy: () => void
   setCurrentImage: (imageSrc: string | undefined) => void
@@ -212,12 +236,17 @@ export type EditorActions<
     variableName: string | undefined,
   ) => { success: boolean; error?: string }
 
-  _setSidebarState: (state: "none" | "type" | "config") => void
+  _setSidebarState: (state: "none" | "type" | "config" | "canvas") => void
   _setSelectedTransformationKey: (key: string | null) => void
   _setTransformationToEdit: (
     transformationId: string | null,
     position?: "inplace" | "above" | "below",
   ) => void
+
+  /** Sets the full canvas state (or null to disable canvas mode). */
+  setCanvas: (canvas: CanvasState | null) => void
+  /** Partially updates canvas state fields. No-op if canvas is null. */
+  updateCanvas: (partial: Partial<CanvasState>) => void
 }
 
 const initialTransformations: Transformation[] = []
@@ -283,6 +312,13 @@ const DEFAULT_STATE: EditorState = {
   lastSyncedVersion: 0,
   lastSavedAt: null,
   transformationConfigFormDirty: false,
+  canvas: null,
+}
+
+export const DEFAULT_CANVAS: CanvasState = {
+  width: 1080,
+  height: 1080,
+  color: "#00000000",
 }
 
 const useEditorStore = create<EditorState & EditorActions>()(
@@ -316,6 +352,10 @@ const useEditorStore = create<EditorState & EditorActions>()(
         updates.syncStatus = "saved"
         updates.localChangeVersion = 0
         updates.lastSyncedVersion = 0
+      }
+      // Canvas mode initialization
+      if (initialData?.canvas) {
+        updates.canvas = initialData.canvas
       }
       if (Object.keys(updates).length > 0) {
         set(updates as EditorState)
@@ -419,11 +459,27 @@ const useEditorStore = create<EditorState & EditorActions>()(
     },
 
     loadTemplate: (template) => {
-      const transformationsWithIds = template.map((transformation, index) => ({
-        ...transformation,
-        id: `transformation-${Date.now()}-${index}`,
-        version: TRANSFORMATION_STATE_VERSION,
-      }))
+      // Extract canvas transformation if present (always at position 0 with key "canvas")
+      let canvasState: CanvasState | null = null
+      let transformationSteps = template
+      if (template.length > 0 && template[0].key === "canvas") {
+        const canvasStep = template[0]
+        const val = canvasStep.value as Record<string, unknown>
+        canvasState = {
+          width: (val.width as number) ?? DEFAULT_CANVAS.width,
+          height: (val.height as number) ?? DEFAULT_CANVAS.height,
+          color: (val.color as string) ?? DEFAULT_CANVAS.color,
+        }
+        transformationSteps = template.slice(1)
+      }
+
+      const transformationsWithIds = transformationSteps.map(
+        (transformation, index) => ({
+          ...transformation,
+          id: `transformation-${Date.now()}-${index}`,
+          version: TRANSFORMATION_STATE_VERSION,
+        }),
+      )
 
       const visibleTransformations: Record<string, boolean> = {}
       transformationsWithIds.forEach((t) => {
@@ -451,6 +507,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
           lastSyncedVersion: nextVersion,
           templateStorageWriteBlocked: false,
           transformationConfigFormDirty: false,
+          canvas: canvasState,
         }
       })
     },
@@ -635,7 +692,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
     },
 
     resetToNewTemplate: () => {
-      set({
+      set((state) => ({
         transformations: [],
         visibleTransformations: {},
         templateName: "Untitled Template",
@@ -649,12 +706,14 @@ const useEditorStore = create<EditorState & EditorActions>()(
         lastSyncedVersion: 0,
         lastSavedAt: null,
         transformationConfigFormDirty: false,
+        // Preserve canvas mode: if editor was initialized with canvas, reset to default canvas
+        canvas: state.canvas ? DEFAULT_CANVAS : null,
         _internalState: {
           sidebarState: "none",
           selectedTransformationKey: null,
           transformationToEdit: null,
         },
-      })
+      }))
     },
 
     blockTemplateStorageWrites: (message) => {
@@ -811,6 +870,25 @@ const useEditorStore = create<EditorState & EditorActions>()(
         }))
       }
     },
+
+    setCanvas: (canvas) => {
+      set((state) => ({
+        canvas,
+        isPristine: false,
+        localChangeVersion: bumpVersion(state.localChangeVersion),
+      }))
+    },
+
+    updateCanvas: (partial) => {
+      set((state) => {
+        if (!state.canvas) return state
+        return {
+          canvas: { ...state.canvas, ...partial },
+          isPristine: false,
+          localChangeVersion: bumpVersion(state.localChangeVersion),
+        }
+      })
+    },
   })),
 )
 
@@ -843,6 +921,7 @@ const calculateImageList = (
   signer: Signer | undefined,
   activeImageIndex: number,
   signedUrlCache: Record<string, string>,
+  canvas: CanvasState | null,
 ) => {
   const IKTransformations = transformations
     .filter((transformation) => visibleTransformations[transformation.id])
@@ -963,6 +1042,34 @@ const calculateImageList = (
     cacheKey: string
   }> = []
 
+  // Canvas mode: generate a single synthetic image from the canvas path
+  if (canvas && imageList.length === 0) {
+    if (showOriginal) {
+      // "Show original" in canvas mode shows the bare canvas path (no transformations)
+      imgs[0] = CANVAS_IMAGE_PATH
+    } else {
+      // Build a solid color overlay with dimensions inside its transformation array
+      const canvasOverlay: IKTransformation = {
+        overlay: {
+          type: "solidColor",
+          color: canvas.color.replace(/^#/, ""),
+          transformation: [{ width: canvas.width, height: canvas.height }],
+        },
+      }
+      // The canvas overlay comes first, then user transformations
+      const canvasTransformations: IKTransformation[] = [
+        canvasOverlay,
+        ...IKTransformations,
+      ]
+      imgs[0] = buildSrc({
+        src: CANVAS_IMAGE_PATH,
+        urlEndpoint: "https://ik.imagekit.io/test/",
+        transformation: canvasTransformations,
+      })
+    }
+    return { imgs, activeImageIndex: 0, toSign, transformKey }
+  }
+
   imageList.forEach((img, index) => {
     // Replace any __IMAGE_PATH__ placeholders with actual image path for this specific image
     const imagePath = extractImagePath(img.url)
@@ -1038,6 +1145,7 @@ function recomputeImages() {
     state.signer,
     currentIndex,
     state.signedUrlCache,
+    state.canvas,
   )
 
   const transformationsChanged = transformKey !== state.currentTransformKey
@@ -1139,4 +1247,43 @@ useEditorStore.subscribe(
   },
 )
 
+useEditorStore.subscribe(
+  (state) => state.canvas,
+  () => {
+    recomputeImages()
+  },
+)
+
 export { useEditorStore }
+
+/**
+ * Returns the full transformations array for persistence, including
+ * a canvas transformation step at position 0 if canvas mode is active.
+ * Strips the `id` field from each transformation.
+ */
+export function getTransformationsForPersistence(): Omit<
+  Transformation,
+  "id"
+>[] {
+  const state = useEditorStore.getState()
+  const transformations = state.transformations.map(
+    ({ id: _id, ...rest }) => rest,
+  )
+
+  if (state.canvas) {
+    const canvasStep: Omit<Transformation, "id"> = {
+      key: "canvas",
+      name: "Canvas",
+      type: "transformation",
+      value: {
+        width: state.canvas.width,
+        height: state.canvas.height,
+        color: state.canvas.color,
+      },
+      version: TRANSFORMATION_STATE_VERSION,
+    }
+    return [canvasStep, ...transformations]
+  }
+
+  return transformations
+}

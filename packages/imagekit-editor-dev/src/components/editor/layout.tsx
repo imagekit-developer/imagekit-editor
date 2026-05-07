@@ -2,6 +2,7 @@ import { Box, Flex } from "@chakra-ui/react"
 import { useEffect, useState } from "react"
 import { useAutoSaveTemplate } from "../../hooks/useAutoSaveTemplate"
 import { useSaveTemplate } from "../../hooks/useSaveTemplate"
+import { useEditorStore } from "../../store"
 import { Header, type HeaderProps } from "../header"
 import { Sidebar } from "../sidebar"
 import { TemplatesLibraryView } from "../templates/TemplatesLibraryView"
@@ -16,6 +17,8 @@ interface Props {
 }
 
 export function EditorLayout({ onAddImage, onClose, exportOptions }: Props) {
+  const { canvas, originalImageList } = useEditorStore()
+  const isCanvasOnly = canvas != null && originalImageList.length === 0
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
   const [gridImageSize, setGridImageSize] = useState<number>(300)
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false)
@@ -62,7 +65,7 @@ export function EditorLayout({ onAddImage, onClose, exportOptions }: Props) {
             setGridImageSize={setGridImageSize}
           />
           {viewMode === "list" && <ListView onAddImage={onAddImage} />}
-          {viewMode === "grid" && (
+          {!isCanvasOnly && viewMode === "grid" && (
             <GridView imageSize={gridImageSize} onAddImage={onAddImage} />
           )}
         </Flex>

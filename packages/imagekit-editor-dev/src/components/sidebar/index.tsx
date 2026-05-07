@@ -15,9 +15,11 @@ import {
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
 import { PiRectangleDashed } from "@react-icons/all-files/pi/PiRectangleDashed"
+import { PiFile } from "@react-icons/all-files/pi/PiFile"
 import { RxTransform } from "@react-icons/all-files/rx/RxTransform"
 import { useEffect, useState } from "react"
 import { useEditorStore } from "../../store"
+import { CanvasConfigSidebar } from "./canvas-config-sidebar"
 import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
@@ -29,6 +31,7 @@ import { TransformationTypeSidebar } from "./transformation-type-sidebar"
 
 export const Sidebar = () => {
   const {
+    canvas,
     transformations,
     moveTransformation,
     _internalState,
@@ -78,7 +81,7 @@ export const Sidebar = () => {
             Transformations
           </Text>
         </SidebarHeader>
-        {transformations.length > 0 ? (
+        {(canvas || transformations.length > 0) ? (
           <>
             <DndContext
               sensors={sensors}
@@ -87,6 +90,28 @@ export const Sidebar = () => {
               onDragEnd={handleDragEnd}
             >
               <SidebarBody as={VStack} gap={0} align="stretch" flex={1}>
+                {canvas && (
+                  <HStack
+                    px={4}
+                    py={2}
+                    spacing={3}
+                    cursor="pointer"
+                    bg={
+                      _internalState.sidebarState === "canvas"
+                        ? "editorBlue.50"
+                        : "transparent"
+                    }
+                    _hover={{ bg: "gray.50" }}
+                    borderBottom="1px"
+                    borderColor="gray.100"
+                    onClick={() => _setSidebarState("canvas")}
+                  >
+                    <Icon as={PiFile} boxSize={4} />
+                    <Text fontSize="sm" fontWeight="medium">
+                      canvas
+                    </Text>
+                  </HStack>
+                )}
                 <SortableContext
                   items={transformations.map(
                     (transformation) => transformation.id,
@@ -180,6 +205,8 @@ export const Sidebar = () => {
       {_internalState.sidebarState === "config" && (
         <TransformationConfigSidebar />
       )}
+
+      {_internalState.sidebarState === "canvas" && <CanvasConfigSidebar />}
     </>
   )
 }

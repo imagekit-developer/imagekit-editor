@@ -10,6 +10,7 @@ interface ListViewProps {
 
 export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
   const {
+    canvas,
     currentImage,
     setCurrentImage,
     imageList,
@@ -59,8 +60,9 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
               if (!currentImage) return
               const idx = imageList.findIndex((img) => img === currentImage)
               if (idx === -1) return
-              // biome-ignore lint/style/noNonNullAssertion: <required here>
-              setImageDimensions(originalImageList[idx]!.url, {
+              const originalUrl = originalImageList[idx]?.url
+              if (!originalUrl) return
+              setImageDimensions(originalUrl, {
                 width: event.currentTarget.naturalWidth,
                 height: event.currentTarget.naturalHeight,
               })
@@ -68,12 +70,15 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
           />
         </Flex>
       </Flex>
-      <Toolbar
-        onAddImage={onAddImage}
-        onSelectImage={(imageSrc: string) => {
-          setCurrentImage(imageSrc)
-        }}
-      />
+      {/* Hide toolbar in canvas-only mode (no base images) */}
+      {!(canvas && originalImageList.length === 0) && (
+        <Toolbar
+          onAddImage={onAddImage}
+          onSelectImage={(imageSrc: string) => {
+            setCurrentImage(imageSrc)
+          }}
+        />
+      )}
     </>
   )
 }

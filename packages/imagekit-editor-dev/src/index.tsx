@@ -18,6 +18,6 @@ export {
   normalizeTransformationStepsForPersistence,
   TemplateAccessDeniedError,
 } from "./storage"
-export type { FileElement, Signer, Transformation } from "./store"
-export { TRANSFORMATION_STATE_VERSION } from "./store"
+export type { FileElement, Signer, Transformation, CanvasState } from "./store"
+export { TRANSFORMATION_STATE_VERSION, CANVAS_IMAGE_PATH, DEFAULT_CANVAS } from "./store"
 export { getTemplateParams, resolveTemplateParams } from "./utils/params"
