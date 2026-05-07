@@ -4,8 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import type { ExpressionToken } from "./expressionTokens"
 import type { VariableSuggestionOperator } from "./variableSuggestionTypes"
 
-type UserVarChipState = "resolved" | "unresolved" | "unknown" | "error"
-
 const tokenBase: BoxProps = {
   display: "inline-flex",
   alignItems: "center",
@@ -51,6 +49,13 @@ function opSymbol(op: VariableSuggestionOperator) {
   return "-"
 }
 
+export type UserVarChipState = "unknown" | "resolved" | "unresolved" | "error"
+
+export interface UserVarChipHoverPayload {
+  variableId: string
+  state: UserVarChipState
+}
+
 export interface TokenizedExpressionInputProps {
   tokens: ExpressionToken[]
   literalDraft: string
@@ -62,7 +67,12 @@ export interface TokenizedExpressionInputProps {
   onFocus?: React.FocusEventHandler<HTMLInputElement>
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
   disabled?: boolean
-  getUserVarState?: (name: string) => UserVarChipState
+  getUserVarState?: (variableId: string) => UserVarChipState
+  /** Chip label, e.g. a friendly name while the stored token is `{{uuid}}`. */
+  resolveUserVarChipLabel?: (variableId: string) => string
+  /** Hover on any user-variable chip (resolved or unresolved). */
+  onUserVarChipMouseEnter?: (payload: UserVarChipHoverPayload) => void
+  onUserVarChipMouseLeave?: () => void
 }
 
 /**
@@ -81,6 +91,9 @@ export function TokenizedExpressionInput({
   onKeyDown,
   disabled,
   getUserVarState,
+  resolveUserVarChipLabel,
+  onUserVarChipMouseEnter,
+  onUserVarChipMouseLeave,
 }: TokenizedExpressionInputProps) {
   const innerRef = useRef<HTMLInputElement | null>(null)
   const inputRef = inputRefProp ?? innerRef
@@ -116,10 +129,12 @@ export function TokenizedExpressionInput({
           )
         }
         if (t.kind === "userVar") {
-          const state = getUserVarState?.(t.name) ?? "unknown"
+          const state = getUserVarState?.(t.variableId) ?? "unknown"
           const chipState =
             state === "unresolved" || state === "error" ? "error" : "resolved"
           const chipProps = USER_VAR_CHIP_PROPS_BY_STATE[chipState]
+          const chipLabel =
+            resolveUserVarChipLabel?.(t.variableId) ?? `{{${t.variableId}}}`
           return (
             <Box
               key={`${t.kind}-${idx}`}
@@ -128,6 +143,20 @@ export function TokenizedExpressionInput({
               borderWidth="1px"
               cursor="pointer"
               onMouseDown={(e) => e.preventDefault()}
+              onMouseEnter={
+                onUserVarChipMouseEnter
+                  ? () =>
+                      onUserVarChipMouseEnter({
+                        variableId: t.variableId,
+                        state,
+                      })
+                  : undefined
+              }
+              onMouseLeave={
+                onUserVarChipMouseLeave
+                  ? () => onUserVarChipMouseLeave()
+                  : undefined
+              }
               onClick={() => onRemoveToken(idx)}
               title={
                 chipState === "error"
@@ -135,7 +164,7 @@ export function TokenizedExpressionInput({
                   : "Click to remove"
               }
             >
-              {`{{${t.name}}}`}
+              {chipLabel}
               <Text as="span" opacity={0.6} fontFamily="body">
                 ×
               </Text>
@@ -186,7 +215,14 @@ export function TokenizedExpressionInput({
           </Box>
         )
       }),
-    [tokens, onRemoveToken],
+    [
+      tokens,
+      onRemoveToken,
+      getUserVarState,
+      resolveUserVarChipLabel,
+      onUserVarChipMouseEnter,
+      onUserVarChipMouseLeave,
+    ],
   )
 
   return (

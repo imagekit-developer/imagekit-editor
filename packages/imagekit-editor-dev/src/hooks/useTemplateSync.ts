@@ -1,6 +1,10 @@
 import { useCallback, useRef } from "react"
 import { useTemplateStorage } from "../context/TemplateStorageContext"
-import type { SaveTemplateInput, TemplateRecord } from "../storage"
+import {
+  normalizeTransformationStepsForPersistence,
+  type SaveTemplateInput,
+  type TemplateRecord,
+} from "../storage"
 import { isTemplateAccessDeniedError } from "../storage/templateAccessError"
 import { useEditorStore } from "../store"
 import { shouldMarkSyncedAfterSave } from "../sync/templateSyncVersioning"
@@ -38,9 +42,12 @@ export function useTemplateSync() {
         const record = await provider.saveTemplate({
           id: state.templateId ?? undefined,
           name: args.overrides?.name ?? state.templateName,
-          transformations: state.transformations.map(
-            ({ id: _id, ...rest }) => rest,
+          transformations: normalizeTransformationStepsForPersistence(
+            state.transformations.map(({ id: _id, ...rest }) => rest),
+            state.templateVariables,
           ),
+          variables: state.templateVariables,
+          presets: state.templatePresets,
           ...(args.overrides?.isPrivate !== undefined
             ? { isPrivate: args.overrides.isPrivate }
             : state.templateIsPrivate !== null
@@ -55,6 +62,7 @@ export function useTemplateSync() {
           templateIsPrivate:
             typeof record.isPrivate === "boolean" ? record.isPrivate : null,
         })
+        after.hydrateTemplateVariables(record.variables, record.presets)
 
         const markSynced = shouldMarkSyncedAfterSave({
           saveStartedAtVersion,

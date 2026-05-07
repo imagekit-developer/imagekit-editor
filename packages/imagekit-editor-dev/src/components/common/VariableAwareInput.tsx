@@ -15,15 +15,22 @@ import {
   useRef,
   useState,
 } from "react"
+import type { TemplateVariable } from "../../storage/types"
+import { useEditorStore } from "../../store"
 import {
   type ExpressionToken,
   parseExpressionTokens,
   serializeExpressionTokens,
   suggestionToToken,
+  USER_VAR_UUID_INNER_RE,
 } from "./expressionTokens"
 import { resolveExpressionTokensToNumber } from "./resolveExpression"
 import { TokenizedExpressionInput } from "./TokenizedExpressionInput"
 import { VariableSuggestionsDropdown } from "./VariableSuggestionsDropdown"
+import {
+  type UserVariableDefinitionSavePayload,
+  VariableValueEditPopover,
+} from "./VariableValueEditPopover"
 import {
   DEFAULT_IMAGE_DIMENSION_VARIABLES,
   getQueryFromValue,
@@ -36,6 +43,31 @@ import type {
 } from "./variableSuggestionTypes"
 
 type AnchorPosition = { top: number; left: number; width: number } | null
+
+/** Same placement math as the variable suggestions dropdown (`refreshAnchor`). */
+function computeFloatingDropdownPosition(
+  anchorRect: DOMRect,
+  floatingHeight: number,
+): { top: number; left: number } {
+  const gutter = 6
+  const margin = 8
+  const preferBelowTop = anchorRect.bottom + gutter
+  const canFitBelow =
+    preferBelowTop + floatingHeight <= window.innerHeight - margin
+  const canFitAbove = anchorRect.top - gutter - floatingHeight >= margin
+  let top =
+    !canFitBelow && canFitAbove
+      ? anchorRect.top - gutter - floatingHeight
+      : preferBelowTop
+  // Clamp within viewport to avoid large jumps when height is estimated.
+  const maxTop = window.innerHeight - margin - floatingHeight
+  if (top < margin) top = margin
+  if (top > maxTop) top = Math.max(margin, maxTop)
+  return { top, left: anchorRect.left }
+}
+
+// Used before the popover mounts/measures (prevents initial "jump far above").
+const ESTIMATED_VALUE_EDIT_POPOVER_HEIGHT_PX = 140
 
 // Legacy helper still used by VariableAwareTextarea (left as-is for now).
 function getAnchorRect(el: HTMLElement | null) {
@@ -97,6 +129,12 @@ export interface VariableAwareInputProps extends Omit<InputProps, "onChange"> {
   userVariables: UserVariableSuggestion[]
   imageDimensionVariables?: ImageDimensionVariableSuggestion[]
   showResolveStrip?: boolean
+  /** Template variable definitions (for popover defaults and persistence). */
+  templateVariables?: TemplateVariable[]
+  /** Persist variable from the value-edit popover; return true when save succeeded. */
+  onUserVariableSave?: (
+    payload: UserVariableDefinitionSavePayload,
+  ) => Promise<boolean> | boolean
 }
 
 export function VariableAwareInput({
@@ -105,10 +143,16 @@ export function VariableAwareInput({
   userVariables,
   imageDimensionVariables = DEFAULT_IMAGE_DIMENSION_VARIABLES,
   showResolveStrip = true,
+  templateVariables: templateVariablesProp,
+  onUserVariableSave,
   onFocus,
   onKeyDown,
   ...props
 }: VariableAwareInputProps) {
+  const storeTemplateVariables = useEditorStore((s) => s.templateVariables)
+  const templateVariables =
+    templateVariablesProp ?? storeTemplateVariables ?? []
+
   const anchorRef = useRef<HTMLDivElement | null>(null)
   const tokenInputRef = useRef<HTMLInputElement | null>(null)
   const [isOpen, setIsOpen] = useState(false)
@@ -121,8 +165,48 @@ export function VariableAwareInput({
     "add" | "sub" | "mul" | "div" | "mod" | "pow" | null
   >(null)
 
-  const tokens = useMemo(() => parseExpressionTokens(value), [value])
+  const [valueEdit, setValueEdit] = useState<{ variableId: string } | null>(
+    null,
+  )
+  const [valueEditPos, setValueEditPos] = useState<{
+    top: number
+    left: number
+  } | null>(null)
+  const [valueEditDraft, setValueEditDraft] = useState("")
+  const valueEditPopoverRef = useRef<HTMLDivElement | null>(null)
+  const valueEditInputRef = useRef<HTMLInputElement | null>(null)
+  const valueEditTimerRef = useRef<number | null>(null)
+
+  const tokens = useMemo(
+    () => parseExpressionTokens(value, templateVariables),
+    [value, templateVariables],
+  )
   const query = useMemo(() => getQueryFromValue(literalDraft), [literalDraft])
+
+  const valueEditDefinitionSeed = useMemo(() => {
+    if (!valueEdit) return null
+    return templateVariables.find((v) => v.id === valueEdit.variableId) ?? null
+  }, [valueEdit, templateVariables])
+
+  const valueEditDisplayName = useMemo(() => {
+    if (!valueEdit) return ""
+    const fromTpl = templateVariables.find((v) => v.id === valueEdit.variableId)
+    if (fromTpl) return fromTpl.name
+    const fromUv = userVariables.find((v) => v.id === valueEdit.variableId)
+    if (fromUv) return fromUv.name
+    return valueEdit.variableId
+  }, [valueEdit, templateVariables, userVariables])
+
+  const resolveUserVarChipLabel = useCallback(
+    (variableId: string) => {
+      const fromTpl = templateVariables.find((v) => v.id === variableId)
+      if (fromTpl) return `{{${fromTpl.name}}}`
+      const fromUv = userVariables.find((v) => v.id === variableId)
+      if (fromUv) return `{{${fromUv.name}}}`
+      return `{{${variableId}}}`
+    },
+    [templateVariables, userVariables],
+  )
 
   const canInsertOperator = useMemo(() => {
     if (tokens.length === 0) return false
@@ -156,6 +240,45 @@ export function VariableAwareInput({
     },
     [],
   )
+
+  const cancelValueEditCloseTimer = useCallback(() => {
+    if (valueEditTimerRef.current != null) {
+      window.clearTimeout(valueEditTimerRef.current)
+      valueEditTimerRef.current = null
+    }
+  }, [])
+
+  const focusTokenInput = useCallback(() => {
+    requestAnimationFrame(() => tokenInputRef.current?.focus())
+  }, [])
+
+  const closeValueEditPopover = useCallback(() => {
+    cancelValueEditCloseTimer()
+    setValueEdit(null)
+    setValueEditPos(null)
+    focusTokenInput()
+  }, [cancelValueEditCloseTimer, focusTokenInput])
+
+  const scheduleValueEditPopoverClose = useCallback(() => {
+    cancelValueEditCloseTimer()
+    valueEditTimerRef.current = window.setTimeout(() => {
+      valueEditTimerRef.current = null
+      setValueEdit(null)
+      setValueEditPos(null)
+      focusTokenInput()
+    }, 220)
+  }, [cancelValueEditCloseTimer, focusTokenInput])
+
+  const refreshValueEditPosition = useCallback(() => {
+    if (!valueEdit) return
+    const wrap = anchorRef.current
+    if (!wrap) return
+    const r = wrap.getBoundingClientRect()
+    const popH =
+      valueEditPopoverRef.current?.getBoundingClientRect().height ??
+      ESTIMATED_VALUE_EDIT_POPOVER_HEIGHT_PX
+    setValueEditPos(computeFloatingDropdownPosition(r, popH))
+  }, [valueEdit])
 
   const imgNumericMap = useMemo(() => {
     const map: Record<string, number> = {}
@@ -252,6 +375,11 @@ export function VariableAwareInput({
           return uv.name.toLowerCase().startsWith(prefix)
         })
         if (idx >= 0) return idx
+        const idIdx = selectable.findIndex((s) => {
+          if (s.kind !== "userVariable") return false
+          return s.variableId.toLowerCase().startsWith(prefix.toLowerCase())
+        })
+        if (idIdx >= 0) return idIdx
         // If prefix doesn't match any, fall back to the first user variable.
         const anyUser = selectable.findIndex((s) => s.kind === "userVariable")
         return anyUser >= 0 ? anyUser : -1
@@ -297,21 +425,8 @@ export function VariableAwareInput({
     const r = el.getBoundingClientRect()
     const dropdownH =
       dropdownRootRef.current?.getBoundingClientRect().height ?? 220
-    const gutter = 6
-    const margin = 8
-    const preferBelowTop = r.bottom + gutter
-    const canFitBelow =
-      preferBelowTop + dropdownH <= window.innerHeight - margin
-    const canFitAbove = r.top - gutter - dropdownH >= margin
-    // Always set something stable; even (0,0) is better than never rendering.
-    setAnchorPos({
-      top:
-        !canFitBelow && canFitAbove
-          ? r.top - gutter - dropdownH
-          : preferBelowTop,
-      left: r.left,
-      width: r.width,
-    })
+    const pos = computeFloatingDropdownPosition(r, dropdownH)
+    setAnchorPos({ ...pos, width: r.width })
   }, [])
 
   useLayoutEffect(() => {
@@ -342,12 +457,81 @@ export function VariableAwareInput({
       if (anchor?.contains(t)) return
       const dropdown = dropdownRootRef.current
       if (dropdown?.contains(t)) return
+      if (valueEditPopoverRef.current?.contains(t)) return
       // Close if clicked outside (dropdown is in a portal).
       setIsOpen(false)
     }
     document.addEventListener("mousedown", onDocMouseDown)
     return () => document.removeEventListener("mousedown", onDocMouseDown)
   }, [isOpen])
+
+  useLayoutEffect(() => {
+    if (!valueEdit) {
+      setValueEditPos(null)
+      return
+    }
+    refreshValueEditPosition()
+  }, [valueEdit, valueEditDraft, refreshValueEditPosition, value, literalDraft])
+
+  useEffect(() => {
+    if (!valueEdit) return
+    const onScroll = () => refreshValueEditPosition()
+    const onResize = () => refreshValueEditPosition()
+    window.addEventListener("scroll", onScroll, true)
+    window.addEventListener("resize", onResize)
+    return () => {
+      window.removeEventListener("scroll", onScroll, true)
+      window.removeEventListener("resize", onResize)
+    }
+  }, [valueEdit, refreshValueEditPosition])
+
+  useEffect(() => {
+    if (!valueEdit) return
+    const el = valueEditPopoverRef.current
+    if (!el || typeof ResizeObserver === "undefined") return
+    const ro = new ResizeObserver(() => refreshValueEditPosition())
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [valueEdit, refreshValueEditPosition])
+
+  useLayoutEffect(() => {
+    if (!valueEdit || !valueEditPos) return
+    valueEditInputRef.current?.focus()
+  }, [valueEdit, valueEditPos])
+
+  useEffect(() => {
+    if (!valueEdit) return
+    const uv = userVariables.find((v) => v.id === valueEdit.variableId)
+    setValueEditDraft(String(uv?.resolvedValue ?? ""))
+  }, [valueEdit, userVariables])
+
+  useEffect(() => {
+    if (!valueEdit) return
+    const stillThere = tokens.some(
+      (t) => t.kind === "userVar" && t.variableId === valueEdit.variableId,
+    )
+    if (!stillThere) closeValueEditPopover()
+  }, [tokens, valueEdit, closeValueEditPopover])
+
+  useEffect(() => {
+    if (!isOpen) return
+    cancelValueEditCloseTimer()
+    setValueEdit(null)
+    setValueEditPos(null)
+  }, [isOpen, cancelValueEditCloseTimer])
+
+  useEffect(() => {
+    if (!valueEdit) return
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node | null
+      if (!t) return
+      if (anchorRef.current?.contains(t)) return
+      if (valueEditPopoverRef.current?.contains(t)) return
+      closeValueEditPopover()
+    }
+    document.addEventListener("mousedown", onDown)
+    return () => document.removeEventListener("mousedown", onDown)
+  }, [valueEdit, closeValueEditPopover])
 
   const handleSelect = useCallback(
     (s: VariableSuggestion) => {
@@ -362,7 +546,7 @@ export function VariableAwareInput({
        *
        * Examples:
        * - typing "iw" then selecting "ih" should yield only "ih" (not "iw" + "ih")
-       * - typing "{{mar" then selecting "{{margin_x}}" should yield only that variable
+       * - typing "{{" then selecting a variable should yield only that variable
        */
       const lowerLit = lit.toLowerCase()
       const isAutocompleteQuery =
@@ -388,8 +572,8 @@ export function VariableAwareInput({
   )
 
   const getUserVarState = useCallback(
-    (name: string) => {
-      const uv = userVariables.find((v) => v.name === name)
+    (variableId: string) => {
+      const uv = userVariables.find((v) => v.id === variableId)
       if (!uv) return "unresolved" as const
       const rv = String(uv.resolvedValue ?? "").trim()
       if (!rv) return "unresolved" as const
@@ -436,12 +620,37 @@ export function VariableAwareInput({
           tokens={tokens}
           literalDraft={literalDraft}
           onLiteralDraftChange={(next) => {
-            const auto = next.trim().match(/^\{\{([a-zA-Z0-9_]+)\}\}$/)
-            if (auto?.[1]) {
+            const trimmed = next.trim()
+            const autoUuid = trimmed.match(
+              new RegExp(
+                `^\\{\\{(${USER_VAR_UUID_INNER_RE.source})\\}\\}$`,
+                "i",
+              ),
+            )
+            if (autoUuid?.[1]) {
               onChange(
                 serializeExpressionTokens([
                   ...tokens,
-                  { kind: "userVar", name: auto[1] },
+                  {
+                    kind: "userVar",
+                    variableId: autoUuid[1].toLowerCase(),
+                  },
+                ]),
+              )
+              setLiteralDraft("")
+              setIsOpen(false)
+              setPendingOperator(null)
+              requestAnimationFrame(() => tokenInputRef.current?.focus())
+              return
+            }
+            const auto = trimmed.match(/^\{\{([a-zA-Z0-9_]+)\}\}$/)
+            if (auto?.[1]) {
+              const byName = templateVariables.find((v) => v.name === auto[1])
+              const variableId = byName?.id ?? auto[1]
+              onChange(
+                serializeExpressionTokens([
+                  ...tokens,
+                  { kind: "userVar", variableId },
                 ]),
               )
               setLiteralDraft("")
@@ -512,6 +721,14 @@ export function VariableAwareInput({
           }}
           inputRef={tokenInputRef}
           getUserVarState={getUserVarState as any}
+          resolveUserVarChipLabel={resolveUserVarChipLabel}
+          onUserVarChipMouseEnter={({ variableId }) => {
+            cancelValueEditCloseTimer()
+            setIsOpen(false)
+            setPendingOperator(null)
+            setValueEdit({ variableId })
+          }}
+          onUserVarChipMouseLeave={scheduleValueEditPopoverClose}
           onFocus={(e) => {
             requestAnimationFrame(() => refreshAnchor())
             onFocus?.(e as any)
@@ -651,7 +868,7 @@ export function VariableAwareInput({
               if (e.key === "Escape") {
                 e.preventDefault()
                 setIsOpen(false)
-                inputRef.current?.focus()
+                tokenInputRef.current?.focus()
               }
             }}
             style={{
@@ -674,6 +891,61 @@ export function VariableAwareInput({
               onSelect={handleSelect}
               highlightedIndex={highlightedIndex}
               onHoverIndex={setHighlightedIndex}
+            />
+          </div>
+        </Portal>
+      ) : null}
+      {valueEdit && valueEditPos ? (
+        <Portal>
+          <div
+            ref={valueEditPopoverRef}
+            tabIndex={-1}
+            onMouseEnter={cancelValueEditCloseTimer}
+            onMouseLeave={scheduleValueEditPopoverClose}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault()
+                closeValueEditPopover()
+              }
+            }}
+            style={{
+              position: "fixed",
+              top: valueEditPos.top,
+              left: valueEditPos.left,
+              zIndex: 20001,
+              outline: "none",
+            }}
+          >
+            <VariableValueEditPopover
+              key={valueEdit.variableId}
+              mode={
+                (getUserVarState(valueEdit.variableId) as any) === "resolved"
+                  ? "resolved"
+                  : "unresolved"
+              }
+              variableId={valueEdit.variableId}
+              variableName={valueEditDisplayName}
+              value={valueEditDraft}
+              onValueChange={setValueEditDraft}
+              inputRef={valueEditInputRef}
+              onRequestClose={closeValueEditPopover}
+              initialVariableType={valueEditDefinitionSeed?.type ?? "text"}
+              initialDefinitionDefaultValue={
+                valueEditDefinitionSeed?.defaultValue ?? ""
+              }
+              initialDefinitionDescription={
+                valueEditDefinitionSeed?.description ?? ""
+              }
+              onSave={
+                onUserVariableSave
+                  ? async (payload) => {
+                      const ok = await Promise.resolve(
+                        onUserVariableSave(payload),
+                      )
+                      if (ok) closeValueEditPopover()
+                    }
+                  : undefined
+              }
             />
           </div>
         </Portal>
@@ -761,7 +1033,7 @@ export function VariableAwareTextarea({
       }
 
       const v = userVariables.find((uv) => uv.id === s.variableId)
-      const insert = v ? `{{${v.name}}}` : "{{variable}}"
+      const insert = v ? `{{${v.id}}}` : "{{variable}}"
       const { next, nextPos } = insertAtCursor(el, insert)
       onChange(next)
       requestAnimationFrame(() => {

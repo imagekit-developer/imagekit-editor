@@ -65,6 +65,7 @@ import DistortPerspectiveInput, {
   type PerspectiveErrors,
   type PerspectiveObject,
 } from "../common/DistortPerspectiveInput"
+import { USER_VAR_UUID_INNER_RE } from "../common/expressionTokens"
 import GradientPicker, {
   type GradientPickerState,
 } from "../common/GradientPicker"
@@ -74,6 +75,7 @@ import PaddingInputField, {
 } from "../common/PaddingInput"
 import RadioCardField from "../common/RadioCardField"
 import { VariableAwareInput } from "../common/VariableAwareInput"
+import type { UserVariableDefinitionSavePayload } from "../common/VariableValueEditPopover"
 import ZoomInput from "../common/ZoomInput"
 import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
@@ -270,7 +272,37 @@ export const TransformationConfigSidebar: React.FC = () => {
   )
 
   const values = watch()
-  const userVariablesForDropdown = useMemo(() => [], [])
+  const userVariablesForDropdown = useEditorStore((s) =>
+    s.templateVariables.map((v) => ({
+      id: v.id,
+      name: v.name,
+      type: v.type,
+      resolvedValue:
+        v.defaultValue !== "" && v.defaultValue != null
+          ? String(v.defaultValue)
+          : "—",
+    })),
+  )
+
+  const handleUserVariableSave = useCallback(
+    async (p: UserVariableDefinitionSavePayload) => {
+      if (templateStorageWriteBlocked) return false
+      const stableId =
+        p.variableId && USER_VAR_UUID_INNER_RE.test(p.variableId)
+          ? p.variableId
+          : undefined
+      useEditorStore.getState().upsertTemplateVariable({
+        id: stableId,
+        name: p.variableName,
+        type: p.type,
+        defaultValue: p.definitionDefaultValue.trim() || p.value.trim(),
+        description: p.description.trim() || undefined,
+      })
+      const saved = await saveNow({ reason: "sidebar" })
+      return saved != null
+    },
+    [saveNow, templateStorageWriteBlocked],
+  )
 
   const imageDimensionVariablesForDropdown = useMemo(() => {
     const idx = currentImage
@@ -765,6 +797,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                     })
                   }
                   userVariables={userVariablesForDropdown}
+                  onUserVariableSave={handleUserVariableSave}
                   imageDimensionVariables={
                     imageDimensionVariablesForDropdown as any
                   }

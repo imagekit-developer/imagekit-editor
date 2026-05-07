@@ -14,6 +14,7 @@ import { TemplatePermissionsContextProvider } from "./context/TemplatePermission
 import { TemplateStorageContextProvider } from "./context/TemplateStorageContext"
 import {
   isTemplateAccessDeniedError,
+  normalizeTransformationStepsForPersistence,
   type TemplateStorageProvider,
 } from "./storage"
 import {
@@ -137,9 +138,12 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
       const saved = await resolvedProvider.saveTemplate({
         id: state.templateId ?? undefined,
         name: state.templateName,
-        transformations: state.transformations.map(
-          ({ id: _id, ...rest }) => rest,
+        transformations: normalizeTransformationStepsForPersistence(
+          state.transformations.map(({ id: _id, ...rest }) => rest),
+          state.templateVariables,
         ),
+        variables: state.templateVariables,
+        presets: state.templatePresets,
         ...(state.templateIsPrivate !== null
           ? { isPrivate: state.templateIsPrivate }
           : {}),
@@ -151,6 +155,7 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
         templateIsPrivate:
           typeof saved.isPrivate === "boolean" ? saved.isPrivate : null,
       })
+      after.hydrateTemplateVariables(saved.variables, saved.presets)
       if (after.localChangeVersion === saveStartedAtVersion) {
         after.markSynced(saveStartedAtVersion)
         after.setSyncStatus("saved")

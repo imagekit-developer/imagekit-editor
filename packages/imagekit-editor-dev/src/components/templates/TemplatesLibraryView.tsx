@@ -95,8 +95,12 @@ export function TemplatesLibraryView({ onClose }: Props) {
   // (e.g. rapid key presses or tight loops in tests).
   const activeVirtualIndexRef = useRef<number | null>(null)
 
-  const { loadTemplate, resetToNewTemplate, hydrateTemplateMetadata } =
-    useEditorStore()
+  const {
+    loadTemplate,
+    resetToNewTemplate,
+    hydrateTemplateMetadata,
+    hydrateTemplateVariables,
+  } = useEditorStore()
   const templateId = useEditorStore((s) => s.templateId)
   const templateName = useEditorStore((s) => s.templateName)
   const isPristine = useEditorStore((s) => s.isPristine)
@@ -189,6 +193,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
         templateName: record.name,
         templateIsPrivate: record.isPrivate,
       })
+      hydrateTemplateVariables(record.variables ?? [], record.presets ?? [])
       onClose()
     }
   }

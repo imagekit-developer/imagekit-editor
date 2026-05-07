@@ -102,7 +102,7 @@ export interface VariableSuggestionsDropdownProps {
 
 /**
  * A lightweight dropdown list (render-only) used to insert:
- * - user-defined variables ({{name}} + type + resolved value)
+ * - user-defined variables ({{uuid}} + type + resolved value)
  * - image dimension variables (iw/ih/cw/... + resolved value)
  * - a fixed operator strip
  *

@@ -14,10 +14,10 @@ export type TemplateVariableType = "text" | "number" | "url" | "color"
  * the primary key in stored references.
  */
 export interface TemplateVariable {
+  /** Stable id; URLs / transformation strings reference `{{id}}` (see editor serialization). */
   id: TemplateVariableId
   /**
-   * Human-friendly name for the variable (e.g. "headline_text").
-   * This is what users see as `{{headline_text}}` and what CSV headers map to.
+   * Human-friendly name (e.g. "headline_text"); editable without changing `{{id}}` in saved URLs.
    */
   name: string
   type: TemplateVariableType

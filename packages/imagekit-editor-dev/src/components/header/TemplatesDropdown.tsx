@@ -224,6 +224,9 @@ export function TemplatesDropdown({
   const hydrateTemplateMetadata = useEditorStore(
     (s) => s.hydrateTemplateMetadata,
   )
+  const hydrateTemplateVariables = useEditorStore(
+    (s) => s.hydrateTemplateVariables,
+  )
   const templateId = useEditorStore((s) => s.templateId)
   const templateName = useEditorStore((s) => s.templateName)
   const transformations = useEditorStore((s) => s.transformations)
@@ -340,6 +343,7 @@ export function TemplatesDropdown({
       templateName: record.name,
       templateIsPrivate: record.isPrivate,
     })
+    hydrateTemplateVariables(record.variables ?? [], record.presets ?? [])
     onClose()
     setPendingTemplate(null)
   }

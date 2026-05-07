@@ -13,7 +13,12 @@ import {
   transformationFormatters,
   transformationSchema,
 } from "./schema"
+import type { TemplatePreset, TemplateVariable } from "./storage/types"
 import { bumpLocalChangeVersion as bumpVersion } from "./sync/templateSyncVersioning"
+import {
+  resolveTemplateForRender,
+  type TemplateRenderError,
+} from "./templateRuntime/resolveTemplateForRender"
 import { extractImagePath } from "./utils"
 
 export const TRANSFORMATION_STATE_VERSION = "v1" as const
@@ -133,6 +138,14 @@ export interface EditorState<
    * Used by header status and close confirmation alongside versioned unsynced state.
    */
   transformationConfigFormDirty: boolean
+  /** Template-scoped variables (wired as `{{variableId}}` in URLs), persisted with the template. */
+  templateVariables: TemplateVariable[]
+  /** Named preset value sets for variables. */
+  templatePresets: TemplatePreset[]
+  /** Active preset used for preview-time variable overrides. */
+  activeTemplatePresetId: string | null
+  /** Blocks rendering when variables are unresolved. */
+  templateRenderError: TemplateRenderError | null
 }
 
 export type EditorActions<
@@ -155,6 +168,19 @@ export type EditorActions<
   addImages: (imageSrcs: Array<string | InputFileElement<Metadata>>) => void
   removeImage: (imageSrc: string) => void
   loadTemplate: (template: Omit<Transformation, "id">[]) => void
+  hydrateTemplateVariables: (
+    variables?: TemplateVariable[],
+    presets?: TemplatePreset[],
+  ) => void
+  setActiveTemplatePresetId: (presetId: string | null) => void
+  upsertTemplateVariable: (variable: {
+    /** When set, update the existing definition with this stable id. */
+    id?: string
+    name: string
+    type: TemplateVariable["type"]
+    defaultValue: string
+    description?: string
+  }) => void
   moveTransformation: (
     activeId: UniqueIdentifier,
     overId: UniqueIdentifier,
@@ -274,6 +300,10 @@ const DEFAULT_STATE: EditorState = {
   lastSyncedVersion: 0,
   lastSavedAt: null,
   transformationConfigFormDirty: false,
+  templateVariables: [],
+  templatePresets: [],
+  activeTemplatePresetId: null,
+  templateRenderError: null,
 }
 
 const useEditorStore = create<EditorState & EditorActions>()(
@@ -410,6 +440,54 @@ const useEditorStore = create<EditorState & EditorActions>()(
           signingImages: updatedSigningImages,
           signingAbortControllers: updatedSigningAbortControllers,
           signedUrlCache: updatedSignedUrlCache,
+        }
+      })
+    },
+
+    hydrateTemplateVariables: (variables, presets) => {
+      set((state) => ({
+        ...(variables !== undefined ? { templateVariables: variables } : {}),
+        ...(presets !== undefined ? { templatePresets: presets } : {}),
+      }))
+    },
+
+    setActiveTemplatePresetId: (presetId) => {
+      set({ activeTemplatePresetId: presetId })
+    },
+
+    upsertTemplateVariable: (partial) => {
+      set((state) => {
+        const list = [...state.templateVariables]
+        const idx = partial.id
+          ? list.findIndex((v) => v.id === partial.id)
+          : list.findIndex((v) => v.name === partial.name)
+        const makeId = () =>
+          typeof globalThis.crypto !== "undefined" &&
+          typeof globalThis.crypto.randomUUID === "function"
+            ? globalThis.crypto.randomUUID()
+            : `var_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+        if (idx >= 0) {
+          const prev = list[idx]
+          list[idx] = {
+            ...prev,
+            name: partial.name,
+            type: partial.type,
+            defaultValue: partial.defaultValue,
+            description: partial.description,
+          }
+        } else {
+          list.push({
+            id: partial.id ?? makeId(),
+            name: partial.name,
+            type: partial.type,
+            defaultValue: partial.defaultValue,
+            description: partial.description,
+          })
+        }
+        return {
+          templateVariables: list,
+          isPristine: false,
+          localChangeVersion: bumpVersion(state.localChangeVersion),
         }
       })
     },
@@ -645,6 +723,10 @@ const useEditorStore = create<EditorState & EditorActions>()(
         lastSyncedVersion: 0,
         lastSavedAt: null,
         transformationConfigFormDirty: false,
+        templateVariables: [],
+        templatePresets: [],
+        activeTemplatePresetId: null,
+        templateRenderError: null,
         _internalState: {
           sidebarState: "none",
           selectedTransformationKey: null,
@@ -676,6 +758,10 @@ const useEditorStore = create<EditorState & EditorActions>()(
         lastSyncedVersion: 0,
         lastSavedAt: null,
         transformationConfigFormDirty: false,
+        templateVariables: [],
+        templatePresets: [],
+        activeTemplatePresetId: null,
+        templateRenderError: null,
         _internalState: {
           sidebarState: "none",
           selectedTransformationKey: null,
@@ -771,121 +857,161 @@ const calculateImageList = (
   transformations: Transformation[],
   visibleTransformations: Record<string, boolean>,
   showOriginal: boolean,
+  templateVariables: TemplateVariable[],
+  templatePresets: TemplatePreset[],
+  activeTemplatePresetId: string | null,
   signer: Signer | undefined,
   activeImageIndex: number,
   signedUrlCache: Record<string, string>,
 ) => {
-  const IKTransformations = transformations
+  if (showOriginal) {
+    const imgs = imageList.map((i) => i.url)
+    return {
+      imgs,
+      activeImageIndex,
+      toSign: [] as Array<{
+        index: number
+        request: SignerRequest
+        cacheKey: string
+      }>,
+      transformKey: "original",
+      renderError: null as TemplateRenderError | null,
+    }
+  }
+
+  const visibleSteps = transformations
     .filter((transformation) => visibleTransformations[transformation.id])
-    .map((transformation) => {
-      const t = transformationSchema
-        .find((schema) => schema.key === transformation.key.split("-")[0])
-        ?.items.find((item) => item.key === transformation.key)
+    .map(({ id: _id, ...rest }) => rest)
 
-      const groupedTransforms: Record<
-        string,
-        {
-          fields: Array<{
-            name: string
-            value: unknown
-            field: TransformationField
-          }>
-          transformationKey: string
-        }
-      > = {}
+  const resolved = resolveTemplateForRender({
+    transformations: visibleSteps,
+    variables: templateVariables,
+    presets: templatePresets,
+    activePresetId: activeTemplatePresetId,
+  })
 
-      if (t?.transformations) {
-        t.transformations.forEach((transform) => {
-          if (
-            transform.transformationGroup &&
-            transform.isVisible?.(
-              transformation.value as Record<string, unknown>,
-            ) !== false
-          ) {
-            const value = (transformation.value as Record<string, unknown>)[
-              transform.name
-            ]
-            if (value !== undefined && value !== "") {
-              if (!groupedTransforms[transform.transformationGroup]) {
-                groupedTransforms[transform.transformationGroup] = {
-                  fields: [],
-                  transformationKey:
-                    transform.transformationKey || transform.name,
-                }
+  if (!resolved.ok) {
+    const imgs = imageList.map((i) => i.url)
+    return {
+      imgs,
+      activeImageIndex,
+      toSign: [] as Array<{
+        index: number
+        request: SignerRequest
+        cacheKey: string
+      }>,
+      transformKey: `render-error:${resolved.error.type}:${resolved.error.unresolved.map((u) => u.id).join(",")}`,
+      renderError: resolved.error,
+    }
+  }
+
+  const IKTransformations = resolved.transformations.map((transformation) => {
+    const t = transformationSchema
+      .find((schema) => schema.key === transformation.key.split("-")[0])
+      ?.items.find((item) => item.key === transformation.key)
+
+    const groupedTransforms: Record<
+      string,
+      {
+        fields: Array<{
+          name: string
+          value: unknown
+          field: TransformationField
+        }>
+        transformationKey: string
+      }
+    > = {}
+
+    if (t?.transformations) {
+      t.transformations.forEach((transform) => {
+        if (
+          transform.transformationGroup &&
+          transform.isVisible?.(
+            transformation.value as Record<string, unknown>,
+          ) !== false
+        ) {
+          const value = (transformation.value as Record<string, unknown>)[
+            transform.name
+          ]
+          if (value !== undefined && value !== "") {
+            if (!groupedTransforms[transform.transformationGroup]) {
+              groupedTransforms[transform.transformationGroup] = {
+                fields: [],
+                transformationKey:
+                  transform.transformationKey || transform.name,
               }
-              groupedTransforms[transform.transformationGroup].fields.push({
-                name: transform.name,
-                value,
-                field: transform,
-              })
             }
+            groupedTransforms[transform.transformationGroup].fields.push({
+              name: transform.name,
+              value,
+              field: transform,
+            })
           }
-        })
-      }
-
-      const transforms: Record<string, unknown> = Object.fromEntries(
-        Object.entries(transformation.value)
-          .map(([key, value]) => {
-            const transform = t?.transformations.find(
-              (field) => field.name === key,
-            )
-
-            if (transform?.transformationGroup) {
-              return []
-            }
-
-            if (
-              transform?.isTransformation &&
-              (transform.isVisible?.(
-                transformation.value as Record<string, unknown>,
-              ) ??
-                true) &&
-              value !== ""
-            ) {
-              return [transform.transformationKey ?? key, value]
-            }
-            return []
-          })
-          .filter((entry) => entry.length > 0),
-      )
-
-      for (const groupName in groupedTransforms) {
-        const group = groupedTransforms[groupName]
-        const formatter = transformationFormatters[groupName]
-
-        if (formatter) {
-          const groupValues = {} as Record<string, unknown>
-          group.fields.forEach((f) => {
-            groupValues[f.name] = f.value
-          })
-
-          formatter(groupValues, transforms)
         }
-      }
+      })
+    }
 
-      // Special handling for resize_and_crop transformation
-      let defaultTransformation = t?.defaultTransformation || {}
-      if (transformation.key === "resize_and_crop-resize_and_crop") {
-        const value = transformation.value as Record<string, unknown>
-        // Only add crop/cropMode when both width and height and mode are set
-        if (value.width && value.height && value.mode) {
-          defaultTransformation = getDefaultTransformationFromMode(
-            value.mode as string,
+    const transforms: Record<string, unknown> = Object.fromEntries(
+      Object.entries(transformation.value)
+        .map(([key, value]) => {
+          const transform = t?.transformations.find(
+            (field) => field.name === key,
           )
-        } else {
-          defaultTransformation = {}
-        }
-      }
 
-      return {
-        ...defaultTransformation,
-        ...transforms,
-      }
-    })
+          if (transform?.transformationGroup) {
+            return []
+          }
 
-  const transformKey = showOriginal
-    ? "original"
-    : JSON.stringify(IKTransformations)
+          if (
+            transform?.isTransformation &&
+            (transform.isVisible?.(
+              transformation.value as Record<string, unknown>,
+            ) ??
+              true) &&
+            value !== ""
+          ) {
+            return [transform.transformationKey ?? key, value]
+          }
+          return []
+        })
+        .filter((entry) => entry.length > 0),
+    )
+
+    for (const groupName in groupedTransforms) {
+      const group = groupedTransforms[groupName]
+      const formatter = transformationFormatters[groupName]
+
+      if (formatter) {
+        const groupValues = {} as Record<string, unknown>
+        group.fields.forEach((f) => {
+          groupValues[f.name] = f.value
+        })
+
+        formatter(groupValues, transforms)
+      }
+    }
+
+    // Special handling for resize_and_crop transformation
+    let defaultTransformation = t?.defaultTransformation || {}
+    if (transformation.key === "resize_and_crop-resize_and_crop") {
+      const value = transformation.value as Record<string, unknown>
+      // Only add crop/cropMode when both width and height and mode are set
+      if (value.width && value.height && value.mode) {
+        defaultTransformation = getDefaultTransformationFromMode(
+          value.mode as string,
+        )
+      } else {
+        defaultTransformation = {}
+      }
+    }
+
+    return {
+      ...defaultTransformation,
+      ...transforms,
+    }
+  })
+
+  const transformKey = JSON.stringify(IKTransformations)
 
   const imgs: string[] = []
   const toSign: Array<{
@@ -897,9 +1023,10 @@ const calculateImageList = (
   imageList.forEach((img, index) => {
     // Replace any __IMAGE_PATH__ placeholders with actual image path for this specific image
     const imagePath = extractImagePath(img.url)
-    const transformationsForImage = showOriginal
-      ? []
-      : replaceImagePathPlaceholders(IKTransformations, imagePath)
+    const transformationsForImage = replaceImagePathPlaceholders(
+      IKTransformations,
+      imagePath,
+    )
 
     const req = {
       url: img.url,
@@ -939,7 +1066,7 @@ const calculateImageList = (
     })
   })
 
-  return { imgs, activeImageIndex, toSign, transformKey }
+  return { imgs, activeImageIndex, toSign, transformKey, renderError: null }
 }
 
 function recomputeImages() {
@@ -961,15 +1088,19 @@ function recomputeImages() {
     }
   }
 
-  const { imgs, activeImageIndex, toSign, transformKey } = calculateImageList(
-    state.originalImageList,
-    state.transformations,
-    state.visibleTransformations,
-    state.showOriginal,
-    state.signer,
-    currentIndex,
-    state.signedUrlCache,
-  )
+  const { imgs, activeImageIndex, toSign, transformKey, renderError } =
+    calculateImageList(
+      state.originalImageList,
+      state.transformations,
+      state.visibleTransformations,
+      state.showOriginal,
+      state.templateVariables,
+      state.templatePresets,
+      state.activeTemplatePresetId,
+      state.signer,
+      currentIndex,
+      state.signedUrlCache,
+    )
 
   const transformationsChanged = transformKey !== state.currentTransformKey
   if (transformationsChanged) {
@@ -981,6 +1112,7 @@ function recomputeImages() {
     imageList: imgs,
     currentImage: imgs[activeImageIndex],
     currentTransformKey: transformKey,
+    templateRenderError: renderError,
   })
 
   const signer = state.signer

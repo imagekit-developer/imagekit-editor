@@ -1,12 +1,29 @@
+import {
+  parseExpressionTokens,
+  serializeExpressionTokens,
+} from "../components/common/expressionTokens"
 import { TRANSFORMATION_STATE_VERSION } from "../store"
-import type { SaveTemplateInput } from "./types"
+import { deepMapStrings } from "../utils/deepMapStrings"
+import type { SaveTemplateInput, TemplateVariable } from "./types"
 
-/** Ensures each step has `version: "v1"` for API / persistence validators. */
+/** Ensures each step has `version: "v1"` and canonical `{{variableId}}` braces in string fields. */
 export function normalizeTransformationStepsForPersistence(
   transformations: SaveTemplateInput["transformations"],
+  templateVariables?: TemplateVariable[],
 ): SaveTemplateInput["transformations"] {
-  return transformations.map((step) => ({
-    ...step,
-    version: step.version ?? TRANSFORMATION_STATE_VERSION,
-  }))
+  return transformations.map((step) => {
+    const value =
+      templateVariables && templateVariables.length > 0
+        ? deepMapStrings(step.value, (s) =>
+            serializeExpressionTokens(
+              parseExpressionTokens(s, templateVariables),
+            ),
+          )
+        : step.value
+    return {
+      ...step,
+      value,
+      version: step.version ?? TRANSFORMATION_STATE_VERSION,
+    }
+  })
 }

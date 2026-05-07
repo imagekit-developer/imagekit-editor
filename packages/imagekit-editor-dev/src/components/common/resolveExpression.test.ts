@@ -44,7 +44,9 @@ describe("resolveExpressionTokensToNumber (ImageKit precedence)", () => {
   })
 
   it("returns null when user variables are present", () => {
-    const tokens = parseExpressionTokens("iw_add_{{margin_x}}")
+    const tokens = parseExpressionTokens(
+      "iw_add_{{00000000-0000-0000-0000-000000000000}}",
+    )
     const result = resolveExpressionTokensToNumber(tokens, { iw: 10 })
     expect(result).toBeNull()
   })

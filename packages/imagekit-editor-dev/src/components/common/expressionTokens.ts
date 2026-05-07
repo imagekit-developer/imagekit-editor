@@ -1,3 +1,4 @@
+import type { TemplateVariable } from "../../storage/types"
 import type {
   ImageDimensionVariableSuggestion,
   UserVariableSuggestion,
@@ -6,7 +7,8 @@ import type {
 
 export type ExpressionToken =
   | { kind: "imgVar"; code: ImageDimensionVariableSuggestion["code"] }
-  | { kind: "userVar"; name: string } // stored as name; later can switch to id-based
+  /** Wired in URLs as `{{variableId}}` (UUID). */
+  | { kind: "userVar"; variableId: string }
   | { kind: "op"; op: VariableSuggestionOperator }
   | { kind: "literal"; value: string }
 
@@ -29,9 +31,14 @@ const isImgVar = (s: string): s is ImageDimensionVariableSuggestion["code"] =>
 const isOp = (s: string): s is VariableSuggestionOperator =>
   (OP_CODES as readonly string[]).includes(s)
 
-const USER_VAR_NAME_RE = /^[a-zA-Z0-9_]+$/
+/** Standard UUID string (incl. `crypto.randomUUID`). */
+export const USER_VAR_UUID_INNER_RE =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
 
-export function parseExpressionTokens(raw: string): ExpressionToken[] {
+export function parseExpressionTokens(
+  raw: string,
+  _templateVariables?: Pick<TemplateVariable, "id" | "name">[],
+): ExpressionToken[] {
   const trimmed = (raw ?? "").trim()
   if (!trimmed) return []
 
@@ -43,13 +50,16 @@ export function parseExpressionTokens(raw: string): ExpressionToken[] {
     while (trimmed[i] === "_") i++
     if (i >= trimmed.length) break
 
-    // User variable: {{...}} should be atomic (underscores allowed inside).
+    // User variable: {{uuid}} should be atomic.
     if (trimmed.startsWith("{{", i)) {
       const end = trimmed.indexOf("}}", i + 2)
       if (end !== -1) {
-        const name = trimmed.slice(i + 2, end)
-        if (USER_VAR_NAME_RE.test(name)) {
-          tokens.push({ kind: "userVar", name })
+        const inner = trimmed.slice(i + 2, end)
+        if (USER_VAR_UUID_INNER_RE.test(inner.trim())) {
+          tokens.push({
+            kind: "userVar",
+            variableId: inner.trim().toLowerCase(),
+          })
           i = end + 2
           continue
         }
@@ -79,7 +89,7 @@ export function serializeExpressionTokens(tokens: ExpressionToken[]): string {
     .map((t) => {
       if (t.kind === "imgVar") return t.code
       if (t.kind === "op") return t.op
-      if (t.kind === "userVar") return `{{${t.name}}}`
+      if (t.kind === "userVar") return `{{${t.variableId}}}`
       return t.value
     })
     .filter((x) => x !== "")
@@ -101,5 +111,5 @@ export function suggestionToToken(
   }
   const uv = userVariables.find((v) => v.id === suggestion.variableId)
   if (!uv) return null
-  return { kind: "userVar", name: uv.name }
+  return { kind: "userVar", variableId: uv.id }
 }

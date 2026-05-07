@@ -1,8 +1,25 @@
 import { z } from "zod/v3"
 
 const IMG_VAR_CODE_REGEX = "(?:iw|ih|iar|cw|ch|car|bw|bh|bar)"
-const IMG_OR_NUMBER_OPERAND_REGEX = `(?:\\d+(?:\\.\\d{1,2})?|${IMG_VAR_CODE_REGEX})`
-const IMG_VAR_CHAIN_EXPR_REGEX = `^${IMG_VAR_CODE_REGEX}(?:_(?:add|sub|mul|div|mod|pow)_${IMG_OR_NUMBER_OPERAND_REGEX})+$`
+/** User-defined template variable token in URLs: `{{uuid}}`. */
+const USER_VAR_UUID_INNER =
+  "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+const USER_VAR_TOKEN_REGEX = `\\{\\{${USER_VAR_UUID_INNER}\\}\\}`
+
+/** Operand in `x_add_y` chains: number, image dimension code, or `{{userVar}}`. */
+const CHAIN_OPERAND_REGEX = `(?:\\d+(?:\\.\\d{1,2})?|${IMG_VAR_CODE_REGEX}|${USER_VAR_TOKEN_REGEX})`
+
+/** Chain may start with an image var or a user variable token. */
+const CHAIN_HEAD_REGEX = `(?:${IMG_VAR_CODE_REGEX}|${USER_VAR_TOKEN_REGEX})`
+
+/** ImageKit-style chain with optional user vars mixed in (matches editor serialization). */
+const MIXED_VAR_CHAIN_EXPR_REGEX = `^${CHAIN_HEAD_REGEX}(?:_(?:add|sub|mul|div|mod|pow)_${CHAIN_OPERAND_REGEX})+$`
+
+const USER_VAR_ONLY_REGEX = `^${USER_VAR_TOKEN_REGEX}$`
+
+const userVarOnlyValidator = z
+  .string()
+  .regex(new RegExp(USER_VAR_ONLY_REGEX), { message: "Invalid user variable." })
 
 const widthNumber = z.coerce
   .number({ invalid_type_error: "Should be a number." })
@@ -10,7 +27,7 @@ const widthNumber = z.coerce
     message: "Width must be a positive number.",
   })
 
-const widthExpr = z.string().regex(new RegExp(IMG_VAR_CHAIN_EXPR_REGEX), {
+const widthExpr = z.string().regex(new RegExp(MIXED_VAR_CHAIN_EXPR_REGEX), {
   message: "Width string must be a valid expression string.",
 })
 
@@ -23,6 +40,9 @@ export const widthValidator = z.any().superRefine((val, ctx) => {
     return
   }
   if (widthVar.safeParse(val).success) {
+    return
+  }
+  if (userVarOnlyValidator.safeParse(val).success) {
     return
   }
   if (widthExpr.safeParse(val).success) {
@@ -39,7 +59,7 @@ const heightNumber = z.coerce
   .min(0, {
     message: "Height must be a positive number.",
   })
-const heightExpr = z.string().regex(new RegExp(IMG_VAR_CHAIN_EXPR_REGEX), {
+const heightExpr = z.string().regex(new RegExp(MIXED_VAR_CHAIN_EXPR_REGEX), {
   message: "Height string must be a valid expression string.",
 })
 
@@ -52,6 +72,9 @@ export const heightValidator = z.any().superRefine((val, ctx) => {
     return
   }
   if (heightVar.safeParse(val).success) {
+    return
+  }
+  if (userVarOnlyValidator.safeParse(val).success) {
     return
   }
   if (heightExpr.safeParse(val).success) {
@@ -77,13 +100,16 @@ const aspectRatioExpressionValidator = z
   .string()
   .regex(
     new RegExp(
-      `^(?:iar|car)(?:_(?:add|sub|mul|div|mod|pow)_${IMG_OR_NUMBER_OPERAND_REGEX})+$`,
+      `^(?:iar|car|${USER_VAR_TOKEN_REGEX})(?:_(?:add|sub|mul|div|mod|pow)_${CHAIN_OPERAND_REGEX})+$`,
     ),
   )
 
 export const aspectRatioValidator = z.any().superRefine((val, ctx) => {
   if (val === undefined || val === "") return
   if (aspectRatioValueValidator.safeParse(val).success) {
+    return
+  }
+  if (userVarOnlyValidator.safeParse(val).success) {
     return
   }
   if (aspectRatioExpressionValidator.safeParse(val).success) {
@@ -97,11 +123,14 @@ export const aspectRatioValidator = z.any().superRefine((val, ctx) => {
 
 const layerXNumber = z.coerce.string().regex(/^[N-]?\d+(\.\d{1,2})?$/)
 
-const layerXExpr = z.string().regex(new RegExp(IMG_VAR_CHAIN_EXPR_REGEX))
+const layerXExpr = z.string().regex(new RegExp(MIXED_VAR_CHAIN_EXPR_REGEX))
 
 export const layerXValidator = z.any().superRefine((val, ctx) => {
   if (val === undefined || val === "") return
   if (layerXNumber.safeParse(val).success) {
+    return
+  }
+  if (userVarOnlyValidator.safeParse(val).success) {
     return
   }
   if (layerXExpr.safeParse(val).success) {
@@ -115,11 +144,14 @@ export const layerXValidator = z.any().superRefine((val, ctx) => {
 
 const layerYNumber = z.coerce.string().regex(/^[N-]?\d+(\.\d{1,2})?$/)
 
-const layerYExpr = z.string().regex(new RegExp(IMG_VAR_CHAIN_EXPR_REGEX))
+const layerYExpr = z.string().regex(new RegExp(MIXED_VAR_CHAIN_EXPR_REGEX))
 
 export const layerYValidator = z.any().superRefine((val, ctx) => {
   if (val === undefined || val === "") return
   if (layerYNumber.safeParse(val).success) {
+    return
+  }
+  if (userVarOnlyValidator.safeParse(val).success) {
     return
   }
   if (layerYExpr.safeParse(val).success) {
@@ -136,7 +168,7 @@ const commonNumber = z.coerce
   .min(0, {
     message: "Must be a positive number.",
   })
-const commonExpr = z.string().regex(new RegExp(IMG_VAR_CHAIN_EXPR_REGEX), {
+const commonExpr = z.string().regex(new RegExp(MIXED_VAR_CHAIN_EXPR_REGEX), {
   message: "String must be a valid expression string.",
 })
 
@@ -144,6 +176,9 @@ export const commonNumberAndExpressionValidator = z
   .any()
   .superRefine((val, ctx) => {
     if (commonNumber.safeParse(val).success) {
+      return
+    }
+    if (userVarOnlyValidator.safeParse(val).success) {
       return
     }
     if (commonExpr.safeParse(val).success) {
@@ -157,11 +192,14 @@ export const commonNumberAndExpressionValidator = z
 
 const lineHeightInteger = z.coerce.string().regex(/^\d+$/)
 
-const lineHeightExpr = z.string().regex(new RegExp(IMG_VAR_CHAIN_EXPR_REGEX))
+const lineHeightExpr = z.string().regex(new RegExp(MIXED_VAR_CHAIN_EXPR_REGEX))
 
 export const lineHeightValidator = z.any().superRefine((val, ctx) => {
   if (val === undefined || val === "") return
   if (lineHeightInteger.safeParse(val).success) {
+    return
+  }
+  if (userVarOnlyValidator.safeParse(val).success) {
     return
   }
   if (lineHeightExpr.safeParse(val).success) {
