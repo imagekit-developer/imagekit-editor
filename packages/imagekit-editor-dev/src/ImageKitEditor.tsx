@@ -13,10 +13,12 @@ import type { GetTemplatePermissions } from "./context/TemplatePermissionsContex
 import { TemplatePermissionsContextProvider } from "./context/TemplatePermissionsContext"
 import { TemplateStorageContextProvider } from "./context/TemplateStorageContext"
 import {
+  applyTemplateStorageAccessFailure,
   isTemplateAccessDeniedError,
   type TemplateStorageProvider,
 } from "./storage"
 import {
+  applyTemplateRecord,
   type FocusObjects,
   type InputFileElement,
   type RequiredMetadata,
@@ -96,6 +98,15 @@ interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
    * If omitted, the editor defaults to allowing all actions.
    */
   getTemplatePermissions?: GetTemplatePermissions
+  /**
+   * Open the editor with this template pre-loaded. The editor calls
+   * `templateStorage.getTemplate(initialTemplateId)` on mount and applies
+   * the result. Requires `templateStorage` to be configured.
+   *
+   * Failures (template not found, access denied, network error) are surfaced
+   * via the standard sync-status error UI; the editor still opens empty.
+   */
+  initialTemplateId?: string
 }
 
 function ImageKitEditorImpl<M extends RequiredMetadata>(
@@ -109,6 +120,7 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     focusObjects,
     templateStorage,
     getTemplatePermissions,
+    initialTemplateId,
   } = props
   const {
     addImage,
@@ -206,6 +218,54 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
       focusObjects,
     })
   }, [initialImages, signer, focusObjects, initialize])
+
+  // Load template by id from the configured storage provider when
+  // `initialTemplateId` is supplied. This runs after `initialize` so it can
+  // overwrite any reset metadata. Keyed on (provider, id) so switching either
+  // re-fetches.
+  React.useEffect(() => {
+    if (!initialTemplateId) return
+    if (!resolvedProvider) {
+      console.warn(
+        "ImageKitEditor: `initialTemplateId` was provided but no `templateStorage` is configured.",
+      )
+      return
+    }
+
+    let cancelled = false
+    const store = useEditorStore.getState()
+
+    resolvedProvider
+      .getTemplate(initialTemplateId)
+      .then((record) => {
+        if (cancelled) return
+        if (!record) {
+          useEditorStore
+            .getState()
+            .setSyncStatus("error", "Template not found.")
+          return
+        }
+        applyTemplateRecord(record)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        const handled = applyTemplateStorageAccessFailure(err, {
+          denyTemplateStorageAccessAndReset:
+            store.denyTemplateStorageAccessAndReset,
+        })
+        if (handled) return
+        useEditorStore
+          .getState()
+          .setSyncStatus(
+            "error",
+            err instanceof Error ? err.message : "Failed to load template",
+          )
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [resolvedProvider, initialTemplateId])
 
   useImperativeHandle(
     ref,

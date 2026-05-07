@@ -6,14 +6,9 @@ import {
 } from "@imagekit/javascript"
 import { create } from "zustand"
 import { subscribeWithSelector } from "zustand/middleware"
-import {
-  type DEFAULT_FOCUS_OBJECTS,
-  getDefaultTransformationFromMode,
-  type TransformationField,
-  transformationFormatters,
-  transformationSchema,
-} from "./schema"
+import type { DEFAULT_FOCUS_OBJECTS } from "./schema"
 import { bumpLocalChangeVersion as bumpVersion } from "./sync/templateSyncVersioning"
+import { convertTransformationToIK } from "./transformationConverter"
 import { extractImagePath } from "./utils"
 
 export const TRANSFORMATION_STATE_VERSION = "v1" as const
@@ -761,111 +756,7 @@ const calculateImageList = (
 ) => {
   const IKTransformations = transformations
     .filter((transformation) => visibleTransformations[transformation.id])
-    .map((transformation) => {
-      const t = transformationSchema
-        .find((schema) => schema.key === transformation.key.split("-")[0])
-        ?.items.find((item) => item.key === transformation.key)
-
-      const groupedTransforms: Record<
-        string,
-        {
-          fields: Array<{
-            name: string
-            value: unknown
-            field: TransformationField
-          }>
-          transformationKey: string
-        }
-      > = {}
-
-      if (t?.transformations) {
-        t.transformations.forEach((transform) => {
-          if (
-            transform.transformationGroup &&
-            transform.isVisible?.(
-              transformation.value as Record<string, unknown>,
-            ) !== false
-          ) {
-            const value = (transformation.value as Record<string, unknown>)[
-              transform.name
-            ]
-            if (value !== undefined && value !== "") {
-              if (!groupedTransforms[transform.transformationGroup]) {
-                groupedTransforms[transform.transformationGroup] = {
-                  fields: [],
-                  transformationKey:
-                    transform.transformationKey || transform.name,
-                }
-              }
-              groupedTransforms[transform.transformationGroup].fields.push({
-                name: transform.name,
-                value,
-                field: transform,
-              })
-            }
-          }
-        })
-      }
-
-      const transforms: Record<string, unknown> = Object.fromEntries(
-        Object.entries(transformation.value)
-          .map(([key, value]) => {
-            const transform = t?.transformations.find(
-              (field) => field.name === key,
-            )
-
-            if (transform?.transformationGroup) {
-              return []
-            }
-
-            if (
-              transform?.isTransformation &&
-              (transform.isVisible?.(
-                transformation.value as Record<string, unknown>,
-              ) ??
-                true) &&
-              value !== ""
-            ) {
-              return [transform.transformationKey ?? key, value]
-            }
-            return []
-          })
-          .filter((entry) => entry.length > 0),
-      )
-
-      for (const groupName in groupedTransforms) {
-        const group = groupedTransforms[groupName]
-        const formatter = transformationFormatters[groupName]
-
-        if (formatter) {
-          const groupValues = {} as Record<string, unknown>
-          group.fields.forEach((f) => {
-            groupValues[f.name] = f.value
-          })
-
-          formatter(groupValues, transforms)
-        }
-      }
-
-      // Special handling for resize_and_crop transformation
-      let defaultTransformation = t?.defaultTransformation || {}
-      if (transformation.key === "resize_and_crop-resize_and_crop") {
-        const value = transformation.value as Record<string, unknown>
-        // Only add crop/cropMode when both width and height and mode are set
-        if (value.width && value.height && value.mode) {
-          defaultTransformation = getDefaultTransformationFromMode(
-            value.mode as string,
-          )
-        } else {
-          defaultTransformation = {}
-        }
-      }
-
-      return {
-        ...defaultTransformation,
-        ...transforms,
-      }
-    })
+    .map((transformation) => convertTransformationToIK(transformation))
 
   const transformKey = showOriginal
     ? "original"
@@ -1055,3 +946,24 @@ useEditorStore.subscribe(
 )
 
 export { useEditorStore }
+
+/**
+ * Replace the editor's current template with a record fetched from a
+ * `TemplateStorageProvider`. Wraps `loadTemplate` + `hydrateTemplateMetadata`
+ * so callers (templates dropdown, templates library, `initialTemplateId`
+ * effect) don't have to repeat the two-step sequence.
+ */
+export function applyTemplateRecord(record: {
+  id: string
+  name: string
+  isPrivate: boolean | null
+  transformations: Omit<Transformation, "id">[]
+}) {
+  const store = useEditorStore.getState()
+  store.loadTemplate(record.transformations)
+  store.hydrateTemplateMetadata({
+    templateId: record.id,
+    templateName: record.name,
+    templateIsPrivate: record.isPrivate,
+  })
+}

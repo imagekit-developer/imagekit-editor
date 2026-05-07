@@ -20,3 +20,9 @@ export {
 } from "./storage"
 export type { FileElement, Signer, Transformation } from "./store"
 export { TRANSFORMATION_STATE_VERSION } from "./store"
+export {
+  buildEditorTransformationString,
+  buildImageKitUrl,
+  convertTransformationsToIK,
+  convertTransformationToIK,
+} from "./transformationConverter"
