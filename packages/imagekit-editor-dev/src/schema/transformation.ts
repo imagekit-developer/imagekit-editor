@@ -3,13 +3,20 @@ import {
   IMG_VAR_CODES,
   makeAlternationSource,
   OP_CODES,
-  USER_VAR_UUID_INNER_RE,
 } from "../expression/regexes"
 
-/** User-defined template variable token in URLs: `{{uuid}}`. */
+/**
+ * User-defined template variable token in transformation fields.
+ *
+ * Historically this was `{{uuid}}` only. We now accept the display form
+ * `{{anything}}` so validation does not fail when the editor stores variable
+ * references by display name.
+ *
+ * Note: this is intentionally permissive (any non-brace content).
+ */
 const IMG_VAR_CODE_REGEX = makeAlternationSource(IMG_VAR_CODES)
 const OP_CODE_REGEX = makeAlternationSource(OP_CODES)
-const USER_VAR_TOKEN_REGEX = `\\{\\{${USER_VAR_UUID_INNER_RE.source}\\}\\}`
+const USER_VAR_TOKEN_REGEX = `\\{\\{[^{}]+\\}\\}`
 
 /** Operand in `x_add_y` chains: number, image dimension code, or `{{userVar}}`. */
 const CHAIN_OPERAND_REGEX = `(?:\\d+(?:\\.\\d{1,2})?|${IMG_VAR_CODE_REGEX}|${USER_VAR_TOKEN_REGEX})`
