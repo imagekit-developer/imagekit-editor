@@ -95,8 +95,12 @@ export interface EditorState<
   Metadata extends RequiredMetadata = RequiredMetadata,
 > {
   currentImage: string | undefined
+  /** Current image URL before resolving template variables (placeholders intact). */
+  currentPrimitiveImage: string | undefined
   originalImageList: FileElement<Metadata>[]
   imageList: string[]
+  /** Image URLs before resolving template variables (placeholders intact). */
+  primitiveImageList: string[]
   transformations: Transformation[]
   visibleTransformations: Record<string, boolean>
   showOriginal: boolean
@@ -273,8 +277,10 @@ function normalizeImage<Metadata extends RequiredMetadata = RequiredMetadata>(
 
 const DEFAULT_STATE: EditorState = {
   currentImage: undefined,
+  currentPrimitiveImage: undefined,
   originalImageList: [],
   imageList: [],
+  primitiveImageList: [],
   transformations: initialTransformations,
   visibleTransformations: initialVisibleTransformations,
   showOriginal: false,
@@ -868,6 +874,7 @@ const calculateImageList = (
     const imgs = imageList.map((i) => i.url)
     return {
       imgs,
+      primitiveImgs: imgs,
       activeImageIndex,
       toSign: [] as Array<{
         index: number
@@ -883,6 +890,9 @@ const calculateImageList = (
     .filter((transformation) => visibleTransformations[transformation.id])
     .map(({ id: _id, ...rest }) => rest)
 
+  // Primitive = apply transformations without substituting user variables.
+  const primitiveTransformations = visibleSteps
+
   const resolved = resolveTemplateForRender({
     transformations: visibleSteps,
     variables: templateVariables,
@@ -894,6 +904,7 @@ const calculateImageList = (
     const imgs = imageList.map((i) => i.url)
     return {
       imgs,
+      primitiveImgs: imgs,
       activeImageIndex,
       toSign: [] as Array<{
         index: number
@@ -905,115 +916,122 @@ const calculateImageList = (
     }
   }
 
-  const IKTransformations = resolved.transformations.map((transformation) => {
-    const t = transformationSchema
-      .find((schema) => schema.key === transformation.key.split("-")[0])
-      ?.items.find((item) => item.key === transformation.key)
+  const buildIKTransformations = (steps: Array<Omit<Transformation, "id">>) =>
+    steps.map((transformation) => {
+      const t = transformationSchema
+        .find((schema) => schema.key === transformation.key.split("-")[0])
+        ?.items.find((item) => item.key === transformation.key)
 
-    const groupedTransforms: Record<
-      string,
-      {
-        fields: Array<{
-          name: string
-          value: unknown
-          field: TransformationField
-        }>
-        transformationKey: string
-      }
-    > = {}
-
-    if (t?.transformations) {
-      t.transformations.forEach((transform) => {
-        if (
-          transform.transformationGroup &&
-          transform.isVisible?.(
-            transformation.value as Record<string, unknown>,
-          ) !== false
-        ) {
-          const value = (transformation.value as Record<string, unknown>)[
-            transform.name
-          ]
-          if (value !== undefined && value !== "") {
-            if (!groupedTransforms[transform.transformationGroup]) {
-              groupedTransforms[transform.transformationGroup] = {
-                fields: [],
-                transformationKey:
-                  transform.transformationKey || transform.name,
-              }
-            }
-            groupedTransforms[transform.transformationGroup].fields.push({
-              name: transform.name,
-              value,
-              field: transform,
-            })
-          }
+      const groupedTransforms: Record<
+        string,
+        {
+          fields: Array<{
+            name: string
+            value: unknown
+            field: TransformationField
+          }>
+          transformationKey: string
         }
-      })
-    }
+      > = {}
 
-    const transforms: Record<string, unknown> = Object.fromEntries(
-      Object.entries(transformation.value)
-        .map(([key, value]) => {
-          const transform = t?.transformations.find(
-            (field) => field.name === key,
-          )
-
-          if (transform?.transformationGroup) {
-            return []
-          }
-
+      if (t?.transformations) {
+        t.transformations.forEach((transform) => {
           if (
-            transform?.isTransformation &&
-            (transform.isVisible?.(
+            transform.transformationGroup &&
+            transform.isVisible?.(
               transformation.value as Record<string, unknown>,
-            ) ??
-              true) &&
-            value !== ""
+            ) !== false
           ) {
-            return [transform.transformationKey ?? key, value]
+            const value = (transformation.value as Record<string, unknown>)[
+              transform.name
+            ]
+            if (value !== undefined && value !== "") {
+              if (!groupedTransforms[transform.transformationGroup]) {
+                groupedTransforms[transform.transformationGroup] = {
+                  fields: [],
+                  transformationKey:
+                    transform.transformationKey || transform.name,
+                }
+              }
+              groupedTransforms[transform.transformationGroup].fields.push({
+                name: transform.name,
+                value,
+                field: transform,
+              })
+            }
           }
-          return []
         })
-        .filter((entry) => entry.length > 0),
-    )
-
-    for (const groupName in groupedTransforms) {
-      const group = groupedTransforms[groupName]
-      const formatter = transformationFormatters[groupName]
-
-      if (formatter) {
-        const groupValues = {} as Record<string, unknown>
-        group.fields.forEach((f) => {
-          groupValues[f.name] = f.value
-        })
-
-        formatter(groupValues, transforms)
       }
-    }
 
-    // Special handling for resize_and_crop transformation
-    let defaultTransformation = t?.defaultTransformation || {}
-    if (transformation.key === "resize_and_crop-resize_and_crop") {
-      const value = transformation.value as Record<string, unknown>
-      // Only add crop/cropMode when both width and height and mode are set
-      if (value.width && value.height && value.mode) {
-        defaultTransformation = getDefaultTransformationFromMode(
-          value.mode as string,
-        )
-      } else {
-        defaultTransformation = {}
+      const transforms: Record<string, unknown> = Object.fromEntries(
+        Object.entries(transformation.value)
+          .map(([key, value]) => {
+            const transform = t?.transformations.find(
+              (field) => field.name === key,
+            )
+
+            if (transform?.transformationGroup) {
+              return []
+            }
+
+            if (
+              transform?.isTransformation &&
+              (transform.isVisible?.(
+                transformation.value as Record<string, unknown>,
+              ) ??
+                true) &&
+              value !== ""
+            ) {
+              return [transform.transformationKey ?? key, value]
+            }
+            return []
+          })
+          .filter((entry) => entry.length > 0),
+      )
+
+      for (const groupName in groupedTransforms) {
+        const group = groupedTransforms[groupName]
+        const formatter = transformationFormatters[groupName]
+
+        if (formatter) {
+          const groupValues = {} as Record<string, unknown>
+          group.fields.forEach((f) => {
+            groupValues[f.name] = f.value
+          })
+
+          formatter(groupValues, transforms)
+        }
       }
-    }
 
-    return {
-      ...defaultTransformation,
-      ...transforms,
-    }
-  })
+      // Special handling for resize_and_crop transformation
+      let defaultTransformation = t?.defaultTransformation || {}
+      if (transformation.key === "resize_and_crop-resize_and_crop") {
+        const value = transformation.value as Record<string, unknown>
+        // Only add crop/cropMode when both width and height and mode are set
+        if (value.width && value.height && value.mode) {
+          defaultTransformation = getDefaultTransformationFromMode(
+            value.mode as string,
+          )
+        } else {
+          defaultTransformation = {}
+        }
+      }
+
+      return {
+        ...defaultTransformation,
+        ...transforms,
+      }
+    })
+
+  const IKTransformations = buildIKTransformations(resolved.transformations)
+  const IKPrimitiveTransformations = buildIKTransformations(
+    primitiveTransformations,
+  )
 
   const transformKey = JSON.stringify(IKTransformations)
 
   const imgs: string[] = []
+  const primitiveImgs: string[] = []
   const toSign: Array<{
     index: number
     request: SignerRequest
@@ -1027,15 +1045,25 @@ const calculateImageList = (
       IKTransformations,
       imagePath,
     )
+    const primitiveTransformationsForImage = replaceImagePathPlaceholders(
+      IKPrimitiveTransformations,
+      imagePath,
+    )
 
     const req = {
       url: img.url,
       transformation: transformationsForImage,
       metadata: img.metadata,
     }
+    const primitiveReq = {
+      url: img.url,
+      transformation: primitiveTransformationsForImage,
+      metadata: img.metadata,
+    }
 
     if (req.transformation.length === 0) {
       imgs[index] = req.url
+      primitiveImgs[index] = primitiveReq.url
       return
     }
 
@@ -1056,6 +1084,11 @@ const calculateImageList = (
           cacheKey,
         })
       }
+      primitiveImgs[index] = buildSrc({
+        src: primitiveReq.url,
+        urlEndpoint: "does-not-matter",
+        transformation: primitiveReq.transformation,
+      })
       return
     }
 
@@ -1064,9 +1097,21 @@ const calculateImageList = (
       urlEndpoint: "does-not-matter",
       transformation: req.transformation,
     })
+    primitiveImgs[index] = buildSrc({
+      src: primitiveReq.url,
+      urlEndpoint: "does-not-matter",
+      transformation: primitiveReq.transformation,
+    })
   })
 
-  return { imgs, activeImageIndex, toSign, transformKey, renderError: null }
+  return {
+    imgs,
+    primitiveImgs,
+    activeImageIndex,
+    toSign,
+    transformKey,
+    renderError: null,
+  }
 }
 
 function recomputeImages() {
@@ -1088,19 +1133,25 @@ function recomputeImages() {
     }
   }
 
-  const { imgs, activeImageIndex, toSign, transformKey, renderError } =
-    calculateImageList(
-      state.originalImageList,
-      state.transformations,
-      state.visibleTransformations,
-      state.showOriginal,
-      state.templateVariables,
-      state.templatePresets,
-      state.activeTemplatePresetId,
-      state.signer,
-      currentIndex,
-      state.signedUrlCache,
-    )
+  const {
+    imgs,
+    primitiveImgs,
+    activeImageIndex,
+    toSign,
+    transformKey,
+    renderError,
+  } = calculateImageList(
+    state.originalImageList,
+    state.transformations,
+    state.visibleTransformations,
+    state.showOriginal,
+    state.templateVariables,
+    state.templatePresets,
+    state.activeTemplatePresetId,
+    state.signer,
+    currentIndex,
+    state.signedUrlCache,
+  )
 
   const transformationsChanged = transformKey !== state.currentTransformKey
   if (transformationsChanged) {
@@ -1110,7 +1161,9 @@ function recomputeImages() {
 
   useEditorStore.setState({
     imageList: imgs,
+    primitiveImageList: primitiveImgs,
     currentImage: imgs[activeImageIndex],
+    currentPrimitiveImage: primitiveImgs[activeImageIndex],
     currentTransformKey: transformKey,
     templateRenderError: renderError,
   })
@@ -1197,6 +1250,27 @@ useEditorStore.subscribe(
 
 useEditorStore.subscribe(
   (state) => state.signer,
+  () => {
+    recomputeImages()
+  },
+)
+
+useEditorStore.subscribe(
+  (state) => state.templateVariables,
+  () => {
+    recomputeImages()
+  },
+)
+
+useEditorStore.subscribe(
+  (state) => state.templatePresets,
+  () => {
+    recomputeImages()
+  },
+)
+
+useEditorStore.subscribe(
+  (state) => state.activeTemplatePresetId,
   () => {
     recomputeImages()
   },

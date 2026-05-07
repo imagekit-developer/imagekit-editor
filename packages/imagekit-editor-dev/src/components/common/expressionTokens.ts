@@ -1,3 +1,8 @@
+import {
+  IMG_VAR_CODES,
+  OP_CODES,
+  USER_VAR_UUID_INNER_RE,
+} from "../../expression/regexes"
 import type { TemplateVariable } from "../../storage/types"
 import type {
   ImageDimensionVariableSuggestion,
@@ -12,18 +17,9 @@ export type ExpressionToken =
   | { kind: "op"; op: VariableSuggestionOperator }
   | { kind: "literal"; value: string }
 
-export const IMG_VAR_CODES: ReadonlyArray<
-  ImageDimensionVariableSuggestion["code"]
-> = ["iw", "ih", "iar", "cw", "ch", "car", "bw", "bh", "bar"]
+export { IMG_VAR_CODES }
 
-export const OP_CODES: ReadonlyArray<VariableSuggestionOperator> = [
-  "mul",
-  "div",
-  "add",
-  "sub",
-  "mod",
-  "pow",
-]
+export { OP_CODES }
 
 const isImgVar = (s: string): s is ImageDimensionVariableSuggestion["code"] =>
   (IMG_VAR_CODES as readonly string[]).includes(s)
@@ -31,9 +27,7 @@ const isImgVar = (s: string): s is ImageDimensionVariableSuggestion["code"] =>
 const isOp = (s: string): s is VariableSuggestionOperator =>
   (OP_CODES as readonly string[]).includes(s)
 
-/** Standard UUID string (incl. `crypto.randomUUID`). */
-export const USER_VAR_UUID_INNER_RE =
-  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
+export { USER_VAR_UUID_INNER_RE }
 
 export function parseExpressionTokens(
   raw: string,

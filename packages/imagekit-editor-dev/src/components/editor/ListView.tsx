@@ -12,11 +12,13 @@ interface ListViewProps {
 export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
   const {
     currentImage,
+    currentPrimitiveImage,
     setCurrentImage,
     imageList,
     originalImageList,
     signingImages,
     setImageDimensions,
+    templateVariables,
     _internalState,
   } = useEditorStore()
 
@@ -69,7 +71,13 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
           />
         </Flex>
       </Flex>
-      {currentImage ? <UrlPreviewStrip expressionUrl={currentImage} /> : null}
+      {currentImage && currentPrimitiveImage ? (
+        <UrlPreviewStrip
+          primitiveUrl={currentPrimitiveImage}
+          finalUrl={currentImage}
+          templateVariables={templateVariables}
+        />
+      ) : null}
       <Toolbar
         onAddImage={onAddImage}
         onSelectImage={(imageSrc: string) => {

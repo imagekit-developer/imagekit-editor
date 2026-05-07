@@ -1,10 +1,15 @@
 import { z } from "zod/v3"
+import {
+  IMG_VAR_CODES,
+  makeAlternationSource,
+  OP_CODES,
+  USER_VAR_UUID_INNER_RE,
+} from "../expression/regexes"
 
-const IMG_VAR_CODE_REGEX = "(?:iw|ih|iar|cw|ch|car|bw|bh|bar)"
 /** User-defined template variable token in URLs: `{{uuid}}`. */
-const USER_VAR_UUID_INNER =
-  "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
-const USER_VAR_TOKEN_REGEX = `\\{\\{${USER_VAR_UUID_INNER}\\}\\}`
+const IMG_VAR_CODE_REGEX = makeAlternationSource(IMG_VAR_CODES)
+const OP_CODE_REGEX = makeAlternationSource(OP_CODES)
+const USER_VAR_TOKEN_REGEX = `\\{\\{${USER_VAR_UUID_INNER_RE.source}\\}\\}`
 
 /** Operand in `x_add_y` chains: number, image dimension code, or `{{userVar}}`. */
 const CHAIN_OPERAND_REGEX = `(?:\\d+(?:\\.\\d{1,2})?|${IMG_VAR_CODE_REGEX}|${USER_VAR_TOKEN_REGEX})`
@@ -13,7 +18,7 @@ const CHAIN_OPERAND_REGEX = `(?:\\d+(?:\\.\\d{1,2})?|${IMG_VAR_CODE_REGEX}|${USE
 const CHAIN_HEAD_REGEX = `(?:${IMG_VAR_CODE_REGEX}|${USER_VAR_TOKEN_REGEX})`
 
 /** ImageKit-style chain with optional user vars mixed in (matches editor serialization). */
-const MIXED_VAR_CHAIN_EXPR_REGEX = `^${CHAIN_HEAD_REGEX}(?:_(?:add|sub|mul|div|mod|pow)_${CHAIN_OPERAND_REGEX})+$`
+const MIXED_VAR_CHAIN_EXPR_REGEX = `^${CHAIN_HEAD_REGEX}(?:_(?:${OP_CODE_REGEX})_${CHAIN_OPERAND_REGEX})+$`
 
 const USER_VAR_ONLY_REGEX = `^${USER_VAR_TOKEN_REGEX}$`
 
@@ -100,7 +105,7 @@ const aspectRatioExpressionValidator = z
   .string()
   .regex(
     new RegExp(
-      `^(?:iar|car|${USER_VAR_TOKEN_REGEX})(?:_(?:add|sub|mul|div|mod|pow)_${CHAIN_OPERAND_REGEX})+$`,
+      `^(?:iar|car|${USER_VAR_TOKEN_REGEX})(?:_(?:${OP_CODE_REGEX})_${CHAIN_OPERAND_REGEX})+$`,
     ),
   )
 

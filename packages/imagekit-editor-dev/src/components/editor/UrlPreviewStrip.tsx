@@ -16,9 +16,18 @@ import { PiCheck } from "@react-icons/all-files/pi/PiCheck"
 import { PiCopy } from "@react-icons/all-files/pi/PiCopy"
 import type React from "react"
 import { useCallback, useMemo, useRef, useState } from "react"
+import {
+  IMG_VAR_CODES,
+  makeAlphaNumBoundaryAlternationRe,
+  OP_CODES,
+  USER_VAR_TOKEN_GLOBAL_RE,
+  USER_VAR_UUID_INNER_RE,
+} from "../../expression/regexes"
+import type { TemplateVariable } from "../../storage/types"
 
-const IMG_VAR_RE = /\b(iw|ih|iar|cw|ch|car|bw|bh|bar)\b/g
-const USER_VAR_RE = /\{\{[a-zA-Z0-9_]+\}\}/g
+const IMG_VAR_RE = makeAlphaNumBoundaryAlternationRe(IMG_VAR_CODES, "g")
+const OP_RE = makeAlphaNumBoundaryAlternationRe(OP_CODES, "g")
+const USER_VAR_RE = /\{\{[^}]+\}\}/g
 
 function safeDecodeUrlForDisplay(url: string) {
   // Only for display. Copy uses the same display string.
@@ -29,13 +38,18 @@ function safeDecodeUrlForDisplay(url: string) {
   }
 }
 
-function resolveUserVariablesOnly(
+function replaceUuidUserVarsWithNames(
   input: string,
-  resolver: (name: string) => string | undefined,
+  variables: Pick<TemplateVariable, "id" | "name">[],
 ) {
-  return input.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (m, name) => {
-    const v = resolver(name)
-    return v === undefined ? m : v
+  if (!variables.length) return input
+  const byId = new Map(variables.map((v) => [v.id.toLowerCase(), v.name]))
+  return input.replace(USER_VAR_TOKEN_GLOBAL_RE, (full, uuidInner) => {
+    const inner = String(uuidInner ?? "").trim()
+    // Defensive: even though the regex is UUID-only.
+    if (!USER_VAR_UUID_INNER_RE.test(inner)) return full
+    const name = byId.get(inner.toLowerCase())
+    return name ? `{{${name}}}` : full
   })
 }
 
@@ -43,8 +57,11 @@ function renderHighlightedUrl(text: string) {
   // Single-pass tokenizer by splitting on user vars first, then image vars.
   const parts: Array<React.ReactNode> = []
   let cursor = 0
-  const matches: Array<{ start: number; end: number; kind: "user" | "img" }> =
-    []
+  const matches: Array<{
+    start: number
+    end: number
+    kind: "user" | "img" | "op"
+  }> = []
 
   for (const m of text.matchAll(USER_VAR_RE)) {
     if (m.index === undefined) continue
@@ -53,6 +70,10 @@ function renderHighlightedUrl(text: string) {
   for (const m of text.matchAll(IMG_VAR_RE)) {
     if (m.index === undefined) continue
     matches.push({ start: m.index, end: m.index + m[0].length, kind: "img" })
+  }
+  for (const m of text.matchAll(OP_RE)) {
+    if (m.index === undefined) continue
+    matches.push({ start: m.index, end: m.index + m[0].length, kind: "op" })
   }
   matches.sort((a, b) => a.start - b.start)
 
@@ -70,6 +91,27 @@ function renderHighlightedUrl(text: string) {
           key={`img-${match.start}`}
           as="span"
           color="editorBlue.600"
+          bg="editorBlue.50"
+          borderWidth="1px"
+          borderColor="editorBlue.100"
+          px="1"
+          rounded="sm"
+          fontWeight="semibold"
+        >
+          {tokenText}
+        </Text>,
+      )
+    } else if (match.kind === "op") {
+      parts.push(
+        <Text
+          key={`op-${match.start}`}
+          as="span"
+          bg="editorGray.200"
+          color="editorBattleshipGrey.800"
+          borderWidth="1px"
+          borderColor="editorGray.300"
+          px="1"
+          rounded="sm"
           fontWeight="semibold"
         >
           {tokenText}
@@ -102,28 +144,30 @@ function renderHighlightedUrl(text: string) {
 }
 
 export interface UrlPreviewStripProps {
-  expressionUrl: string
-  resolveUserVar?: (name: string) => string | undefined
+  primitiveUrl: string
+  finalUrl: string
+  templateVariables?: Array<Pick<TemplateVariable, "id" | "name">>
 }
 
 export function UrlPreviewStrip({
-  expressionUrl,
-  resolveUserVar = () => undefined,
+  primitiveUrl,
+  finalUrl,
+  templateVariables = [],
 }: UrlPreviewStripProps) {
   const [tabIndex, setTabIndex] = useState(0)
   const [copied, setCopied] = useState(false)
   const copiedTimerRef = useRef<number | null>(null)
 
-  const exprDisplay = useMemo(
-    () => safeDecodeUrlForDisplay(expressionUrl),
-    [expressionUrl],
-  )
-  const resolvedDisplay = useMemo(
-    () => resolveUserVariablesOnly(exprDisplay, resolveUserVar),
-    [exprDisplay, resolveUserVar],
+  const primitiveDisplay = useMemo(() => {
+    const decoded = safeDecodeUrlForDisplay(primitiveUrl)
+    return replaceUuidUserVarsWithNames(decoded, templateVariables)
+  }, [primitiveUrl, templateVariables])
+  const finalDisplay = useMemo(
+    () => safeDecodeUrlForDisplay(finalUrl),
+    [finalUrl],
   )
 
-  const activeText = tabIndex === 0 ? exprDisplay : resolvedDisplay
+  const activeText = tabIndex === 0 ? primitiveDisplay : finalDisplay
 
   const copy = useCallback(async () => {
     try {
@@ -170,7 +214,7 @@ export function UrlPreviewStrip({
               }
               _focus={{ boxShadow: "none" }}
             >
-              Expression URL
+              Primitive URL
             </Tab>
             <Tab
               px="3"
@@ -186,7 +230,7 @@ export function UrlPreviewStrip({
               }
               _focus={{ boxShadow: "none" }}
             >
-              Resolved URL
+              Final URL
             </Tab>
           </TabList>
           <TabPanels display="none">
@@ -214,7 +258,9 @@ export function UrlPreviewStrip({
           overflowX="auto"
           whiteSpace="nowrap"
         >
-          {tabIndex === 0 ? renderHighlightedUrl(exprDisplay) : resolvedDisplay}
+          {tabIndex === 0
+            ? renderHighlightedUrl(primitiveDisplay)
+            : renderHighlightedUrl(finalDisplay)}
         </Box>
 
         <Tooltip label="Copy URL" hasArrow>

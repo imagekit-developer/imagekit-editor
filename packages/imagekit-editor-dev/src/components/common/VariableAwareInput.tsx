@@ -15,6 +15,7 @@ import {
   useRef,
   useState,
 } from "react"
+import { USER_VAR_TOKEN_RE } from "../../expression/regexes"
 import type { TemplateVariable } from "../../storage/types"
 import { useEditorStore } from "../../store"
 import {
@@ -310,6 +311,20 @@ export function VariableAwareInput({
     const hasImgVar = tokens.some((t) => t.kind === "imgVar")
     return hasOperator || hasImgVar ? "Resolves to" : "Resolved value"
   }, [tokens])
+
+  const displayValue = useMemo(() => {
+    if (!value) return ""
+    if (tokens.length === 0) return value
+    return tokens
+      .map((t) => {
+        if (t.kind === "imgVar") return t.code
+        if (t.kind === "op") return t.op
+        if (t.kind === "userVar") return resolveUserVarChipLabel(t.variableId)
+        return t.value
+      })
+      .filter((x) => x !== "")
+      .join("_")
+  }, [resolveUserVarChipLabel, tokens, value])
 
   const selectable = useMemo((): VariableSuggestion[] => {
     if (!isOpen) return []
@@ -623,12 +638,7 @@ export function VariableAwareInput({
             literalDraft={literalDraft}
             onLiteralDraftChange={(next) => {
               const trimmed = next.trim()
-              const autoUuid = trimmed.match(
-                new RegExp(
-                  `^\\{\\{(${USER_VAR_UUID_INNER_RE.source})\\}\\}$`,
-                  "i",
-                ),
-              )
+              const autoUuid = trimmed.match(USER_VAR_TOKEN_RE)
               if (autoUuid?.[1]) {
                 onChange(
                   serializeExpressionTokens([
@@ -809,13 +819,13 @@ export function VariableAwareInput({
               title="Click to copy"
               onClick={async () => {
                 try {
-                  await navigator.clipboard.writeText(value || "")
+                  await navigator.clipboard.writeText(displayValue || "")
                 } catch {
                   // ignore
                 }
               }}
             >
-              {value || "—"}
+              {displayValue || "—"}
             </Text>
           </Flex>
         ) : null}
