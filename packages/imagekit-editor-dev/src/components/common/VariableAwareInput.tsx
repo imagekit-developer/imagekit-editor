@@ -15,7 +15,7 @@ import {
   useRef,
   useState,
 } from "react"
-import { USER_VAR_TOKEN_RE } from "../../expression/regexes"
+import { USER_VAR_ANY_TOKEN_RE } from "../../expression/regexes"
 import type { TemplateVariable } from "../../storage/types"
 import { useEditorStore } from "../../store"
 import {
@@ -643,14 +643,17 @@ export function VariableAwareInput({
             literalDraft={literalDraft}
             onLiteralDraftChange={(next) => {
               const trimmed = next.trim()
-              const autoUuid = trimmed.match(USER_VAR_TOKEN_RE)
-              if (autoUuid?.[1]) {
+              const autoToken = trimmed.match(USER_VAR_ANY_TOKEN_RE)
+              if (autoToken?.[1]) {
+                const inner = autoToken[1].trim()
                 onChange(
                   serializeExpressionTokens([
                     ...tokens,
                     {
                       kind: "userVar",
-                      variableId: autoUuid[1].toLowerCase(),
+                      variableId: USER_VAR_UUID_INNER_RE.test(inner)
+                        ? inner.toLowerCase()
+                        : inner,
                     },
                   ]),
                 )

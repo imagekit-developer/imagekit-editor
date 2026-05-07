@@ -48,11 +48,15 @@ export function parseExpressionTokens(
     if (trimmed.startsWith("{{", i)) {
       const end = trimmed.indexOf("}}", i + 2)
       if (end !== -1) {
-        const inner = trimmed.slice(i + 2, end)
-        if (USER_VAR_UUID_INNER_RE.test(inner.trim())) {
+        const innerRaw = trimmed.slice(i + 2, end)
+        const inner = innerRaw.trim()
+        // Accept `{{uuid}}` and the display form `{{name}}` (no braces inside).
+        if (inner.length > 0 && !/[{}]/.test(inner)) {
           tokens.push({
             kind: "userVar",
-            variableId: inner.trim().toLowerCase(),
+            variableId: USER_VAR_UUID_INNER_RE.test(inner)
+              ? inner.toLowerCase()
+              : inner,
           })
           i = end + 2
           continue

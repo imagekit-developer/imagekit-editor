@@ -42,13 +42,13 @@ describe("components/common/expressionTokens", () => {
     ).toBeNull()
   })
 
-  it("parseExpressionTokens ignores non-UUID {{...}} as literal chunks", () => {
+  it("parseExpressionTokens treats non-UUID {{...}} as a userVar token (display form)", () => {
     const tokens = parseExpressionTokens("iw_add_{{not-a-uuid}}")
-    // "{{not-a-uuid}}" is not treated as a userVar; it becomes a literal chunk.
+    // "{{not-a-uuid}}" is treated as a userVar token (display form).
     expect(tokens).toEqual([
       { kind: "imgVar", code: "iw" },
       { kind: "op", op: "add" },
-      { kind: "literal", value: "{{not-a-uuid}}" },
+      { kind: "userVar", variableId: "not-a-uuid" },
     ])
   })
 

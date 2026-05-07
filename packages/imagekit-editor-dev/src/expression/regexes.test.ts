@@ -5,6 +5,7 @@ import {
   makeAlternationSource,
   makeWordBoundaryAlternationRe,
   OP_CODES,
+  USER_VAR_ANY_TOKEN_RE,
   USER_VAR_TOKEN_GLOBAL_RE,
   USER_VAR_TOKEN_RE,
   USER_VAR_UUID_INNER_RE,
@@ -41,6 +42,29 @@ describe("expression/regexes", () => {
         USER_VAR_TOKEN_RE.test("x{{00000000-0000-0000-0000-0000000000aa}}y"),
       ).toBe(false)
       expect(USER_VAR_TOKEN_RE.test("{{not-a-uuid}}")).toBe(false)
+    })
+  })
+
+  describe("USER_VAR_ANY_TOKEN_RE", () => {
+    it("matches exact {{name}} tokens and captures the inner", () => {
+      const m = "{{var_name}}".match(USER_VAR_ANY_TOKEN_RE)
+      expect(m).not.toBeNull()
+      expect(m?.[1]).toBe("var_name")
+    })
+
+    it("matches {{uuid}} too (but does not lowercase)", () => {
+      const m = "{{00000000-0000-0000-0000-0000000000AA}}".match(
+        USER_VAR_ANY_TOKEN_RE,
+      )
+      expect(m).not.toBeNull()
+      expect(m?.[1]).toBe("00000000-0000-0000-0000-0000000000AA")
+    })
+
+    it("does not match empty, nested braces, or extra characters", () => {
+      expect(USER_VAR_ANY_TOKEN_RE.test("{{}}")).toBe(false)
+      expect(USER_VAR_ANY_TOKEN_RE.test("x{{var}}y")).toBe(false)
+      expect(USER_VAR_ANY_TOKEN_RE.test("{{a{b}}}")).toBe(false)
+      expect(USER_VAR_ANY_TOKEN_RE.test("{{a}}}}")).toBe(false)
     })
   })
 

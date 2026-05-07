@@ -26,6 +26,15 @@ export const USER_VAR_TOKEN_RE = new RegExp(
   "i",
 )
 
+/**
+ * Matches exactly `{{anything}}` where inner contains no braces.
+ * Captures the inner content (not trimmed).
+ *
+ * Keep this in sync with the permissive zod validation that accepts `{{name}}`
+ * display-form tokens.
+ */
+export const USER_VAR_ANY_TOKEN_RE = /^\{\{([^{}]+)\}\}$/
+
 /** Matches `{{uuid}}` anywhere in a string (global, case-insensitive). Captures the UUID inner. */
 export const USER_VAR_TOKEN_GLOBAL_RE = new RegExp(
   `\\{\\{(${USER_VAR_UUID_INNER_NO_ANCHORS})\\}\\}`,
