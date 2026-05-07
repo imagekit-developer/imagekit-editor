@@ -154,6 +154,7 @@ export function VariableAwareInput({
     templateVariablesProp ?? storeTemplateVariables ?? []
 
   const anchorRef = useRef<HTMLDivElement | null>(null)
+  const tokenFieldAnchorRef = useRef<HTMLDivElement | null>(null)
   const tokenInputRef = useRef<HTMLInputElement | null>(null)
   const [isOpen, setIsOpen] = useState(false)
   const [anchorPos, setAnchorPos] = useState<AnchorPosition>(null)
@@ -271,7 +272,7 @@ export function VariableAwareInput({
 
   const refreshValueEditPosition = useCallback(() => {
     if (!valueEdit) return
-    const wrap = anchorRef.current
+    const wrap = tokenFieldAnchorRef.current ?? anchorRef.current
     if (!wrap) return
     const r = wrap.getBoundingClientRect()
     const popH =
@@ -417,7 +418,7 @@ export function VariableAwareInput({
   }, [query, showAdvanced, isOpen, getBestHighlightIndex, pendingOperator])
 
   const refreshAnchor = useCallback(() => {
-    const el = anchorRef.current
+    const el = tokenFieldAnchorRef.current ?? anchorRef.current
     if (!el) {
       setAnchorPos(null)
       return
@@ -616,175 +617,162 @@ export function VariableAwareInput({
   return (
     <>
       <div ref={anchorRef}>
-        <TokenizedExpressionInput
-          tokens={tokens}
-          literalDraft={literalDraft}
-          onLiteralDraftChange={(next) => {
-            const trimmed = next.trim()
-            const autoUuid = trimmed.match(
-              new RegExp(
-                `^\\{\\{(${USER_VAR_UUID_INNER_RE.source})\\}\\}$`,
-                "i",
-              ),
-            )
-            if (autoUuid?.[1]) {
-              onChange(
-                serializeExpressionTokens([
-                  ...tokens,
-                  {
-                    kind: "userVar",
-                    variableId: autoUuid[1].toLowerCase(),
-                  },
-                ]),
+        <div ref={tokenFieldAnchorRef}>
+          <TokenizedExpressionInput
+            tokens={tokens}
+            literalDraft={literalDraft}
+            onLiteralDraftChange={(next) => {
+              const trimmed = next.trim()
+              const autoUuid = trimmed.match(
+                new RegExp(
+                  `^\\{\\{(${USER_VAR_UUID_INNER_RE.source})\\}\\}$`,
+                  "i",
+                ),
               )
-              setLiteralDraft("")
-              setIsOpen(false)
-              setPendingOperator(null)
-              requestAnimationFrame(() => tokenInputRef.current?.focus())
-              return
-            }
-            const auto = trimmed.match(/^\{\{([a-zA-Z0-9_]+)\}\}$/)
-            if (auto?.[1]) {
-              const byName = templateVariables.find((v) => v.name === auto[1])
-              const variableId = byName?.id ?? auto[1]
-              onChange(
-                serializeExpressionTokens([
-                  ...tokens,
-                  { kind: "userVar", variableId },
-                ]),
-              )
-              setLiteralDraft("")
-              setIsOpen(false)
-              setPendingOperator(null)
-              requestAnimationFrame(() => tokenInputRef.current?.focus())
-              return
-            }
-            setLiteralDraft(next)
-            const q = getQueryFromValue(next)
-            if (!q) {
-              setIsOpen(false)
-              setPendingOperator(null)
-              return
-            }
-            const op = operatorFromQuery(q)
-            if (op) {
-              // Only show/allow operators when context permits.
-              if (!canInsertOperator) {
-                setPendingOperator(null)
+              if (autoUuid?.[1]) {
+                onChange(
+                  serializeExpressionTokens([
+                    ...tokens,
+                    {
+                      kind: "userVar",
+                      variableId: autoUuid[1].toLowerCase(),
+                    },
+                  ]),
+                )
+                setLiteralDraft("")
                 setIsOpen(false)
+                setPendingOperator(null)
+                requestAnimationFrame(() => tokenInputRef.current?.focus())
                 return
               }
-              setIsOpen(true)
-              setShowAdvanced(true)
-              setPendingOperator(op)
-              setHighlightedIndex(operatorIndex(op))
-              requestAnimationFrame(() => refreshAnchor())
-              return
-            }
-            setPendingOperator(null)
-            if (
-              q.toLowerCase() === "i" ||
-              q.toLowerCase() === "b" ||
-              q.toLowerCase() === "c"
-            ) {
-              setIsOpen(true)
-              setShowAdvanced(true)
-              setHighlightedIndex(getBestHighlightIndex(q, true))
-              requestAnimationFrame(() => refreshAnchor())
-            } else if (q === "{{" || q === "{") {
-              setIsOpen(true)
-              setShowAdvanced(false)
-              setHighlightedIndex(getBestHighlightIndex(q, false))
-              requestAnimationFrame(() => refreshAnchor())
-            }
-          }}
-          onCommitLiteral={() => {
-            const lit = literalDraft.trim()
-            if (!lit) return
-            onChange(
-              serializeExpressionTokens([
-                ...tokens,
-                { kind: "literal", value: lit },
-              ]),
-            )
-            setLiteralDraft("")
-          }}
-          onBackspaceAtEmpty={() => {
-            if (tokens.length === 0) return
-            const next = tokens.slice(0, -1)
-            onChange(serializeExpressionTokens(next))
-          }}
-          onRemoveToken={(idx) => {
-            onChange(
-              serializeExpressionTokens(tokens.filter((_, i) => i !== idx)),
-            )
-          }}
-          inputRef={tokenInputRef}
-          getUserVarState={getUserVarState as any}
-          resolveUserVarChipLabel={resolveUserVarChipLabel}
-          onUserVarChipMouseEnter={({ variableId }) => {
-            cancelValueEditCloseTimer()
-            setIsOpen(false)
-            setPendingOperator(null)
-            setValueEdit({ variableId })
-          }}
-          onUserVarChipMouseLeave={scheduleValueEditPopoverClose}
-          onFocus={(e) => {
-            requestAnimationFrame(() => refreshAnchor())
-            onFocus?.(e as any)
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              const draft = literalDraft.trim().toLowerCase()
-              const shouldAcceptHighlighted =
-                isOpen &&
-                highlightedIndex >= 0 &&
-                !!selectable[highlightedIndex] &&
-                !draft.includes("_") &&
-                (draft.startsWith("{{") ||
-                  /^[a-z]{1,3}$/.test(draft) ||
-                  operatorFromQuery(draft) !== null)
 
-              if (shouldAcceptHighlighted) {
-                e.preventDefault()
-                handleSelect(selectable[highlightedIndex])
-                return
-              }
-              if (isOpen && pendingOperator) {
-                e.preventDefault()
-                handleSelect({
-                  kind: "operator",
-                  operator: pendingOperator,
-                } as any)
-                return
-              }
-              // User is committing a full literal/expression; close dropdown.
-              if (isOpen) {
+              setLiteralDraft(next)
+              const q = getQueryFromValue(next)
+              if (!q) {
                 setIsOpen(false)
                 setPendingOperator(null)
+                return
               }
-            }
-            if (
-              e.key === "ArrowDown" ||
-              e.key === "ArrowUp" ||
-              e.key === "ArrowLeft" ||
-              e.key === "ArrowRight"
-            ) {
-              e.preventDefault()
-              ensureOpen()
-              dropdownRootRef.current?.focus()
-              const delta =
-                e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : -1
-              cycleHighlight(delta)
-              return
-            }
-            if (e.key === "Escape") {
+              const op = operatorFromQuery(q)
+              if (op) {
+                // Only show/allow operators when context permits.
+                if (!canInsertOperator) {
+                  setPendingOperator(null)
+                  setIsOpen(false)
+                  return
+                }
+                setIsOpen(true)
+                setShowAdvanced(true)
+                setPendingOperator(op)
+                setHighlightedIndex(operatorIndex(op))
+                requestAnimationFrame(() => refreshAnchor())
+                return
+              }
+              setPendingOperator(null)
+              if (
+                q.toLowerCase() === "i" ||
+                q.toLowerCase() === "b" ||
+                q.toLowerCase() === "c"
+              ) {
+                setIsOpen(true)
+                setShowAdvanced(true)
+                setHighlightedIndex(getBestHighlightIndex(q, true))
+                requestAnimationFrame(() => refreshAnchor())
+              } else if (q === "{{" || q === "{") {
+                setIsOpen(true)
+                setShowAdvanced(false)
+                setHighlightedIndex(getBestHighlightIndex(q, false))
+                requestAnimationFrame(() => refreshAnchor())
+              }
+            }}
+            onCommitLiteral={() => {
+              const lit = literalDraft.trim()
+              if (!lit) return
+              onChange(
+                serializeExpressionTokens([
+                  ...tokens,
+                  { kind: "literal", value: lit },
+                ]),
+              )
+              setLiteralDraft("")
+            }}
+            onBackspaceAtEmpty={() => {
+              if (tokens.length === 0) return
+              const next = tokens.slice(0, -1)
+              onChange(serializeExpressionTokens(next))
+            }}
+            onRemoveToken={(idx) => {
+              onChange(
+                serializeExpressionTokens(tokens.filter((_, i) => i !== idx)),
+              )
+            }}
+            inputRef={tokenInputRef}
+            getUserVarState={getUserVarState as any}
+            resolveUserVarChipLabel={resolveUserVarChipLabel}
+            onUserVarChipMouseEnter={({ variableId }) => {
+              cancelValueEditCloseTimer()
               setIsOpen(false)
-            }
-            onKeyDown?.(e as any)
-          }}
-          disabled={(props as any).disabled}
-        />
+              setPendingOperator(null)
+              setValueEdit({ variableId })
+            }}
+            onUserVarChipMouseLeave={scheduleValueEditPopoverClose}
+            onFocus={(e) => {
+              requestAnimationFrame(() => refreshAnchor())
+              onFocus?.(e as any)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const draft = literalDraft.trim().toLowerCase()
+                const shouldAcceptHighlighted =
+                  isOpen &&
+                  highlightedIndex >= 0 &&
+                  !!selectable[highlightedIndex] &&
+                  !draft.includes("_") &&
+                  (draft.startsWith("{{") ||
+                    /^[a-z]{1,3}$/.test(draft) ||
+                    operatorFromQuery(draft) !== null)
+
+                if (shouldAcceptHighlighted) {
+                  e.preventDefault()
+                  handleSelect(selectable[highlightedIndex])
+                  return
+                }
+                if (isOpen && pendingOperator) {
+                  e.preventDefault()
+                  handleSelect({
+                    kind: "operator",
+                    operator: pendingOperator,
+                  } as any)
+                  return
+                }
+                // User is committing a full literal/expression; close dropdown.
+                if (isOpen) {
+                  setIsOpen(false)
+                  setPendingOperator(null)
+                }
+              }
+              if (
+                e.key === "ArrowDown" ||
+                e.key === "ArrowUp" ||
+                e.key === "ArrowLeft" ||
+                e.key === "ArrowRight"
+              ) {
+                e.preventDefault()
+                ensureOpen()
+                dropdownRootRef.current?.focus()
+                const delta =
+                  e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : -1
+                cycleHighlight(delta)
+                return
+              }
+              if (e.key === "Escape") {
+                setIsOpen(false)
+              }
+              onKeyDown?.(e as any)
+            }}
+            disabled={(props as any).disabled}
+          />
+        </div>
         {showResolveStrip && tokens.length > 0 ? (
           <Flex
             mt="1.5"
