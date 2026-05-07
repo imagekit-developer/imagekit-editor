@@ -303,6 +303,11 @@ export function VariableAwareInput({
     return resolveExpressionTokensToNumber(tokens, imgNumericMap as any)
   }, [imgNumericMap, tokens])
 
+  const hasUserVar = useMemo(
+    () => tokens.some((t) => t.kind === "userVar"),
+    [tokens],
+  )
+
   const resolveLabel = useMemo(() => {
     // Match the prototype's intent:
     // - "Resolves to" for arithmetic / image-dimension expressions
@@ -800,6 +805,7 @@ export function VariableAwareInput({
               {resolveLabel}
             </Text>
             <Text
+              display={hasUserVar ? "none" : undefined}
               color="editorGreenishTeal"
               fontFamily="mono"
               fontWeight="semibold"
