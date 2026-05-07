@@ -181,7 +181,6 @@ export type EditorActions<
     /** When set, update the existing definition with this stable id. */
     id?: string
     name: string
-    type: TemplateVariable["type"]
     defaultValue: string
     description?: string
   }) => void
@@ -477,7 +476,6 @@ const useEditorStore = create<EditorState & EditorActions>()(
           list[idx] = {
             ...prev,
             name: partial.name,
-            type: partial.type,
             defaultValue: partial.defaultValue,
             description: partial.description,
           }
@@ -485,7 +483,6 @@ const useEditorStore = create<EditorState & EditorActions>()(
           list.push({
             id: partial.id ?? makeId(),
             name: partial.name,
-            type: partial.type,
             defaultValue: partial.defaultValue,
             description: partial.description,
           })

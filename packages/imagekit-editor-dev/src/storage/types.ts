@@ -3,8 +3,6 @@ import type { Transformation } from "../store"
 export type TemplateVariableId = string
 export type TemplatePresetId = string
 
-export type TemplateVariableType = "text" | "number" | "url" | "color"
-
 /**
  * A variable is a template-scoped placeholder that can be bound to a value
  * during preview (via a Preset) or during automation (via CSV / API input).
@@ -20,7 +18,6 @@ export interface TemplateVariable {
    * Human-friendly name (e.g. "headline_text"); editable without changing `{{id}}` in saved URLs.
    */
   name: string
-  type: TemplateVariableType
   /** Used when no Preset provides an override (and for "Defaults only"). */
   defaultValue: string
   description?: string

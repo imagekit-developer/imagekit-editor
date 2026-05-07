@@ -276,7 +276,6 @@ export const TransformationConfigSidebar: React.FC = () => {
     s.templateVariables.map((v) => ({
       id: v.id,
       name: v.name,
-      type: v.type,
       resolvedValue:
         v.defaultValue !== "" && v.defaultValue != null
           ? String(v.defaultValue)
@@ -294,7 +293,6 @@ export const TransformationConfigSidebar: React.FC = () => {
       useEditorStore.getState().upsertTemplateVariable({
         id: stableId,
         name: p.variableName,
-        type: p.type,
         defaultValue: p.definitionDefaultValue.trim() || p.value.trim(),
         description: p.description.trim() || undefined,
       })

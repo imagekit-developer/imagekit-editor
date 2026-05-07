@@ -52,23 +52,6 @@ const CodePill: React.FC<{
   </Box>
 )
 
-const TypeBadge: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <Box
-    fontSize="10px"
-    px="1.5"
-    py="0.5"
-    rounded="sm"
-    bg="editorGray.100"
-    color="editorBattleshipGrey.600"
-    flexShrink={0}
-    lineHeight="1.2"
-    minW="52px"
-    textAlign="center"
-  >
-    {children}
-  </Box>
-)
-
 export interface VariableSuggestionsDropdownProps {
   /**
    * The free-form user input that triggered this dropdown (used for ordering).
@@ -102,7 +85,7 @@ export interface VariableSuggestionsDropdownProps {
 
 /**
  * A lightweight dropdown list (render-only) used to insert:
- * - user-defined variables ({{uuid}} + type + resolved value)
+ * - user-defined variables ({{uuid}} + resolved value)
  * - image dimension variables (iw/ih/cw/... + resolved value)
  * - a fixed operator strip
  *
@@ -285,7 +268,6 @@ export function VariableSuggestionsDropdown({
           >
             <Flex align="center" gap="2">
               <CodePill tone="user">{`{{${v.name}}}`}</CodePill>
-              <TypeBadge>{v.type}</TypeBadge>
               <Text
                 fontSize="sm"
                 fontFamily="mono"

@@ -29,15 +29,12 @@ export const VARIABLE_VALUE_EDIT_POPOVER_SHELL_PROPS = {
 
 export type VariableValueEditPopoverMode = "unresolved" | "resolved"
 
-export type VariableDefinitionFieldType = "text" | "number" | "url" | "color"
-
 export interface UserVariableDefinitionSavePayload {
   /** Stable id when editing an existing template variable (matches `{{id}}` in URLs). */
   variableId?: string
   variableName: string
   /** Primary “Enter value” field. */
   value: string
-  type: VariableDefinitionFieldType
   definitionDefaultValue: string
   description: string
 }
@@ -66,8 +63,6 @@ export interface VariableValueEditPopoverProps {
   onRequestClose?: () => void
   /** Persist variable definition + value (wired by parent when ready). */
   onSave?: (payload: UserVariableDefinitionSavePayload) => void | Promise<void>
-  /** Seed advanced “type” when the popover opens. */
-  initialVariableType?: VariableDefinitionFieldType
   initialDefinitionDefaultValue?: string
   initialDefinitionDescription?: string
 }
@@ -88,7 +83,6 @@ export function VariableValueEditPopover({
   advancedFieldsContent,
   onRequestClose,
   onSave,
-  initialVariableType = "text",
   initialDefinitionDefaultValue = "",
   initialDefinitionDescription = "",
 }: VariableValueEditPopoverProps) {
@@ -146,7 +140,6 @@ export function VariableValueEditPopover({
                 variableId,
                 variableName,
                 value: "",
-                type: initialVariableType,
                 definitionDefaultValue: value,
                 description: initialDefinitionDescription,
               })

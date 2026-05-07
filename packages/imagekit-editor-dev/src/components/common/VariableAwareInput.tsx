@@ -927,7 +927,6 @@ export function VariableAwareInput({
               onValueChange={setValueEditDraft}
               inputRef={valueEditInputRef}
               onRequestClose={closeValueEditPopover}
-              initialVariableType={valueEditDefinitionSeed?.type ?? "text"}
               initialDefinitionDefaultValue={
                 valueEditDefinitionSeed?.defaultValue ?? ""
               }

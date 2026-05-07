@@ -9,7 +9,6 @@ export type VariableSuggestionOperator =
 export interface UserVariableSuggestion {
   id: string
   name: string
-  type: "text" | "number" | "url" | "color"
   resolvedValue: string
 }
 
