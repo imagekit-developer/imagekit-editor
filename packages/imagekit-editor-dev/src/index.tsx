@@ -5,6 +5,12 @@ export type {
 } from "./context/TemplatePermissionsContext"
 export type { ImageKitEditorProps, ImageKitEditorRef } from "./ImageKitEditor"
 export { ImageKitEditor } from "./ImageKitEditor"
+export type {
+  ResolveTemplateToAutomationOutputArgs,
+  ResolveTemplateToAutomationOutputOk,
+  ResolveTemplateToAutomationOutputResult,
+} from "./runtime/resolveTemplateToAutomationOutput"
+export { resolveTemplateToAutomationOutput } from "./runtime/resolveTemplateToAutomationOutput"
 export { DEFAULT_FOCUS_OBJECTS } from "./schema"
 export type {
   SaveTemplateInput,

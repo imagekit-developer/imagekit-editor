@@ -1,18 +1,10 @@
 import type { UniqueIdentifier } from "@dnd-kit/core"
-import {
-  buildSrc,
-  buildTransformationString,
-  type Transformation as IKTransformation,
-} from "@imagekit/javascript"
+import { buildSrc, buildTransformationString } from "@imagekit/javascript"
 import { create } from "zustand"
 import { subscribeWithSelector } from "zustand/middleware"
-import {
-  type DEFAULT_FOCUS_OBJECTS,
-  getDefaultTransformationFromMode,
-  type TransformationField,
-  transformationFormatters,
-  transformationSchema,
-} from "./schema"
+import { buildIkTransformations } from "./runtime/buildIkTransformations"
+import { replaceImagePathPlaceholders } from "./runtime/replaceImagePathPlaceholders"
+import type { DEFAULT_FOCUS_OBJECTS } from "./schema"
 import type { TemplatePreset, TemplateVariable } from "./storage/types"
 import { bumpLocalChangeVersion as bumpVersion } from "./sync/templateSyncVersioning"
 import {
@@ -28,7 +20,11 @@ export interface Transformation {
   key: string
   name: string
   type: "transformation"
-  value: IKTransformation
+  /**
+   * Editor-facing transformation config (UI schema shape).
+   * This is later mapped into ImageKit delivery transformations for URL building.
+   */
+  value: Record<string, unknown>
   version?: typeof TRANSFORMATION_STATE_VERSION
   /** Persisted visibility flag. Absent or true = visible; false = hidden. */
   enabled?: boolean
@@ -834,27 +830,6 @@ const useEditorStore = create<EditorState & EditorActions>()(
   })),
 )
 
-const replaceImagePathPlaceholders = (
-  transformations: IKTransformation[],
-  imagePath: string,
-): IKTransformation[] => {
-  return transformations.map((transformation) => {
-    const clonedTransformation = { ...transformation }
-
-    if (
-      typeof clonedTransformation.raw === "string" &&
-      clonedTransformation.raw.includes("__IMAGE_PATH__")
-    ) {
-      clonedTransformation.raw = clonedTransformation.raw.replace(
-        /__IMAGE_PATH__/g,
-        imagePath,
-      )
-    }
-
-    return clonedTransformation
-  })
-}
-
 const calculateImageList = (
   imageList: FileElement[],
   transformations: Transformation[],
@@ -913,115 +888,8 @@ const calculateImageList = (
     }
   }
 
-  const buildIKTransformations = (steps: Array<Omit<Transformation, "id">>) =>
-    steps.map((transformation) => {
-      const t = transformationSchema
-        .find((schema) => schema.key === transformation.key.split("-")[0])
-        ?.items.find((item) => item.key === transformation.key)
-
-      const groupedTransforms: Record<
-        string,
-        {
-          fields: Array<{
-            name: string
-            value: unknown
-            field: TransformationField
-          }>
-          transformationKey: string
-        }
-      > = {}
-
-      if (t?.transformations) {
-        t.transformations.forEach((transform) => {
-          if (
-            transform.transformationGroup &&
-            transform.isVisible?.(
-              transformation.value as Record<string, unknown>,
-            ) !== false
-          ) {
-            const value = (transformation.value as Record<string, unknown>)[
-              transform.name
-            ]
-            if (value !== undefined && value !== "") {
-              if (!groupedTransforms[transform.transformationGroup]) {
-                groupedTransforms[transform.transformationGroup] = {
-                  fields: [],
-                  transformationKey:
-                    transform.transformationKey || transform.name,
-                }
-              }
-              groupedTransforms[transform.transformationGroup].fields.push({
-                name: transform.name,
-                value,
-                field: transform,
-              })
-            }
-          }
-        })
-      }
-
-      const transforms: Record<string, unknown> = Object.fromEntries(
-        Object.entries(transformation.value)
-          .map(([key, value]) => {
-            const transform = t?.transformations.find(
-              (field) => field.name === key,
-            )
-
-            if (transform?.transformationGroup) {
-              return []
-            }
-
-            if (
-              transform?.isTransformation &&
-              (transform.isVisible?.(
-                transformation.value as Record<string, unknown>,
-              ) ??
-                true) &&
-              value !== ""
-            ) {
-              return [transform.transformationKey ?? key, value]
-            }
-            return []
-          })
-          .filter((entry) => entry.length > 0),
-      )
-
-      for (const groupName in groupedTransforms) {
-        const group = groupedTransforms[groupName]
-        const formatter = transformationFormatters[groupName]
-
-        if (formatter) {
-          const groupValues = {} as Record<string, unknown>
-          group.fields.forEach((f) => {
-            groupValues[f.name] = f.value
-          })
-
-          formatter(groupValues, transforms)
-        }
-      }
-
-      // Special handling for resize_and_crop transformation
-      let defaultTransformation = t?.defaultTransformation || {}
-      if (transformation.key === "resize_and_crop-resize_and_crop") {
-        const value = transformation.value as Record<string, unknown>
-        // Only add crop/cropMode when both width and height and mode are set
-        if (value.width && value.height && value.mode) {
-          defaultTransformation = getDefaultTransformationFromMode(
-            value.mode as string,
-          )
-        } else {
-          defaultTransformation = {}
-        }
-      }
-
-      return {
-        ...defaultTransformation,
-        ...transforms,
-      }
-    })
-
-  const IKTransformations = buildIKTransformations(resolved.transformations)
-  const IKPrimitiveTransformations = buildIKTransformations(
+  const IKTransformations = buildIkTransformations(resolved.transformations)
+  const IKPrimitiveTransformations = buildIkTransformations(
     primitiveTransformations,
   )
 
