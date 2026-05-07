@@ -16,15 +16,19 @@ export const OP_CODES = ["mul", "div", "add", "sub", "mod", "pow"] as const
 export const USER_VAR_UUID_INNER_RE =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
 
+/** UUID pattern without anchors (for substring matching within a larger string). */
+const USER_VAR_UUID_INNER_NO_ANCHORS =
+  "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+
 /** Matches exactly `{{uuid}}` (case-insensitive). Captures the UUID inner. */
 export const USER_VAR_TOKEN_RE = new RegExp(
-  `^\\{\\{(${USER_VAR_UUID_INNER_RE.source})\\}\\}$`,
+  `^\\{\\{(${USER_VAR_UUID_INNER_NO_ANCHORS})\\}\\}$`,
   "i",
 )
 
 /** Matches `{{uuid}}` anywhere in a string (global, case-insensitive). Captures the UUID inner. */
 export const USER_VAR_TOKEN_GLOBAL_RE = new RegExp(
-  `\\{\\{(${USER_VAR_UUID_INNER_RE.source})\\}\\}`,
+  `\\{\\{(${USER_VAR_UUID_INNER_NO_ANCHORS})\\}\\}`,
   "gi",
 )
 

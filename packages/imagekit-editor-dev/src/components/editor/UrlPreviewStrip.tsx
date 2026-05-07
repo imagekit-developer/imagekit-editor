@@ -34,7 +34,9 @@ function safeDecodeUrlForDisplay(url: string) {
   try {
     return decodeURIComponent(url)
   } catch {
-    return url
+    // Fall back to a minimal decode for braces so `{{uuid}}` can still be
+    // formatted into `{{name}}` even when the full URL isn't decodable.
+    return url.replace(/%7B%7B/gi, "{{").replace(/%7D%7D/gi, "}}")
   }
 }
 
@@ -44,13 +46,29 @@ function replaceUuidUserVarsWithNames(
 ) {
   if (!variables.length) return input
   const byId = new Map(variables.map((v) => [v.id.toLowerCase(), v.name]))
-  return input.replace(USER_VAR_TOKEN_GLOBAL_RE, (full, uuidInner) => {
+  // Avoid `lastIndex` footguns from reusing a global RegExp across renders.
+  const tokenRe = new RegExp(
+    USER_VAR_TOKEN_GLOBAL_RE.source,
+    USER_VAR_TOKEN_GLOBAL_RE.flags,
+  )
+  const replaced = input.replace(tokenRe, (full, uuidInner) => {
     const inner = String(uuidInner ?? "").trim()
     // Defensive: even though the regex is UUID-only.
     if (!USER_VAR_UUID_INNER_RE.test(inner)) return full
     const name = byId.get(inner.toLowerCase())
     return name ? `{{${name}}}` : full
   })
+  // Also handle the URL-encoded braces form (`%7B%7B...%7D%7D`) if the caller
+  // passed in a URL that wasn't fully decoded (decodeURIComponent can fail).
+  return replaced.replace(
+    /%7B%7B([0-9a-fA-F-]{36})%7D%7D/gi,
+    (full, uuidInner) => {
+      const inner = String(uuidInner ?? "").trim()
+      if (!USER_VAR_UUID_INNER_RE.test(inner)) return full
+      const name = byId.get(inner.toLowerCase())
+      return name ? `{{${name}}}` : full
+    },
+  )
 }
 
 function renderHighlightedUrl(text: string) {
@@ -63,15 +81,20 @@ function renderHighlightedUrl(text: string) {
     kind: "user" | "img" | "op"
   }> = []
 
-  for (const m of text.matchAll(USER_VAR_RE)) {
+  // Avoid `lastIndex` issues by cloning global regexes per call.
+  const userVarRe = new RegExp(USER_VAR_RE.source, USER_VAR_RE.flags)
+  const imgVarRe = new RegExp(IMG_VAR_RE.source, IMG_VAR_RE.flags)
+  const opRe = new RegExp(OP_RE.source, OP_RE.flags)
+
+  for (const m of text.matchAll(userVarRe)) {
     if (m.index === undefined) continue
     matches.push({ start: m.index, end: m.index + m[0].length, kind: "user" })
   }
-  for (const m of text.matchAll(IMG_VAR_RE)) {
+  for (const m of text.matchAll(imgVarRe)) {
     if (m.index === undefined) continue
     matches.push({ start: m.index, end: m.index + m[0].length, kind: "img" })
   }
-  for (const m of text.matchAll(OP_RE)) {
+  for (const m of text.matchAll(opRe)) {
     if (m.index === undefined) continue
     matches.push({ start: m.index, end: m.index + m[0].length, kind: "op" })
   }
