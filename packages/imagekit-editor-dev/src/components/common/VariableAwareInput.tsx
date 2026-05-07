@@ -936,12 +936,7 @@ export function VariableAwareInput({
               onValueChange={setValueEditDraft}
               inputRef={valueEditInputRef}
               onRequestClose={closeValueEditPopover}
-              initialDefinitionDefaultValue={
-                valueEditDefinitionSeed?.defaultValue ?? ""
-              }
-              initialDefinitionDescription={
-                valueEditDefinitionSeed?.description ?? ""
-              }
+              initialDescription={valueEditDefinitionSeed?.description ?? ""}
               onSave={
                 onUserVariableSave
                   ? async (payload) => {

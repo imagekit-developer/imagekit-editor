@@ -290,10 +290,11 @@ export const TransformationConfigSidebar: React.FC = () => {
         p.variableId && USER_VAR_UUID_INNER_RE.test(p.variableId)
           ? p.variableId
           : undefined
+
       useEditorStore.getState().upsertTemplateVariable({
         id: stableId,
         name: p.variableName,
-        defaultValue: p.definitionDefaultValue.trim() || p.value.trim(),
+        defaultValue: p.defaultValue.trim(),
         description: p.description.trim() || undefined,
       })
       const saved = await saveNow({ reason: "sidebar" })
