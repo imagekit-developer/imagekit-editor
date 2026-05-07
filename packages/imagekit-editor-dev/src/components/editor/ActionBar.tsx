@@ -19,6 +19,7 @@ import { PiImageSquare } from "@react-icons/all-files/pi/PiImageSquare"
 import { PiListBullets } from "@react-icons/all-files/pi/PiListBullets"
 import { type FC, useMemo } from "react"
 import { useEditorStore } from "../../store"
+import { CanvasSettingsPopover } from "./CanvasSettingsPopover"
 
 interface ActionBarProps {
   viewMode: "list" | "grid"
@@ -105,18 +106,7 @@ export const ActionBar: FC<ActionBarProps> = ({
               h="6"
               borderColor="editorBattleshipGrey.200"
             />
-            <Text
-              fontSize="md"
-              fontWeight="medium"
-              whiteSpace="nowrap"
-              paddingX="4"
-            >
-              Canvas:{" "}
-              <Text as="span" fontWeight="normal">
-                {canvas.width} × {canvas.height}
-                {canvas.background ? ` • #${canvas.background}` : ""}
-              </Text>
-            </Text>
+            <CanvasSettingsPopover canvas={canvas} />
           </>
         )}
 

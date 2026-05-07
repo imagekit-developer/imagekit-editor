@@ -220,6 +220,11 @@ export type EditorActions<
    */
   setMode: (mode: EditorMode, canvas?: CanvasConfig | null) => void
   /**
+   * Update canvas dimensions / background. No-op outside canvas mode. Marks
+   * the editor dirty and bumps the local change version so auto-save kicks in.
+   */
+  setCanvas: (canvas: CanvasConfig) => void
+  /**
    * Blocks any further writes to template storage while keeping the current
    * template state intact (so the user can keep viewing/editing locally).
    * Intended for 401/403 write failures.
@@ -697,6 +702,16 @@ const useEditorStore = create<EditorState & EditorActions>()(
           currentImage: undefined,
         })
       }
+    },
+
+    setCanvas: (canvas) => {
+      const state = get()
+      if (state.mode !== "canvas") return
+      set({
+        canvas,
+        isPristine: false,
+        localChangeVersion: bumpVersion(state.localChangeVersion),
+      })
     },
 
     resetToNewTemplate: () => {
