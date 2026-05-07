@@ -157,4 +157,132 @@ describe("runtime/resolveTemplateToAutomationOutput", () => {
     if (!res.ok) return
     expect(res.transformationString).toContain("123")
   })
+
+  it("resolves sample template variables including nested fields and expression suffixes: nested folder path", () => {
+    const widthId = "4ede08f6-9169-4077-a18b-263662877787"
+    const heightId = "8970b35b-a139-454b-9124-92740ae3ffce"
+    const stopPointId = "5d800c3e-aee1-4c47-ac15-45c0366b22ab"
+
+    const template = templateRecord({
+      name: "Resize and Crop Template",
+      transformations: [
+        tplStep("adjust-background", {
+          backgroundType: "gradient",
+          backgroundGradient: {
+            from: "#F23016FF",
+            to: "#F8D624FF",
+            direction: "bottom",
+            stopPoint: `{{${stopPointId}}}`,
+          },
+        }),
+        tplStep("resize_and_crop-resize_and_crop", {
+          mode: "c-maintain_ratio",
+          width: `{{${widthId}}}_add_100`,
+          height: `{{${heightId}}}`,
+        }),
+      ],
+      variables: [
+        { id: widthId, name: "width1", defaultValue: "500" },
+        { id: heightId, name: "height1", defaultValue: "750" },
+        { id: stopPointId, name: "gradientStopPoint", defaultValue: "100" },
+      ],
+      presets: [],
+    })
+
+    const res = resolveTemplateToAutomationOutput({
+      assetUrl: "https://ik.imagekit.io/demo/folder/img.png",
+      template,
+      activePresetId: null,
+    })
+
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+
+    // Width should retain the expression suffix after substitution.
+    expect(res.transformationString).toContain("500_add_100")
+    expect(res.transformationString).toContain("750")
+
+    // Nested stopPoint placeholder should be substituted as well (no placeholders/ids remain).
+    expect(res.transformationString).not.toContain("{{")
+    expect(res.transformationString).not.toContain(widthId)
+    expect(res.transformationString).not.toContain(heightId)
+    expect(res.transformationString).not.toContain(stopPointId)
+
+    // Ensure the transformation string is deterministic.
+    expect(res.transformationString).eql(
+      "e-gradient-ld-bottom_from-F23016FF_to-F8D624FF_sp-1:l-image,i-folder@@img.png,t-false,l-end:c-maintain_ratio,w-500_add_100,h-750",
+    )
+  })
+
+  it("resolves sample template variables including nested fields and expression suffixes: root folder path; future variables (when introduced)", () => {
+    const widthId = "4ede08f6-9169-4077-a18b-263662877787"
+    const heightId = "8970b35b-a139-454b-9124-92740ae3ffce"
+    const stopPointId = "5d800c3e-aee1-4c47-ac15-45c0366b22ab"
+    const directionId = "5d800c3e-aee1-4c47-ac15-45c0366b22ac"
+    const fromColorId = "5d800c3e-aee1-4c47-ac15-45c0366b22ad"
+    const toColorId = "5d800c3e-aee1-4c47-ac15-45c0366b22ae"
+
+    const template = templateRecord({
+      name: "Resize and Crop Template",
+      transformations: [
+        tplStep("adjust-background", {
+          backgroundType: "gradient",
+          backgroundGradient: {
+            from: `{{${fromColorId}}}`,
+            to: `{{${toColorId}}}`,
+            direction: `{{${directionId}}}`,
+            stopPoint: `{{${stopPointId}}}`,
+          },
+        }),
+        tplStep("resize_and_crop-resize_and_crop", {
+          mode: "c-maintain_ratio",
+          width: `{{${widthId}}}_add_100`,
+          height: `{{${heightId}}}`,
+        }),
+      ],
+      variables: [
+        { id: widthId, name: "width1", defaultValue: "500" },
+        { id: heightId, name: "height1", defaultValue: "750" },
+        { id: stopPointId, name: "gradientStopPoint", defaultValue: "100" },
+        { id: directionId, name: "gradientDirection", defaultValue: "top" },
+        {
+          id: fromColorId,
+          name: "gradientFromColor",
+          defaultValue: "#F23016FF",
+        },
+        { id: toColorId, name: "gradientToColor", defaultValue: "#F8D624FF" },
+      ],
+      presets: [],
+    })
+
+    const res = resolveTemplateToAutomationOutput({
+      assetUrl: "https://ik.imagekit.io/demo/img.png",
+      template,
+      activePresetId: null,
+    })
+
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+
+    // Width should retain the expression suffix after substitution.
+    expect(res.transformationString).toContain("500_add_100")
+    expect(res.transformationString).toContain("750")
+    expect(res.transformationString).toContain("top")
+    expect(res.transformationString).toContain("F23016FF")
+    expect(res.transformationString).toContain("F8D624FF")
+
+    // Nested stopPoint placeholder should be substituted as well (no placeholders/ids remain).
+    expect(res.transformationString).not.toContain("{{")
+    expect(res.transformationString).not.toContain(widthId)
+    expect(res.transformationString).not.toContain(heightId)
+    expect(res.transformationString).not.toContain(stopPointId)
+    expect(res.transformationString).not.toContain(directionId)
+    expect(res.transformationString).not.toContain(fromColorId)
+    expect(res.transformationString).not.toContain(toColorId)
+
+    // Ensure the transformation string is deterministic.
+    expect(res.transformationString).eql(
+      "e-gradient-ld-top_from-F23016FF_to-F8D624FF_sp-1:l-image,i-img.png,t-false,l-end:c-maintain_ratio,w-500_add_100,h-750",
+    )
+  })
 })
