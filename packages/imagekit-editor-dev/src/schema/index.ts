@@ -1,6 +1,8 @@
 import type { Transformation } from "@imagekit/javascript"
 import type {
   OverlayPosition,
+  SolidColorOverlay,
+  SolidColorOverlayTransformation,
   TextOverlay,
   TextOverlayTransformation,
 } from "@imagekit/javascript/dist/interfaces"
@@ -3110,6 +3112,260 @@ const baseTransformationSchema: TransformationSchema[] = [
           },
         ],
       },
+      {
+        key: "layers-solid-color",
+        name: "Solid Color Layer",
+        description:
+          "Overlay a solid color block on top of the base image. Specify color, size, position, opacity, radius and optional gradient.",
+        docsLink:
+          "https://imagekit.io/docs/add-overlays-on-images#add-solid-color-block-over-image",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            color: z.string().min(1, { message: "Color is required." }),
+            width: widthValidator.optional(),
+            height: heightValidator.optional(),
+            positionX: layerXValidator.optional(),
+            positionY: layerYValidator.optional(),
+            opacityEnabled: z.boolean().optional(),
+            opacity: z
+              .union([
+                z.coerce
+                  .number({
+                    invalid_type_error: "Should be a number.",
+                  })
+                  .min(1)
+                  .max(9),
+                z.literal(""),
+              ])
+              .optional(),
+            radius: z
+              .object({
+                mode: z.enum(["uniform", "individual"]).optional(),
+                radius: z
+                  .union([
+                    z.literal("max"),
+                    z.coerce
+                      .number({
+                        invalid_type_error: "Should be a number.",
+                      })
+                      .min(0, {
+                        message: "Negative values are not allowed.",
+                      }),
+                    z.object({
+                      topLeft: z.union([
+                        z.literal("max"),
+                        z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
+                      ]),
+                      topRight: z.union([
+                        z.literal("max"),
+                        z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
+                      ]),
+                      bottomRight: z.union([
+                        z.literal("max"),
+                        z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
+                      ]),
+                      bottomLeft: z.union([
+                        z.literal("max"),
+                        z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
+                      ]),
+                    }),
+                  ])
+                  .optional(),
+              })
+              .optional(),
+            gradientSwitch: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+            gradient: z
+              .object({
+                from: z.string().optional(),
+                to: z.string().optional(),
+                direction: z
+                  .union([
+                    z.coerce
+                      .number({
+                        invalid_type_error: "Should be a number.",
+                      })
+                      .min(0)
+                      .max(359),
+                    z.string(),
+                  ])
+                  .optional(),
+                stopPoint: z.coerce
+                  .number({
+                    invalid_type_error: "Should be a number.",
+                  })
+                  .min(1)
+                  .max(100)
+                  .optional(),
+              })
+              .optional(),
+          })
+          .refine(
+            (val) => {
+              return Object.values(val).some(
+                (v) => v !== undefined && v !== null && v !== "",
+              )
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
+          {
+            label: "Color",
+            name: "color",
+            fieldType: "color-picker",
+            isTransformation: true,
+            transformationKey: "color",
+            transformationGroup: "solidColorLayer",
+            helpText:
+              "Specify the color of the solid color block using an RGB hex code (e.g. FF0000), an RGBA code (e.g. FFAABB50), or a color name (e.g. red).",
+            examples: ["FF0000", "red"],
+            fieldProps: {
+              isClearable: false,
+            },
+          },
+          {
+            label: "Width",
+            name: "width",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "width",
+            transformationGroup: "solidColorLayer",
+            helpText: "Specify the width of the solid color block.",
+            examples: ["200", "bw_div_2"],
+          },
+          {
+            label: "Height",
+            name: "height",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "height",
+            transformationGroup: "solidColorLayer",
+            helpText: "Specify the height of the solid color block.",
+            examples: ["200", "bh_div_2"],
+          },
+          {
+            label: "Position X",
+            name: "positionX",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "x",
+            transformationGroup: "solidColorLayer",
+            helpText:
+              "Specify horizontal offset for the solid color block.",
+            examples: ["10", "-20", "N30", "bw_div_2"],
+          },
+          {
+            label: "Position Y",
+            name: "positionY",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "y",
+            transformationGroup: "solidColorLayer",
+            helpText:
+              "Specify vertical offset for the solid color block.",
+            examples: ["10", "-20", "N30", "bh_div_2"],
+          },
+          {
+            label: "Opacity",
+            name: "opacityEnabled",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationKey: "opacityEnabled",
+            transformationGroup: "solidColorLayer",
+            helpText:
+              "Toggle to set a custom opacity for the solid color block.",
+            fieldProps: {
+              defaultValue: false,
+            },
+          },
+          {
+            label: "Opacity",
+            name: "opacity",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationGroup: "solidColorLayer",
+            helpText:
+              "Set opacity for the solid color overlay (1-9).",
+            fieldProps: {
+              min: 1,
+              max: 9,
+              step: 1,
+              defaultValue: 9,
+            },
+            isVisible: ({ opacityEnabled }) => opacityEnabled === true,
+          },
+          {
+            label: "Radius",
+            name: "radius",
+            fieldType: "radius-input",
+            isTransformation: true,
+            transformationGroup: "solidColorLayer",
+            helpText:
+              "Set the corner radius for the solid color block. Use 'max' for a circle or oval.",
+            examples: ["10", "max"],
+            fieldProps: {
+              defaultValue: {},
+            },
+          },
+          {
+            label: "Gradient",
+            name: "gradientSwitch",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "solidColorLayer",
+            helpText:
+              "Toggle to add a gradient to the solid color block.",
+          },
+          {
+            label: "Apply Gradient",
+            name: "gradient",
+            fieldType: "gradient-picker",
+            isTransformation: true,
+            transformationKey: "gradient",
+            transformationGroup: "solidColorLayer",
+            isVisible: ({ gradientSwitch }) => gradientSwitch === true,
+            fieldProps: {
+              defaultValue: {
+                from: "#FFFFFFFF",
+                to: "#00000000",
+                direction: "bottom",
+                stopPoint: 100,
+              },
+            },
+          },
+        ],
+      },
     ],
   },
   // Custom raw transformation section. Allows users to input a raw ImageKit
@@ -3635,6 +3891,66 @@ export const transformationFormatters: Record<
     }
 
     // Assign overlay to transforms
+    transforms.overlay = overlay
+  },
+  solidColorLayer: (values, transforms) => {
+    const overlay: SolidColorOverlay = { type: "solidColor", color: "" }
+
+    if (typeof values.color === "string") {
+      overlay.color = (values.color as string).replace(/^#/, "")
+    }
+
+    const overlayTransform: SolidColorOverlayTransformation = {}
+
+    if (
+      values.width !== undefined &&
+      values.width !== null &&
+      values.width !== ""
+    ) {
+      overlayTransform.width = values.width as number | string
+    }
+    if (
+      values.height !== undefined &&
+      values.height !== null &&
+      values.height !== ""
+    ) {
+      overlayTransform.height = values.height as number | string
+    }
+
+    if (
+      values.opacityEnabled === true &&
+      typeof values.opacity === "number"
+    ) {
+      if (values.opacity >= 1 && values.opacity <= 9) {
+        overlayTransform.alpha = values.opacity
+      }
+    }
+
+    transformationFormatters.radius(values, overlayTransform as Record<string, unknown>)
+
+    transformationFormatters.gradient(values, overlayTransform as Record<string, unknown>)
+
+    if (Object.keys(overlayTransform).length > 0) {
+      overlay.transformation = [overlayTransform]
+    }
+
+    const position: OverlayPosition = {}
+    if (
+      typeof values.positionX === "number" ||
+      typeof values.positionX === "string"
+    ) {
+      position.x = values.positionX.toString().replace(/^-/, "N")
+    }
+    if (
+      typeof values.positionY === "number" ||
+      typeof values.positionY === "string"
+    ) {
+      position.y = values.positionY.toString().replace(/^-/, "N")
+    }
+    if (Object.keys(position).length > 0) {
+      overlay.position = position
+    }
+
     transforms.overlay = overlay
   },
   flip: (values, transforms) => {
