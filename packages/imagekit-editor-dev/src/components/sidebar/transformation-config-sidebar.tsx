@@ -45,6 +45,7 @@ import Select from "react-select"
 import CreateableSelect from "react-select/creatable"
 import { z } from "zod/v3"
 import { useTemplateSync } from "../../hooks/useTemplateSync"
+import { useUserVariableSave } from "../../hooks/useUserVariableSave"
 import type { TransformationField } from "../../schema"
 import {
   DEFAULT_FOCUS_OBJECTS,
@@ -65,7 +66,6 @@ import DistortPerspectiveInput, {
   type PerspectiveErrors,
   type PerspectiveObject,
 } from "../common/DistortPerspectiveInput"
-import { USER_VAR_UUID_INNER_RE } from "../common/expressionTokens"
 import GradientPicker, {
   type GradientPickerState,
 } from "../common/GradientPicker"
@@ -75,7 +75,6 @@ import PaddingInputField, {
 } from "../common/PaddingInput"
 import RadioCardField from "../common/RadioCardField"
 import { VariableAwareInput } from "../common/VariableAwareInput"
-import type { UserVariableDefinitionSavePayload } from "../common/VariableValueEditPopover"
 import ZoomInput from "../common/ZoomInput"
 import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
@@ -283,25 +282,7 @@ export const TransformationConfigSidebar: React.FC = () => {
     })),
   )
 
-  const handleUserVariableSave = useCallback(
-    async (p: UserVariableDefinitionSavePayload) => {
-      if (templateStorageWriteBlocked) return false
-      const stableId =
-        p.variableId && USER_VAR_UUID_INNER_RE.test(p.variableId)
-          ? p.variableId
-          : undefined
-
-      useEditorStore.getState().upsertTemplateVariable({
-        id: stableId,
-        name: p.variableName,
-        defaultValue: p.defaultValue.trim(),
-        description: p.description.trim() || undefined,
-      })
-      const saved = await saveNow({ reason: "sidebar" })
-      return saved != null
-    },
-    [saveNow, templateStorageWriteBlocked],
-  )
+  const handleUserVariableSave = useUserVariableSave()
 
   const imageDimensionVariablesForDropdown = useMemo(() => {
     const idx = currentImage

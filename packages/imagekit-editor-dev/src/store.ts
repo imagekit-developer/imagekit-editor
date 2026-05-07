@@ -179,7 +179,7 @@ export type EditorActions<
     name: string
     defaultValue: string
     description?: string
-  }) => void
+  }) => TemplateVariable
   moveTransformation: (
     activeId: UniqueIdentifier,
     overId: UniqueIdentifier,
@@ -457,6 +457,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
     },
 
     upsertTemplateVariable: (partial) => {
+      let result: TemplateVariable | null = null
       set((state) => {
         const list = [...state.templateVariables]
         const idx = partial.id
@@ -475,13 +476,16 @@ const useEditorStore = create<EditorState & EditorActions>()(
             defaultValue: partial.defaultValue,
             description: partial.description,
           }
+          result = list[idx] ?? null
         } else {
-          list.push({
+          const nextVar: TemplateVariable = {
             id: partial.id ?? makeId(),
             name: partial.name,
             defaultValue: partial.defaultValue,
             description: partial.description,
-          })
+          }
+          list.push(nextVar)
+          result = nextVar
         }
         return {
           templateVariables: list,
@@ -489,6 +493,10 @@ const useEditorStore = create<EditorState & EditorActions>()(
           localChangeVersion: bumpVersion(state.localChangeVersion),
         }
       })
+      if (!result) {
+        throw new Error("upsertTemplateVariable: expected variable result")
+      }
+      return result
     },
 
     loadTemplate: (template) => {

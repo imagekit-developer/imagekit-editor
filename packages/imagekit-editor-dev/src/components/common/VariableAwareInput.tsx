@@ -16,6 +16,7 @@ import {
   useState,
 } from "react"
 import { USER_VAR_ANY_TOKEN_RE } from "../../expression/regexes"
+import type { UserVariableSaveResult } from "../../hooks/useUserVariableSave"
 import type { TemplateVariable } from "../../storage/types"
 import { useEditorStore } from "../../store"
 import {
@@ -35,6 +36,7 @@ import {
 import {
   DEFAULT_IMAGE_DIMENSION_VARIABLES,
   getQueryFromValue,
+  OPERATOR_INSERT,
   startsWithImageDimPrefix,
 } from "./variableSuggestions"
 import type {
@@ -132,10 +134,10 @@ export interface VariableAwareInputProps extends Omit<InputProps, "onChange"> {
   showResolveStrip?: boolean
   /** Template variable definitions (for popover defaults and persistence). */
   templateVariables?: TemplateVariable[]
-  /** Persist variable from the value-edit popover; return true when save succeeded. */
+  /** Persist variable from the value-edit popover; return `{ ok, variable }` when save succeeded. */
   onUserVariableSave?: (
     payload: UserVariableDefinitionSavePayload,
-  ) => Promise<boolean> | boolean
+  ) => Promise<UserVariableSaveResult> | UserVariableSaveResult
 }
 
 export function VariableAwareInput({
@@ -150,6 +152,8 @@ export function VariableAwareInput({
   onKeyDown,
   ...props
 }: VariableAwareInputProps) {
+  const AnyFlex = Flex as any
+  const AnyText = Text as any
   const storeTemplateVariables = useEditorStore((s) => s.templateVariables)
   const templateVariables =
     templateVariablesProp ?? storeTemplateVariables ?? []
@@ -792,7 +796,7 @@ export function VariableAwareInput({
           />
         </div>
         {showResolveStrip && tokens.length > 0 ? (
-          <Flex
+          <AnyFlex
             mt="1.5"
             px="2.5"
             py="1.5"
@@ -804,10 +808,10 @@ export function VariableAwareInput({
             gap="2"
             fontSize="xs"
           >
-            <Text color="editorBattleshipGrey.700" fontWeight="semibold">
+            <AnyText color="editorBattleshipGrey.700" fontWeight="semibold">
               {resolveLabel}
-            </Text>
-            <Text
+            </AnyText>
+            <AnyText
               display={hasUserVar ? "none" : undefined}
               color="editorGreenishTeal"
               fontFamily="mono"
@@ -818,8 +822,8 @@ export function VariableAwareInput({
                 : Number.isInteger(resolvedNumber)
                   ? `${resolvedNumber}`
                   : `${resolvedNumber.toFixed(2)}`}
-            </Text>
-            <Text
+            </AnyText>
+            <AnyText
               ml="auto"
               color="editorBattleshipGrey.600"
               fontFamily="mono"
@@ -835,8 +839,8 @@ export function VariableAwareInput({
               }}
             >
               {displayValue || "—"}
-            </Text>
-          </Flex>
+            </AnyText>
+          </AnyFlex>
         ) : null}
       </div>
       {isOpen && anchorPos ? (
@@ -940,10 +944,26 @@ export function VariableAwareInput({
               onSave={
                 onUserVariableSave
                   ? async (payload) => {
-                      const ok = await Promise.resolve(
+                      const res = await Promise.resolve(
                         onUserVariableSave(payload),
                       )
-                      if (ok) closeValueEditPopover()
+                      if (!res.ok) return
+
+                      // Canonicalize name-based tokens `{{name}}` -> `{{uuid}}` on successful save.
+                      const rawId = payload.variableId?.trim() ?? ""
+                      const isUuid = rawId
+                        ? USER_VAR_UUID_INNER_RE.test(rawId)
+                        : false
+                      if (rawId && !isUuid && res.variable?.id) {
+                        const nextTokens: ExpressionToken[] = tokens.map((t) =>
+                          t.kind === "userVar" && t.variableId === rawId
+                            ? { kind: "userVar", variableId: res.variable.id }
+                            : t,
+                        )
+                        onChange(serializeExpressionTokens(nextTokens))
+                      }
+
+                      closeValueEditPopover()
                     }
                   : undefined
               }
@@ -976,6 +996,8 @@ export function VariableAwareTextarea({
   const [isOpen, setIsOpen] = useState(false)
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null)
   const query = useMemo(() => getQueryFromValue(value), [value])
+  const textareaProps = props as any
+  const AnyTextarea = Textarea as any
 
   const refreshAnchor = useCallback(() => {
     setAnchorRect(getAnchorRect(inputRef.current))
@@ -1047,11 +1069,11 @@ export function VariableAwareTextarea({
 
   return (
     <>
-      <Textarea
+      <AnyTextarea
         ref={inputRef}
-        {...props}
+        {...textareaProps}
         value={value}
-        onChange={(e) => {
+        onChange={(e: any) => {
           const next = e.target.value
           onChange(next)
           const q = getQueryFromValue(next)
@@ -1065,7 +1087,7 @@ export function VariableAwareTextarea({
             setIsOpen(true)
           }
         }}
-        onFocus={(e) => {
+        onFocus={(e: any) => {
           setIsOpen(true)
           refreshAnchor()
           onFocus?.(e)
@@ -1074,7 +1096,7 @@ export function VariableAwareTextarea({
           setIsOpen(true)
           refreshAnchor()
         }}
-        onKeyDown={(e) => {
+        onKeyDown={(e: any) => {
           if (e.key === "Escape") {
             setIsOpen(false)
           }

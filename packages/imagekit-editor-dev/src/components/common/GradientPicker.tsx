@@ -16,6 +16,7 @@ import { memo, useEffect, useState } from "react"
 import ColorPicker, { useColorPicker } from "react-best-gradient-color-picker"
 import type { FieldErrors } from "react-hook-form"
 import { useDebounce } from "../../hooks/useDebounce"
+import { useUserVariableSave } from "../../hooks/useUserVariableSave"
 import AnchorField from "./AnchorField"
 import RadioCardField from "./RadioCardField"
 import { VariableAwareInput } from "./VariableAwareInput"
@@ -73,6 +74,8 @@ const GradientPickerField = ({
   userVariables?: UserVariableSuggestion[]
   imageDimensionVariables?: ImageDimensionVariableSuggestion[]
 }) => {
+  const handleUserVariableSave = useUserVariableSave()
+
   function getLinearGradientString(value: GradientPickerState): string {
     let direction = ""
     const dirInt = Number(value.direction as string)
@@ -358,6 +361,7 @@ const GradientPickerField = ({
             applyGradientInputChanges({ ...localValue, stopPoint: next })
           }}
           userVariables={userVariables ?? []}
+          onUserVariableSave={handleUserVariableSave}
           imageDimensionVariables={imageDimensionVariables}
           showResolveStrip={false}
         />
