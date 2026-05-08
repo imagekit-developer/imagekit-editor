@@ -1,4 +1,12 @@
-import { Box, Button, HStack, Icon, Text, VStack } from "@chakra-ui/react"
+import {
+  Box,
+  Button,
+  HStack,
+  Icon,
+  IconButton,
+  Text,
+  VStack,
+} from "@chakra-ui/react"
 import type {
   DragEndEvent,
   DragStartEvent,
@@ -15,6 +23,7 @@ import {
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
 import { PiRectangleDashed } from "@react-icons/all-files/pi/PiRectangleDashed"
+import { PiX } from "@react-icons/all-files/pi/PiX"
 import { RxTransform } from "@react-icons/all-files/rx/RxTransform"
 import { useEffect, useState } from "react"
 import { useEditorStore } from "../../store"
@@ -35,6 +44,11 @@ export const Sidebar = () => {
     _setSelectedTransformationKey,
     _setTransformationToEdit,
   } = useEditorStore()
+
+  const showTransientAddRow =
+    _internalState.sidebarState === "type" ||
+    (_internalState.sidebarState === "config" &&
+      !_internalState.transformationToEdit)
 
   useEffect(() => {
     if (
@@ -102,6 +116,33 @@ export const Sidebar = () => {
                 })}
               </SortableContext>
 
+              {/* Transient add state row (matches prototype flow) */}
+              {showTransientAddRow && (
+                <HStack
+                  px={4}
+                  py={2}
+                  color="editorBlue.400"
+                  bg="gray.50"
+                  spacing="3"
+                  alignItems="center"
+                >
+                  <Icon boxSize={4} as={PiRectangleDashed} opacity={0.7} />
+                  <Text fontSize="md">Select Transformation</Text>
+                  <Box flex={1} />
+                  <IconButton
+                    icon={<Icon as={PiX} />}
+                    onClick={() => {
+                      _setSidebarState("none")
+                      _setSelectedTransformationKey(null)
+                      _setTransformationToEdit(null)
+                    }}
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Cancel add transformation"
+                  />
+                </HStack>
+              )}
+
               {/* Add action — sits after the last item; sticks to bottom on overflow */}
               <Box
                 position="sticky"
@@ -123,9 +164,9 @@ export const Sidebar = () => {
                     }}
                     variant="ghost"
                     fontWeight="normal"
-                    size="sm"
+                    size="md"
                     color="editorGray.700"
-                    px="4"
+                    px="6"
                   >
                     Add new Transformation
                   </Button>
