@@ -29,12 +29,38 @@ const isOp = (s: string): s is VariableSuggestionOperator =>
 
 export { USER_VAR_UUID_INNER_RE }
 
+function looksLikeUrlOrPathLiteral(value: string) {
+  const v = value.trim()
+  if (!v) return false
+  // Common URL forms and file/path-like values. These frequently contain underscores
+  // that should NOT be treated as expression separators.
+  if (/^https?:\/\//i.test(v)) return true
+  if (v.startsWith("/")) return true
+  // Relative file paths like "folder/file_name.jpg"
+  if (
+    v.includes("/") &&
+    // Heuristic: looks like it ends in a filename with an extension.
+    /\/[^/]+\.[a-z0-9]{1,6}(?:$|[?#])/i.test(v)
+  ) {
+    return true
+  }
+  return false
+}
+
 export function parseExpressionTokens(
   raw: string,
   _templateVariables?: Pick<TemplateVariable, "id" | "name">[],
 ): ExpressionToken[] {
   const trimmed = (raw ?? "").trim()
   if (!trimmed) return []
+
+  // If this is a URL/path-like value (typical for URL fields), treat it as a single
+  // literal token so underscores don't get split into multiple chunks.
+  //
+  // We still allow tokenization when the user is explicitly using variable syntax.
+  if (looksLikeUrlOrPathLiteral(trimmed) && !trimmed.includes("{{")) {
+    return [{ kind: "literal", value: trimmed }]
+  }
 
   const tokens: ExpressionToken[] = []
 

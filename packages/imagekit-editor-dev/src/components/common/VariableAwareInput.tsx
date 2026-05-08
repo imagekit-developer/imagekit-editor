@@ -779,8 +779,18 @@ export function VariableAwareInput({
                 e.key === "ArrowLeft" ||
                 e.key === "ArrowRight"
               ) {
+                /**
+                 * Arrow keys should keep normal caret movement unless the suggestions
+                 * dropdown is already open. Otherwise, pasting text and using ←/→ to
+                 * move the caret gets hijacked by the dropdown (and the input becomes
+                 * effectively un-editable).
+                 */
+                if (!isOpen) {
+                  onKeyDown?.(e as any)
+                  return
+                }
+
                 e.preventDefault()
-                ensureOpen()
                 dropdownRootRef.current?.focus()
                 const delta =
                   e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : -1

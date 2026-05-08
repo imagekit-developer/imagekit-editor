@@ -64,4 +64,41 @@ describe("components/common/expressionTokens", () => {
     )
     expect(token).toEqual({ kind: "userVar", variableId: "a" })
   })
+
+  it("treats a leading-slash path with underscores as a single literal token", () => {
+    const raw =
+      "/creative_automation_hackathon/sample_images/female-model-2.jpg"
+    expect(parseExpressionTokens(raw)).toEqual([
+      { kind: "literal", value: raw },
+    ])
+  })
+
+  it("treats http(s) URLs with underscores as a single literal token", () => {
+    const raw =
+      "https://cdn.example.com/creative_automation_hackathon/sample_images/female-model-2.jpg"
+    expect(parseExpressionTokens(raw)).toEqual([
+      { kind: "literal", value: raw },
+    ])
+  })
+
+  it("treats relative paths with slashes and underscores as a single literal token", () => {
+    const raw = "creative_automation_hackathon/sample_images/female-model-2.jpg"
+    expect(parseExpressionTokens(raw)).toEqual([
+      { kind: "literal", value: raw },
+    ])
+  })
+
+  it("does not collapse URL/path-like values into a single literal when {{...}} is present", () => {
+    /**
+     * This is done so that we don't block the variable / expression syntax behavior.
+     */
+    const raw = "/images/{{00000000-0000-0000-0000-0000000000AA}}/file_name.jpg"
+    expect(parseExpressionTokens(raw)).toEqual([
+      {
+        kind: "literal",
+        value: "/images/{{00000000-0000-0000-0000-0000000000AA}}/file",
+      },
+      { kind: "literal", value: "name.jpg" },
+    ])
+  })
 })
