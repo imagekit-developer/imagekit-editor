@@ -110,7 +110,7 @@ export const GridView: FC<GridViewProps> = ({ imageSize, onAddImage }) => {
                         borderColor="editorBattleshipGrey.100"
                         transform="translateY(-40%) translateX(40%)"
                         isLoading={isSigning}
-                        isDisabled={imageList.length === 1}
+                        isDisabled={false}
                         _disabled={{
                           background: "editorBattleshipGrey.100",
                           cursor: "not-allowed",

@@ -17,6 +17,9 @@ export const TRANSFORMATION_STATE_VERSION = "v1" as const
 
 export const USER_PREFS_STORAGE_KEY = "ik-editor:user_prefs:v1" as const
 
+export const DEFAULT_EDITOR_URL_ENDPOINT =
+  "https://ik.imagekit.io/demo" as const
+
 export type UserPrefs = {
   showUrlPreviewStrip: boolean
   showThumbnailStrip: boolean
@@ -133,6 +136,11 @@ export type SyncStatus = "unsaved" | "saving" | "saved" | "error"
 export interface EditorState<
   Metadata extends RequiredMetadata = RequiredMetadata,
 > {
+  /**
+   * Host-provided URL endpoint used for default blank canvas loading.
+   * When no images are provided, the editor will load `${urlEndpoint}/ik-canvas.png`.
+   */
+  urlEndpoint: string
   currentImage: string | undefined
   /** Current image URL before resolving template variables (placeholders intact). */
   currentPrimitiveImage: string | undefined
@@ -199,6 +207,7 @@ export type EditorActions<
 > = {
   initialize: (initialData?: {
     imageList?: Array<string | InputFileElement<Metadata>>
+    urlEndpoint?: string
     signer?: Signer<Metadata>
     focusObjects?: ReadonlyArray<FocusObjects>
     templateName?: string
@@ -336,6 +345,7 @@ function normalizeImage<Metadata extends RequiredMetadata = RequiredMetadata>(
 }
 
 const DEFAULT_STATE: EditorState = {
+  urlEndpoint: DEFAULT_EDITOR_URL_ENDPOINT,
   currentImage: undefined,
   currentPrimitiveImage: undefined,
   originalImageList: [],
@@ -382,12 +392,21 @@ const useEditorStore = create<EditorState & EditorActions>()(
       get().hydrateUserPrefsFromStorage()
 
       const updates: Partial<EditorState> = {}
-      if (initialData?.imageList && initialData.imageList.length > 0) {
-        const imgs = initialData.imageList.map(normalizeImage)
-        updates.originalImageList = imgs
-        updates.imageList = imgs.map((i) => i.url)
-        updates.currentImage = imgs[0].url
-      }
+      const nextUrlEndpoint =
+        initialData?.urlEndpoint?.trim() || DEFAULT_EDITOR_URL_ENDPOINT
+      updates.urlEndpoint = nextUrlEndpoint
+
+      const canvasUrl = `${nextUrlEndpoint}/ik-canvas.png`
+
+      const provided =
+        initialData?.imageList && initialData.imageList.length > 0
+          ? initialData.imageList
+          : [canvasUrl]
+
+      const imgs = provided.map(normalizeImage)
+      updates.originalImageList = imgs
+      updates.imageList = imgs.map((i) => i.url)
+      updates.currentImage = imgs[0]?.url
       if (initialData?.signer) {
         updates.signer = initialData.signer
       }
@@ -471,6 +490,20 @@ const useEditorStore = create<EditorState & EditorActions>()(
 
     removeImage: (imageSrc) => {
       set((state) => {
+        const canvasUrl = `${state.urlEndpoint}/ik-canvas.png`
+        // Never allow the editor to become image-less; the canvas is the fallback.
+        if (state.originalImageList.length === 1) {
+          if (state.originalImageList[0]?.url === canvasUrl) return state
+          const canvas = normalizeImage(canvasUrl)
+          return {
+            originalImageList: [canvas],
+            currentImage: canvasUrl,
+            signingImages: {},
+            signingAbortControllers: {},
+            signedUrlCache: {},
+          }
+        }
+
         const index = state.originalImageList.findIndex(
           (img) => img.url === imageSrc,
         )
@@ -489,7 +522,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
               newCurrentImage = updatedImageList[index].url
             }
           } else {
-            newCurrentImage = undefined
+            newCurrentImage = canvasUrl
           }
         }
 
@@ -511,6 +544,17 @@ const useEditorStore = create<EditorState & EditorActions>()(
             delete updatedSignedUrlCache[key]
           }
         })
+
+        if (updatedImageList.length === 0) {
+          const canvas = normalizeImage(canvasUrl)
+          return {
+            originalImageList: [canvas],
+            currentImage: canvasUrl,
+            signingImages: updatedSigningImages,
+            signingAbortControllers: updatedSigningAbortControllers,
+            signedUrlCache: updatedSignedUrlCache,
+          }
+        }
 
         return {
           originalImageList: updatedImageList,

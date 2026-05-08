@@ -81,6 +81,11 @@ export interface ImageKitEditorRef {
 interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
   theme?: Dict
   initialImages?: Array<string | InputFileElement<Metadata>>
+  /**
+   * ImageKit URL endpoint to use when the editor is opened without any images.
+   * The editor will load `${urlEndpoint}/ik-canvas.png` as a default 1x1 canvas.
+   */
+  urlEndpoint?: string
   signer?: Signer<Metadata>
   onAddImage?: () => void
   exportOptions?: HeaderProps<Metadata>["exportOptions"]
@@ -106,6 +111,7 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
   const {
     theme,
     initialImages,
+    urlEndpoint,
     signer,
     focusObjects,
     templateStorage,
@@ -207,10 +213,11 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
 
     initialize({
       imageList: initialImages,
+      urlEndpoint,
       signer,
       focusObjects,
     })
-  }, [initialImages, signer, focusObjects, initialize])
+  }, [initialImages, urlEndpoint, signer, focusObjects, initialize])
 
   useImperativeHandle(
     ref,
