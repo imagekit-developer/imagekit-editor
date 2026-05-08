@@ -18,7 +18,6 @@ import {
   Tooltip,
   useDisclosure,
 } from "@chakra-ui/react"
-import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
 import { PiGlobe } from "@react-icons/all-files/pi/PiGlobe"
 import { PiLock } from "@react-icons/all-files/pi/PiLock"
 import { PiMagnifyingGlass } from "@react-icons/all-files/pi/PiMagnifyingGlass"
@@ -445,7 +444,7 @@ export function TemplatesDropdown({
             paddingX="4"
             paddingY="2"
             height="10"
-            marginX="2"
+            marginX="0"
             _hover={{ bg: "gray.100" }}
             transition="background-color 0.15s"
             aria-label="Open templates dropdown"
@@ -460,13 +459,8 @@ export function TemplatesDropdown({
               fontWeight="medium"
               color="editorBattleshipGrey.700"
             >
-              Templates
+              All templates
             </TextAny>
-            <Icon
-              as={PiCaretDown}
-              boxSize={4}
-              color="editorBattleshipGrey.600"
-            />
           </BoxAny>
         </PopoverTrigger>
         <PopoverContentAny

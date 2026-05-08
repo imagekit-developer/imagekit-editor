@@ -95,7 +95,7 @@ export function TemplateNameInput() {
       onKeyDown={handleKeyDown}
       variant="unstyled"
       fontWeight="medium"
-      fontSize="md"
+      fontSize="sm"
       color={
         isDefault ? "editorBattleshipGrey.500" : "editorBattleshipGrey.900"
       }
@@ -105,7 +105,7 @@ export function TemplateNameInput() {
       minW="10rem"
       maxW="22rem"
       px="2"
-      py="1"
+      py="0.5"
       borderRadius="md"
       _hover={{ bg: "gray.100" }}
       _focus={{ bg: "gray.100", outline: "none", boxShadow: "none" }}

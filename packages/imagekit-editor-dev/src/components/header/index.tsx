@@ -1,4 +1,5 @@
 import {
+  Box,
   Divider,
   Flex,
   Icon,
@@ -7,13 +8,19 @@ import {
   MenuItem,
   MenuList,
   Spacer,
+  Text,
 } from "@chakra-ui/react"
+import { PiBracketsCurly } from "@react-icons/all-files/pi/PiBracketsCurly"
+import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
+import { PiCaretRight } from "@react-icons/all-files/pi/PiCaretRight"
 import { PiGear } from "@react-icons/all-files/pi/PiGear"
 import { PiGlobe } from "@react-icons/all-files/pi/PiGlobe"
 import { PiLock } from "@react-icons/all-files/pi/PiLock"
+import { PiStack } from "@react-icons/all-files/pi/PiStack"
 import { PiX } from "@react-icons/all-files/pi/PiX"
 import React, { useEffect, useState } from "react"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
+import ikLightIconRounded from "../../static/ik-light-icon_rounded.svg"
 import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
 import type { TemplateRecord } from "../../storage/types"
 import {
@@ -71,11 +78,16 @@ export const Header = ({
   const MenuButtonAny = chakraAny(MenuButton)
   const MenuListAny = chakraAny(MenuList)
   const MenuItemAny = chakraAny(MenuItem)
+  const BoxAny = chakraAny(Box)
+  const TextAny = chakraAny(Text)
 
   const { imageList, originalImageList, currentImage } = useEditorStore()
   const templateId = useEditorStore((s) => s.templateId)
   const templateIsPrivate = useEditorStore((s) => s.templateIsPrivate)
   const syncStatus = useEditorStore((s) => s.syncStatus)
+  const templateName = useEditorStore((s) => s.templateName)
+  const templatePresets = useEditorStore((s) => s.templatePresets)
+  const activeTemplatePresetId = useEditorStore((s) => s.activeTemplatePresetId)
   const provider = useTemplateStorage()
 
   const [activeRecord, setActiveRecord] = useState<TemplateRecord | null>(null)
@@ -118,23 +130,71 @@ export const Header = ({
         : exportOption.isVisible(imageList, currentImage),
     ) ?? []
 
+  const activePreset = activeTemplatePresetId
+    ? (templatePresets.find((p) => p.id === activeTemplatePresetId) ?? null)
+    : null
+
+  const headerRowHeight = 12
+
   return (
     <FlexAny
       as="header"
       width="full"
-      h="16"
-      alignItems="center"
-      flexDirection="row"
-      px="1rem"
-      paddingRight="0"
+      alignItems="stretch"
+      flexDirection="column"
       borderBottomWidth="1px"
       borderBottomColor="editorBattleshipGrey.100"
       flexShrink={0}
     >
-      {provider ? (
-        <>
-          <FlexAny alignItems="center" gap="2" px="4" height="full" ml="-4">
-            {templateId && (
+      {/* Row 1: App bar (templates + status + global actions) */}
+      <FlexAny
+        alignItems="center"
+        px="1rem"
+        paddingRight="0"
+        h={headerRowHeight}
+        bg="editorGray.50"
+        gap="2"
+        borderBottomWidth="1px"
+        borderBottomColor="editorBattleshipGrey.100"
+      >
+        <BoxAny
+          as="img"
+          src={ikLightIconRounded}
+          alt="ImageKit"
+          width="22px"
+          height="22px"
+          flexShrink={0}
+          borderRadius="5px"
+        />
+        <DividerAny
+          orientation="vertical"
+          borderColor="editorBattleshipGrey.200"
+          height="50%"
+        />
+
+        {provider ? (
+          <FlexAny alignItems="center">
+            <TemplatesDropdown onViewAllTemplates={onViewAllTemplates} />
+          </FlexAny>
+        ) : null}
+
+        {provider && templateId ? (
+          <>
+            <Icon
+              as={PiCaretRight}
+              boxSize={4}
+              color="editorBattleshipGrey.500"
+              mx="1"
+            />
+            <FlexAny
+              alignItems="center"
+              gap="2"
+              px="4"
+              py="2"
+              borderRadius="md"
+              _hover={{ bg: "gray.100" }}
+              transition="background-color 0.15s"
+            >
               <Icon
                 as={
                   // Prefer the editor store for the active template visibility; it updates immediately after save.
@@ -148,19 +208,131 @@ export const Header = ({
                 }
                 boxSize={5}
                 color="editorBattleshipGrey.500"
+                flexShrink={0}
               />
-            )}
-            <TemplateNameInput />
+              <TemplateNameInput />
+            </FlexAny>
+
+            <DividerAny
+              orientation="vertical"
+              borderColor="editorBattleshipGrey.200"
+              height="50%"
+              mx="2"
+            />
+
+            <TemplateStatus />
+          </>
+        ) : (
+          <FlexAny ml="2">
+            <TemplateStatus />
           </FlexAny>
-          <DividerAny
-            orientation="vertical"
-            borderColor="editorBattleshipGrey.200"
-            height="40%"
-          />
+        )}
+
+        <Spacer />
+
+        {visibleExportOptions.map((exportOption, exportOptionIndex) => (
+          <React.Fragment key={`export-option-${exportOption.label}`}>
+            {exportOption.type === "button" ? (
+              <NavbarItem
+                key={`export-button-${exportOption.label}`}
+                icon={exportOption.icon}
+                label={exportOption.label}
+                onClick={() => {
+                  const images = imageList.map((image, index) => ({
+                    url: image,
+                    file: originalImageList[index],
+                  }))
+                  const cImage = images.find(
+                    (image) => image.url === currentImage,
+                  )
+                  exportOption.onClick(images, {
+                    // biome-ignore lint/style/noNonNullAssertion: <required here>
+                    url: cImage!.url,
+                    // biome-ignore lint/style/noNonNullAssertion: <required here>
+                    file: cImage!.file,
+                  })
+                }}
+              />
+            ) : (
+              <Menu
+                key={`export-menu-${exportOption.label}`}
+                placement="bottom-end"
+                strategy="fixed"
+              >
+                <MenuButtonAny
+                  as={NavbarItem}
+                  icon={exportOption.icon}
+                  label={exportOption.label}
+                >
+                  {exportOption.label}
+                </MenuButtonAny>
+                <MenuListAny>
+                  {exportOption.options
+                    .filter((option) =>
+                      typeof option.isVisible === "boolean"
+                        ? option.isVisible
+                        : option.isVisible(imageList, currentImage),
+                    )
+                    .map((option) => (
+                      <MenuItemAny
+                        key={`export-menu-option-${option.label}`}
+                        onClick={() => {
+                          const images = imageList.map((image, index) => ({
+                            url: image,
+                            file: originalImageList[index],
+                          }))
+                          const cImage = images.find(
+                            (image) => image.url === currentImage,
+                          )
+                          option.onClick(images, {
+                            // biome-ignore lint/style/noNonNullAssertion: <required here>
+                            url: cImage!.url,
+                            // biome-ignore lint/style/noNonNullAssertion: <required here>
+                            file: cImage!.file,
+                          })
+                        }}
+                      >
+                        {option.label}
+                      </MenuItemAny>
+                    ))}
+                </MenuListAny>
+              </Menu>
+            )}
+            {exportOptionIndex < visibleExportOptions.length - 1 ? (
+              <DividerAny
+                orientation="vertical"
+                borderColor="editorBattleshipGrey.200"
+                height="50%"
+              />
+            ) : null}
+          </React.Fragment>
+        ))}
+
+        <DividerAny
+          orientation="vertical"
+          borderColor="editorBattleshipGrey.200"
+          height="50%"
+        />
+        <NavbarItem
+          icon={<Icon boxSize={"5"} as={PiX} />}
+          label="Close"
+          onClick={onClose}
+        />
+      </FlexAny>
+
+      {/* Row 2: Template context bar (name + settings + variables/presets/preset pill) */}
+      {provider ? (
+        <FlexAny
+          alignItems="center"
+          px="1rem"
+          paddingRight="0"
+          h={headerRowHeight + 2}
+          bg="white"
+          gap="2"
+        >
           <NavbarItem
             label="Settings"
-            icon={<PiGear />}
-            variant="icon"
+            icon={<Icon as={PiGear} boxSize={4} />}
             onClick={() => {
               if (!templateId) return
               setIsSettingsOpen(true)
@@ -171,112 +343,93 @@ export const Header = ({
               opacity: 0.5,
             }}
           />
+
           <DividerAny
             orientation="vertical"
             borderColor="editorBattleshipGrey.200"
-            height="40%"
+            height="50%"
           />
-          <FlexAny alignItems="center">
-            <TemplatesDropdown onViewAllTemplates={onViewAllTemplates} />
-          </FlexAny>
+
+          <NavbarItem
+            label="Variables"
+            icon={<PiBracketsCurly />}
+            onClick={() => {
+              // Modal work intentionally out of scope for this prototype iteration.
+            }}
+            disabled={!templateId}
+            _disabled={{
+              cursor: "not-allowed",
+              opacity: 0.5,
+            }}
+          />
+
           <DividerAny
             orientation="vertical"
             borderColor="editorBattleshipGrey.200"
-            height="40%"
+            height="50%"
           />
-        </>
+
+          <NavbarItem
+            label="Presets"
+            icon={<PiStack />}
+            onClick={() => {
+              // Modal work intentionally out of scope for this prototype iteration.
+            }}
+            disabled={!templateId}
+            _disabled={{
+              cursor: "not-allowed",
+              opacity: 0.5,
+            }}
+          />
+
+          <DividerAny
+            orientation="vertical"
+            borderColor="editorBattleshipGrey.200"
+            height="50%"
+          />
+
+          <BoxAny
+            as="button"
+            type="button"
+            display="inline-flex"
+            alignItems="center"
+            gap="2"
+            borderRadius="full"
+            px="4"
+            py="2"
+            mx="2"
+            fontSize="sm"
+            fontWeight="medium"
+            bg={activePreset ? "green.50" : "editorGray.100"}
+            color={activePreset ? "green.700" : "editorBattleshipGrey.700"}
+            borderWidth="1px"
+            borderColor={
+              activePreset ? "green.200" : "editorBattleshipGrey.200"
+            }
+            cursor={!templateId ? "not-allowed" : "default"}
+            userSelect="none"
+            disabled={!templateId}
+            opacity={!templateId ? 0.5 : undefined}
+            pointerEvents={!templateId ? "none" : "auto"}
+            _hover={!templateId ? undefined : { opacity: 0.9 }}
+          >
+            <BoxAny
+              width="6px"
+              height="6px"
+              borderRadius="full"
+              bg={activePreset ? "green.500" : "editorBattleshipGrey.300"}
+              flexShrink={0}
+            />
+            <TextAny lineHeight="1">
+              {activePreset?.name ?? "No preset"}
+            </TextAny>
+            <Icon as={PiCaretDown} boxSize={4} opacity={0.7} />
+          </BoxAny>
+
+          <Spacer />
+        </FlexAny>
       ) : null}
-      <FlexAny ml="6">
-        <TemplateStatus />
-      </FlexAny>
-      <Spacer />
-      {visibleExportOptions.map((exportOption, exportOptionIndex) => (
-        <React.Fragment key={`export-option-${exportOption.label}`}>
-          {exportOption.type === "button" ? (
-            <NavbarItem
-              key={`export-button-${exportOption.label}`}
-              icon={exportOption.icon}
-              label={exportOption.label}
-              onClick={() => {
-                const images = imageList.map((image, index) => ({
-                  url: image,
-                  file: originalImageList[index],
-                }))
-                const cImage = images.find(
-                  (image) => image.url === currentImage,
-                )
-                exportOption.onClick(images, {
-                  // biome-ignore lint/style/noNonNullAssertion: <required here>
-                  url: cImage!.url,
-                  // biome-ignore lint/style/noNonNullAssertion: <required here>
-                  file: cImage!.file,
-                })
-              }}
-            />
-          ) : (
-            <Menu
-              key={`export-menu-${exportOption.label}`}
-              placement="bottom-end"
-              strategy="fixed"
-            >
-              <MenuButtonAny
-                as={NavbarItem}
-                icon={exportOption.icon}
-                label={exportOption.label}
-              >
-                {exportOption.label}
-              </MenuButtonAny>
-              <MenuListAny>
-                {exportOption.options
-                  .filter((option) =>
-                    typeof option.isVisible === "boolean"
-                      ? option.isVisible
-                      : option.isVisible(imageList, currentImage),
-                  )
-                  .map((option) => (
-                    <MenuItemAny
-                      key={`export-menu-option-${option.label}`}
-                      onClick={() => {
-                        const images = imageList.map((image, index) => ({
-                          url: image,
-                          file: originalImageList[index],
-                        }))
-                        const cImage = images.find(
-                          (image) => image.url === currentImage,
-                        )
-                        option.onClick(images, {
-                          // biome-ignore lint/style/noNonNullAssertion: <required here>
-                          url: cImage!.url,
-                          // biome-ignore lint/style/noNonNullAssertion: <required here>
-                          file: cImage!.file,
-                        })
-                      }}
-                    >
-                      {option.label}
-                    </MenuItemAny>
-                  ))}
-              </MenuListAny>
-            </Menu>
-          )}
-          {exportOptionIndex < visibleExportOptions.length - 1 ? (
-            <DividerAny
-              orientation="vertical"
-              borderColor="editorBattleshipGrey.200"
-              height="40%"
-            />
-          ) : null}
-        </React.Fragment>
-      ))}
-      <DividerAny
-        orientation="vertical"
-        borderColor="editorBattleshipGrey.200"
-        height="40%"
-      />
-      <NavbarItem
-        icon={<Icon boxSize={"5"} as={PiX} />}
-        label="Close"
-        onClick={onClose}
-      />
+
       {isSettingsOpen && activeRecord && (
         <SettingsModal
           key={activeRecord.id}
