@@ -2208,6 +2208,92 @@ describe("Backward Compatibility - V1 Templates", () => {
     })
   })
 
+  describe("Text Layer Padding", () => {
+    it("should validate text layer with uniform padding", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-text",
+        name: "Text",
+        type: "transformation",
+        value: {
+          text: "Hello",
+          fontSize: 24,
+          padding: { mode: "uniform", padding: 10 },
+          radius: 0,
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("should validate text layer with individual padding (4 values)", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-text",
+        name: "Text",
+        type: "transformation",
+        value: {
+          text: "Hello",
+          fontSize: 24,
+          padding: {
+            mode: "individual",
+            padding: { top: 10, right: 20, bottom: 30, left: 40 },
+          },
+          radius: 0,
+        },
+        version: "v1",
+      }
+      const result = validateTransformation(template)
+      expect(result.valid).toBe(true)
+    })
+
+    it("should format text layer individual padding to SDK string", () => {
+      const transforms: Record<string, unknown> = {}
+      transformationFormatters.textLayer(
+        {
+          text: "Hello",
+          padding: {
+            mode: "individual",
+            padding: { top: 10, right: 20, bottom: 30, left: 40 },
+          },
+        },
+        transforms,
+      )
+      const overlay = transforms.overlay as Record<string, unknown>
+      const overlayTransform = (overlay.transformation as Record<string, unknown>[])[0]
+      expect(overlayTransform.padding).toBe("10_20_30_40")
+    })
+
+    it("should format text layer uniform padding to SDK number", () => {
+      const transforms: Record<string, unknown> = {}
+      transformationFormatters.textLayer(
+        {
+          text: "Hello",
+          padding: { mode: "uniform", padding: 10 },
+        },
+        transforms,
+      )
+      const overlay = transforms.overlay as Record<string, unknown>
+      const overlayTransform = (overlay.transformation as Record<string, unknown>[])[0]
+      expect(overlayTransform.padding).toBe(10)
+    })
+
+    it("should format text layer symmetric 2-value padding", () => {
+      const transforms: Record<string, unknown> = {}
+      transformationFormatters.textLayer(
+        {
+          text: "Hello",
+          padding: {
+            mode: "individual",
+            padding: { top: 10, right: 20, bottom: 10, left: 20 },
+          },
+        },
+        transforms,
+      )
+      const overlay = transforms.overlay as Record<string, unknown>
+      const overlayTransform = (overlay.transformation as Record<string, unknown>[])[0]
+      expect(overlayTransform.padding).toBe("10_20")
+    })
+  })
+
   describe("Image Layer Complex Validations", () => {
     it("should validate image layer with border using expression", () => {
       const template: Omit<Transformation, "id"> = {

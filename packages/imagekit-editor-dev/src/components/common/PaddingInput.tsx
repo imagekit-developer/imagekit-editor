@@ -124,6 +124,38 @@ export const PaddingInputField: React.FC<PaddingInputFieldProps> = ({
   const activeColor = useColorModeValue("blue.500", "blue.600")
   const inactiveColor = useColorModeValue("gray.600", "gray.400")
 
+  // Sync internal state when value prop changes externally
+  // (e.g. loading a saved template or switching between transformations)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <deep-compare padding object via JSON.stringify>
+  useEffect(() => {
+    setPaddingMode((prev) => {
+      const next = value?.mode ?? "uniform"
+      return prev === next ? prev : next
+    })
+    setPaddingValue((prev) => {
+      const next = value?.padding ?? ""
+      if (prev === next) return prev
+      if (
+        typeof prev === "object" &&
+        prev !== null &&
+        typeof next === "object" &&
+        next !== null
+      ) {
+        const p = prev as PaddingObject
+        const n = next as PaddingObject
+        if (
+          p.top === n.top &&
+          p.right === n.right &&
+          p.bottom === n.bottom &&
+          p.left === n.left
+        ) {
+          return prev
+        }
+      }
+      return next
+    })
+  }, [value?.mode, JSON.stringify(value?.padding)])
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: <causes re-render loop if added>
   useEffect(() => {
     const formatPaddingValue = (

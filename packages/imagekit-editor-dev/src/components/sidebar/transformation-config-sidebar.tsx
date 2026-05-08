@@ -362,7 +362,21 @@ export const TransformationConfigSidebar: React.FC = () => {
           editedTransformationValue &&
           field.name in editedTransformationValue
         ) {
-          currentValues[field.name] = editedTransformationValue[field.name]
+          let val = editedTransformationValue[field.name]
+          // Normalize raw padding values (e.g. from older templates or SDK format)
+          // into the { mode, padding } shape expected by PaddingInputField.
+          if (field.fieldType === "padding-input" && val != null && typeof val !== "object") {
+            const str = String(val)
+            const parts = str.split("_").map(Number)
+            if (parts.length === 4 && parts.every((p) => !Number.isNaN(p))) {
+              val = { mode: "individual", padding: { top: parts[0], right: parts[1], bottom: parts[2], left: parts[3] } }
+            } else if (parts.length === 2 && parts.every((p) => !Number.isNaN(p))) {
+              val = { mode: "individual", padding: { top: parts[0], right: parts[1], bottom: parts[0], left: parts[1] } }
+            } else {
+              val = { mode: "uniform", padding: str }
+            }
+          }
+          currentValues[field.name] = val
         } else {
           currentValues[field.name] = field.fieldProps?.defaultValue ?? (field.fieldType === "anchor" ? undefined : "")
         }
