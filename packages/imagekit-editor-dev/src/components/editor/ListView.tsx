@@ -9,6 +9,19 @@ interface ListViewProps {
   onAddImage?: () => void
 }
 
+/**
+ * Inline 8x8 PNG of a light gray + white 4x4 checker, base64-encoded.
+ * Used as a backdrop in canvas mode when the template has no background so
+ * the user can still see the canvas boundary against transparency.
+ */
+const CHECKER_BG_STYLE = {
+  backgroundImage:
+    "linear-gradient(45deg, #d9d9d9 25%, transparent 25%), linear-gradient(-45deg, #d9d9d9 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #d9d9d9 75%), linear-gradient(-45deg, transparent 75%, #d9d9d9 75%)",
+  backgroundSize: "16px 16px",
+  backgroundPosition: "0 0, 0 8px, 8px -8px, -8px 0",
+  backgroundColor: "#ffffff",
+} as const
+
 export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
   const {
     currentImage,
@@ -18,11 +31,15 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
     signingImages,
     setImageDimensions,
     mode,
+    canvas,
     _internalState,
   } = useEditorStore()
 
   const isCanvas = mode === "canvas"
   const isEmpty = imageList.length === 0
+  // Show a checker backdrop in canvas mode when the user has no background
+  // configured, so the canvas boundary remains visible against transparency.
+  const showCheckerBackdrop = isCanvas && !canvas?.background
 
   return (
     <>
@@ -71,35 +88,42 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
               </Text>
             </Flex>
           ) : (
-            <RetryableImage
-              src={currentImage}
-              maxH={`calc(100vh - 2*var(--chakra-space-16) - var(--chakra-space-44) - 2*var(--chakra-space-4))`}
-              maxW={
-                "calc(100vw - 2*var(--chakra-space-96) - 2*var(--chakra-space-4))"
-              }
-              fallback={
-                <Center h="full" w="full">
-                  <Spinner />
-                </Center>
-              }
-              isLoading={(() => {
-                const idx = imageList.findIndex((img) => img === currentImage)
-                if (idx === -1) return false
-                const originalUrl = originalImageList[idx]?.url
-                return originalUrl ? signingImages[originalUrl] : false
-              })()}
-              onLoad={(event) => {
-                console.log(event)
-                if (!currentImage) return
-                const idx = imageList.findIndex((img) => img === currentImage)
-                if (idx === -1) return
-                // biome-ignore lint/style/noNonNullAssertion: <required here>
-                setImageDimensions(originalImageList[idx]!.url, {
-                  width: event.currentTarget.naturalWidth,
-                  height: event.currentTarget.naturalHeight,
-                })
-              }}
-            />
+            <Flex
+              style={showCheckerBackdrop ? CHECKER_BG_STYLE : undefined}
+              borderWidth={isCanvas ? "1px" : 0}
+              borderColor="gray.200"
+              boxShadow={isCanvas ? "sm" : undefined}
+            >
+              <RetryableImage
+                src={currentImage}
+                maxH={`calc(100vh - 2*var(--chakra-space-16) - var(--chakra-space-44) - 2*var(--chakra-space-4))`}
+                maxW={
+                  "calc(100vw - 2*var(--chakra-space-96) - 2*var(--chakra-space-4))"
+                }
+                fallback={
+                  <Center h="full" w="full">
+                    <Spinner />
+                  </Center>
+                }
+                isLoading={(() => {
+                  const idx = imageList.findIndex((img) => img === currentImage)
+                  if (idx === -1) return false
+                  const originalUrl = originalImageList[idx]?.url
+                  return originalUrl ? signingImages[originalUrl] : false
+                })()}
+                onLoad={(event) => {
+                  console.log(event)
+                  if (!currentImage) return
+                  const idx = imageList.findIndex((img) => img === currentImage)
+                  if (idx === -1) return
+                  // biome-ignore lint/style/noNonNullAssertion: <required here>
+                  setImageDimensions(originalImageList[idx]!.url, {
+                    width: event.currentTarget.naturalWidth,
+                    height: event.currentTarget.naturalHeight,
+                  })
+                }}
+              />
+            </Flex>
           )}
         </Flex>
       </Flex>

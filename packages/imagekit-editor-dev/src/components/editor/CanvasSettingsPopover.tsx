@@ -16,6 +16,7 @@ import {
   PopoverBody,
   PopoverContent,
   PopoverTrigger,
+  Switch,
   Text,
   useDisclosure,
 } from "@chakra-ui/react"
@@ -79,6 +80,9 @@ export const CanvasSettingsPopover: FC<Props> = ({ canvas }) => {
 
   const [width, setWidth] = useState<number>(canvas.width)
   const [height, setHeight] = useState<number>(canvas.height)
+  const [bgEnabled, setBgEnabled] = useState<boolean>(
+    canvas.background !== undefined,
+  )
   const [bg, setBg] = useState<string>(
     normalizeStoredBg(canvas.background ?? DEFAULT_BG),
   )
@@ -88,6 +92,7 @@ export const CanvasSettingsPopover: FC<Props> = ({ canvas }) => {
   useEffect(() => {
     setWidth(canvas.width)
     setHeight(canvas.height)
+    setBgEnabled(canvas.background !== undefined)
     setBg(normalizeStoredBg(canvas.background ?? DEFAULT_BG))
   }, [canvas.width, canvas.height, canvas.background])
 
@@ -95,7 +100,7 @@ export const CanvasSettingsPopover: FC<Props> = ({ canvas }) => {
     setCanvas({
       width: Math.max(MIN_DIM, Math.min(MAX_DIM, Math.round(width))),
       height: Math.max(MIN_DIM, Math.min(MAX_DIM, Math.round(height))),
-      background: normalizeStoredBg(bg),
+      ...(bgEnabled ? { background: normalizeStoredBg(bg) } : {}),
     })
     onClose()
   }
@@ -122,7 +127,21 @@ export const CanvasSettingsPopover: FC<Props> = ({ canvas }) => {
               borderRadius="sm"
               borderWidth="1px"
               borderColor="gray.300"
-              bg={`#${normalizeStoredBg(canvas.background ?? DEFAULT_BG)}`}
+              bg={
+                canvas.background
+                  ? `#${normalizeStoredBg(canvas.background)}`
+                  : "white"
+              }
+              style={
+                canvas.background
+                  ? undefined
+                  : {
+                      backgroundImage:
+                        "linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)",
+                      backgroundSize: "6px 6px",
+                      backgroundPosition: "0 0, 0 3px, 3px -3px, -3px 0",
+                    }
+              }
             />
           }
         >
@@ -181,42 +200,62 @@ export const CanvasSettingsPopover: FC<Props> = ({ canvas }) => {
             </HStack>
 
             <Flex direction="column">
-              <Text fontSize="xs" color="gray.600" mb="1">
-                Background (RRGGBBAA)
-              </Text>
-              <InputGroup size="sm">
-                <InputLeftAddon>#</InputLeftAddon>
-                <Input
-                  fontFamily="mono"
-                  value={bg}
-                  placeholder="FFFFFFFF"
-                  onChange={(e) => {
-                    const v = e.target.value.replace(/^#/, "").toUpperCase()
-                    if (/^[0-9A-F]{0,8}$/.test(v)) setBg(v)
-                  }}
-                />
-              </InputGroup>
-              <Box mt="3">
-                <ColorPicker
-                  value={hex8ToPickerHex(bg)}
-                  onChange={(c: string) => {
-                    const next = rgbaStringToHex8(c)
-                    if (next) setBg(next)
-                  }}
-                  disableDarkMode
-                  hideGradientType
-                  hideGradientAngle
-                  hideGradientControls
-                  hideGradientStop
-                  hideColorTypeBtns
-                  hideInputType
-                  hideInputs
-                  hideAdvancedSliders
-                  hideColorGuide
-                  hidePresets
-                  hideEyeDrop
-                />
-              </Box>
+              <Flex align="center" justify="space-between" mb="2">
+                <Text fontSize="xs" color="gray.600">
+                  Background
+                </Text>
+                <HStack spacing="2">
+                  <Text fontSize="xs" color="gray.600">
+                    {bgEnabled ? "On" : "Off"}
+                  </Text>
+                  <Switch
+                    size="sm"
+                    isChecked={bgEnabled}
+                    onChange={(e) => setBgEnabled(e.target.checked)}
+                  />
+                </HStack>
+              </Flex>
+              {bgEnabled ? (
+                <>
+                  <InputGroup size="sm">
+                    <InputLeftAddon>#</InputLeftAddon>
+                    <Input
+                      fontFamily="mono"
+                      value={bg}
+                      placeholder="FFFFFFFF"
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/^#/, "").toUpperCase()
+                        if (/^[0-9A-F]{0,8}$/.test(v)) setBg(v)
+                      }}
+                    />
+                  </InputGroup>
+                  <Box mt="3">
+                    <ColorPicker
+                      value={hex8ToPickerHex(bg)}
+                      onChange={(c: string) => {
+                        const next = rgbaStringToHex8(c)
+                        if (next) setBg(next)
+                      }}
+                      disableDarkMode
+                      hideGradientType
+                      hideGradientAngle
+                      hideGradientControls
+                      hideGradientStop
+                      hideColorTypeBtns
+                      hideInputType
+                      hideInputs
+                      hideAdvancedSliders
+                      hideColorGuide
+                      hidePresets
+                      hideEyeDrop
+                    />
+                  </Box>
+                </>
+              ) : (
+                <Text fontSize="xs" color="gray.500">
+                  No background — ImageKit's default fill will be used.
+                </Text>
+              )}
             </Flex>
 
             <HStack justify="flex-end">
