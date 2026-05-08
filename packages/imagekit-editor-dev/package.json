@@ -50,7 +50,7 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@hookform/resolvers": "^5.1.1",
-    "@imagekit/javascript": "^5.1.0",
+    "@imagekit/javascript": "5.3.0",
     "@react-icons/all-files": "https://github.com/react-icons/react-icons/releases/download/v5.4.0/react-icons-all-files-5.4.0.tgz",
     "@tanstack/react-virtual": "^3.13.12",
     "framer-motion": "6.5.1",

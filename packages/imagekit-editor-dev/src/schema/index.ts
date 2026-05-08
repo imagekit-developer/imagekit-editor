@@ -1,11 +1,4 @@
 import type { Transformation } from "@imagekit/javascript"
-import type {
-  OverlayPosition,
-  SolidColorOverlay,
-  SolidColorOverlayTransformation,
-  TextOverlay,
-  TextOverlayTransformation,
-} from "@imagekit/javascript/dist/interfaces"
 import { PiFlipHorizontalFill } from "@react-icons/all-files/pi/PiFlipHorizontalFill"
 import { PiFlipVerticalFill } from "@react-icons/all-files/pi/PiFlipVerticalFill"
 import { RxFontBold } from "@react-icons/all-files/rx/RxFontBold"
@@ -1750,8 +1743,13 @@ const baseTransformationSchema: TransformationSchema[] = [
           .object({
             text: z.string(),
             width: widthValidator.optional(),
+            layerPositionMethod: z.enum(["topleft", "center"]).optional(),
             positionX: layerXValidator.optional(),
             positionY: layerYValidator.optional(),
+            positionXC: layerXValidator.optional(),
+            positionYC: layerYValidator.optional(),
+            layerAnchorPoint: z.enum(["top", "left", "right", "bottom", "top_left", "top_right", "bottom_left", "bottom_right", "center"]).optional(),
+            layerFocus: z.enum(["center", "top", "left", "bottom", "right", "top_left", "top_right", "bottom_left", "bottom_right"]).optional(),
             fontSize: z.coerce
               .number({
                 invalid_type_error: "Should be a number.",
@@ -1877,14 +1875,31 @@ const baseTransformationSchema: TransformationSchema[] = [
             examples: ["300", "bw_div_2"],
           },
           {
+            label: "Position Method",
+            name: "layerPositionMethod",
+            fieldType: "radio-card",
+            isTransformation: false,
+            transformationGroup: "textLayer",
+            fieldProps: {
+              options: [
+                { label: "Top-Left (lx, ly)", value: "topleft" },
+                { label: "Center (lxc, lyc)", value: "center" },
+              ],
+              defaultValue: "topleft",
+            },
+            helpText:
+              "Choose whether the layer position is relative to the top-left corner or the center of the layer.",
+          },
+          {
             label: "Position X",
             name: "positionX",
             fieldType: "input",
             isTransformation: true,
             transformationKey: "x",
             transformationGroup: "textLayer",
-            helpText: "Specify horizontal offset for the text.",
+            helpText: "Specify horizontal offset for the text from the top-left corner.",
             examples: ["10", "-20", "N30", "bw_div_2"],
+            isVisible: ({ layerPositionMethod }) => layerPositionMethod !== "center",
           },
           {
             label: "Position Y",
@@ -1893,8 +1908,75 @@ const baseTransformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "y",
             transformationGroup: "textLayer",
-            helpText: "Specify vertical offset for the text.",
+            helpText: "Specify vertical offset for the text from the top-left corner.",
             examples: ["10", "-20", "N30", "bh_div_2"],
+            isVisible: ({ layerPositionMethod }) => layerPositionMethod !== "center",
+          },
+          {
+            label: "Position XC",
+            name: "positionXC",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "xc",
+            transformationGroup: "textLayer",
+            helpText: "Specify horizontal offset for the text using its center as the reference point.",
+            examples: ["10", "-20", "N30", "bw_div_2"],
+            isVisible: ({ layerPositionMethod }) => layerPositionMethod === "center",
+          },
+          {
+            label: "Position YC",
+            name: "positionYC",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "yc",
+            transformationGroup: "textLayer",
+            helpText: "Specify vertical offset for the text using its center as the reference point.",
+            examples: ["10", "-20", "N30", "bh_div_2"],
+            isVisible: ({ layerPositionMethod }) => layerPositionMethod === "center",
+          },
+          {
+            label: "Anchor Point",
+            name: "layerAnchorPoint",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationGroup: "textLayer",
+            fieldProps: {
+              positions: [
+                "center",
+                "top",
+                "bottom",
+                "left",
+                "right",
+                "top_left",
+                "top_right",
+                "bottom_left",
+                "bottom_right",
+              ],
+            },
+            helpText:
+              "Set the anchor point on the base image from which the position offset is calculated. Default is top-left.",
+          },
+          {
+            label: "Layer Focus",
+            name: "layerFocus",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationGroup: "textLayer",
+            fieldProps: {
+              positions: [
+                "center",
+                "top",
+                "bottom",
+                "left",
+                "right",
+                "top_left",
+                "top_right",
+                "bottom_left",
+                "bottom_right",
+              ],
+            },
+            helpText:
+              "Set the default position of the layer relative to the base image. Ignored when position coordinates (lx, ly, lxc, lyc) are specified.",
           },
           {
             label: "Font Size",
@@ -2106,8 +2188,13 @@ const baseTransformationSchema: TransformationSchema[] = [
             width: widthValidator.optional(),
             height: heightValidator.optional(),
             crop: z.string().optional(),
+            layerPositionMethod: z.enum(["topleft", "center"]).optional(),
             positionX: layerXValidator.optional(),
             positionY: layerYValidator.optional(),
+            positionXC: layerXValidator.optional(),
+            positionYC: layerYValidator.optional(),
+            layerAnchorPoint: z.enum(["top", "left", "right", "bottom", "top_left", "top_right", "bottom_left", "bottom_right", "center"]).optional(),
+            layerFocus: z.enum(["center", "top", "left", "bottom", "right", "top_left", "top_right", "bottom_left", "bottom_right"]).optional(),
             anchor: z.string().optional(),
             opacityEnabled: z.boolean().optional(),
             opacity: z.coerce
@@ -2626,14 +2713,31 @@ const baseTransformationSchema: TransformationSchema[] = [
             isVisible: ({ focus }) => focus === "object" || focus === "face",
           },
           {
+            label: "Position Method",
+            name: "layerPositionMethod",
+            fieldType: "radio-card",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              options: [
+                { label: "Top-Left (lx, ly)", value: "topleft" },
+                { label: "Center (lxc, lyc)", value: "center" },
+              ],
+              defaultValue: "topleft",
+            },
+            helpText:
+              "Choose whether the layer position is relative to the top-left corner or the center of the layer.",
+          },
+          {
             label: "Position X",
             name: "positionX",
             fieldType: "input",
             isTransformation: true,
             transformationKey: "x",
             transformationGroup: "imageLayer",
-            helpText: "Specify the horizontal offset for the overlay image.",
+            helpText: "Specify the horizontal offset for the overlay image from the top-left corner.",
             examples: ["10", "-20", "N30", "bw_div_2"],
+            isVisible: ({ layerPositionMethod }) => layerPositionMethod !== "center",
           },
           {
             label: "Position Y",
@@ -2642,8 +2746,75 @@ const baseTransformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "y",
             transformationGroup: "imageLayer",
-            helpText: "Specify the vertical offset for the overlay image.",
+            helpText: "Specify the vertical offset for the overlay image from the top-left corner.",
             examples: ["10", "-20", "N30", "bh_div_2"],
+            isVisible: ({ layerPositionMethod }) => layerPositionMethod !== "center",
+          },
+          {
+            label: "Position XC",
+            name: "positionXC",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "xc",
+            transformationGroup: "imageLayer",
+            helpText: "Specify the horizontal offset for the overlay image using its center as the reference point.",
+            examples: ["10", "-20", "N30", "bw_div_2"],
+            isVisible: ({ layerPositionMethod }) => layerPositionMethod === "center",
+          },
+          {
+            label: "Position YC",
+            name: "positionYC",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "yc",
+            transformationGroup: "imageLayer",
+            helpText: "Specify the vertical offset for the overlay image using its center as the reference point.",
+            examples: ["10", "-20", "N30", "bh_div_2"],
+            isVisible: ({ layerPositionMethod }) => layerPositionMethod === "center",
+          },
+          {
+            label: "Anchor Point",
+            name: "layerAnchorPoint",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              positions: [
+                "center",
+                "top",
+                "bottom",
+                "left",
+                "right",
+                "top_left",
+                "top_right",
+                "bottom_left",
+                "bottom_right",
+              ],
+            },
+            helpText:
+              "Set the anchor point on the base image from which the position offset is calculated. Default is top-left.",
+          },
+          {
+            label: "Layer Focus",
+            name: "layerFocus",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              positions: [
+                "center",
+                "top",
+                "bottom",
+                "left",
+                "right",
+                "top_left",
+                "top_right",
+                "bottom_left",
+                "bottom_right",
+              ],
+            },
+            helpText:
+              "Set the default position of the layer relative to the base image. Ignored when position coordinates (lx, ly, lxc, lyc) are specified.",
           },
           {
             label: "Opacity",
@@ -3125,8 +3296,13 @@ const baseTransformationSchema: TransformationSchema[] = [
             color: z.string().min(1, { message: "Color is required." }),
             width: widthValidator.optional(),
             height: heightValidator.optional(),
+            layerPositionMethod: z.enum(["topleft", "center"]).optional(),
             positionX: layerXValidator.optional(),
             positionY: layerYValidator.optional(),
+            positionXC: layerXValidator.optional(),
+            positionYC: layerYValidator.optional(),
+            layerAnchorPoint: z.enum(["top", "left", "right", "bottom", "top_left", "top_right", "bottom_left", "bottom_right", "center"]).optional(),
+            layerFocus: z.enum(["center", "top", "left", "bottom", "right", "top_left", "top_right", "bottom_left", "bottom_right"]).optional(),
             opacityEnabled: z.boolean().optional(),
             opacity: z
               .union([
@@ -3275,6 +3451,22 @@ const baseTransformationSchema: TransformationSchema[] = [
             examples: ["200", "bh_div_2"],
           },
           {
+            label: "Position Method",
+            name: "layerPositionMethod",
+            fieldType: "radio-card",
+            isTransformation: false,
+            transformationGroup: "solidColorLayer",
+            fieldProps: {
+              options: [
+                { label: "Top-Left (lx, ly)", value: "topleft" },
+                { label: "Center (lxc, lyc)", value: "center" },
+              ],
+              defaultValue: "topleft",
+            },
+            helpText:
+              "Choose whether the layer position is relative to the top-left corner or the center of the layer.",
+          },
+          {
             label: "Position X",
             name: "positionX",
             fieldType: "input",
@@ -3282,8 +3474,9 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationKey: "x",
             transformationGroup: "solidColorLayer",
             helpText:
-              "Specify horizontal offset for the solid color block.",
+              "Specify horizontal offset for the solid color block from the top-left corner.",
             examples: ["10", "-20", "N30", "bw_div_2"],
+            isVisible: ({ layerPositionMethod }) => layerPositionMethod !== "center",
           },
           {
             label: "Position Y",
@@ -3293,8 +3486,77 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationKey: "y",
             transformationGroup: "solidColorLayer",
             helpText:
-              "Specify vertical offset for the solid color block.",
+              "Specify vertical offset for the solid color block from the top-left corner.",
             examples: ["10", "-20", "N30", "bh_div_2"],
+            isVisible: ({ layerPositionMethod }) => layerPositionMethod !== "center",
+          },
+          {
+            label: "Position XC",
+            name: "positionXC",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "xc",
+            transformationGroup: "solidColorLayer",
+            helpText:
+              "Specify horizontal offset for the solid color block using its center as the reference point.",
+            examples: ["10", "-20", "N30", "bw_div_2"],
+            isVisible: ({ layerPositionMethod }) => layerPositionMethod === "center",
+          },
+          {
+            label: "Position YC",
+            name: "positionYC",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "yc",
+            transformationGroup: "solidColorLayer",
+            helpText:
+              "Specify vertical offset for the solid color block using its center as the reference point.",
+            examples: ["10", "-20", "N30", "bh_div_2"],
+            isVisible: ({ layerPositionMethod }) => layerPositionMethod === "center",
+          },
+          {
+            label: "Anchor Point",
+            name: "layerAnchorPoint",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationGroup: "solidColorLayer",
+            fieldProps: {
+              positions: [
+                "center",
+                "top",
+                "bottom",
+                "left",
+                "right",
+                "top_left",
+                "top_right",
+                "bottom_left",
+                "bottom_right",
+              ],
+            },
+            helpText:
+              "Set the anchor point on the base image from which the position offset is calculated. Default is top-left.",
+          },
+          {
+            label: "Layer Focus",
+            name: "layerFocus",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationGroup: "solidColorLayer",
+            fieldProps: {
+              positions: [
+                "center",
+                "top",
+                "bottom",
+                "left",
+                "right",
+                "top_left",
+                "top_right",
+                "bottom_left",
+                "bottom_right",
+              ],
+            },
+            helpText:
+              "Set the default position of the layer relative to the base image. Ignored when position coordinates (lx, ly, lxc, lyc) are specified.",
           },
           {
             label: "Opacity",
@@ -3609,7 +3871,7 @@ export const transformationFormatters: Record<
    * SDK's alpha range (1–9).
    */,
   textLayer: (values, transforms) => {
-    const overlay: TextOverlay = { type: "text", text: "" }
+    const overlay: Record<string, unknown> = { type: "text", text: "" }
 
     if (typeof values.text === "string") {
       overlay.text = values.text
@@ -3617,7 +3879,7 @@ export const transformationFormatters: Record<
 
     overlay.encoding = "auto"
 
-    const overlayTransform: TextOverlayTransformation = {}
+    const overlayTransform: Record<string, unknown> = {}
 
     if (typeof values.width === "number" || typeof values.width === "string") {
       overlayTransform.width = values.width
@@ -3735,8 +3997,8 @@ export const transformationFormatters: Record<
       overlay.transformation = [overlayTransform]
     }
 
-    // Positioning: use x/y coordinates or focus if anchor is provided
-    const position: OverlayPosition = {}
+    // Positioning: use x/y or xc/yc coordinates based on position method
+    const position: Record<string, unknown> = {}
     if (
       typeof values.positionX === "number" ||
       typeof values.positionX === "string"
@@ -3748,6 +4010,24 @@ export const transformationFormatters: Record<
       typeof values.positionY === "string"
     ) {
       position.y = values.positionY.toString().replace(/^-/, "N")
+    }
+    if (
+      typeof values.positionXC === "number" ||
+      typeof values.positionXC === "string"
+    ) {
+      position.xCenter = values.positionXC.toString().replace(/^-/, "N")
+    }
+    if (
+      typeof values.positionYC === "number" ||
+      typeof values.positionYC === "string"
+    ) {
+      position.yCenter = values.positionYC.toString().replace(/^-/, "N")
+    }
+    if (typeof values.layerAnchorPoint === "string" && values.layerAnchorPoint) {
+      position.anchorPoint = values.layerAnchorPoint
+    }
+    if (typeof values.layerFocus === "string" && values.layerFocus) {
+      position.focus = values.layerFocus
     }
     if (Object.keys(position).length > 0) {
       overlay.position = position
@@ -3877,13 +4157,25 @@ export const transformationFormatters: Record<
       overlay.transformation = [overlayTransform]
     }
 
-    // Positioning via x/y or focus anchor
+    // Positioning via x/y, xc/yc, or anchor point
     const position: Record<string, unknown> = {}
     if (values.positionX) {
       position.x = values.positionX.toString().replace(/^-/, "N")
     }
     if (values.positionY) {
       position.y = values.positionY.toString().replace(/^-/, "N")
+    }
+    if (values.positionXC) {
+      position.xCenter = values.positionXC.toString().replace(/^-/, "N")
+    }
+    if (values.positionYC) {
+      position.yCenter = values.positionYC.toString().replace(/^-/, "N")
+    }
+    if (typeof values.layerAnchorPoint === "string" && values.layerAnchorPoint) {
+      position.anchorPoint = values.layerAnchorPoint
+    }
+    if (typeof values.layerFocus === "string" && values.layerFocus) {
+      position.focus = values.layerFocus
     }
 
     if (Object.keys(position).length > 0) {
@@ -3894,13 +4186,13 @@ export const transformationFormatters: Record<
     transforms.overlay = overlay
   },
   solidColorLayer: (values, transforms) => {
-    const overlay: SolidColorOverlay = { type: "solidColor", color: "" }
+    const overlay: Record<string, unknown> = { type: "solidColor", color: "" }
 
     if (typeof values.color === "string") {
       overlay.color = (values.color as string).replace(/^#/, "")
     }
 
-    const overlayTransform: SolidColorOverlayTransformation = {}
+    const overlayTransform: Record<string, unknown> = {}
 
     if (
       values.width !== undefined &&
@@ -3934,7 +4226,7 @@ export const transformationFormatters: Record<
       overlay.transformation = [overlayTransform]
     }
 
-    const position: OverlayPosition = {}
+    const position: Record<string, unknown> = {}
     if (
       typeof values.positionX === "number" ||
       typeof values.positionX === "string"
@@ -3946,6 +4238,24 @@ export const transformationFormatters: Record<
       typeof values.positionY === "string"
     ) {
       position.y = values.positionY.toString().replace(/^-/, "N")
+    }
+    if (
+      typeof values.positionXC === "number" ||
+      typeof values.positionXC === "string"
+    ) {
+      position.xCenter = values.positionXC.toString().replace(/^-/, "N")
+    }
+    if (
+      typeof values.positionYC === "number" ||
+      typeof values.positionYC === "string"
+    ) {
+      position.yCenter = values.positionYC.toString().replace(/^-/, "N")
+    }
+    if (typeof values.layerAnchorPoint === "string" && values.layerAnchorPoint) {
+      position.anchorPoint = values.layerAnchorPoint
+    }
+    if (typeof values.layerFocus === "string" && values.layerFocus) {
+      position.focus = values.layerFocus
     }
     if (Object.keys(position).length > 0) {
       overlay.position = position

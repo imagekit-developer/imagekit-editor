@@ -15,7 +15,7 @@ type AnchorPosition =
 
 interface AnchorFieldProps {
   value: AnchorPosition
-  onChange: (value: AnchorPosition) => void
+  onChange: (value: AnchorPosition | undefined) => void
   positions?: AnchorPosition[]
 }
 
@@ -80,7 +80,7 @@ const AnchorField: React.FC<AnchorFieldProps> = ({
                 isDisabled={!positions.includes(position.value)}
                 onClick={() => {
                   if (value === position.value) {
-                    return onChange("")
+                    return onChange(undefined)
                   }
                   onChange(position.value)
                 }}

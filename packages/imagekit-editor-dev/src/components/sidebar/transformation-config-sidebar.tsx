@@ -364,7 +364,7 @@ export const TransformationConfigSidebar: React.FC = () => {
         ) {
           currentValues[field.name] = editedTransformationValue[field.name]
         } else {
-          currentValues[field.name] = field.fieldProps?.defaultValue ?? ""
+          currentValues[field.name] = field.fieldProps?.defaultValue ?? (field.fieldType === "anchor" ? undefined : "")
         }
       })
 
@@ -372,7 +372,7 @@ export const TransformationConfigSidebar: React.FC = () => {
     } else if (selectedTransformation) {
       return selectedTransformation.transformations.reduce(
         (acc, field) => {
-          acc[field.name] = field.fieldProps?.defaultValue ?? ""
+          acc[field.name] = field.fieldProps?.defaultValue ?? (field.fieldType === "anchor" ? undefined : "")
           return acc
         },
         {} as Record<string, unknown>,
