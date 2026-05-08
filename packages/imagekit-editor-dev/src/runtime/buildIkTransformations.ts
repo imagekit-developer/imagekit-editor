@@ -56,6 +56,27 @@ export function buildIkTransformations(
       })
     }
 
+    // Ensure layer formatters run even when only nested children are present.
+    // (Nested layers are stored in `value.children` which is not part of the visible field list.)
+    const children = (transformation.value as any)?.children
+    const hasChildren = Array.isArray(children) && children.length > 0
+    if (hasChildren) {
+      const groupName =
+        transformation.key === "layers-text"
+          ? "textLayer"
+          : transformation.key === "layers-image"
+            ? "imageLayer"
+            : transformation.key === "layers-canvas"
+              ? "canvasLayer"
+              : null
+      if (groupName && !groupedTransforms[groupName]) {
+        groupedTransforms[groupName] = {
+          fields: [],
+          transformationKey: groupName,
+        }
+      }
+    }
+
     const transforms: Record<string, unknown> = Object.fromEntries(
       Object.entries(transformation.value)
         .map(([key, value]) => {

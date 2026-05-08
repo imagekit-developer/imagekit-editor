@@ -76,6 +76,7 @@ import PaddingInputField, {
 import RadioCardField from "../common/RadioCardField"
 import { VariableAwareInput } from "../common/VariableAwareInput"
 import ZoomInput from "../common/ZoomInput"
+import { NestedLayersEditor } from "./NestedLayersEditor"
 import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
@@ -227,15 +228,29 @@ export const TransformationConfigSidebar: React.FC = () => {
         }
       })
 
+      // Layer nesting: not part of the visible field list, but persisted in value.
+      if (
+        editedTransformationValue &&
+        "children" in editedTransformationValue
+      ) {
+        currentValues.children = (editedTransformationValue as any).children
+      } else if (selectedTransformation.key.startsWith("layers-")) {
+        currentValues.children = []
+      }
+
       return currentValues
     } else if (selectedTransformation) {
-      return selectedTransformation.transformations.reduce(
+      const base = selectedTransformation.transformations.reduce(
         (acc, field) => {
           acc[field.name] = field.fieldProps?.defaultValue ?? ""
           return acc
         },
         {} as Record<string, unknown>,
       )
+      if (selectedTransformation.key.startsWith("layers-")) {
+        base.children = []
+      }
+      return base
     }
     return {}
   }, [transformationToEdit, selectedTransformation, editedTransformationValue])
@@ -1131,6 +1146,20 @@ export const TransformationConfigSidebar: React.FC = () => {
               )}
             </FormControl>
           ))}
+
+        {selectedTransformation.key.startsWith("layers-") && (
+          <Box pt={2}>
+            <NestedLayersEditor
+              value={(watch("children") as any) ?? []}
+              onChange={(next) =>
+                setValue("children", next as any, {
+                  shouldDirty: true,
+                  shouldTouch: true,
+                })
+              }
+            />
+          </Box>
+        )}
       </SidebarBody>
       {selectedTransformation?.warning && (
         <Alert status="warning" fontSize="sm" px="8" py="2">

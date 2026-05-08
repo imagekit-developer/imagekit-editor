@@ -14,7 +14,10 @@ import { RxTextAlignRight } from "@react-icons/all-files/rx/RxTextAlignRight"
 import { type RefinementCtx, z } from "zod/v3"
 import type { PerspectiveObject } from "../components/common/DistortPerspectiveInput"
 import type { GradientPickerState } from "../components/common/GradientPicker"
+import type { NestedLayer, NestedLayerPosition } from "../layers/nestedLayers"
+import { buildLayerRawString } from "../layers/nestedLayers"
 import { SIMPLE_OVERLAY_TEXT_REGEX, safeBtoa } from "../utils"
+import { gradientStopPointToDecimalExpr } from "../utils/ikGradient"
 import { background } from "./background"
 import {
   getDefaultTransformationFromMode,
@@ -170,6 +173,81 @@ export interface TransformationSchema {
   name: string
   items: TransformationItem[]
 }
+
+const nestedLayerPositionSchema: z.ZodType<NestedLayerPosition> = z
+  .discriminatedUnion("mode", [
+    z.object({ mode: z.literal("none") }),
+    z.object({ mode: z.literal("lfo"), lfo: z.string() }),
+    z.object({
+      mode: z.literal("topLeft"),
+      lx: layerXValidator.optional(),
+      ly: layerYValidator.optional(),
+      lap: z.string().optional(),
+    }),
+    z.object({
+      mode: z.literal("center"),
+      lxc: layerXValidator.optional(),
+      lyc: layerYValidator.optional(),
+      lap: z.string().optional(),
+    }),
+  ])
+  .default({ mode: "none" })
+
+const nestedTextLayerSchema: z.ZodType<NestedLayer> = z.object({
+  type: z.literal("text"),
+  text: z.string(),
+  width: widthValidator.optional(),
+  fontSize: z.union([z.coerce.number(), z.string()]).optional(),
+  fontFamily: z.string().optional(),
+  color: z.string().optional(),
+  backgroundColor: z.string().optional(),
+  padding: z.string().optional(),
+  radius: z.union([z.literal("max"), z.coerce.number().min(0)]).optional(),
+  opacity: z.coerce.number().min(1).max(9).optional(),
+  position: nestedLayerPositionSchema.optional(),
+})
+
+const nestedImageLayerSchema: z.ZodType<NestedLayer> = z.object({
+  type: z.literal("image"),
+  imageUrl: z.string(),
+  width: widthValidator.optional(),
+  height: heightValidator.optional(),
+  opacity: z.coerce.number().min(0).max(100).optional(),
+  backgroundColor: z.string().optional(),
+  radius: z.union([z.literal("max"), z.coerce.number().min(0)]).optional(),
+  position: nestedLayerPositionSchema.optional(),
+})
+
+const nestedCanvasLayerObjectSchema = z.object({
+  type: z.literal("canvas"),
+  width: widthValidator.optional(),
+  height: heightValidator.optional(),
+  backgroundColor: z.string().optional(),
+  opacity: z.coerce.number().min(1).max(9).optional(),
+  radius: z.union([z.literal("max"), z.coerce.number().min(0)]).optional(),
+  gradient: z
+    .object({
+      direction: z
+        .union([z.coerce.number().min(0).max(359), z.string()])
+        .optional(),
+      from: z.string().optional(),
+      to: z.string().optional(),
+      stopPoint: z
+        .union([z.coerce.number().min(1).max(100), z.string()])
+        .optional(),
+    })
+    .optional(),
+  position: nestedLayerPositionSchema.optional(),
+  children: z.array(z.lazy(() => nestedLayerSchema)).optional(),
+})
+
+const nestedLayerSchema: z.ZodType<NestedLayer> = z.lazy(() =>
+  z.discriminatedUnion("type", [
+    nestedTextLayerSchema,
+    nestedImageLayerSchema,
+    nestedCanvasLayerObjectSchema,
+  ]),
+)
 
 const baseTransformationSchema: TransformationSchema[] = [
   resizeAndCropCategory,
@@ -1754,6 +1832,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             width: widthValidator.optional(),
             positionX: layerXValidator.optional(),
             positionY: layerYValidator.optional(),
+            children: z.array(nestedLayerSchema).optional(),
             fontSize: z.coerce
               .number({
                 invalid_type_error: "Should be a number.",
@@ -2107,6 +2186,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             imageUrl: z.string().optional(),
             width: widthValidator.optional(),
             height: heightValidator.optional(),
+            children: z.array(nestedLayerSchema).optional(),
             crop: z.string().optional(),
             positionX: layerXValidator.optional(),
             positionY: layerYValidator.optional(),
@@ -3118,6 +3198,222 @@ const baseTransformationSchema: TransformationSchema[] = [
           },
         ],
       },
+      {
+        key: "layers-canvas",
+        name: "Canvas Layer",
+        description:
+          "Add a solid/gradient canvas as a layer. You can also nest image/text/canvas layers inside it to build self-contained compositions.",
+        docsLink:
+          "https://imagekit.io/docs/add-overlays-on-images#nest-text-and-image-layers-inside-canvas",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            width: widthValidator.optional(),
+            height: heightValidator.optional(),
+            backgroundColor: z.string().optional(),
+            lfo: z.string().optional(),
+            opacitySwitch: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+            opacity: z.coerce.number().min(1).max(9).optional(),
+            radiusSwitch: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+            radius: z
+              .union([z.literal("max"), z.coerce.number().min(0)])
+              .optional(),
+            gradientSwitch: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+            gradient: z
+              .object({
+                direction: z
+                  .union([
+                    z.coerce
+                      .number({
+                        invalid_type_error: "Should be a number.",
+                      })
+                      .min(0)
+                      .max(359),
+                    z.string(),
+                  ])
+                  .optional(),
+                from: z.string().optional(),
+                to: z.string().optional(),
+                stopPoint: z
+                  .union([
+                    z.coerce
+                      .number({
+                        invalid_type_error: "Should be a number.",
+                      })
+                      .min(1)
+                      .max(100),
+                    z.string(),
+                  ])
+                  .optional(),
+              })
+              .optional(),
+            positionX: layerXValidator.optional(),
+            positionY: layerYValidator.optional(),
+            children: z.array(nestedLayerSchema).optional(),
+          })
+          .refine(
+            (val) => {
+              return Object.values(val).some(
+                (v) => v !== undefined && v !== null && v !== "",
+              )
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
+          {
+            label: "Width",
+            name: "width",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "canvasLayer",
+            helpText: "Specify canvas width.",
+            examples: ["300", "bw_div_2"],
+          },
+          {
+            label: "Height",
+            name: "height",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "canvasLayer",
+            helpText: "Specify canvas height.",
+            examples: ["200", "bh_div_2"],
+          },
+          {
+            label: "Background Color",
+            name: "backgroundColor",
+            fieldType: "color-picker",
+            isTransformation: true,
+            transformationGroup: "canvasLayer",
+            helpText: "Set a solid background color for the canvas.",
+            fieldProps: { isClearable: true },
+          },
+          {
+            label: "Relative Focus (lfo)",
+            name: "lfo",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationGroup: "canvasLayer",
+            helpText:
+              "Position the canvas layer relative to its parent (default: center).",
+            fieldProps: {
+              positions: [
+                "center",
+                "top",
+                "bottom",
+                "left",
+                "right",
+                "top_left",
+                "top_right",
+                "bottom_left",
+                "bottom_right",
+              ],
+            },
+          },
+          {
+            label: "Opacity",
+            name: "opacitySwitch",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "canvasLayer",
+            helpText: "Toggle to set canvas opacity (al).",
+            fieldProps: {
+              defaultValue: false,
+            },
+          },
+          {
+            label: "Opacity",
+            name: "opacity",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationGroup: "canvasLayer",
+            helpText: "Set opacity for the canvas (1-9).",
+            fieldProps: { min: 1, max: 9, step: 1, defaultValue: 9 },
+            isVisible: ({ opacitySwitch }) => opacitySwitch === true,
+          },
+          {
+            label: "Radius",
+            name: "radiusSwitch",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "canvasLayer",
+            helpText: "Toggle to set canvas corner radius.",
+            fieldProps: {
+              defaultValue: false,
+            },
+          },
+          {
+            label: "Radius",
+            name: "radius",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "canvasLayer",
+            helpText: "Corner radius for the canvas (or 'max').",
+            isVisible: ({ radiusSwitch }) => radiusSwitch === true,
+          },
+          {
+            label: "Gradient",
+            name: "gradientSwitch",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "canvasLayer",
+            helpText: "Toggle to add a gradient overlay on the canvas layer.",
+            fieldProps: {
+              defaultValue: false,
+            },
+          },
+          {
+            label: "Apply Gradient",
+            name: "gradient",
+            fieldType: "gradient-picker",
+            isTransformation: true,
+            transformationGroup: "canvasLayer",
+            helpText:
+              "Gradient overlay on the canvas. (Uses e-gradient inside the canvas layer.)",
+            fieldProps: {
+              defaultValue: {
+                from: "#FFFFFFFF",
+                to: "#00000000",
+                direction: "bottom",
+                stopPoint: 100,
+              },
+            },
+            isVisible: ({ gradientSwitch }) => gradientSwitch === true,
+          },
+          {
+            label: "Position X",
+            name: "positionX",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "canvasLayer",
+            helpText: "Horizontal offset for the canvas layer.",
+            examples: ["10", "-20", "N30", "bw_div_2"],
+          },
+          {
+            label: "Position Y",
+            name: "positionY",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "canvasLayer",
+            helpText: "Vertical offset for the canvas layer.",
+            examples: ["10", "-20", "N30", "bh_div_2"],
+          },
+        ],
+      },
     ],
   },
   // Custom raw transformation section. Allows users to input a raw ImageKit
@@ -3170,27 +3466,6 @@ export const transformationSchema: TransformationSchema[] =
     ...category,
     items: [...category.items].sort((a, b) => a.name.localeCompare(b.name)),
   }))
-
-function gradientStopPointToDecimalExpr(stopPoint: unknown): string {
-  if (stopPoint === undefined || stopPoint === null || stopPoint === "")
-    return "1"
-
-  if (typeof stopPoint === "number") {
-    return String((stopPoint || 100) / 100)
-  }
-
-  const raw = String(stopPoint).trim()
-  if (!raw) return "1"
-
-  const asNumber = Number(raw)
-  if (Number.isFinite(asNumber)) {
-    return String((asNumber || 100) / 100)
-  }
-
-  // Non-numeric expression: pass through as-is.
-  // Backend/ImageKit handles stop-point scaling for expressions.
-  return raw
-}
 
 export const transformationFormatters: Record<
   string,
@@ -3382,6 +3657,65 @@ export const transformationFormatters: Record<
    * SDK's alpha range (1–9).
    */,
   textLayer: (values, transforms) => {
+    const children = Array.isArray((values as any).children)
+      ? ((values as any).children as NestedLayer[])
+      : []
+    if (children.length > 0) {
+      const paddingValue = (values as any).padding as
+        | { mode?: string; padding?: unknown }
+        | undefined
+      let paddingString: string | undefined
+      if (paddingValue?.mode === "uniform") {
+        const p = paddingValue.padding
+        if ((typeof p === "number" || typeof p === "string") && p !== "") {
+          paddingString = String(p)
+        }
+      } else if (paddingValue?.mode === "individual" && paddingValue.padding) {
+        const { top, right, bottom, left } = paddingValue.padding as any
+        if (
+          [top, right, bottom, left].every(
+            (n) => typeof n === "number" && Number.isFinite(n),
+          )
+        ) {
+          if (top === right && top === bottom && top === left) {
+            paddingString = String(top)
+          } else if (top === bottom && right === left) {
+            paddingString = `${top}_${right}`
+          } else {
+            paddingString = `${top}_${right}_${bottom}_${left}`
+          }
+        }
+      }
+
+      transforms.raw = buildLayerRawString({
+        layer: {
+          type: "text",
+          text: String((values as any).text ?? ""),
+          width: (values as any).width as any,
+          fontSize: (values as any).fontSize as any,
+          fontFamily: (values as any).fontFamily as any,
+          color: (values as any).color as any,
+          backgroundColor: (values as any).backgroundColor as any,
+          padding: paddingString,
+          radius: (values as any).radius as any,
+          opacity:
+            typeof (values as any).opacity === "number"
+              ? (values as any).opacity
+              : undefined,
+          position:
+            (values as any).positionX || (values as any).positionY
+              ? {
+                  mode: "topLeft",
+                  lx: String((values as any).positionX ?? ""),
+                  ly: String((values as any).positionY ?? ""),
+                }
+              : { mode: "none" },
+        },
+        children,
+      })
+      return
+    }
+
     const overlay: TextOverlay = { type: "text", text: "" }
 
     if (typeof values.text === "string") {
@@ -3538,6 +3872,41 @@ export const transformationFormatters: Record<
    * (0–100) are mapped to the SDK's alpha range (1–9).
    */
   imageLayer: (values, transforms) => {
+    const children = Array.isArray((values as any).children)
+      ? ((values as any).children as NestedLayer[])
+      : []
+    if (children.length > 0) {
+      const opacity =
+        (values as any).opacityEnabled === true &&
+        (values as any).opacity !== undefined &&
+        (values as any).opacity !== ""
+          ? Number((values as any).opacity)
+          : undefined
+
+      transforms.raw = buildLayerRawString({
+        layer: {
+          type: "image",
+          imageUrl: String((values as any).imageUrl ?? ""),
+          width: (values as any).width as any,
+          height: (values as any).height as any,
+          opacity: Number.isFinite(opacity as number)
+            ? (opacity as number)
+            : undefined,
+          backgroundColor: (values as any).backgroundColor as any,
+          position:
+            (values as any).positionX || (values as any).positionY
+              ? {
+                  mode: "topLeft",
+                  lx: String((values as any).positionX ?? ""),
+                  ly: String((values as any).positionY ?? ""),
+                }
+              : { mode: "none" },
+        },
+        children,
+      })
+      return
+    }
+
     const overlay: Record<string, unknown> = { type: "image" }
 
     // Input path to the overlay image
@@ -3665,6 +4034,57 @@ export const transformationFormatters: Record<
 
     // Assign overlay to transforms
     transforms.overlay = overlay
+  },
+
+  canvasLayer: (values, transforms) => {
+    const children = Array.isArray((values as any).children)
+      ? ((values as any).children as NestedLayer[])
+      : []
+
+    const opacityEnabled = (values as any).opacitySwitch === true
+    const radiusEnabled = (values as any).radiusSwitch === true
+    const gradientEnabled = (values as any).gradientSwitch === true
+    const gradient = (values as any).gradient as
+      | {
+          from?: string
+          to?: string
+          direction?: string | number
+          stopPoint?: string | number
+        }
+      | undefined
+
+    transforms.raw = buildLayerRawString({
+      layer: {
+        type: "canvas",
+        width: (values as any).width as any,
+        height: (values as any).height as any,
+        backgroundColor: (values as any).backgroundColor as any,
+        opacity:
+          opacityEnabled && typeof (values as any).opacity === "number"
+            ? (values as any).opacity
+            : undefined,
+        radius: radiusEnabled ? ((values as any).radius as any) : undefined,
+        gradient:
+          gradientEnabled && gradient
+            ? {
+                direction: gradient.direction,
+                from: gradient.from,
+                to: gradient.to,
+                stopPoint: gradient.stopPoint,
+              }
+            : undefined,
+        position: (values as any).lfo
+          ? { mode: "lfo", lfo: String((values as any).lfo) }
+          : (values as any).positionX || (values as any).positionY
+            ? {
+                mode: "topLeft",
+                lx: String((values as any).positionX ?? ""),
+                ly: String((values as any).positionY ?? ""),
+              }
+            : { mode: "none" },
+        children,
+      },
+    })
   },
   flip: (values, transforms) => {
     if ((values.flip as Array<string>)?.length) {
