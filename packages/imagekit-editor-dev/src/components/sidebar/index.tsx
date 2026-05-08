@@ -15,7 +15,7 @@ import {
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
 import { PiRectangleDashed } from "@react-icons/all-files/pi/PiRectangleDashed"
-import { PiFile } from "@react-icons/all-files/pi/PiFile"
+import { PiFrameCorners } from "@react-icons/all-files/pi/PiFrameCorners"
 import { RxTransform } from "@react-icons/all-files/rx/RxTransform"
 import { useEffect, useState } from "react"
 import { useEditorStore } from "../../store"
@@ -106,9 +106,9 @@ export const Sidebar = () => {
                     borderColor="gray.100"
                     onClick={() => _setSidebarState("canvas")}
                   >
-                    <Icon as={PiFile} boxSize={4} />
+                    <Icon as={PiFrameCorners} boxSize={4} />
                     <Text fontSize="sm" fontWeight="medium">
-                      canvas
+                      Canvas
                     </Text>
                   </HStack>
                 )}
