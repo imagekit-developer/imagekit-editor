@@ -2584,7 +2584,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             },
             helpText:
               "Choose how to position the extracted region in overlay image. Custom uses a saved focus area from Media Library.",
-            isVisible: ({ crop }) => crop === "cm-extract",
+            isVisible: ({ crop }) => !crop || crop === "cm-extract" || crop === "c-maintain_ratio" || crop === "cm-pad_resize",
           },
           // Only for extract crop mode
           {
@@ -2607,7 +2607,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               ],
             },
             isVisible: ({ focus, crop }) =>
-              focus === "anchor" && crop === "cm-extract",
+              focus === "anchor" && (!crop || crop === "cm-extract" || crop === "c-maintain_ratio" || crop === "cm-pad_resize"),
           },
           // Only for pad_resize crop mode
           {
@@ -2619,7 +2619,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             fieldProps: {
               positions: ["center", "top", "bottom", "left", "right"],
             },
-            isVisible: ({ crop }) => crop === "cm-pad_resize",
+            isVisible: ({ crop, focus }) => crop === "cm-pad_resize" && !focus,
           },
           {
             label: "Focus Object",
@@ -3798,6 +3798,8 @@ export const transformationFormatters: Record<
         if (xc) transforms.xc = xc
         if (yc) transforms.yc = yc
       }
+    } else if (focus && typeof focus === "string") {
+      transforms.focus = focus
     }
     if (
       zoom !== undefined &&
