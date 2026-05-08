@@ -8,7 +8,7 @@ export const SidebarFooter = (props: PropsWithChildren<SidebarFooterProps>) => {
 
   return (
     <Flex
-      h="16"
+      h="14"
       direction="column"
       p={2}
       borderTop="1px"

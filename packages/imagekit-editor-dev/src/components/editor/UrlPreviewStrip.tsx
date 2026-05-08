@@ -12,6 +12,8 @@ import {
   Text,
   Tooltip,
 } from "@chakra-ui/react"
+import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
+import { PiCaretUp } from "@react-icons/all-files/pi/PiCaretUp"
 import { PiCheck } from "@react-icons/all-files/pi/PiCheck"
 import { PiCopy } from "@react-icons/all-files/pi/PiCopy"
 import type React from "react"
@@ -179,6 +181,7 @@ export function UrlPreviewStrip({
 }: UrlPreviewStripProps) {
   const [tabIndex, setTabIndex] = useState(0)
   const [copied, setCopied] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(true)
   const copiedTimerRef = useRef<number | null>(null)
 
   const primitiveDisplay = useMemo(() => {
@@ -215,7 +218,7 @@ export function UrlPreviewStrip({
       borderColor="editorGray.300"
       bg="editorGray.50"
     >
-      <Flex align="center" justify="space-between" px="4" pt="2">
+      <Flex align="center" justify="space-between" px="4" py="2" gap="2">
         <Tabs
           index={tabIndex}
           onChange={setTabIndex}
@@ -225,7 +228,7 @@ export function UrlPreviewStrip({
           <TabList gap="2">
             <Tab
               px="3"
-              py="1.5"
+              py="1"
               fontSize="sm"
               color={
                 tabIndex === 0 ? "editorBlue.600" : "editorBattleshipGrey.700"
@@ -241,7 +244,7 @@ export function UrlPreviewStrip({
             </Tab>
             <Tab
               px="3"
-              py="1.5"
+              py="1"
               fontSize="sm"
               color={
                 tabIndex === 1 ? "editorBlue.600" : "editorBattleshipGrey.700"
@@ -261,42 +264,58 @@ export function UrlPreviewStrip({
             <TabPanel />
           </TabPanels>
         </Tabs>
-      </Flex>
 
-      <Grid
-        w="full"
-        templateColumns="1fr auto"
-        alignItems="center"
-        gap="2"
-        px="4"
-        pb="3"
-        pt="2"
-      >
-        <Box
-          minW={0}
-          maxW="100%"
-          fontFamily="mono"
-          fontSize="xs"
-          color="editorBattleshipGrey.800"
-          overflowX="auto"
-          whiteSpace="nowrap"
+        <Tooltip
+          label={isCollapsed ? "Show URL preview" : "Hide URL preview"}
+          hasArrow
         >
-          {tabIndex === 0
-            ? renderHighlightedUrl(primitiveDisplay)
-            : renderHighlightedUrl(finalDisplay)}
-        </Box>
-
-        <Tooltip label="Copy URL" hasArrow>
           <IconButton
-            aria-label="Copy URL"
-            icon={<Icon as={copied ? PiCheck : PiCopy} />}
-            size="sm"
+            aria-label={isCollapsed ? "Show URL preview" : "Hide URL preview"}
+            icon={<Icon as={isCollapsed ? PiCaretUp : PiCaretDown} />}
+            size="xs"
             variant="ghost"
-            onClick={copy}
+            onClick={() => setIsCollapsed((v) => !v)}
             flexShrink={0}
           />
         </Tooltip>
-      </Grid>
+      </Flex>
+
+      {!isCollapsed && (
+        <Grid
+          w="full"
+          templateColumns="1fr auto"
+          alignItems="center"
+          gap="2"
+          px="4"
+          pb="3"
+          pt="1"
+        >
+          <Box
+            minW={0}
+            maxW="100%"
+            fontFamily="mono"
+            fontSize="xs"
+            color="editorBattleshipGrey.800"
+            overflowX="auto"
+            whiteSpace="nowrap"
+          >
+            {tabIndex === 0
+              ? renderHighlightedUrl(primitiveDisplay)
+              : renderHighlightedUrl(finalDisplay)}
+          </Box>
+
+          <Tooltip label="Copy URL" hasArrow>
+            <IconButton
+              aria-label="Copy URL"
+              icon={<Icon as={copied ? PiCheck : PiCopy} />}
+              size="sm"
+              variant="ghost"
+              onClick={copy}
+              flexShrink={0}
+            />
+          </Tooltip>
+        </Grid>
+      )}
     </Box>
   )
 }
