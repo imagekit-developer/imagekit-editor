@@ -318,12 +318,14 @@ export function PresetsModal({ onClose }: PresetsModalProps) {
                     py="2.5"
                     borderRadius="lg"
                     borderWidth="1px"
-                    borderColor={isSelected ? "green.200" : "editorGray.300"}
-                    bg={isSelected ? "green.50" : "white"}
+                    borderColor={
+                      isSelected ? "editorGray.400" : "editorGray.300"
+                    }
+                    bg="white"
                     cursor="pointer"
                     mb="2"
                     onClick={() => setSelectedId(p.id)}
-                    _hover={{ bg: isSelected ? "green.50" : "gray.50" }}
+                    _hover={{ bg: "gray.50" }}
                   >
                     <FlexAny alignItems="center" gap="2">
                       <TextAny
