@@ -19,6 +19,7 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
     signingImages,
     setImageDimensions,
     templateVariables,
+    userPrefs,
     _internalState,
   } = useEditorStore()
 
@@ -71,7 +72,9 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
           />
         </Flex>
       </Flex>
-      {currentImage && currentPrimitiveImage ? (
+      {userPrefs.showUrlPreviewStrip &&
+      currentImage &&
+      currentPrimitiveImage ? (
         <UrlPreviewStrip
           primitiveUrl={currentPrimitiveImage}
           finalUrl={currentImage}

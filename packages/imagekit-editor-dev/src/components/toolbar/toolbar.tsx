@@ -23,9 +23,12 @@ export const Toolbar: FC<ToolbarProps> = ({ onAddImage, onSelectImage }) => {
     removeImage,
     setImageDimensions,
     _internalState,
+    userPrefs,
   } = useEditorStore()
 
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  if (!userPrefs.showThumbnailStrip) return null
 
   const scrollThumbnails = (offset: number) => {
     scrollRef.current?.scrollBy({ left: offset, behavior: "smooth" })

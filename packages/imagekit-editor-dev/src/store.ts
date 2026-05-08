@@ -15,6 +15,49 @@ import { extractImagePath } from "./utils"
 
 export const TRANSFORMATION_STATE_VERSION = "v1" as const
 
+export const USER_PREFS_STORAGE_KEY = "ik-editor:user_prefs:v1" as const
+
+export type UserPrefs = {
+  showUrlPreviewStrip: boolean
+  showThumbnailStrip: boolean
+}
+
+const DEFAULT_USER_PREFS: UserPrefs = {
+  showUrlPreviewStrip: true,
+  showThumbnailStrip: true,
+}
+
+function readUserPrefsFromLocalStorage(): UserPrefs {
+  if (typeof window === "undefined") return DEFAULT_USER_PREFS
+  try {
+    const raw = window.localStorage.getItem(USER_PREFS_STORAGE_KEY)
+    if (!raw) return DEFAULT_USER_PREFS
+    const parsed = JSON.parse(raw) as Partial<UserPrefs> | null
+    if (!parsed || typeof parsed !== "object") return DEFAULT_USER_PREFS
+    return {
+      showUrlPreviewStrip:
+        typeof parsed.showUrlPreviewStrip === "boolean"
+          ? parsed.showUrlPreviewStrip
+          : DEFAULT_USER_PREFS.showUrlPreviewStrip,
+      showThumbnailStrip:
+        typeof parsed.showThumbnailStrip === "boolean"
+          ? parsed.showThumbnailStrip
+          : DEFAULT_USER_PREFS.showThumbnailStrip,
+    }
+  } catch {
+    return DEFAULT_USER_PREFS
+  }
+}
+
+function writeUserPrefsToLocalStorage(prefs: UserPrefs) {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.setItem(USER_PREFS_STORAGE_KEY, JSON.stringify(prefs))
+  } catch {
+    // ignore
+  }
+}
+
 export interface Transformation {
   id: string
   key: string
@@ -146,6 +189,9 @@ export interface EditorState<
   activeTemplatePresetId: string | null
   /** Blocks rendering when variables are unresolved. */
   templateRenderError: TemplateRenderError | null
+
+  /** Local (per-user, per-browser) UI preferences. */
+  userPrefs: UserPrefs
 }
 
 export type EditorActions<
@@ -242,6 +288,9 @@ export type EditorActions<
    */
   denyTemplateStorageAccessAndReset: (message?: string) => void
 
+  hydrateUserPrefsFromStorage: () => void
+  setUserPrefs: (next: Partial<UserPrefs>) => void
+
   _setSidebarState: (state: "none" | "type" | "config") => void
   _setSelectedTransformationKey: (key: string | null) => void
   _setTransformationToEdit: (
@@ -321,6 +370,7 @@ const DEFAULT_STATE: EditorState = {
   templatePresets: [],
   activeTemplatePresetId: null,
   templateRenderError: null,
+  userPrefs: DEFAULT_USER_PREFS,
 }
 
 const useEditorStore = create<EditorState & EditorActions>()(
@@ -328,6 +378,9 @@ const useEditorStore = create<EditorState & EditorActions>()(
     ...DEFAULT_STATE,
 
     initialize: (initialData) => {
+      // Load per-user preferences on first mount in the browser.
+      get().hydrateUserPrefsFromStorage()
+
       const updates: Partial<EditorState> = {}
       if (initialData?.imageList && initialData.imageList.length > 0) {
         const imgs = initialData.imageList.map(normalizeImage)
@@ -362,6 +415,14 @@ const useEditorStore = create<EditorState & EditorActions>()(
 
     destroy: () => {
       set(DEFAULT_STATE)
+    },
+
+    hydrateUserPrefsFromStorage: () => {
+      set({ userPrefs: readUserPrefsFromLocalStorage() })
+    },
+
+    setUserPrefs: (next) => {
+      set((state) => ({ userPrefs: { ...state.userPrefs, ...next } }))
     },
 
     // Actions
@@ -1291,3 +1352,10 @@ useEditorStore.subscribe(
 )
 
 export { useEditorStore }
+
+useEditorStore.subscribe(
+  (state) => state.userPrefs,
+  (prefs) => {
+    writeUserPrefsToLocalStorage(prefs)
+  },
+)

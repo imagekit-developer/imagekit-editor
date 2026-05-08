@@ -19,6 +19,7 @@ import { PiImageSquare } from "@react-icons/all-files/pi/PiImageSquare"
 import { PiListBullets } from "@react-icons/all-files/pi/PiListBullets"
 import { type FC, useMemo } from "react"
 import { useEditorStore } from "../../store"
+import { UserPreferencesDropdown } from "./UserPreferencesDropdown"
 
 interface ActionBarProps {
   viewMode: "list" | "grid"
@@ -159,6 +160,8 @@ export const ActionBar: FC<ActionBarProps> = ({
             onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
           />
         </Tooltip>
+
+        <UserPreferencesDropdown />
       </HStack>
     </Box>
   )

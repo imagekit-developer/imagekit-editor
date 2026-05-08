@@ -181,7 +181,7 @@ export function UrlPreviewStrip({
 }: UrlPreviewStripProps) {
   const [tabIndex, setTabIndex] = useState(0)
   const [copied, setCopied] = useState(false)
-  const [isCollapsed, setIsCollapsed] = useState(true)
+  const [isCollapsed, setIsCollapsed] = useState(false)
   const copiedTimerRef = useRef<number | null>(null)
 
   const primitiveDisplay = useMemo(() => {
