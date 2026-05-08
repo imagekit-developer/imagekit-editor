@@ -21,8 +21,8 @@ const USER_VAR_TOKEN_REGEX = `\\{\\{[^{}]+\\}\\}`
 /** Operand in `x_add_y` chains: number, image dimension code, or `{{userVar}}`. */
 const CHAIN_OPERAND_REGEX = `(?:\\d+(?:\\.\\d{1,2})?|${IMG_VAR_CODE_REGEX}|${USER_VAR_TOKEN_REGEX})`
 
-/** Chain may start with an image var or a user variable token. */
-const CHAIN_HEAD_REGEX = `(?:${IMG_VAR_CODE_REGEX}|${USER_VAR_TOKEN_REGEX})`
+/** Expression chains may start with any operand accepted by the editor. */
+const CHAIN_HEAD_REGEX = CHAIN_OPERAND_REGEX
 
 /** ImageKit-style chain with optional user vars mixed in (matches editor serialization). */
 const MIXED_VAR_CHAIN_EXPR_REGEX = `^${CHAIN_HEAD_REGEX}(?:_(?:${OP_CODE_REGEX})_${CHAIN_OPERAND_REGEX})+$`
