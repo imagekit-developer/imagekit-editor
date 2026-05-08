@@ -17,6 +17,10 @@ const tokenBase: BoxProps = {
   lineHeight: "1.4",
   userSelect: "none",
   flexShrink: 0,
+  // Allow chips to shrink inside the wrapping flex container.
+  minW: 0,
+  maxW: "100%",
+  overflow: "hidden",
 } satisfies BoxProps
 
 const USER_VAR_CHIP_PROPS_BY_STATE: Record<
@@ -121,7 +125,9 @@ export function TokenizedExpressionInput({
               onClick={() => onRemoveToken(idx)}
               title="Click to remove"
             >
-              {t.code}
+              <Text as="span" noOfLines={1} minW={0}>
+                {t.code}
+              </Text>
               <Text as="span" opacity={0.6} fontFamily="body">
                 ×
               </Text>
@@ -164,7 +170,9 @@ export function TokenizedExpressionInput({
                   : "Click to remove"
               }
             >
-              {chipLabel}
+              <Text as="span" noOfLines={1} minW={0}>
+                {chipLabel}
+              </Text>
               <Text as="span" opacity={0.6} fontFamily="body">
                 ×
               </Text>
@@ -185,8 +193,10 @@ export function TokenizedExpressionInput({
               onClick={() => onRemoveToken(idx)}
               title="Click to remove"
             >
-              {opSymbol(t.op)}
-              <Text as="span" opacity={0.7}>
+              <Text as="span" flexShrink={0}>
+                {opSymbol(t.op)}
+              </Text>
+              <Text as="span" opacity={0.7} noOfLines={1} minW={0}>
                 {t.op}
               </Text>
               <Text as="span" opacity={0.6} fontFamily="body">
@@ -208,7 +218,9 @@ export function TokenizedExpressionInput({
             onClick={() => onRemoveToken(idx)}
             title="Click to remove"
           >
-            {t.value}
+            <Text as="span" noOfLines={1} minW={0}>
+              {t.value}
+            </Text>
             <Text as="span" opacity={0.6} fontFamily="body">
               ×
             </Text>
