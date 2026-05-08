@@ -71,6 +71,90 @@ describe("SettingsModal", () => {
     useEditorStore.getState().destroy()
   })
 
+  describe("duplicate", () => {
+    it("creates a copy via saveTemplate and switches to it", async () => {
+      const onClose = vi.fn()
+      const original = makeTemplate({
+        id: "t-orig",
+        name: "Original Template",
+        clientNumber: "c1",
+        isPrivate: true,
+        isPinned: true,
+        transformations: [
+          { key: "t1", name: "Resize", type: "transformation", value: {} },
+        ],
+        variables: [{ id: "v1", name: "headline", defaultValue: "Hello" }],
+        presets: [
+          { id: "p1", name: "Default", valuesByVariableId: { v1: "World" } },
+        ],
+      })
+
+      let resolveSave: ((v: TemplateRecord) => void) | null = null
+      const saveTemplate = vi.fn(
+        async (r: unknown) =>
+          await new Promise<TemplateRecord>((res) => {
+            resolveSave = res
+          }),
+      )
+
+      renderModal({
+        data: original,
+        onClose,
+        saveTemplate,
+        onDeleteRequested: vi.fn(async () => {}),
+      })
+
+      expect(await screen.findByText("Template Settings")).toBeTruthy()
+
+      act(() => {
+        fireEvent.click(screen.getByText("Duplicate"))
+      })
+
+      // Loading state should show immediately while promise is pending
+      expect(screen.getByText("Duplicating…")).toBeTruthy()
+
+      expect(saveTemplate).toHaveBeenCalledTimes(1)
+      expect(saveTemplate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "Original Template (Copy)",
+          clientNumber: "c1",
+          isPrivate: true,
+          isPinned: true,
+          transformations: original.transformations,
+          variables: original.variables,
+          presets: original.presets,
+        }),
+      )
+
+      act(() => {
+        resolveSave?.(
+          makeTemplate({
+            id: "t-copy",
+            name: "Original Template (Copy)",
+            clientNumber: "c1",
+            isPrivate: true,
+            isPinned: true,
+            transformations: original.transformations,
+            variables: original.variables,
+            presets: original.presets,
+          }),
+        )
+      })
+
+      await waitFor(() => {
+        expect(useEditorStore.getState().templateId).toBe("t-copy")
+        expect(useEditorStore.getState().templateName).toBe(
+          "Original Template (Copy)",
+        )
+        expect(useEditorStore.getState().templateIsPrivate).toBe(true)
+        expect(useEditorStore.getState().templateVariables.length).toBe(1)
+        expect(useEditorStore.getState().templatePresets.length).toBe(1)
+      })
+
+      expect(onClose).toHaveBeenCalled()
+    })
+  })
+
   describe("delete confirmation flow", () => {
     it("does NOT call onDeleteRequested immediately when Delete is clicked", async () => {
       const onDeleteRequested = vi.fn(async () => {})

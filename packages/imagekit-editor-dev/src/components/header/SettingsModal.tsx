@@ -69,6 +69,9 @@ export function SettingsModal({
     (s) => s.templateStorageWriteBlocked,
   )
 
+  const { loadTemplate, hydrateTemplateMetadata, hydrateTemplateVariables } =
+    useEditorStore()
+
   const onCloseRef = useRef(onClose)
   useEffect(() => {
     onCloseRef.current = onClose
@@ -82,6 +85,7 @@ export function SettingsModal({
   )
 
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isDuplicating, setIsDuplicating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [copiedId, setCopiedId] = useState(false)
@@ -168,6 +172,55 @@ export function SettingsModal({
       console.error("Failed to delete template:", err)
     } finally {
       setIsDeleting(false)
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Duplicate (create a new template record copied from this one)
+  // -------------------------------------------------------------------------
+  const handleDuplicate = async () => {
+    if (!provider || templateStorageWriteBlocked) return
+    if (isDeleting || isSaving || isDuplicating || showDeleteConfirm) return
+
+    setIsDuplicating(true)
+    try {
+      const baseName = formatTemplateNameForUI(data.name).trim()
+      const duplicateName = `${baseName || "Untitled Template"} (Copy)`
+
+      const created = await provider.saveTemplate({
+        name: duplicateName,
+        clientNumber: data.clientNumber,
+        isPrivate: data.isPrivate,
+        isPinned: data.isPinned,
+        transformations: data.transformations,
+        variables: data.variables ?? [],
+        presets: data.presets ?? [],
+      })
+
+      loadTemplate(created.transformations)
+      hydrateTemplateMetadata({
+        templateId: created.id,
+        templateName: created.name,
+        templateIsPrivate: created.isPrivate,
+      })
+      hydrateTemplateVariables(created.variables ?? [], created.presets ?? [])
+
+      onCloseRef.current?.()
+    } catch (err) {
+      if (isTemplateAccessDeniedError(err)) {
+        useEditorStore
+          .getState()
+          .blockTemplateStorageWrites(
+            err instanceof Error
+              ? err.message
+              : "You no longer have access to this template.",
+          )
+        onCloseRef.current?.()
+        return
+      }
+      console.error("Failed to duplicate template:", err)
+    } finally {
+      setIsDuplicating(false)
     }
   }
 
@@ -488,7 +541,7 @@ export function SettingsModal({
         >
           {/* Delete button — only shown when deletion is supported */}
           {onDeleteRequested ? (
-            <FlexAny>
+            <FlexAny gap="2">
               <Box
                 as="button"
                 display="inline-flex"
@@ -498,7 +551,7 @@ export function SettingsModal({
                 borderRadius="md"
                 gap="2"
                 color={
-                  isDeleting || isSaving || showDeleteConfirm
+                  isDeleting || isSaving || isDuplicating || showDeleteConfirm
                     ? "gray.400"
                     : "red.500"
                 }
@@ -506,7 +559,7 @@ export function SettingsModal({
                   bg: "red.50",
                 }}
                 cursor={
-                  isDeleting || isSaving || showDeleteConfirm
+                  isDeleting || isSaving || isDuplicating || showDeleteConfirm
                     ? "not-allowed"
                     : "pointer"
                 }
@@ -514,10 +567,18 @@ export function SettingsModal({
                 fontWeight="medium"
                 onClick={() => {
                   if (!permissions.delete) return
-                  if (isDeleting || isSaving || showDeleteConfirm) return
+                  if (
+                    isDeleting ||
+                    isSaving ||
+                    isDuplicating ||
+                    showDeleteConfirm
+                  )
+                    return
                   setShowDeleteConfirm(true)
                 }}
-                aria-disabled={isDeleting || isSaving || showDeleteConfirm}
+                aria-disabled={
+                  isDeleting || isSaving || isDuplicating || showDeleteConfirm
+                }
                 disabled={!permissions.delete}
                 _disabled={{
                   color: "gray.400",
@@ -526,6 +587,62 @@ export function SettingsModal({
               >
                 <Icon as={PiTrash} boxSize={5} />
                 {isDeleting ? "Deleting…" : "Delete"}
+              </Box>
+
+              <Box
+                as="button"
+                display="inline-flex"
+                alignItems="center"
+                px="4"
+                py="2"
+                borderRadius="md"
+                gap="2"
+                bg="white"
+                color={
+                  isDeleting || isSaving || isDuplicating || showDeleteConfirm
+                    ? "gray.400"
+                    : "editorGray.700"
+                }
+                _hover={{
+                  bg:
+                    isDeleting || isSaving || isDuplicating || showDeleteConfirm
+                      ? "white"
+                      : "gray.50",
+                }}
+                cursor={
+                  isDeleting || isSaving || isDuplicating || showDeleteConfirm
+                    ? "not-allowed"
+                    : "pointer"
+                }
+                fontSize="sm"
+                fontWeight="medium"
+                onClick={
+                  !permissions.save ||
+                  templateStorageWriteBlocked ||
+                  isDeleting ||
+                  isSaving ||
+                  isDuplicating ||
+                  showDeleteConfirm
+                    ? undefined
+                    : handleDuplicate
+                }
+                aria-disabled={
+                  !permissions.save ||
+                  templateStorageWriteBlocked ||
+                  isDeleting ||
+                  isSaving ||
+                  isDuplicating ||
+                  showDeleteConfirm
+                }
+                disabled={!permissions.save || templateStorageWriteBlocked}
+                _disabled={{
+                  color: "gray.400",
+                  cursor: "not-allowed",
+                  bg: "white",
+                }}
+              >
+                <Icon as={PiCopy} boxSize={5} />
+                {isDuplicating ? "Duplicating…" : "Duplicate"}
               </Box>
             </FlexAny>
           ) : (
@@ -564,6 +681,7 @@ export function SettingsModal({
               bg={
                 !localName.trim() ||
                 isDeleting ||
+                isDuplicating ||
                 isSaving ||
                 templateStorageWriteBlocked
                   ? "blue.200"
@@ -578,6 +696,7 @@ export function SettingsModal({
               cursor={
                 !localName.trim() ||
                 isDeleting ||
+                isDuplicating ||
                 isSaving ||
                 templateStorageWriteBlocked
                   ? "not-allowed"
@@ -586,6 +705,7 @@ export function SettingsModal({
               onClick={
                 !localName.trim() ||
                 isDeleting ||
+                isDuplicating ||
                 isSaving ||
                 templateStorageWriteBlocked
                   ? undefined
@@ -594,6 +714,7 @@ export function SettingsModal({
               aria-disabled={
                 !localName.trim() ||
                 isDeleting ||
+                isDuplicating ||
                 isSaving ||
                 templateStorageWriteBlocked
               }
