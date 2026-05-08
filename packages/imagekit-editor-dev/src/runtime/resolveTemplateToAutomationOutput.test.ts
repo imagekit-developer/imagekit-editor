@@ -285,4 +285,76 @@ describe("runtime/resolveTemplateToAutomationOutput", () => {
       "e-gradient-ld-top_from-F23016FF_to-F8D624FF_sp-1:l-image,i-img.png,t-false,l-end:c-maintain_ratio,w-500_add_100,h-750",
     )
   })
+
+  it("produces the expected transformation string for a complex layers chain (pad_resize + image/canvas/image layers)", () => {
+    const template = templateRecord({
+      transformations: [
+        tplStep("resize_and_crop-resize_and_crop", {
+          mode: "cm-pad_resize",
+          width: 320,
+          height: 450,
+          backgroundType: "color",
+          backgroundDominantAuto: false,
+          background: "#E0E0E0",
+        }),
+        tplStep("layers-image", {
+          imageUrl:
+            "creative_automation_hackathon@@sample_images@@female-model-2.jpg",
+          width: "bw",
+          height: "bh",
+        }),
+        tplStep("layers-canvas", {
+          width: "bw",
+          height: 150,
+          gradientSwitch: true,
+          gradient: {
+            direction: "top",
+            from: "#00000090",
+            to: "#00000000",
+            stopPoint: 60,
+          },
+          lfo: "bottom",
+        }),
+        tplStep("layers-image", {
+          imageUrl:
+            "creative_automation_hackathon@@sample_images@@gap_logo.png",
+          width: 70,
+          height: 80,
+          crop: "c-at_max",
+          lxc: 60,
+          lyc: -50,
+        }),
+        tplStep("layers-image", {
+          imageUrl:
+            "creative_automation_hackathon@@sample_images@@h-m-1-logo-black-and-white.png",
+          width: 70,
+          height: 80,
+          crop: "c-at_max",
+          trimEnabled: true,
+          trimThreshold: 10,
+          lxc: 160,
+          lyc: -50,
+        }),
+      ],
+    })
+
+    const res = resolveTemplateToAutomationOutput({
+      assetUrl: "https://ik.imagekit.io/demo/base.png",
+      template,
+      activePresetId: null,
+    })
+
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+
+    expect(res.transformationString).toBe(
+      [
+        "cm-pad_resize,w-320,h-450,bg-E0E0E0",
+        `l-image,ie-${encodeURIComponent(btoa("creative_automation_hackathon@@sample_images@@female-model-2.jpg"))},w-bw,h-bh,l-end`,
+        "l-image,i-ik_canvas,w-bw,h-150,e-gradient-ld-top_from-00000090_to-00000000_sp-0.6,lfo-bottom,l-end",
+        `l-image,ie-${encodeURIComponent(btoa("creative_automation_hackathon@@sample_images@@gap_logo.png"))},lxc-60,lyc-N50,w-70,h-80,c-at_max,l-end`,
+        `l-image,ie-${encodeURIComponent(btoa("creative_automation_hackathon@@sample_images@@h-m-1-logo-black-and-white.png"))},lxc-160,lyc-N50,w-70,h-80,c-at_max,t-10,l-end`,
+      ].join(":"),
+    )
+  })
 })
