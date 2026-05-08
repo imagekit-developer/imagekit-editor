@@ -32,7 +32,7 @@ const heightNumber = z.coerce
   })
 const heightExpr = z
   .string()
-  .regex(/^(?:ih|bh|ch)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/, {
+  .regex(/^(?:ih|bh|ch)(?:_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?))?$/, {
     message: "Height string must be a valid expression string.",
   })
 

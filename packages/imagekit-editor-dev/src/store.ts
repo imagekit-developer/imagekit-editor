@@ -1048,23 +1048,21 @@ const calculateImageList = (
       // "Show original" in canvas mode shows the bare canvas path (no transformations)
       imgs[0] = CANVAS_IMAGE_PATH
     } else {
-      // Build a solid color overlay with dimensions inside its transformation array
+      // Build a solid color overlay with dimensions and all user transformations inside it
       const canvasOverlay: IKTransformation = {
         overlay: {
           type: "solidColor",
           color: canvas.color.replace(/^#/, ""),
-          transformation: [{ width: canvas.width, height: canvas.height }],
+          transformation: [
+            { width: canvas.width, height: canvas.height },
+            ...IKTransformations,
+          ],
         },
       }
-      // The canvas overlay comes first, then user transformations
-      const canvasTransformations: IKTransformation[] = [
-        canvasOverlay,
-        ...IKTransformations,
-      ]
       imgs[0] = buildSrc({
         src: CANVAS_IMAGE_PATH,
-        urlEndpoint: "https://ik.imagekit.io/test/",
-        transformation: canvasTransformations,
+        urlEndpoint: "https://ik.imagekit.io/customeraccountdemo/",
+        transformation: [canvasOverlay],
       })
     }
     return { imgs, activeImageIndex: 0, toSign, transformKey }
