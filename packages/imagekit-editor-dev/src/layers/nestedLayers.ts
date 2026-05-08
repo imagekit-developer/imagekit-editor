@@ -16,6 +16,12 @@ export type NestedTextLayer = {
   fontSize?: string | number
   fontFamily?: string
   color?: string
+  /**
+   * Typography flags for ImageKit text layers.
+   * URL syntax uses `tg-` (e.g. `tg-b_i`). The editor stores an array like
+   * ["bold","italic"] so we keep it flexible here.
+   */
+  typography?: Array<"bold" | "italic" | "strikethrough"> | string
   backgroundColor?: string
   padding?: string
   radius?: string | number
@@ -155,6 +161,18 @@ function serializeTextTransform(layer: NestedTextLayer): string[] {
   }
   if (layer.fontFamily) out.push(`ff-${layer.fontFamily.replace(/\//g, "@@")}`)
   if (layer.color) out.push(`co-${stripHexHash(layer.color)}`)
+  if (layer.typography) {
+    const raw = layer.typography
+    const parts = Array.isArray(raw)
+      ? raw.filter(Boolean).map((t) => {
+          if (t === "bold") return "b"
+          if (t === "italic") return "i"
+          return "strikethrough"
+        })
+      : String(raw).split("_").filter(Boolean)
+    const tg = parts.length > 0 ? parts.join("_") : ""
+    if (tg) out.push(`tg-${tg}`)
+  }
   if (layer.backgroundColor)
     out.push(`bg-${stripHexHash(layer.backgroundColor)}`)
   if (layer.padding) out.push(`pa-${layer.padding}`)

@@ -1834,6 +1834,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             positionY: layerYValidator.optional(),
             lxc: layerXValidator.optional(),
             lyc: layerYValidator.optional(),
+            lfo: z.string().optional(),
             children: z.array(nestedLayerSchema).optional(),
             fontSize: z.coerce
               .number({
@@ -2000,6 +2001,28 @@ const baseTransformationSchema: TransformationSchema[] = [
             helpText:
               "Y coordinate (in the base asset) where the layer's center should be placed.",
             examples: ["150", "bh_mul_0.4", "bh_sub_ch"],
+          },
+          {
+            label: "Relative Focus (lfo)",
+            name: "lfo",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationGroup: "textLayer",
+            helpText:
+              "Position the layer relative to its parent using lfo (default: center).",
+            fieldProps: {
+              positions: [
+                "center",
+                "top",
+                "bottom",
+                "left",
+                "right",
+                "top_left",
+                "top_right",
+                "bottom_left",
+                "bottom_right",
+              ],
+            },
           },
           {
             label: "Font Size",
@@ -2216,6 +2239,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             positionY: layerYValidator.optional(),
             lxc: layerXValidator.optional(),
             lyc: layerYValidator.optional(),
+            lfo: z.string().optional(),
             anchor: z.string().optional(),
             opacityEnabled: z.boolean().optional(),
             opacity: z.coerce
@@ -2778,6 +2802,28 @@ const baseTransformationSchema: TransformationSchema[] = [
             helpText:
               "Y coordinate (in the base asset) where the layer's center should be placed.",
             examples: ["150", "bh_mul_0.4", "bh_sub_ch"],
+          },
+          {
+            label: "Relative Focus (lfo)",
+            name: "lfo",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Position the layer relative to its parent using lfo (default: center).",
+            fieldProps: {
+              positions: [
+                "center",
+                "top",
+                "bottom",
+                "left",
+                "right",
+                "top_left",
+                "top_right",
+                "bottom_left",
+                "bottom_right",
+              ],
+            },
           },
           {
             label: "Opacity",
@@ -3730,7 +3776,9 @@ export const transformationFormatters: Record<
     const children = Array.isArray((values as any).children)
       ? ((values as any).children as NestedLayer[])
       : []
-    if (children.length > 0) {
+    const lfo = (values as any).lfo
+    const hasLfo = typeof lfo === "string" && lfo.trim() !== ""
+    if (children.length > 0 || hasLfo) {
       const paddingValue = (values as any).padding as
         | { mode?: string; padding?: unknown }
         | undefined
@@ -3765,6 +3813,7 @@ export const transformationFormatters: Record<
           fontSize: (values as any).fontSize as any,
           fontFamily: (values as any).fontFamily as any,
           color: (values as any).color as any,
+          typography: (values as any).typography as any,
           backgroundColor: (values as any).backgroundColor as any,
           padding: paddingString,
           radius: (values as any).radius as any,
@@ -3772,8 +3821,9 @@ export const transformationFormatters: Record<
             typeof (values as any).opacity === "number"
               ? (values as any).opacity
               : undefined,
-          position:
-            (values as any).positionX || (values as any).positionY
+          position: hasLfo
+            ? { mode: "lfo", lfo: String(lfo).trim() }
+            : (values as any).positionX || (values as any).positionY
               ? {
                   mode: "topLeft",
                   lx: String((values as any).positionX ?? ""),
@@ -3965,7 +4015,9 @@ export const transformationFormatters: Record<
     const children = Array.isArray((values as any).children)
       ? ((values as any).children as NestedLayer[])
       : []
-    if (children.length > 0) {
+    const lfo = (values as any).lfo
+    const hasLfo = typeof lfo === "string" && lfo.trim() !== ""
+    if (children.length > 0 || hasLfo) {
       const opacity =
         (values as any).opacityEnabled === true &&
         (values as any).opacity !== undefined &&
@@ -3983,8 +4035,9 @@ export const transformationFormatters: Record<
             ? (opacity as number)
             : undefined,
           backgroundColor: (values as any).backgroundColor as any,
-          position:
-            (values as any).positionX || (values as any).positionY
+          position: hasLfo
+            ? { mode: "lfo", lfo: String(lfo).trim() }
+            : (values as any).positionX || (values as any).positionY
               ? {
                   mode: "topLeft",
                   lx: String((values as any).positionX ?? ""),

@@ -125,6 +125,63 @@ describe("runtime/buildIkTransformations", () => {
     })
   })
 
+  it("includes typography (bold) in raw layer syntax when text layer uses lfo/nesting path", () => {
+    const out = buildIkTransformations([
+      step("layers-text", {
+        text: "Bold text",
+        typography: ["bold"],
+        // Trigger raw path in formatter (lfo or children).
+        lfo: "center",
+      }),
+    ])
+
+    expect(out).toHaveLength(1)
+    const t = out[0] as any
+    expect(typeof t.raw).toBe("string")
+    // ImageKit raw layer syntax uses `tg-` for typography (e.g. tg-b, tg-b_i).
+    expect(t.raw).toContain("tg-b")
+    // Raw path should not emit the structured overlay object.
+    expect(t.overlay).toBeUndefined()
+  })
+
+  it("includes typography (italics) in raw layer syntax when text layer uses lfo/nesting path", () => {
+    const out = buildIkTransformations([
+      step("layers-text", {
+        text: "Italic text",
+        typography: ["italic"],
+        // Trigger raw path in formatter (lfo or children).
+        lfo: "center",
+      }),
+    ])
+
+    expect(out).toHaveLength(1)
+    const t = out[0] as any
+    expect(typeof t.raw).toBe("string")
+    // ImageKit raw layer syntax uses `tg-` for typography (e.g. tg-b, tg-b_i).
+    expect(t.raw).toContain("tg-i")
+    // Raw path should not emit the structured overlay object.
+    expect(t.overlay).toBeUndefined()
+  })
+
+  it("includes typography (bold and italics) in raw layer syntax when text layer uses lfo/nesting path", () => {
+    const out = buildIkTransformations([
+      step("layers-text", {
+        text: "Bold and Italic text",
+        typography: ["bold", "italic"],
+        // Trigger raw path in formatter (lfo or children).
+        lfo: "center",
+      }),
+    ])
+
+    expect(out).toHaveLength(1)
+    const t = out[0] as any
+    expect(typeof t.raw).toBe("string")
+    // ImageKit raw layer syntax uses `tg-` for typography (e.g. tg-b, tg-b_i).
+    expect(t.raw).toContain("tg-b_i")
+    // Raw path should not emit the structured overlay object.
+    expect(t.overlay).toBeUndefined()
+  })
+
   it("builds an image overlay object (image layer) with crop/focus + nested formatter outputs", () => {
     const out = buildIkTransformations([
       step("layers-image", {
