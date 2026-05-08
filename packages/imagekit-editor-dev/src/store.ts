@@ -172,6 +172,10 @@ export type EditorActions<
     variables?: TemplateVariable[],
     presets?: TemplatePreset[],
   ) => void
+  /** Replaces the full variables list (modal-style edits). */
+  setTemplateVariables: (variables: TemplateVariable[]) => void
+  /** Replaces the full presets list (modal-style edits). */
+  setTemplatePresets: (presets: TemplatePreset[]) => void
   setActiveTemplatePresetId: (presetId: string | null) => void
   upsertTemplateVariable: (variable: {
     /** When set, update the existing definition with this stable id. */
@@ -180,6 +184,18 @@ export type EditorActions<
     defaultValue: string
     description?: string
   }) => TemplateVariable
+  deleteTemplateVariable: (variableId: string) => void
+  upsertTemplatePreset: (preset: {
+    id?: string
+    name: string
+    valuesByVariableId?: Record<string, string | undefined>
+  }) => TemplatePreset
+  deleteTemplatePreset: (presetId: string) => void
+  setTemplatePresetValue: (args: {
+    presetId: string
+    variableId: string
+    value: string
+  }) => void
   moveTransformation: (
     activeId: UniqueIdentifier,
     overId: UniqueIdentifier,
@@ -452,6 +468,37 @@ const useEditorStore = create<EditorState & EditorActions>()(
       }))
     },
 
+    setTemplateVariables: (variables) => {
+      set((state) => ({
+        templateVariables: variables,
+        // Strip deleted variable ids from all preset overrides.
+        templatePresets: state.templatePresets.map((p) => ({
+          ...p,
+          valuesByVariableId: Object.fromEntries(
+            Object.entries(p.valuesByVariableId ?? {}).filter(([id]) =>
+              variables.some((v) => v.id === id),
+            ),
+          ),
+        })),
+        isPristine: false,
+        localChangeVersion: bumpVersion(state.localChangeVersion),
+      }))
+    },
+
+    setTemplatePresets: (presets) => {
+      set((state) => {
+        const exists = state.activeTemplatePresetId
+          ? presets.some((p) => p.id === state.activeTemplatePresetId)
+          : true
+        return {
+          templatePresets: presets,
+          activeTemplatePresetId: exists ? state.activeTemplatePresetId : null,
+          isPristine: false,
+          localChangeVersion: bumpVersion(state.localChangeVersion),
+        }
+      })
+    },
+
     setActiveTemplatePresetId: (presetId) => {
       set({ activeTemplatePresetId: presetId })
     },
@@ -497,6 +544,100 @@ const useEditorStore = create<EditorState & EditorActions>()(
         throw new Error("upsertTemplateVariable: expected variable result")
       }
       return result
+    },
+
+    deleteTemplateVariable: (variableId) => {
+      set((state) => {
+        const nextVars = state.templateVariables.filter(
+          (v) => v.id !== variableId,
+        )
+        const nextPresets = state.templatePresets.map((p) => {
+          const { [variableId]: _deleted, ...rest } = p.valuesByVariableId ?? {}
+          return { ...p, valuesByVariableId: rest }
+        })
+        return {
+          templateVariables: nextVars,
+          templatePresets: nextPresets,
+          isPristine: false,
+          localChangeVersion: bumpVersion(state.localChangeVersion),
+        }
+      })
+    },
+
+    upsertTemplatePreset: (partial) => {
+      let result: TemplatePreset | null = null
+      set((state) => {
+        const list = [...state.templatePresets]
+        const idx = partial.id
+          ? list.findIndex((p) => p.id === partial.id)
+          : list.findIndex((p) => p.name === partial.name)
+        const makeId = () =>
+          typeof globalThis.crypto !== "undefined" &&
+          typeof globalThis.crypto.randomUUID === "function"
+            ? globalThis.crypto.randomUUID()
+            : `preset_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+        if (idx >= 0) {
+          const prev = list[idx]
+          list[idx] = {
+            ...prev,
+            name: partial.name,
+            valuesByVariableId:
+              partial.valuesByVariableId ?? prev.valuesByVariableId,
+          }
+          result = list[idx] ?? null
+        } else {
+          const nextPreset: TemplatePreset = {
+            id: partial.id ?? makeId(),
+            name: partial.name,
+            valuesByVariableId: partial.valuesByVariableId ?? {},
+          }
+          list.push(nextPreset)
+          result = nextPreset
+        }
+        return {
+          templatePresets: list,
+          isPristine: false,
+          localChangeVersion: bumpVersion(state.localChangeVersion),
+        }
+      })
+      if (!result)
+        throw new Error("upsertTemplatePreset: expected preset result")
+      return result
+    },
+
+    deleteTemplatePreset: (presetId) => {
+      set((state) => {
+        const nextPresets = state.templatePresets.filter(
+          (p) => p.id !== presetId,
+        )
+        return {
+          templatePresets: nextPresets,
+          activeTemplatePresetId:
+            state.activeTemplatePresetId === presetId
+              ? null
+              : state.activeTemplatePresetId,
+          isPristine: false,
+          localChangeVersion: bumpVersion(state.localChangeVersion),
+        }
+      })
+    },
+
+    setTemplatePresetValue: ({ presetId, variableId, value }) => {
+      set((state) => ({
+        templatePresets: state.templatePresets.map((p) =>
+          p.id !== presetId
+            ? p
+            : {
+                ...p,
+                valuesByVariableId: {
+                  ...(p.valuesByVariableId ?? {}),
+                  [variableId]: value,
+                },
+              },
+        ),
+        isPristine: false,
+        localChangeVersion: bumpVersion(state.localChangeVersion),
+      }))
     },
 
     loadTemplate: (template) => {

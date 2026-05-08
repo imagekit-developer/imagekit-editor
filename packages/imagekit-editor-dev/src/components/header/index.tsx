@@ -7,12 +7,18 @@ import {
   MenuButton,
   MenuItem,
   MenuList,
+  Popover,
+  PopoverBody,
+  PopoverContent,
+  PopoverTrigger,
   Spacer,
   Text,
+  useDisclosure,
 } from "@chakra-ui/react"
 import { PiBracketsCurly } from "@react-icons/all-files/pi/PiBracketsCurly"
 import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
 import { PiCaretRight } from "@react-icons/all-files/pi/PiCaretRight"
+import { PiCheck } from "@react-icons/all-files/pi/PiCheck"
 import { PiGear } from "@react-icons/all-files/pi/PiGear"
 import { PiGlobe } from "@react-icons/all-files/pi/PiGlobe"
 import { PiLock } from "@react-icons/all-files/pi/PiLock"
@@ -30,10 +36,12 @@ import {
 } from "../../store"
 import { chakraAny } from "../../utils"
 import { NavbarItem } from "./NavbarItem"
+import { PresetsModal } from "./PresetsModal"
 import { SettingsModal } from "./SettingsModal"
 import { TemplateNameInput } from "./TemplateNameInput"
 import { TemplateStatus } from "./TemplateStatus"
 import { TemplatesDropdown } from "./TemplatesDropdown"
+import { VariablesModal } from "./VariablesModal"
 
 interface ExportOptionButton<
   Metadata extends RequiredMetadata = RequiredMetadata,
@@ -80,6 +88,8 @@ export const Header = ({
   const MenuItemAny = chakraAny(MenuItem)
   const BoxAny = chakraAny(Box)
   const TextAny = chakraAny(Text)
+  const PopoverContentAny = chakraAny(PopoverContent)
+  const PopoverBodyAny = chakraAny(PopoverBody)
 
   const { imageList, originalImageList, currentImage } = useEditorStore()
   const templateId = useEditorStore((s) => s.templateId)
@@ -88,10 +98,16 @@ export const Header = ({
   const templateName = useEditorStore((s) => s.templateName)
   const templatePresets = useEditorStore((s) => s.templatePresets)
   const activeTemplatePresetId = useEditorStore((s) => s.activeTemplatePresetId)
+  const setActiveTemplatePresetId = useEditorStore(
+    (s) => s.setActiveTemplatePresetId,
+  )
   const provider = useTemplateStorage()
 
   const [activeRecord, setActiveRecord] = useState<TemplateRecord | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isVariablesOpen, setIsVariablesOpen] = useState(false)
+  const [isPresetsOpen, setIsPresetsOpen] = useState(false)
+  const presetDd = useDisclosure()
 
   // Fetch the active template record whenever templateId changes or after a save.
   // biome-ignore lint/correctness/useExhaustiveDependencies: syncStatus intentionally triggers a refetch after saves
@@ -354,7 +370,8 @@ export const Header = ({
             label="Variables"
             icon={<PiBracketsCurly />}
             onClick={() => {
-              // Modal work intentionally out of scope for this prototype iteration.
+              if (!templateId) return
+              setIsVariablesOpen(true)
             }}
             disabled={!templateId}
             _disabled={{
@@ -373,7 +390,8 @@ export const Header = ({
             label="Presets"
             icon={<PiStack />}
             onClick={() => {
-              // Modal work intentionally out of scope for this prototype iteration.
+              if (!templateId) return
+              setIsPresetsOpen(true)
             }}
             disabled={!templateId}
             _disabled={{
@@ -388,43 +406,188 @@ export const Header = ({
             height="50%"
           />
 
-          <BoxAny
-            as="button"
-            type="button"
-            display="inline-flex"
-            alignItems="center"
-            gap="2"
-            borderRadius="full"
-            px="4"
-            py="2"
-            mx="2"
-            fontSize="sm"
-            fontWeight="medium"
-            bg={activePreset ? "green.50" : "editorGray.100"}
-            color={activePreset ? "green.700" : "editorBattleshipGrey.700"}
-            borderWidth="1px"
-            borderColor={
-              activePreset ? "green.200" : "editorBattleshipGrey.200"
-            }
-            cursor={!templateId ? "not-allowed" : "default"}
-            userSelect="none"
-            disabled={!templateId}
-            opacity={!templateId ? 0.5 : undefined}
-            pointerEvents={!templateId ? "none" : "auto"}
-            _hover={!templateId ? undefined : { opacity: 0.9 }}
+          <Popover
+            placement="bottom-start"
+            isLazy
+            isOpen={presetDd.isOpen}
+            onOpen={presetDd.onOpen}
+            onClose={presetDd.onClose}
           >
-            <BoxAny
-              width="6px"
-              height="6px"
-              borderRadius="full"
-              bg={activePreset ? "green.500" : "editorBattleshipGrey.300"}
-              flexShrink={0}
-            />
-            <TextAny lineHeight="1">
-              {activePreset?.name ?? "No preset"}
-            </TextAny>
-            <Icon as={PiCaretDown} boxSize={4} opacity={0.7} />
-          </BoxAny>
+            <PopoverTrigger>
+              <BoxAny
+                as="button"
+                type="button"
+                display="inline-flex"
+                alignItems="center"
+                gap="2"
+                borderRadius="full"
+                px="4"
+                py="2"
+                mx="2"
+                fontSize="sm"
+                fontWeight="medium"
+                bg={activePreset ? "green.50" : "editorGray.100"}
+                color={activePreset ? "green.700" : "editorBattleshipGrey.700"}
+                borderWidth="1px"
+                borderColor={
+                  activePreset ? "green.200" : "editorBattleshipGrey.200"
+                }
+                cursor={!templateId ? "not-allowed" : "pointer"}
+                userSelect="none"
+                disabled={!templateId}
+                opacity={!templateId ? 0.5 : undefined}
+                pointerEvents={!templateId ? "none" : "auto"}
+                _hover={!templateId ? undefined : { opacity: 0.9 }}
+                _focus={{ outline: "none", boxShadow: "none" }}
+                _focusVisible={{ outline: "none", boxShadow: "none" }}
+                aria-label="Select active preset"
+              >
+                <BoxAny
+                  width="6px"
+                  height="6px"
+                  borderRadius="full"
+                  bg={activePreset ? "green.500" : "editorBattleshipGrey.300"}
+                  flexShrink={0}
+                />
+                <TextAny lineHeight="1">
+                  {activePreset?.name ?? "No preset"}
+                </TextAny>
+                <Icon as={PiCaretDown} boxSize={4} opacity={0.7} />
+              </BoxAny>
+            </PopoverTrigger>
+            <PopoverContentAny
+              width="260px"
+              shadow="lg"
+              p="0"
+              overflow="hidden"
+              borderWidth="1px"
+              borderColor="editorGray.300"
+              borderRadius="xl"
+            >
+              <PopoverBodyAny p="0">
+                <BoxAny
+                  px="4"
+                  py="2.5"
+                  fontSize="xs"
+                  fontWeight="semibold"
+                  color="editorGray.500"
+                  textTransform="uppercase"
+                  letterSpacing="0.04em"
+                  bg="editorGray.50"
+                  borderBottomWidth="1px"
+                  borderColor="editorGray.300"
+                >
+                  Preview preset
+                </BoxAny>
+
+                <BoxAny maxH="260px" overflowY="auto">
+                  <BoxAny
+                    as="button"
+                    type="button"
+                    width="full"
+                    textAlign="left"
+                    px="4"
+                    py="3"
+                    display="flex"
+                    alignItems="center"
+                    gap="3"
+                    bg={
+                      activeTemplatePresetId == null
+                        ? "editorGray.100"
+                        : "white"
+                    }
+                    _hover={{ bg: "editorGray.50" }}
+                    onClick={() => {
+                      setActiveTemplatePresetId(null)
+                      presetDd.onClose()
+                    }}
+                  >
+                    <BoxAny
+                      width="18px"
+                      display="flex"
+                      justifyContent="center"
+                      opacity={activeTemplatePresetId == null ? 1 : 0}
+                    >
+                      <Icon as={PiCheck} boxSize={4} color="editorGray.700" />
+                    </BoxAny>
+                    <TextAny fontSize="sm" color="editorGray.800" flex="1">
+                      No preset
+                    </TextAny>
+                  </BoxAny>
+
+                  {templatePresets.map((p) => (
+                    <BoxAny
+                      key={p.id}
+                      as="button"
+                      type="button"
+                      width="full"
+                      textAlign="left"
+                      px="4"
+                      py="3"
+                      display="flex"
+                      alignItems="center"
+                      gap="3"
+                      bg={
+                        p.id === activeTemplatePresetId ? "green.50" : "white"
+                      }
+                      _hover={{ bg: "editorGray.50" }}
+                      onClick={() => {
+                        setActiveTemplatePresetId(p.id)
+                        presetDd.onClose()
+                      }}
+                    >
+                      <BoxAny
+                        width="18px"
+                        display="flex"
+                        justifyContent="center"
+                        opacity={p.id === activeTemplatePresetId ? 1 : 0}
+                      >
+                        <Icon as={PiCheck} boxSize={4} color="green.600" />
+                      </BoxAny>
+                      <TextAny
+                        fontSize="sm"
+                        color={
+                          p.id === activeTemplatePresetId
+                            ? "green.700"
+                            : "editorGray.800"
+                        }
+                        flex="1"
+                        isTruncated
+                      >
+                        {p.name}
+                      </TextAny>
+                    </BoxAny>
+                  ))}
+                </BoxAny>
+
+                <BoxAny
+                  px="4"
+                  py="3"
+                  borderTopWidth="1px"
+                  borderColor="editorGray.300"
+                  bg="white"
+                >
+                  <BoxAny
+                    as="button"
+                    type="button"
+                    display="inline-flex"
+                    alignItems="center"
+                    gap="2"
+                    fontSize="sm"
+                    color="editorGray.700"
+                    _hover={{ color: "editorGray.900" }}
+                    onClick={() => {
+                      presetDd.onClose()
+                      setIsPresetsOpen(true)
+                    }}
+                  >
+                    <Icon as={PiStack} boxSize={4} />
+                    Manage presets
+                  </BoxAny>
+                </BoxAny>
+              </PopoverBodyAny>
+            </PopoverContentAny>
+          </Popover>
 
           <Spacer />
         </FlexAny>
@@ -447,6 +610,22 @@ export const Header = ({
             if (!provider?.deleteTemplate) return
             await provider.deleteTemplate(id)
             useEditorStore.getState().resetToNewTemplate()
+          }}
+        />
+      )}
+
+      {isVariablesOpen && (
+        <VariablesModal
+          onClose={() => {
+            setIsVariablesOpen(false)
+          }}
+        />
+      )}
+
+      {isPresetsOpen && (
+        <PresetsModal
+          onClose={() => {
+            setIsPresetsOpen(false)
           }}
         />
       )}
