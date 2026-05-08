@@ -1832,6 +1832,8 @@ const baseTransformationSchema: TransformationSchema[] = [
             width: widthValidator.optional(),
             positionX: layerXValidator.optional(),
             positionY: layerYValidator.optional(),
+            lxc: layerXValidator.optional(),
+            lyc: layerYValidator.optional(),
             children: z.array(nestedLayerSchema).optional(),
             fontSize: z.coerce
               .number({
@@ -1976,6 +1978,28 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationGroup: "textLayer",
             helpText: "Specify vertical offset for the text.",
             examples: ["10", "-20", "N30", "bh_div_2"],
+          },
+          {
+            label: "Layer Center X",
+            name: "lxc",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "lxc",
+            transformationGroup: "textLayer",
+            helpText:
+              "X coordinate (in the base asset) where the layer's center should be placed.",
+            examples: ["200", "bw_mul_0.4", "bw_sub_cw"],
+          },
+          {
+            label: "Layer Center Y",
+            name: "lyc",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "lyc",
+            transformationGroup: "textLayer",
+            helpText:
+              "Y coordinate (in the base asset) where the layer's center should be placed.",
+            examples: ["150", "bh_mul_0.4", "bh_sub_ch"],
           },
           {
             label: "Font Size",
@@ -2190,6 +2214,8 @@ const baseTransformationSchema: TransformationSchema[] = [
             crop: z.string().optional(),
             positionX: layerXValidator.optional(),
             positionY: layerYValidator.optional(),
+            lxc: layerXValidator.optional(),
+            lyc: layerYValidator.optional(),
             anchor: z.string().optional(),
             opacityEnabled: z.boolean().optional(),
             opacity: z.coerce
@@ -2732,6 +2758,28 @@ const baseTransformationSchema: TransformationSchema[] = [
             examples: ["10", "-20", "N30", "bh_div_2"],
           },
           {
+            label: "Layer Center X",
+            name: "lxc",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "lxc",
+            transformationGroup: "imageLayer",
+            helpText:
+              "X coordinate (in the base asset) where the layer's center should be placed.",
+            examples: ["200", "bw_mul_0.4", "bw_sub_cw"],
+          },
+          {
+            label: "Layer Center Y",
+            name: "lyc",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "lyc",
+            transformationGroup: "imageLayer",
+            helpText:
+              "Y coordinate (in the base asset) where the layer's center should be placed.",
+            examples: ["150", "bh_mul_0.4", "bh_sub_ch"],
+          },
+          {
             label: "Opacity",
             name: "opacityEnabled",
             fieldType: "switch",
@@ -3261,6 +3309,8 @@ const baseTransformationSchema: TransformationSchema[] = [
               .optional(),
             positionX: layerXValidator.optional(),
             positionY: layerYValidator.optional(),
+            lxc: layerXValidator.optional(),
+            lyc: layerYValidator.optional(),
             children: z.array(nestedLayerSchema).optional(),
           })
           .refine(
@@ -3411,6 +3461,26 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationGroup: "canvasLayer",
             helpText: "Vertical offset for the canvas layer.",
             examples: ["10", "-20", "N30", "bh_div_2"],
+          },
+          {
+            label: "Layer Center X",
+            name: "lxc",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "canvasLayer",
+            helpText:
+              "X coordinate (in the base asset) where the layer's center should be placed.",
+            examples: ["200", "bw_mul_0.4", "bw_sub_cw"],
+          },
+          {
+            label: "Layer Center Y",
+            name: "lyc",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "canvasLayer",
+            helpText:
+              "Y coordinate (in the base asset) where the layer's center should be placed.",
+            examples: ["150", "bh_mul_0.4", "bh_sub_ch"],
           },
         ],
       },
@@ -3856,6 +3926,26 @@ export const transformationFormatters: Record<
     ) {
       position.y = values.positionY.toString().replace(/^-/, "N")
     }
+    if (
+      (values as any).lxc !== undefined &&
+      (values as any).lxc !== null &&
+      (values as any).lxc !== ""
+    ) {
+      // SDK maps this to `lxc` in URL
+      position.xCenter = String((values as any).lxc).replace(/^-/, "N")
+      // If xCenter is used, x should be ignored
+      delete (position as any).x
+    }
+    if (
+      (values as any).lyc !== undefined &&
+      (values as any).lyc !== null &&
+      (values as any).lyc !== ""
+    ) {
+      // SDK maps this to `lyc` in URL
+      position.yCenter = String((values as any).lyc).replace(/^-/, "N")
+      // If yCenter is used, y should be ignored
+      delete (position as any).y
+    }
     if (Object.keys(position).length > 0) {
       overlay.position = position
     }
@@ -4027,6 +4117,14 @@ export const transformationFormatters: Record<
     if (values.positionY) {
       position.y = values.positionY.toString().replace(/^-/, "N")
     }
+    if ((values as any).lxc !== undefined && (values as any).lxc !== "") {
+      position.xCenter = String((values as any).lxc).replace(/^-/, "N")
+      delete position.x
+    }
+    if ((values as any).lyc !== undefined && (values as any).lyc !== "") {
+      position.yCenter = String((values as any).lyc).replace(/^-/, "N")
+      delete position.y
+    }
 
     if (Object.keys(position).length > 0) {
       overlay.position = position
@@ -4075,13 +4173,20 @@ export const transformationFormatters: Record<
             : undefined,
         position: (values as any).lfo
           ? { mode: "lfo", lfo: String((values as any).lfo) }
-          : (values as any).positionX || (values as any).positionY
+          : ((values as any).lxc !== undefined && (values as any).lxc !== "") ||
+              ((values as any).lyc !== undefined && (values as any).lyc !== "")
             ? {
-                mode: "topLeft",
-                lx: String((values as any).positionX ?? ""),
-                ly: String((values as any).positionY ?? ""),
+                mode: "center",
+                lxc: String((values as any).lxc ?? ""),
+                lyc: String((values as any).lyc ?? ""),
               }
-            : { mode: "none" },
+            : (values as any).positionX || (values as any).positionY
+              ? {
+                  mode: "topLeft",
+                  lx: String((values as any).positionX ?? ""),
+                  ly: String((values as any).positionY ?? ""),
+                }
+              : { mode: "none" },
         children,
       },
     })
