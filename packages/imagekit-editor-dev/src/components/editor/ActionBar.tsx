@@ -1,5 +1,6 @@
 import { ExternalLinkIcon } from "@chakra-ui/icons"
 import {
+  Badge,
   Box,
   Button,
   Divider,
@@ -14,11 +15,13 @@ import {
   Text,
   Tooltip,
 } from "@chakra-ui/react"
+import { PiBracketsCurly } from "@react-icons/all-files/pi/PiBracketsCurly"
 import { PiGridFour } from "@react-icons/all-files/pi/PiGridFour"
 import { PiImageSquare } from "@react-icons/all-files/pi/PiImageSquare"
 import { PiListBullets } from "@react-icons/all-files/pi/PiListBullets"
 import { type FC, useMemo } from "react"
 import { useEditorStore } from "../../store"
+import { listVariables } from "../../variables/listVariables"
 import { CanvasSettingsPopover } from "./CanvasSettingsPopover"
 
 interface ActionBarProps {
@@ -42,8 +45,16 @@ export const ActionBar: FC<ActionBarProps> = ({
     setShowOriginal,
     mode,
     canvas,
+    transformations,
   } = useEditorStore()
   const isCanvas = mode === "canvas"
+  // Variables are a canvas-mode-only feature; the count badge is the only
+  // affordance in the action bar (per-field hover affordances live in the
+  // sidebar). Skip the work entirely outside canvas mode.
+  const variableCount = useMemo(
+    () => (isCanvas ? listVariables(transformations).length : 0),
+    [isCanvas, transformations],
+  )
 
   const imageDimensions = useMemo(() => {
     const idx = imageList.findIndex((img) => img === currentImage)
@@ -107,6 +118,38 @@ export const ActionBar: FC<ActionBarProps> = ({
               borderColor="editorBattleshipGrey.200"
             />
             <CanvasSettingsPopover canvas={canvas} />
+          </>
+        )}
+
+        {isCanvas && (
+          <>
+            <Divider
+              orientation="vertical"
+              h="6"
+              borderColor="editorBattleshipGrey.200"
+            />
+            <Tooltip
+              label={
+                variableCount === 0
+                  ? "Hover any field label in the sidebar and click {} to make it a variable"
+                  : `${variableCount} template variable${variableCount === 1 ? "" : "s"} defined`
+              }
+              placement="bottom"
+            >
+              <HStack spacing="1" px="2" color="gray.700">
+                <Icon as={PiBracketsCurly} boxSize={4} />
+                <Text fontSize="sm" fontWeight="medium">
+                  Variables
+                </Text>
+                <Badge
+                  colorScheme={variableCount > 0 ? "purple" : "gray"}
+                  borderRadius="full"
+                  px="2"
+                >
+                  {variableCount}
+                </Badge>
+              </HStack>
+            </Tooltip>
           </>
         )}
 

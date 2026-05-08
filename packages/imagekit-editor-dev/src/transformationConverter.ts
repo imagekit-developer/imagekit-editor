@@ -10,6 +10,23 @@ import {
   transformationSchema,
 } from "./schema"
 import type { Transformation } from "./store"
+import { resolveVariableRefs } from "./variables"
+
+/**
+ * Optional resolution context for the conversion API.
+ *
+ * `overrides` maps each variable name (the `$var` of a {@link VariableRef}
+ * marker) to a runtime value. Markers without an override fall back to their
+ * own embedded `default`. When omitted, every marker resolves to its default,
+ * which is what the editor preview always uses.
+ *
+ * Marker-free trees are byte-equivalent through this pipeline: legacy
+ * templates with no variables produce the exact same SDK output as before the
+ * variables feature existed.
+ */
+export interface ConvertContext {
+  overrides?: Readonly<Record<string, unknown>>
+}
 
 /**
  * Convert a single editor-stored `Transformation` (`type: "transformation"`,
@@ -23,7 +40,17 @@ import type { Transformation } from "./store"
  */
 export function convertTransformationToIK(
   transformation: Transformation,
+  ctx: ConvertContext = {},
 ): IKTransformation {
+  // Substitute every {$var} marker in the value tree before any field-level
+  // logic runs. After this point the rest of the converter is identical to
+  // the pre-variables behavior; trees with no markers pass through as a
+  // structural clone, so legacy templates remain byte-equivalent.
+  const resolvedValue = resolveVariableRefs(
+    transformation.value,
+    ctx.overrides ?? {},
+  ) as IKTransformation
+
   const t = transformationSchema
     .find((schema) => schema.key === transformation.key.split("-")[0])
     ?.items.find((item) => item.key === transformation.key)
@@ -44,13 +71,10 @@ export function convertTransformationToIK(
     t.transformations.forEach((transform) => {
       if (
         transform.transformationGroup &&
-        transform.isVisible?.(
-          transformation.value as Record<string, unknown>,
-        ) !== false
+        transform.isVisible?.(resolvedValue as Record<string, unknown>) !==
+          false
       ) {
-        const value = (transformation.value as Record<string, unknown>)[
-          transform.name
-        ]
+        const value = (resolvedValue as Record<string, unknown>)[transform.name]
         if (value !== undefined && value !== "") {
           if (!groupedTransforms[transform.transformationGroup]) {
             groupedTransforms[transform.transformationGroup] = {
@@ -69,7 +93,7 @@ export function convertTransformationToIK(
   }
 
   const transforms: Record<string, unknown> = Object.fromEntries(
-    Object.entries(transformation.value)
+    Object.entries(resolvedValue)
       .map(([key, value]) => {
         const transform = t?.transformations.find((field) => field.name === key)
 
@@ -79,9 +103,7 @@ export function convertTransformationToIK(
 
         if (
           transform?.isTransformation &&
-          (transform.isVisible?.(
-            transformation.value as Record<string, unknown>,
-          ) ??
+          (transform.isVisible?.(resolvedValue as Record<string, unknown>) ??
             true) &&
           value !== ""
         ) {
@@ -109,7 +131,7 @@ export function convertTransformationToIK(
   // Special handling for resize_and_crop transformation
   let defaultTransformation = t?.defaultTransformation || {}
   if (transformation.key === "resize_and_crop-resize_and_crop") {
-    const value = transformation.value as Record<string, unknown>
+    const value = resolvedValue as Record<string, unknown>
     // Only add crop/cropMode when both width and height and mode are set
     if (value.width && value.height && value.mode) {
       defaultTransformation = getDefaultTransformationFromMode(
@@ -132,10 +154,11 @@ export function convertTransformationToIK(
  */
 export function convertTransformationsToIK(
   transformations: Transformation[],
+  ctx: ConvertContext = {},
 ): IKTransformation[] {
   const out: IKTransformation[] = []
   for (const t of transformations) {
-    const converted = convertTransformationToIK(t)
+    const converted = convertTransformationToIK(t, ctx)
     if (converted) out.push(converted)
   }
   return out
@@ -151,12 +174,16 @@ export function buildImageKitUrl({
   src,
   urlEndpoint,
   transformations,
+  overrides,
 }: {
   src: string
   urlEndpoint: string
   transformations: Transformation[]
+  overrides?: Readonly<Record<string, unknown>>
 }): string {
-  const ikTransformations = convertTransformationsToIK(transformations)
+  const ikTransformations = convertTransformationsToIK(transformations, {
+    overrides,
+  })
   if (ikTransformations.length === 0) return src
   return buildSrc({
     src,
@@ -171,7 +198,8 @@ export function buildImageKitUrl({
  */
 export function buildEditorTransformationString(
   transformations: Transformation[],
+  ctx: ConvertContext = {},
 ): string {
-  const ikTransformations = convertTransformationsToIK(transformations)
+  const ikTransformations = convertTransformationsToIK(transformations, ctx)
   return buildTransformationString(ikTransformations)
 }

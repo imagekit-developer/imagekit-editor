@@ -13,7 +13,6 @@ import {
   HStack,
   Icon,
   IconButton,
-  Input,
   Link,
   Menu,
   MenuButton,
@@ -23,13 +22,7 @@ import {
   PopoverBody,
   PopoverContent,
   PopoverTrigger,
-  Slider,
-  SliderFilledTrack,
-  SliderThumb,
-  SliderTrack,
-  Switch,
   Text,
-  Textarea,
   VStack,
 } from "@chakra-ui/react"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -39,10 +32,7 @@ import { PiInfo } from "@react-icons/all-files/pi/PiInfo"
 import { PiX } from "@react-icons/all-files/pi/PiX"
 import startCase from "lodash/startCase"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import type { ColorPickerProps } from "react-best-gradient-color-picker"
 import { Controller, type SubmitHandler, useForm } from "react-hook-form"
-import Select from "react-select"
-import CreateableSelect from "react-select/creatable"
 import { z } from "zod/v3"
 import { useTemplateSync } from "../../hooks/useTemplateSync"
 import type { TransformationField } from "../../schema"
@@ -53,31 +43,18 @@ import {
   transformationSchema,
 } from "../../schema"
 import { type SyncStatus, useEditorStore } from "../../store"
-import { isStepAligned } from "../../utils"
-import AnchorField from "../common/AnchorField"
-import CheckboxCardField from "../common/CheckboxCardField"
-import ColorPickerField from "../common/ColorPickerField"
-import RadiusInputField, {
-  type RadiusErrors,
-  type RadiusState,
-} from "../common/CornerRadiusInput"
-import DistortPerspectiveInput, {
-  type PerspectiveErrors,
-  type PerspectiveObject,
-} from "../common/DistortPerspectiveInput"
-import GradientPicker, {
-  type GradientPickerState,
-} from "../common/GradientPicker"
-import PaddingInputField, {
-  type PaddingErrors,
-  type PaddingState,
-} from "../common/PaddingInput"
-import RadioCardField from "../common/RadioCardField"
-import ZoomInput from "../common/ZoomInput"
+import {
+  generateVariableName,
+  isVariableRef,
+  type VariableRef,
+} from "../../variables"
+import { listVariables } from "../../variables/listVariables"
 import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
 import { SidebarRoot } from "./sidebar-root"
+import { TransformationFieldRenderer } from "./TransformationFieldRenderer"
+import { MakeVariableButton, BoundVariableChip, isVariablizableFieldType } from "./MakeVariableButton"
 
 export type TransformationFooterActionMode =
   | "fullySynced"
@@ -204,6 +181,48 @@ export const TransformationConfigSidebar: React.FC = () => {
     | Record<string, unknown>
     | undefined
 
+  // ── Variables (canvas mode only) ─────────────────────────────────────────
+  // The marker `{ $var, label }` is the source of truth and lives
+  // inside the persisted transformation value. While the user is editing in
+  // the sidebar we keep two parallel mirrors:
+  //   - RHF holds the resolved default for each variabilized field, so Zod
+  //     validation passes and the live editor preview keeps rendering with
+  //     real values;
+  //   - `boundFields` holds the marker, indexed by field name, so on Apply
+  //     we can overlay markers back onto `data` before persistence.
+  // This split avoids two earlier failure modes: Zod rejecting non-scalar
+  // values, and the dirty flag not flipping on bind/unbind alone.
+  const editorMode = useEditorStore((s) => s.mode)
+  const isCanvasMode = editorMode === "canvas"
+  const allTransformations = useEditorStore((s) => s.transformations)
+  const allTakenVariableNames = useMemo(
+    () => listVariables(allTransformations).map((v) => v.name),
+    [allTransformations],
+  )
+
+  const initialBoundFields = useMemo(() => {
+    const out: Record<string, VariableRef> = {}
+    if (!editedTransformationValue) return out
+    for (const [k, v] of Object.entries(editedTransformationValue)) {
+      if (isVariableRef(v)) out[k] = v
+    }
+    return out
+  }, [editedTransformationValue])
+
+  const [boundFields, setBoundFields] =
+    useState<Record<string, VariableRef>>(initialBoundFields)
+  // Flips when the user binds, unbinds, or renames a variable. RHF's own
+  // `isDirty` only reflects field-value diffs; binding can leave the
+  // resolved default identical to RHF's seed value, so we need a separate
+  // signal to enable Apply.
+  const [bindingDirty, setBindingDirty] = useState(false)
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset when switching transformations / edit targets
+  useEffect(() => {
+    setBoundFields(initialBoundFields)
+    setBindingDirty(false)
+  }, [initialBoundFields, footerSessionResetKey])
+
   const defaultValues = useMemo(() => {
     if (
       transformationToEdit &&
@@ -217,7 +236,13 @@ export const TransformationConfigSidebar: React.FC = () => {
           editedTransformationValue &&
           field.name in editedTransformationValue
         ) {
-          currentValues[field.name] = editedTransformationValue[field.name]
+          const stored = editedTransformationValue[field.name]
+          // Variabilized field: seed RHF with the field's schema default so
+          // the (hidden) input + Zod validator have something sane to work
+          // with. The marker is the source of truth and is restored on Apply.
+          currentValues[field.name] = isVariableRef(stored)
+            ? (field.fieldProps?.defaultValue ?? "")
+            : stored
         } else {
           currentValues[field.name] = field.fieldProps?.defaultValue ?? ""
         }
@@ -329,11 +354,19 @@ export const TransformationConfigSidebar: React.FC = () => {
           }
         }
 
+        // Overlay variable markers onto the form data so the persisted
+        // value carries the marker rather than the placeholder seeded into
+        // RHF for the (hidden) input.
+        const persistedData: Record<string, unknown> = { ...data }
+        for (const [fieldName, ref] of Object.entries(boundFields)) {
+          persistedData[fieldName] = ref
+        }
+
         updateTransformation(transformationToEdit.transformationId, {
           type: "transformation",
           name: finalName,
           key: selectedTransformation.key,
-          value: data,
+          value: persistedData,
         })
       } else if (
         transformationToEdit &&
@@ -345,29 +378,39 @@ export const TransformationConfigSidebar: React.FC = () => {
             transformation.id === transformationToEdit.targetId,
         )
 
+        const persistedData: Record<string, unknown> = { ...data }
+        for (const [fieldName, ref] of Object.entries(boundFields)) {
+          persistedData[fieldName] = ref
+        }
+
         const transformationId = addTransformation(
           {
             type: "transformation",
             name: displayName,
             key: selectedTransformation.key,
-            value: data,
+            value: persistedData,
           },
           index + (transformationToEdit.position === "above" ? 0 : 1),
         )
 
         _setTransformationToEdit(transformationId, "inplace")
       } else {
+        const persistedData: Record<string, unknown> = { ...data }
+        for (const [fieldName, ref] of Object.entries(boundFields)) {
+          persistedData[fieldName] = ref
+        }
         const transformationId = addTransformation({
           type: "transformation",
           name: displayName,
           key: selectedTransformation.key,
-          value: data,
+          value: persistedData,
         })
 
         _setTransformationToEdit(transformationId, "inplace")
       }
 
       setHasAppliedInSession(true)
+      setBindingDirty(false)
     },
     [
       _internalState.transformationToEdit,
@@ -377,6 +420,7 @@ export const TransformationConfigSidebar: React.FC = () => {
       transformations,
       updateTransformation,
       _setTransformationToEdit,
+      boundFields,
     ],
   )
 
@@ -395,7 +439,7 @@ export const TransformationConfigSidebar: React.FC = () => {
   const footerActionsConfig = useMemo(
     () =>
       getTransformationFooterActionsConfig({
-        isDirty,
+        isDirty: isDirty || bindingDirty,
         syncStatus,
         hasAppliedInSession,
         templateStorageWriteBlocked,
@@ -403,6 +447,7 @@ export const TransformationConfigSidebar: React.FC = () => {
       }),
     [
       isDirty,
+      bindingDirty,
       syncStatus,
       hasAppliedInSession,
       templateStorageWriteBlocked,
@@ -555,520 +600,138 @@ export const TransformationConfigSidebar: React.FC = () => {
             }
             return true
           })
-          .map((field: TransformationField) => (
-            <FormControl
-              key={field.name}
-              isInvalid={
-                !!errors[field.name] &&
-                !["gradient-picker", "padding-input"].some(
-                  (type) => field.fieldType === type,
-                )
-              }
-            >
-              <FormLabel htmlFor={field.name} fontSize="sm">
-                {field.label}
-              </FormLabel>
-              {field.fieldType === "select" ? (
-                <Controller
-                  name={field.name}
-                  control={control}
-                  render={({ field: controllerField }) => {
-                    // For focusObject field, use focusObjects from store or default list
-                    const selectOptions =
-                      field.name === "focusObject"
-                        ? (focusObjects || DEFAULT_FOCUS_OBJECTS).map(
-                            (obj) => ({
-                              value: obj,
-                              label: startCase(obj),
-                            }),
-                          )
-                        : field.fieldProps?.options?.map((option) => ({
-                            value: option.value,
-                            label: option.label,
-                          }))
-
-                    const isCreatable = field.fieldProps?.isCreatable === true
-                    const isClearable: boolean =
-                      field.fieldProps?.isClearable ?? false
-
-                    // For creatable selects, find the value in options or create a custom one
-                    const selectedValue = isCreatable
-                      ? selectOptions?.find(
-                          (option) => option.value === controllerField.value,
-                        ) ||
-                        (controllerField.value
-                          ? {
-                              value: controllerField.value as string,
-                              label: startCase(controllerField.value as string),
-                            }
-                          : null)
-                      : selectOptions?.find(
-                          (option) => option.value === controllerField.value,
-                        )
-
-                    return isCreatable ? (
-                      <CreateableSelect
-                        id={field.name}
-                        formatCreateLabel={(inputValue: string) =>
-                          `Use "${inputValue}"`
-                        }
-                        isClearable={isClearable}
-                        placeholder="Select"
-                        menuPlacement="auto"
-                        options={selectOptions}
-                        value={selectedValue}
-                        onChange={(selectedOption) =>
-                          controllerField.onChange(selectedOption?.value)
-                        }
-                        onBlur={controllerField.onBlur}
-                        styles={{
-                          control: (base) => ({
-                            ...base,
-                            fontSize: "12px",
-                            minHeight: "32px",
-                            borderColor: "#E2E8F0",
-                          }),
-                          menu: (base) => ({
-                            ...base,
-                            zIndex: 10,
-                          }),
-                          option: (base) => ({
-                            ...base,
-                            fontSize: "12px",
-                          }),
-                        }}
-                      />
-                    ) : (
-                      <Select
-                        id={field.name}
-                        isClearable={isClearable}
-                        placeholder="Select"
-                        menuPlacement="auto"
-                        options={selectOptions}
-                        value={selectedValue}
-                        onChange={(selectedOption) =>
-                          controllerField.onChange(selectedOption?.value)
-                        }
-                        onBlur={controllerField.onBlur}
-                        styles={{
-                          control: (base) => ({
-                            ...base,
-                            fontSize: "12px",
-                            minHeight: "32px",
-                            borderColor: "#E2E8F0",
-                          }),
-                          menu: (base) => ({
-                            ...base,
-                            zIndex: 10,
-                          }),
-                          option: (base) => ({
-                            ...base,
-                            fontSize: "12px",
-                          }),
-                        }}
-                      />
-                    )
-                  }}
-                />
-              ) : null}
-              {field.fieldType === "select-creatable" ? (
-                <Controller
-                  name={field.name}
-                  control={control}
-                  render={({ field: controllerField }) => (
-                    <CreateableSelect
-                      id={field.name}
-                      placeholder="Select"
-                      menuPlacement="auto"
-                      options={field.fieldProps?.options?.map((option) => ({
-                        value: option.value,
-                        label: option.label,
-                      }))}
-                      value={field.fieldProps?.options?.find(
-                        (option) => option.value === controllerField.value,
-                      )}
-                      onChange={(selectedOption) =>
-                        controllerField.onChange(selectedOption?.value)
-                      }
-                      onBlur={controllerField.onBlur}
-                      styles={{
-                        control: (base) => ({
-                          ...base,
-                          fontSize: "12px",
-                          minHeight: "32px",
-                          borderColor: "#E2E8F0",
-                        }),
-                        menu: (base) => ({
-                          ...base,
-                          zIndex: 10,
-                        }),
-                        option: (base) => ({
-                          ...base,
-                          fontSize: "12px",
-                        }),
+          .map((field: TransformationField) => {
+            const boundVariable = boundFields[field.name]
+            const showMakeVariable =
+              isCanvasMode &&
+              !boundVariable &&
+              isVariablizableFieldType(field.fieldType)
+            return (
+              <FormControl
+                key={field.name}
+                isInvalid={
+                  !!errors[field.name] &&
+                  !["gradient-picker", "padding-input"].some(
+                    (type) => field.fieldType === type,
+                  )
+                }
+              >
+                <Flex
+                  align="center"
+                  justify="space-between"
+                  role="group"
+                  mb="1"
+                >
+                  <FormLabel htmlFor={field.name} fontSize="sm" mb="0">
+                    {field.label}
+                  </FormLabel>
+                  {showMakeVariable && (
+                    <MakeVariableButton
+                      fieldLabel={field.label}
+                      takenNames={allTakenVariableNames}
+                      onCreate={(variable) => {
+                        setBoundFields((prev) => ({
+                          ...prev,
+                          [field.name]: {
+                            $var: variable.name,
+                            label: variable.label,
+                          },
+                        }))
+                        setBindingDirty(true)
+                        // Touching the form value forces RHF to refresh its
+                        // dependents (preview, isDirty subscribers).
+                        setDirtyValue(field.name, values[field.name])
                       }}
                     />
                   )}
-                />
-              ) : null}
-              {field.fieldType === "input" ? (
-                <Input
-                  id={field.name}
-                  fontSize="sm"
-                  {...register(field.name)}
-                  {...(field.fieldProps ?? {})}
-                  defaultValue={
-                    field.fieldProps?.defaultValue as
-                      | string
-                      | number
-                      | readonly string[]
-                      | undefined
-                  }
-                  disabled={
-                    // Disable aspect ratio when both width and height are set
-                    selectedTransformation.key ===
-                      "resize_and_crop-resize_and_crop" &&
-                    field.name === "aspectRatio" &&
-                    !!values.width &&
-                    !!values.height
-                  }
-                />
-              ) : null}
-              {field.fieldType === "textarea" ? (
-                <Textarea
-                  id={field.name}
-                  fontSize="sm"
-                  {...register(field.name)}
-                />
-              ) : null}
-              {field.fieldType === "switch" ? (
-                <Switch
-                  id={field.name}
-                  fontSize="sm"
-                  isChecked={watch(field.name) === true}
-                  {...register(field.name)}
-                />
-              ) : null}
-              {field.fieldType === "slider" ? (
-                <Box pt={2} pb={2}>
-                  <Flex justify="space-between" mb={1}>
-                    <Input
-                      id={`${field.name}-input`}
-                      type={
-                        field.fieldProps?.inputType ||
-                        field.fieldProps?.autoOption
-                          ? "text"
-                          : "number"
-                      }
-                      fontSize="sm"
-                      width="80px"
-                      value={(watch(field.name) as string) ?? ""}
-                      defaultValue={field.fieldProps?.defaultValue as number}
-                      onBlur={() => {
-                        const raw = watch(field.name)
-                        const n = Number(
-                          String(raw).toUpperCase().replace(/^N/, "-"),
-                        )
-                        const isNumberWithN =
-                          typeof raw === "string" &&
-                          !Number.isNaN(n) &&
-                          raw.toUpperCase().startsWith("N")
-                        if (!Number.isFinite(n)) return
-
-                        const { step, min, max, skipStepCheck } =
-                          field.fieldProps ?? {}
-                        let v = n
-
-                        if (min !== undefined) v = Math.max(v, min)
-                        if (max !== undefined) v = Math.min(v, max)
-                        if (!skipStepCheck && step) {
-                          v = Math.round(v / step) * step
-                          const dp = (String(step).split(".")[1] || "").length
-                          v = Number(v.toFixed(dp))
-                        }
-                        const finalValue =
-                          v < 0 && isNumberWithN ? `N${Math.abs(v)}` : String(v)
-                        setValue(field.name, finalValue, {
-                          shouldDirty: true,
-                          shouldTouch: true,
-                        })
-                      }}
-                      onChange={(e) => {
-                        const val = e.target.value
-                        const numSafeVal = String(val)
-                          .toUpperCase()
-                          .replace(/^N/, "-")
-                        const isNumberWithN =
-                          typeof val === "string" &&
-                          !Number.isNaN(Number(numSafeVal)) &&
-                          val.toUpperCase().startsWith("N")
-
-                        if (val === "") {
-                          setValue(field.name, "", {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                          return
-                        }
-
-                        if (val === "-") {
-                          setValue(field.name, "-", {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                          return
-                        }
-
-                        if (
-                          field.fieldProps?.autoOption &&
-                          val.match(/au?t?o?/i)
-                        ) {
-                          setValue(field.name, "auto", {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                        } else if (
-                          !field.fieldProps?.skipStepCheck &&
-                          field.fieldProps?.step &&
-                          !isStepAligned(val, field.fieldProps?.step)
-                        ) {
-                          return
-                        } else if (
-                          field.fieldProps?.min !== undefined &&
-                          Number(numSafeVal) < field.fieldProps.min
-                        ) {
-                          const finalVal =
-                            field.fieldProps.min < 0 && isNumberWithN
-                              ? `N${Math.abs(field.fieldProps.min)}`
-                              : String(field.fieldProps.min)
-                          setValue(field.name, finalVal, {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                        } else if (
-                          field.fieldProps?.max !== undefined &&
-                          Number(numSafeVal) > field.fieldProps.max
-                        ) {
-                          setValue(field.name, field.fieldProps.max, {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                        } else {
-                          setValue(field.name, val, {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                        }
-                      }}
-                    />
-                    {field.fieldProps?.autoOption && (
-                      <Button
-                        size="sm"
-                        colorScheme={
-                          watch(field.name) === "auto" ? "blue" : "gray"
-                        }
-                        onClick={() =>
-                          setValue(field.name, "auto", {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                        }
-                      >
-                        Auto
-                      </Button>
-                    )}
-                  </Flex>
-                  <Slider
-                    id={field.name}
-                    min={field.fieldProps?.min || 0}
-                    max={field.fieldProps?.max || 100}
-                    step={field.fieldProps?.step || 1}
-                    value={
-                      Number.isNaN(
-                        Number(
-                          String(watch(field.name))
-                            .toUpperCase()
-                            .replace(/^N/, "-"),
-                        ),
-                      )
-                        ? 0
-                        : Number(
-                            String(watch(field.name))
-                              .toUpperCase()
-                              .replace(/^N/, "-"),
-                          )
-                    }
-                    defaultValue={field.fieldProps?.defaultValue as number}
-                    onChange={(val) =>
-                      setValue(field.name, val.toString(), {
-                        shouldDirty: true,
-                        shouldTouch: true,
+                </Flex>
+                {boundVariable ? (
+                  <BoundVariableChip
+                    variable={boundVariable}
+                    onRename={(newLabel) => {
+                      setBoundFields((prev) => ({
+                        ...prev,
+                        [field.name]: { ...prev[field.name], label: newLabel },
+                      }))
+                      setBindingDirty(true)
+                    }}
+                    onUnbind={() => {
+                      setBoundFields((prev) => {
+                        const next = { ...prev }
+                        delete next[field.name]
+                        return next
                       })
-                    }
-                    focusThumbOnChange={false}
-                  >
-                    <SliderTrack>
-                      <SliderFilledTrack />
-                    </SliderTrack>
-                    <SliderThumb borderColor="blue.500" border="1px" />
-                  </Slider>
-                </Box>
-              ) : null}
-              {field.fieldType === "color-picker" ? (
-                <ColorPickerField
-                  fieldName={field.name}
-                  value={watch(field.name) as string}
-                  setValue={
-                    setDirtyValue as unknown as (
-                      name: string,
-                      value: string,
-                    ) => void
-                  }
-                  fieldProps={field.fieldProps as ColorPickerProps}
-                  isClearable={field.fieldProps?.isClearable ?? false}
-                />
-              ) : null}
-              {field.fieldType === "gradient-picker" ? (
-                <GradientPicker
-                  fieldName={field.name}
-                  value={watch(field.name) as GradientPickerState}
-                  setValue={
-                    setDirtyValue as unknown as (
-                      name: string,
-                      value: GradientPickerState | string,
-                    ) => void
-                  }
-                  errors={errors}
-                />
-              ) : null}
-              {field.fieldType === "anchor" ? (
-                <AnchorField
-                  value={watch(field.name) as string}
-                  positions={field.fieldProps?.positions as string[]}
-                  onChange={(value) =>
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                  }
-                />
-              ) : null}
-              {field.fieldType === "radio-card" ? (
-                <RadioCardField
-                  value={watch(field.name) as string}
-                  options={field.fieldProps?.options ?? []}
-                  onChange={(value) =>
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                  }
-                  {...field.fieldProps}
-                />
-              ) : null}
-              {field.fieldType === "checkbox-card" ? (
-                <CheckboxCardField
-                  value={watch(field.name) as string[]}
-                  options={field.fieldProps?.options ?? []}
-                  onChange={(value) =>
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                  }
-                  {...field.fieldProps}
-                />
-              ) : null}
-              {field.fieldType === "padding-input" ? (
-                <PaddingInputField
-                  onChange={(value) => {
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                    trigger(field.name)
-                  }}
-                  errors={errors as PaddingErrors}
-                  name={field.name}
-                  {...field.fieldProps}
-                  value={watch(field.name) as Partial<PaddingState>}
-                />
-              ) : null}
-              {field.fieldType === "zoom" ? (
-                <ZoomInput
-                  value={watch(field.name) as number}
-                  onChange={(value) =>
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                  }
-                  defaultValue={
-                    typeof field.fieldProps?.defaultValue === "number"
-                      ? (field.fieldProps.defaultValue as number)
-                      : undefined
-                  }
-                />
-              ) : null}
-              {field.fieldType === "distort-perspective-input" ? (
-                <DistortPerspectiveInput
-                  onChange={(value) => {
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                    trigger(field.name)
-                  }}
-                  errors={errors as PerspectiveErrors}
-                  name={field.name}
-                  value={watch(field.name) as PerspectiveObject}
-                  {...field.fieldProps}
-                />
-              ) : null}
-              {field.fieldType === "radius-input" ? (
-                <RadiusInputField
-                  onChange={(value) => {
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                    trigger(field.name)
-                  }}
-                  errors={errors as RadiusErrors}
-                  name={field.name}
-                  value={watch(field.name) as Partial<RadiusState>}
-                  {...field.fieldProps}
-                />
-              ) : null}
-              <FormErrorMessage fontSize="sm">
-                {String(
-                  errors[field.name as keyof typeof errors]?.message ?? "",
-                )}
-              </FormErrorMessage>
-              {field.helpText && (
-                <FormHelperText fontSize="sm">
-                  {field.helpText}
-                  {/* Additional help text for aspect ratio when both dimensions are set */}
-                  {selectedTransformation.key ===
-                    "resize_and_crop-resize_and_crop" &&
-                    field.name === "aspectRatio" &&
-                    values.width &&
-                    values.height && (
-                      <Text as="span" color="orange.500" display="block" mt={1}>
-                        Note: Aspect ratio is ignored when both width and height
-                        are specified.
-                      </Text>
+                      setBindingDirty(true)
+                    }}
+                  />
+                ) : (
+                  <Controller
+                    name={field.name}
+                    control={control}
+                    render={({ field: controllerField }) => (
+                      <TransformationFieldRenderer
+                        field={field}
+                        value={controllerField.value}
+                        onChange={controllerField.onChange}
+                        onBlur={controllerField.onBlur}
+                        errors={errors}
+                        disabled={
+                          selectedTransformation.key ===
+                            "resize_and_crop-resize_and_crop" &&
+                          field.name === "aspectRatio" &&
+                          !!values.width &&
+                          !!values.height
+                        }
+                        selectOptionsOverride={
+                          field.name === "focusObject"
+                            ? (focusObjects || DEFAULT_FOCUS_OBJECTS).map(
+                                (obj) => ({
+                                  value: obj,
+                                  label: startCase(obj),
+                                }),
+                              )
+                            : undefined
+                        }
+                        onTrigger={() => trigger(field.name)}
+                      />
                     )}
-                </FormHelperText>
-              )}
-              {field.examples && (
-                <FormHelperText fontSize="sm">
-                  <b>Example{field.examples.length > 1 ? "s" : ""}</b>:{" "}
-                  {field.examples.join(", ")}
-                </FormHelperText>
-              )}
-            </FormControl>
-          ))}
+                  />
+                )}
+                <FormErrorMessage fontSize="sm">
+                  {String(
+                    errors[field.name as keyof typeof errors]?.message ?? "",
+                  )}
+                </FormErrorMessage>
+                {field.helpText && (
+                  <FormHelperText fontSize="sm">
+                    {field.helpText}
+                    {/* Additional help text for aspect ratio when both dimensions are set */}
+                    {selectedTransformation.key ===
+                      "resize_and_crop-resize_and_crop" &&
+                      field.name === "aspectRatio" &&
+                      values.width &&
+                      values.height && (
+                        <Text
+                          as="span"
+                          color="orange.500"
+                          display="block"
+                          mt={1}
+                        >
+                          Note: Aspect ratio is ignored when both width and
+                          height are specified.
+                        </Text>
+                      )}
+                  </FormHelperText>
+                )}
+                {field.examples && (
+                  <FormHelperText fontSize="sm">
+                    <b>Example{field.examples.length > 1 ? "s" : ""}</b>:{" "}
+                    {field.examples.join(", ")}
+                  </FormHelperText>
+                )}
+              </FormControl>
+            )
+          })}
       </SidebarBody>
       {selectedTransformation?.warning && (
         <Alert status="warning" fontSize="sm" px="8" py="2">
