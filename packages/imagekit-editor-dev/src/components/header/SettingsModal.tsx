@@ -1,4 +1,6 @@
 import { Box, Flex, Icon, IconButton, Input, Text } from "@chakra-ui/react"
+import { PiCheck } from "@react-icons/all-files/pi/PiCheck"
+import { PiCopy } from "@react-icons/all-files/pi/PiCopy"
 import { PiGlobe } from "@react-icons/all-files/pi/PiGlobe"
 import { PiLock } from "@react-icons/all-files/pi/PiLock"
 import { PiTrash } from "@react-icons/all-files/pi/PiTrash"
@@ -82,6 +84,7 @@ export function SettingsModal({
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [copiedId, setCopiedId] = useState(false)
 
   // Close on Escape
   useEffect(() => {
@@ -126,6 +129,16 @@ export function SettingsModal({
       }
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleCopyId = async () => {
+    try {
+      await navigator.clipboard?.writeText(data.id)
+      setCopiedId(true)
+      window.setTimeout(() => setCopiedId(false), 1000)
+    } catch {
+      // ignore
     }
   }
 
@@ -237,6 +250,56 @@ export function SettingsModal({
         {/* Content */}
         <Box px="6" py="6" flex="1" overflowY="auto">
           <FlexAny direction="column" gap="6">
+            {/* Template ID */}
+            <Box>
+              <TextAny
+                fontSize="sm"
+                fontWeight="medium"
+                color="editorGray.700"
+                mb="2"
+              >
+                Template ID
+              </TextAny>
+              <FlexAny
+                alignItems="center"
+                gap="2"
+                borderRadius="lg"
+                borderWidth="1px"
+                borderColor="editorGray.300"
+                bg="editorGray.50"
+                px="3"
+                py="2"
+              >
+                <TextAny
+                  fontSize="xs"
+                  color="editorGray.600"
+                  fontFamily="mono"
+                  flex="1"
+                  userSelect="all"
+                  isTruncated
+                >
+                  {data.id}
+                </TextAny>
+                <Box
+                  as="button"
+                  display="inline-flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  borderRadius="md"
+                  p="1.5"
+                  _hover={{ bg: "gray.100" }}
+                  onClick={handleCopyId}
+                  aria-label="Copy template id"
+                >
+                  <Icon
+                    as={copiedId ? PiCheck : PiCopy}
+                    boxSize={4}
+                    color="editorGray.600"
+                  />
+                </Box>
+              </FlexAny>
+            </Box>
+
             {/* Template Name */}
             <Box>
               <TextAny
