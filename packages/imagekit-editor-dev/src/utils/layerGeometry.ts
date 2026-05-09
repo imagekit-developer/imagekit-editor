@@ -125,8 +125,8 @@ export function resolveLayerRect(
   const lw = config.layerWidth ?? 0
   const lh = config.layerHeight ?? 0
 
-  // Anchor point on the base image. Default = center.
-  const anchor = anchorToFraction(config.anchorPoint || "center")
+  // Anchor point on the base image. Default = top_left.
+  const anchor = anchorToFraction(config.anchorPoint || "top_left")
   const anchorX = anchor.fx * canvasW
   const anchorY = anchor.fy * canvasH
 

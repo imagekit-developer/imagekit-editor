@@ -168,30 +168,22 @@ export const MoveableLayerController: FC<MoveableLayerControllerProps> = ({
     const posConfig = extractLayerPositionConfig(
       layer.value as Record<string, unknown>,
     )
+
+    // When the config lacks explicit numeric dimensions (e.g. text layers,
+    // expression-based sizes, or focus-only positioning) but the standalone
+    // image has loaded, substitute the rendered dimensions so that
+    // resolveLayerRect can compute correct focus / center offsets.
+    if (naturalDims) {
+      if (posConfig.layerWidth == null) posConfig.layerWidth = naturalDims.w
+      if (posConfig.layerHeight == null) posConfig.layerHeight = naturalDims.h
+    }
+
     const rect = resolveLayerRect(posConfig, coordSpace.canvasW, coordSpace.canvasH)
 
-    let left = rect.x * coordSpace.scale
-    let top = rect.y * coordSpace.scale
-    let width = rect.w > 0 ? rect.w * coordSpace.scale : undefined
-    let height = rect.h > 0 ? rect.h * coordSpace.scale : undefined
-
-    // When the layer config has no explicit dimensions (rect.w/h === 0),
-    // resolveLayerRect cannot apply the centering offset (−lw/2, −lh/2) for
-    // center-mode positioning — it treats the layer as a point. Use the
-    // actual rendered image dimensions to correct the position so the layer
-    // *center* (not top-left) aligns with the computed anchor+offset point.
-    if (naturalDims && posConfig.positionMethod === "center") {
-      if (rect.w === 0) {
-        const scaledW = naturalDims.w * coordSpace.scale
-        left -= scaledW / 2
-        width = scaledW
-      }
-      if (rect.h === 0) {
-        const scaledH = naturalDims.h * coordSpace.scale
-        top -= scaledH / 2
-        height = scaledH
-      }
-    }
+    const left = rect.x * coordSpace.scale
+    const top = rect.y * coordSpace.scale
+    const width = rect.w > 0 ? rect.w * coordSpace.scale : undefined
+    const height = rect.h > 0 ? rect.h * coordSpace.scale : undefined
 
     return { left, top, width, height }
   }, [layer.value, coordSpace, naturalDims])
@@ -250,7 +242,6 @@ export const MoveableLayerController: FC<MoveableLayerControllerProps> = ({
           resizable={isResizable && !dragBlocked}
           keepRatio
           snappable
-          // throttleResize={2}
           snapDirections={{
             top: true,
             left: true,
