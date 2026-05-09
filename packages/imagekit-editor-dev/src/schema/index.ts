@@ -191,7 +191,7 @@ const LAYER_ANCHOR_VALUES = [
 type LayerAnchor = (typeof LAYER_ANCHOR_VALUES)[number]
 
 const LAYER_ANCHOR_OPTIONS: Array<{ label: string; value: LayerAnchor }> = [
-  { label: "Top Left (default)", value: "top_left" },
+  { label: "Top Left", value: "top_left" },
   { label: "Top", value: "top" },
   { label: "Top Right", value: "top_right" },
   { label: "Left", value: "left" },
@@ -1842,6 +1842,11 @@ const baseTransformationSchema: TransformationSchema[] = [
             positionXCenter: layerXValidator.optional(),
             positionYCenter: layerYValidator.optional(),
             layerAnchor: z.enum(LAYER_ANCHOR_VALUES).optional(),
+            // Free-form passthrough. Whatever the user types is appended
+            // verbatim into the layer's inner transformation chain via the
+            // SDK's `raw` field. Lets advanced users reach parameters the
+            // editor UI doesn't yet model (e.g. `lm-multiply`).
+            rawTransformation: z.string().optional(),
             fontSize: z.coerce
               .number({
                 invalid_type_error: "Should be a number.",
@@ -2019,7 +2024,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationKey: "anchorPoint",
             transformationGroup: "textLayer",
             helpText:
-              "Anchor on the base image from which the position offsets are calculated. Defaults to top-left. Maps to lap.",
+              "Anchor on the base image from which the position offsets are measured. Leave unset to use ImageKit's default. Requires at least one of Position X / Y / X (center) / Y (center). Maps to lap.",
             fieldProps: {
               options: LAYER_ANCHOR_OPTIONS,
               isClearable: true,
@@ -2219,6 +2224,17 @@ const baseTransformationSchema: TransformationSchema[] = [
               defaultValue: "0",
             },
           },
+          {
+            label: "Additional raw transformation",
+            name: "rawTransformation",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "raw",
+            transformationGroup: "textLayer",
+            helpText:
+              "Escape hatch: any transformation string entered here is appended verbatim into this layer's chain (e.g. `lm-multiply`, `e-shadow-st-40_bl-15`). Use only for parameters the form fields above don't cover.",
+            examples: ["lm-multiply", "e-shadow"],
+          },
         ],
       },
       {
@@ -2243,6 +2259,10 @@ const baseTransformationSchema: TransformationSchema[] = [
             positionXCenter: layerXValidator.optional(),
             positionYCenter: layerYValidator.optional(),
             layerAnchor: z.enum(LAYER_ANCHOR_VALUES).optional(),
+            // Free-form passthrough appended verbatim to the layer's inner
+            // transformation chain (SDK `raw`). Escape hatch for parameters
+            // the editor UI doesn't yet model (e.g. `lm-multiply`).
+            rawTransformation: z.string().optional(),
             anchor: z.string().optional(),
             opacityEnabled: z.boolean().optional(),
             opacity: z.coerce
@@ -2813,7 +2833,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationKey: "anchorPoint",
             transformationGroup: "imageLayer",
             helpText:
-              "Anchor on the base image from which the position offsets are calculated. Defaults to top-left. Maps to lap.",
+              "Anchor on the base image from which the position offsets are measured. Leave unset to use ImageKit's default. Requires at least one of Position X / Y / X (center) / Y (center). Maps to lap.",
             fieldProps: {
               options: LAYER_ANCHOR_OPTIONS,
               isClearable: true,
@@ -3284,6 +3304,17 @@ const baseTransformationSchema: TransformationSchema[] = [
               skipStepCheck: true,
             },
           },
+          {
+            label: "Additional raw transformation",
+            name: "rawTransformation",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "raw",
+            transformationGroup: "imageLayer",
+            helpText:
+              "Escape hatch: any transformation string entered here is appended verbatim into this layer's chain (e.g. `lm-multiply`, `e-shadow-st-40_bl-15`). Use only for parameters the form fields above don't cover.",
+            examples: ["lm-multiply", "e-shadow"],
+          },
         ],
       },
     ],
@@ -3650,6 +3681,13 @@ export const transformationFormatters: Record<
       overlayTransform.typography = typography.join("_") as "b" | "i" | "b_i"
     }
 
+    if (
+      typeof values.rawTransformation === "string" &&
+      values.rawTransformation.trim() !== ""
+    ) {
+      overlayTransform.raw = values.rawTransformation.trim()
+    }
+
     // Assign the transformation array only if there are styling properties
     if (Object.keys(overlayTransform).length > 0) {
       overlay.transformation = [overlayTransform]
@@ -3809,6 +3847,13 @@ export const transformationFormatters: Record<
 
     if (values.grayscale) {
       overlayTransform.grayscale = true
+    }
+
+    if (
+      typeof values.rawTransformation === "string" &&
+      values.rawTransformation.trim() !== ""
+    ) {
+      overlayTransform.raw = values.rawTransformation.trim()
     }
 
     if (Object.keys(overlayTransform).length > 0) {

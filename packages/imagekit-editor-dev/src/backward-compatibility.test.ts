@@ -1195,6 +1195,85 @@ describe("Backward Compatibility - V1 Templates", () => {
     })
   })
 
+  describe("Schema Validators - Layer Raw Passthrough (rawTransformation)", () => {
+    it("text layer accepts rawTransformation", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-text",
+        name: "Text",
+        type: "transformation",
+        value: {
+          text: "Hi",
+          fontSize: 24,
+          radius: 0,
+          rawTransformation: "lm-multiply",
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("image layer accepts rawTransformation", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-image",
+        name: "Image",
+        type: "transformation",
+        value: {
+          imageUrl: "logo.png",
+          rawTransformation: "e-shadow-st-40_bl-15",
+        },
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("textLayer formatter writes rawTransformation into overlay.transformation[0].raw", () => {
+      const transforms: Record<string, unknown> = {}
+      transformationFormatters.textLayer(
+        { text: "Hi", rawTransformation: "lm-multiply" },
+        transforms,
+      )
+      const overlay = transforms.overlay as {
+        transformation: Array<{ raw?: string }>
+      }
+      expect(overlay.transformation[0]?.raw).toBe("lm-multiply")
+    })
+
+    it("imageLayer formatter writes rawTransformation into overlay.transformation[0].raw", () => {
+      const transforms: Record<string, unknown> = {}
+      transformationFormatters.imageLayer(
+        { imageUrl: "logo.png", rawTransformation: "e-shadow" },
+        transforms,
+      )
+      const overlay = transforms.overlay as {
+        transformation: Array<{ raw?: string }>
+      }
+      expect(overlay.transformation[0]?.raw).toBe("e-shadow")
+    })
+
+    it("formatter trims surrounding whitespace and ignores blank rawTransformation", () => {
+      const a: Record<string, unknown> = {}
+      transformationFormatters.imageLayer(
+        { imageUrl: "logo.png", rawTransformation: "  lm-multiply  " },
+        a,
+      )
+      expect(
+        (a.overlay as { transformation: Array<{ raw?: string }> })
+          .transformation[0]?.raw,
+      ).toBe("lm-multiply")
+
+      const b: Record<string, unknown> = {}
+      transformationFormatters.textLayer(
+        { text: "Hi", rawTransformation: "   " },
+        b,
+      )
+      const overlayB = b.overlay as {
+        transformation?: Array<{ raw?: string }>
+      }
+      // No styling fields set + blank raw means no inner transformation
+      // array is created at all.
+      expect(overlayB.transformation).toBeUndefined()
+    })
+  })
+
   describe("Resize & Crop Complex Validations", () => {
     it("should require mode when both width and height are specified", () => {
       const template: Omit<Transformation, "id"> = {
