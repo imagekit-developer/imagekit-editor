@@ -1980,7 +1980,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationKey: "x",
             transformationGroup: "textLayer",
             helpText:
-              "Horizontal offset measured from the layer's top-left corner. Maps to lx.",
+              "Horizontal offset measured from the layer's top-left corner.",
             examples: ["10", "-20", "N30", "bw_div_2"],
           },
           {
@@ -1991,7 +1991,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationKey: "y",
             transformationGroup: "textLayer",
             helpText:
-              "Vertical offset measured from the layer's top-left corner. Maps to ly.",
+              "Vertical offset measured from the layer's top-left corner.",
             examples: ["10", "-20", "N30", "bh_div_2"],
           },
           {
@@ -2002,7 +2002,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationKey: "xCenter",
             transformationGroup: "textLayer",
             helpText:
-              "Horizontal offset measured from the layer's center. Maps to lxc. Use instead of Position X for centre-anchored placement.",
+              "Horizontal offset measured from the layer's center. Use instead of Position X for centre-anchored placement.",
             examples: ["50", "N100", "bw_div_2"],
           },
           {
@@ -2013,7 +2013,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationKey: "yCenter",
             transformationGroup: "textLayer",
             helpText:
-              "Vertical offset measured from the layer's center. Maps to lyc. Use instead of Position Y for centre-anchored placement.",
+              "Vertical offset measured from the layer's center. Use instead of Position Y for centre-anchored placement.",
             examples: ["50", "N100", "bh_div_2"],
           },
           {
@@ -2024,7 +2024,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationKey: "anchorPoint",
             transformationGroup: "textLayer",
             helpText:
-              "Anchor on the base image from which the position offsets are measured. Leave unset to use ImageKit's default. Requires at least one of Position X / Y / X (center) / Y (center). Maps to lap.",
+              "Anchor on the base image from which the position offsets are measured. Leave unset to use ImageKit's default. Requires at least one of Position X / Y / X (center) / Y (center).",
             fieldProps: {
               options: LAYER_ANCHOR_OPTIONS,
               isClearable: true,
@@ -2789,7 +2789,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationKey: "x",
             transformationGroup: "imageLayer",
             helpText:
-              "Horizontal offset measured from the layer's top-left corner. Maps to lx.",
+              "Horizontal offset measured from the layer's top-left corner.",
             examples: ["10", "-20", "N30", "bw_div_2"],
           },
           {
@@ -2800,7 +2800,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationKey: "y",
             transformationGroup: "imageLayer",
             helpText:
-              "Vertical offset measured from the layer's top-left corner. Maps to ly.",
+              "Vertical offset measured from the layer's top-left corner.",
             examples: ["10", "-20", "N30", "bh_div_2"],
           },
           {
@@ -2811,7 +2811,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationKey: "xCenter",
             transformationGroup: "imageLayer",
             helpText:
-              "Horizontal offset measured from the layer's center. Maps to lxc. Use instead of Position X for centre-anchored placement.",
+              "Horizontal offset measured from the layer's center. Use instead of Position X for centre-anchored placement.",
             examples: ["50", "N100", "bw_div_2"],
           },
           {
@@ -2822,7 +2822,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationKey: "yCenter",
             transformationGroup: "imageLayer",
             helpText:
-              "Vertical offset measured from the layer's center. Maps to lyc. Use instead of Position Y for centre-anchored placement.",
+              "Vertical offset measured from the layer's center. Use instead of Position Y for centre-anchored placement.",
             examples: ["50", "N100", "bh_div_2"],
           },
           {
@@ -2833,7 +2833,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationKey: "anchorPoint",
             transformationGroup: "imageLayer",
             helpText:
-              "Anchor on the base image from which the position offsets are measured. Leave unset to use ImageKit's default. Requires at least one of Position X / Y / X (center) / Y (center). Maps to lap.",
+              "Anchor on the base image from which the position offsets are measured. Leave unset to use ImageKit's default. Requires at least one of Position X / Y / X (center) / Y (center).",
             fieldProps: {
               options: LAYER_ANCHOR_OPTIONS,
               isClearable: true,
