@@ -77,6 +77,20 @@ export type Signer<Metadata extends RequiredMetadata = RequiredMetadata> = (
   controller?: AbortController,
 ) => Promise<string>
 
+/**
+ * Async picker invoked by image-path inputs (e.g. the image layer's `imageUrl`
+ * field, or a host-rendered `VariableField` for an image-path variable).
+ *
+ * Resolve to a fully-qualified URL string (or a path the editor's URL builder
+ * understands) to write it into the field. Resolve to `null`/`undefined` if
+ * the user cancels the picker; the field value is left untouched.
+ *
+ * The editor never opens its own modal — the host owns the media library UI
+ * and any backend calls. This keeps the editor decoupled from any specific
+ * media catalog or asset service.
+ */
+export type OnPickImage = () => Promise<string | null | undefined>
+
 interface InternalState {
   sidebarState: "none" | "type" | "config"
   selectedTransformationKey: string | null
@@ -108,6 +122,7 @@ export interface EditorState<
   visibleTransformations: Record<string, boolean>
   showOriginal: boolean
   signer?: Signer<Metadata>
+  onPickImage?: OnPickImage
   signingImages: Record<string, boolean>
   signingAbortControllers: Record<string, AbortController>
   signedUrlCache: Record<string, string>
@@ -162,6 +177,7 @@ export type EditorActions<
   initialize: (initialData?: {
     imageList?: Array<string | InputFileElement<Metadata>>
     signer?: Signer<Metadata>
+    onPickImage?: OnPickImage
     focusObjects?: ReadonlyArray<FocusObjects>
     templateName?: string
     templateId?: string
@@ -286,6 +302,7 @@ const DEFAULT_STATE: EditorState = {
   visibleTransformations: initialVisibleTransformations,
   showOriginal: false,
   signer: undefined,
+  onPickImage: undefined,
   signingImages: {},
   signingAbortControllers: {},
   signedUrlCache: {},
@@ -341,6 +358,9 @@ const useEditorStore = create<EditorState & EditorActions>()(
       }
       if (initialData?.signer) {
         updates.signer = initialData.signer
+      }
+      if (initialData?.onPickImage) {
+        updates.onPickImage = initialData.onPickImage
       }
       if (initialData?.focusObjects) {
         updates.focusObjects = initialData.focusObjects

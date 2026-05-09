@@ -98,8 +98,12 @@ export function generateVariableName(
  * concrete value the editor / SDK expects. Resolution per marker:
  *
  *   1. `overrides[ref.$var]` if present (host-supplied runtime value);
- *   2. otherwise the literal string `"$" + ref.$var` (a clear placeholder
- *      token in the resulting URL).
+ *   2. otherwise `undefined` — which the converter treats as "field unset",
+ *      so the field is dropped from the resulting URL exactly as if the
+ *      variable had never been bound. This preserves the editor's pre-
+ *      variables preview behaviour: an unbound `imageUrl`, for example,
+ *      surfaces the empty/checker state rather than attempting to fetch a
+ *      placeholder string as a real path.
  *
  * The walk preserves arrays and plain objects, so marker-free trees are
  * structurally cloned with byte-equivalent output. This keeps legacy
@@ -112,7 +116,7 @@ export function resolveVariableRefs(
   if (isVariableRef(value)) {
     return Object.prototype.hasOwnProperty.call(overrides, value.$var)
       ? overrides[value.$var]
-      : `$${value.$var}`
+      : undefined
   }
   if (Array.isArray(value)) {
     return value.map((item) => resolveVariableRefs(item, overrides))

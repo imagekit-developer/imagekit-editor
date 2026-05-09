@@ -195,6 +195,7 @@ export const TransformationConfigSidebar: React.FC = () => {
   const editorMode = useEditorStore((s) => s.mode)
   const isCanvasMode = editorMode === "canvas"
   const allTransformations = useEditorStore((s) => s.transformations)
+  const onPickImage = useEditorStore((s) => s.onPickImage)
   const allTakenVariableNames = useMemo(
     () => listVariables(allTransformations).map((v) => v.name),
     [allTransformations],
@@ -693,6 +694,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                             : undefined
                         }
                         onTrigger={() => trigger(field.name)}
+                        onPickImage={onPickImage}
                       />
                     )}
                   />

@@ -43,6 +43,14 @@ export interface VariableFieldProps {
    * ```
    */
   idPrefix?: string
+  /**
+   * Async image picker forwarded to the underlying field renderer. Only
+   * relevant for variables bound to image-path inputs (e.g. the image
+   * layer's `imageUrl`). When provided, a folder icon appears next to the
+   * field; clicking it invokes this callback. Resolve to a URL/path string
+   * to fill the field, or to `null`/`undefined` to leave it unchanged.
+   */
+  onPickImage?: () => Promise<string | null | undefined>
 }
 
 /**
@@ -67,6 +75,7 @@ export const VariableField: FC<VariableFieldProps> = ({
   error,
   hideLabel,
   idPrefix,
+  onPickImage,
 }) => {
   const descriptor = useMemo(
     () => listVariables(transformations).find((v) => v.name === name),
@@ -102,6 +111,7 @@ export const VariableField: FC<VariableFieldProps> = ({
         value={value}
         onChange={stableOnChange}
         inputId={inputId}
+        onPickImage={onPickImage}
       />
       {error && <FormErrorMessage fontSize="sm">{error}</FormErrorMessage>}
     </FormControl>

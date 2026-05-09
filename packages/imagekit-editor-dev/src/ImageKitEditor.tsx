@@ -23,6 +23,7 @@ import {
   type EditorMode,
   type FocusObjects,
   type InputFileElement,
+  type OnPickImage,
   type RequiredMetadata,
   type Signer,
   type Transformation,
@@ -86,6 +87,16 @@ interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
   initialImages?: Array<string | InputFileElement<Metadata>>
   signer?: Signer<Metadata>
   onAddImage?: () => void
+  /**
+   * Optional async image picker. When provided, image-path fields (currently
+   * the image layer's `imageUrl`) render a small folder icon next to the
+   * input; clicking it invokes this callback. Resolve to a URL/path string to
+   * fill the field, or to `null`/`undefined` to leave the field unchanged.
+   *
+   * The host owns the picker UI and any backend calls; the editor never opens
+   * a media library itself.
+   */
+  onPickImage?: OnPickImage
   exportOptions?: HeaderProps<Metadata>["exportOptions"]
   focusObjects?: ReadonlyArray<FocusObjects>
   onClose: (args: { dirty: boolean; destroy: () => void }) => void
@@ -130,6 +141,7 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     theme,
     initialImages,
     signer,
+    onPickImage,
     focusObjects,
     templateStorage,
     getTemplatePermissions,
@@ -232,11 +244,12 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     initialize({
       imageList: initialImages,
       signer,
+      onPickImage,
       focusObjects,
       mode,
       canvas,
     })
-  }, [initialImages, signer, focusObjects, initialize, mode, canvas])
+  }, [initialImages, signer, onPickImage, focusObjects, initialize, mode, canvas])
 
   // Load template by id from the configured storage provider when
   // `initialTemplateId` is supplied. This runs after `initialize` so it can

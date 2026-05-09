@@ -22,6 +22,7 @@ export type {
   CanvasConfig,
   EditorMode,
   FileElement,
+  OnPickImage,
   Signer,
   Transformation,
 } from "./store"

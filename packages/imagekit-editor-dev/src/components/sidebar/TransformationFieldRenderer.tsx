@@ -2,7 +2,10 @@ import {
   Box,
   Button,
   Flex,
+  IconButton,
   Input,
+  InputGroup,
+  InputRightElement,
   Slider,
   SliderFilledTrack,
   SliderThumb,
@@ -10,6 +13,7 @@ import {
   Switch,
   Textarea,
 } from "@chakra-ui/react"
+import { PiFolderOpen } from "@react-icons/all-files/pi/PiFolderOpen"
 import startCase from "lodash/startCase"
 import { type FC, type ReactNode, useCallback } from "react"
 import type { ColorPickerProps } from "react-best-gradient-color-picker"
@@ -89,6 +93,14 @@ export interface TransformationFieldRendererProps {
    * the sidebar never needs to set it (each field renders exactly once).
    */
   inputId?: string
+  /**
+   * Async picker invoked when the user clicks the folder icon on an image
+   * path field (currently `imageUrl` of the image layer). When omitted, no
+   * icon is rendered and the field behaves as a plain text input — callers
+   * can still type a path manually. See `OnPickImage` in the store for the
+   * resolution contract.
+   */
+  onPickImage?: () => Promise<string | null | undefined>
 }
 
 /**
@@ -119,6 +131,7 @@ export const TransformationFieldRenderer: FC<
   selectOptionsOverride,
   onTrigger,
   inputId,
+  onPickImage,
 }) => {
   const resolvedId = inputId ?? field.name
   // ColorPickerField / GradientPicker call `setValue(name, value)` inside
@@ -230,7 +243,9 @@ export const TransformationFieldRenderer: FC<
       // union for TS to fully unify; this is a tsserver-only warning and
       // does not affect the build. Behavior is identical to the sidebar's
       // previous inline implementation.
-      return (
+      const showImagePicker =
+        field.name === "imageUrl" && typeof onPickImage === "function"
+      const inputEl = (
         <Input
           id={resolvedId}
           fontSize="sm"
@@ -239,7 +254,33 @@ export const TransformationFieldRenderer: FC<
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
           disabled={disabled}
+          pr={showImagePicker ? "2.5rem" : undefined}
         />
+      )
+      if (!showImagePicker) return inputEl
+      return (
+        <InputGroup>
+          {inputEl}
+          <InputRightElement>
+            <IconButton
+              aria-label="Pick image"
+              icon={<PiFolderOpen />}
+              size="sm"
+              variant="ghost"
+              onClick={async () => {
+                try {
+                  const picked = await onPickImage?.()
+                  if (picked) onChange(picked)
+                } catch {
+                  // Host picker errors are theirs to surface; the editor
+                  // intentionally swallows them so a rejected promise can
+                  // never break the sidebar form.
+                }
+              }}
+              tabIndex={-1}
+            />
+          </InputRightElement>
+        </InputGroup>
       )
     }
 
