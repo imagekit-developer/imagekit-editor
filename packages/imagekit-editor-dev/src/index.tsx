@@ -32,7 +32,12 @@ export {
   convertTransformationsToIK,
   convertTransformationToIK,
 } from "./transformationConverter"
-export { listVariables, type VariableDescriptor } from "./variables/listVariables"
+export {
+  buildVariablesSchema,
+  findTransformationField,
+  listVariables,
+  type VariableDescriptor,
+} from "./variables/listVariables"
 export {
   VariableField,
   type VariableFieldProps,

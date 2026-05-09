@@ -78,6 +78,17 @@ export interface TransformationFieldRendererProps {
    * No-op when omitted.
    */
   onTrigger?: () => void
+  /**
+   * Override the `id` attribute placed on the underlying input element.
+   * Defaults to `field.name`. Hosts rendering multiple rows of the same
+   * template (e.g. a creative-automation override grid) must pass a unique
+   * id per row — otherwise every row shares the same `id` and clicking any
+   * label scrolls the browser to the first row's input.
+   *
+   * `VariableField` derives this automatically from its `idPrefix` prop;
+   * the sidebar never needs to set it (each field renders exactly once).
+   */
+  inputId?: string
 }
 
 /**
@@ -107,7 +118,9 @@ export const TransformationFieldRenderer: FC<
   disabled,
   selectOptionsOverride,
   onTrigger,
+  inputId,
 }) => {
+  const resolvedId = inputId ?? field.name
   // ColorPickerField / GradientPicker call `setValue(name, value)` inside
   // useEffect with `setValue` in their dep array. If we hand them a fresh
   // closure on every render, that effect fires every render and the field
@@ -154,7 +167,7 @@ export const TransformationFieldRenderer: FC<
 
       return isCreatable ? (
         <CreateableSelect
-          id={field.name}
+          id={resolvedId}
           formatCreateLabel={(inputValue: string) => `Use "${inputValue}"`}
           isClearable={isClearable}
           placeholder="Select"
@@ -167,7 +180,7 @@ export const TransformationFieldRenderer: FC<
         />
       ) : (
         <Select
-          id={field.name}
+          id={resolvedId}
           isClearable={isClearable}
           placeholder="Select"
           menuPlacement="auto"
@@ -183,7 +196,7 @@ export const TransformationFieldRenderer: FC<
     case "select-creatable":
       return (
         <CreateableSelect
-          id={field.name}
+          id={resolvedId}
           placeholder="Select"
           menuPlacement="auto"
           options={field.fieldProps?.options?.map((option) => ({
@@ -219,7 +232,7 @@ export const TransformationFieldRenderer: FC<
       // previous inline implementation.
       return (
         <Input
-          id={field.name}
+          id={resolvedId}
           fontSize="sm"
           {...(field.fieldProps ?? {})}
           value={(value as string | number | readonly string[]) ?? ""}
@@ -233,7 +246,7 @@ export const TransformationFieldRenderer: FC<
     case "textarea":
       return (
         <Textarea
-          id={field.name}
+          id={resolvedId}
           fontSize="sm"
           value={(value as string) ?? ""}
           onChange={(e) => onChange(e.target.value)}
@@ -244,7 +257,7 @@ export const TransformationFieldRenderer: FC<
     case "switch":
       return (
         <Switch
-          id={field.name}
+          id={resolvedId}
           fontSize="sm"
           isChecked={value === true}
           onChange={(e) => onChange(e.target.checked)}

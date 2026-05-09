@@ -25,6 +25,24 @@ export interface VariableFieldProps {
   error?: string
   /** Hide the auto-generated label (host wants to render its own header). */
   hideLabel?: boolean
+  /**
+   * Prefix prepended to the input's `id` attribute (and the label's `htmlFor`)
+   * to make them unique per row.
+   *
+   * Without this, every row that renders the same variable (e.g. `cta_text`)
+   * produces an input with `id="cta_text"`. Clicking any label then focuses
+   * the **first** element on the page with that id (row 0), regardless of
+   * which row the user intended.
+   *
+   * Pass a per-row unique string — typically the row id or index:
+   *
+   * ```tsx
+   * <VariableField idPrefix={`row-${row._id}`} name="cta_text" ... />
+   * // renders: <input id="row-abc123-cta_text">
+   * //          <label htmlFor="row-abc123-cta_text">
+   * ```
+   */
+  idPrefix?: string
 }
 
 /**
@@ -48,6 +66,7 @@ export const VariableField: FC<VariableFieldProps> = ({
   onChange,
   error,
   hideLabel,
+  idPrefix,
 }) => {
   const descriptor = useMemo(
     () => listVariables(transformations).find((v) => v.name === name),
@@ -69,10 +88,12 @@ export const VariableField: FC<VariableFieldProps> = ({
 
   if (!descriptor) return null
 
+  const inputId = idPrefix ? `${idPrefix}-${descriptor.name}` : descriptor.name
+
   return (
     <FormControl isInvalid={!!error}>
       {!hideLabel && (
-        <FormLabel htmlFor={descriptor.name} fontSize="sm">
+        <FormLabel htmlFor={inputId} fontSize="sm">
           {descriptor.label}
         </FormLabel>
       )}
@@ -80,6 +101,7 @@ export const VariableField: FC<VariableFieldProps> = ({
         field={descriptor.field}
         value={value}
         onChange={stableOnChange}
+        inputId={inputId}
       />
       {error && <FormErrorMessage fontSize="sm">{error}</FormErrorMessage>}
     </FormControl>

@@ -21,6 +21,7 @@ import {
 } from "../schema"
 import type { Transformation } from "../store"
 import { type VariableRef, walkVariableRefs } from "../variables"
+import { z } from "zod"
 
 /**
  * One entry per `{$var}` marker found in the template. Returned in document
@@ -95,4 +96,57 @@ export function listVariables(
     })
   }
   return out
+}
+
+/**
+ * Build a Zod schema that validates the `overrides` object for a template.
+ *
+ * Each variable becomes one optional key in the returned `z.object`, typed
+ * with the same Zod type the editor uses for that field. This means:
+ *
+ *   - Hosts can validate overrides before calling `buildImageKitUrl`.
+ *   - `z.infer<typeof schema>` gives a typed `overrides` map for TypeScript
+ *     consumers.
+ *   - Hosts using `zod-to-json-schema` (or similar) get a JSON Schema for
+ *     free, e.g. for OpenAPI spec generation or server-side validation.
+ *
+ * Fields whose Zod type cannot be resolved (unknown step key, missing field)
+ * fall back to `z.unknown()` so the schema is always complete.
+ *
+ * @example
+ * ```ts
+ * const schema = buildVariablesSchema(template.transformations)
+ * const result = schema.safeParse(overrides)
+ * if (!result.success) console.error(result.error.flatten())
+ * ```
+ */
+export function buildVariablesSchema(
+  transformations: Transformation[],
+): z.ZodObject<Record<string, z.ZodTypeAny>> {
+  const variables = listVariables(transformations)
+  const shape: Record<string, z.ZodTypeAny> = {}
+
+  for (const variable of variables) {
+    // Find the parent step's Zod schema and extract the shape for this field.
+    const stepSchema = transformationSchema
+      .flatMap((s) => s.items)
+      .find((item) =>
+        transformations.some(
+          (t) => t.id === variable.transformationId && t.key === item.key,
+        ),
+      )?.schema
+
+    let fieldZodType: z.ZodTypeAny = z.unknown()
+
+    if (stepSchema && "shape" in stepSchema) {
+      const fieldType = (stepSchema as z.ZodObject<Record<string, z.ZodTypeAny>>)
+        .shape[variable.fieldName]
+      if (fieldType) fieldZodType = fieldType
+    }
+
+    // All overrides are optional — a host may supply only a subset.
+    shape[variable.name] = fieldZodType.optional()
+  }
+
+  return z.object(shape)
 }
