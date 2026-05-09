@@ -91,6 +91,7 @@ describe("runtime/buildIkTransformations", () => {
         positionY: 9,
         lxc: "bw_div_2",
         lyc: "bh_sub_ch",
+        opacitySwitch: true,
         opacity: 7,
       }),
     ])
@@ -140,6 +141,8 @@ describe("runtime/buildIkTransformations", () => {
     expect(typeof t.raw).toBe("string")
     // ImageKit raw layer syntax uses `tg-` for typography (e.g. tg-b, tg-b_i).
     expect(t.raw).toContain("tg-b")
+    expect(t.raw).not.toContain("al-")
+    expect(t.raw).not.toMatch(/\br-/)
     // Raw path should not emit the structured overlay object.
     expect(t.overlay).toBeUndefined()
   })
@@ -159,6 +162,8 @@ describe("runtime/buildIkTransformations", () => {
     expect(typeof t.raw).toBe("string")
     // ImageKit raw layer syntax uses `tg-` for typography (e.g. tg-b, tg-b_i).
     expect(t.raw).toContain("tg-i")
+    expect(t.raw).not.toContain("al-")
+    expect(t.raw).not.toMatch(/\br-/)
     // Raw path should not emit the structured overlay object.
     expect(t.overlay).toBeUndefined()
   })
@@ -178,8 +183,115 @@ describe("runtime/buildIkTransformations", () => {
     expect(typeof t.raw).toBe("string")
     // ImageKit raw layer syntax uses `tg-` for typography (e.g. tg-b, tg-b_i).
     expect(t.raw).toContain("tg-b_i")
+    expect(t.raw).not.toContain("al-")
+    expect(t.raw).not.toMatch(/\br-/)
     // Raw path should not emit the structured overlay object.
     expect(t.overlay).toBeUndefined()
+  })
+
+  it("does not emit al- or r- on text raw path when opacity/radius switches are off (simulated form defaults)", () => {
+    const out = buildIkTransformations([
+      step("layers-text", {
+        text: "Hello",
+        lfo: "center",
+        opacitySwitch: false,
+        opacity: 9,
+        radiusSwitch: false,
+        radius: 0,
+      }),
+    ])
+    const t = out[0] as any
+    expect(typeof t.raw).toBe("string")
+    expect(t.raw).not.toContain("al-")
+    expect(t.raw).not.toMatch(/\br-/)
+  })
+
+  it("emits al- and r- on text raw path when switches are on", () => {
+    const out = buildIkTransformations([
+      step("layers-text", {
+        text: "Hi",
+        lfo: "top",
+        opacitySwitch: true,
+        opacity: 5,
+        radiusSwitch: true,
+        radius: 3,
+      }),
+    ])
+    const t = out[0] as any
+    expect(t.raw).toContain("al-5")
+    expect(t.raw).toContain("r-3")
+  })
+
+  it("SDK text overlay omits alpha when opacitySwitch is false even if opacity is set", () => {
+    const out = buildIkTransformations([
+      step("layers-text", {
+        text: "X",
+        fontSize: 14,
+        opacitySwitch: false,
+        opacity: 9,
+        positionX: 1,
+        positionY: 2,
+      }),
+    ])
+    const t = out[0] as any
+    const tr = t.overlay?.transformation?.[0] as
+      | Record<string, unknown>
+      | undefined
+    expect(tr).toBeDefined()
+    expect(tr?.alpha).toBeUndefined()
+  })
+
+  it("legacy text layer without opacitySwitch still emits alpha when opacity is in range", () => {
+    const out = buildIkTransformations([
+      step("layers-text", {
+        text: "Legacy",
+        fontSize: 14,
+        opacity: 8,
+        positionX: 0,
+        positionY: 0,
+      }),
+    ])
+    const tr = (out[0] as any).overlay?.transformation?.[0]
+    expect(tr?.alpha).toBe(8)
+  })
+
+  it("legacy text raw path without opacitySwitch still emits al- when opacity is set", () => {
+    const out = buildIkTransformations([
+      step("layers-text", {
+        text: "LegacyRaw",
+        lfo: "center",
+        opacity: 4,
+      }),
+    ])
+    expect((out[0] as any).raw).toContain("al-4")
+  })
+
+  it("omits rotation from SDK text overlay when angle is 0 (avoids rt-0 in URL)", () => {
+    const out = buildIkTransformations([
+      step("layers-text", {
+        text: "Flat",
+        fontSize: 14,
+        rotation: 0,
+        positionX: 0,
+        positionY: 0,
+      }),
+    ])
+    const tr = (out[0] as any).overlay?.transformation?.[0]
+    expect(tr?.rotation).toBeUndefined()
+  })
+
+  it("omits rotation from SDK text overlay when angle is default string 0", () => {
+    const out = buildIkTransformations([
+      step("layers-text", {
+        text: "Flat2",
+        fontSize: 14,
+        rotation: "0",
+        positionX: 0,
+        positionY: 0,
+      }),
+    ])
+    const tr = (out[0] as any).overlay?.transformation?.[0]
+    expect(tr?.rotation).toBeUndefined()
   })
 
   it("builds an image overlay object (image layer) with crop/focus + nested formatter outputs", () => {

@@ -1895,6 +1895,11 @@ const baseTransformationSchema: TransformationSchema[] = [
                 })
                 .optional(),
             ),
+            opacitySwitch: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
             opacity: z
               .union([
                 z.coerce
@@ -1910,14 +1915,24 @@ const baseTransformationSchema: TransformationSchema[] = [
               .array(z.enum(["bold", "italic"]).optional())
               .optional(),
             backgroundColor: z.string().optional(),
-            radius: z.union([
-              z.literal("max"),
-              z.coerce
-                .number({
-                  invalid_type_error: "Should be a number.",
-                })
-                .min(0),
-            ]),
+            radiusSwitch: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+            radius: z.preprocess(
+              (val) => (val === "" ? undefined : val),
+              z
+                .union([
+                  z.literal("max"),
+                  z.coerce
+                    .number({
+                      invalid_type_error: "Should be a number.",
+                    })
+                    .min(0),
+                ])
+                .optional(),
+            ),
             lineHeight: lineHeightValidator,
             flip: z
               .array(z.enum(["horizontal", "vertical"]).optional())
@@ -2156,6 +2171,17 @@ const baseTransformationSchema: TransformationSchema[] = [
           },
           {
             label: "Opacity",
+            name: "opacitySwitch",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "textLayer",
+            helpText: "Toggle to set text layer opacity (al).",
+            fieldProps: {
+              defaultValue: false,
+            },
+          },
+          {
+            label: "Opacity",
             name: "opacity",
             fieldType: "slider",
             isTransformation: true,
@@ -2167,6 +2193,26 @@ const baseTransformationSchema: TransformationSchema[] = [
               step: 1,
               defaultValue: 9,
             },
+            isVisible: (v) => {
+              if (v.opacitySwitch === true) return true
+              if (v.opacitySwitch === false) return false
+              return (
+                typeof v.opacity === "number" &&
+                v.opacity >= 1 &&
+                v.opacity <= 9
+              )
+            },
+          },
+          {
+            label: "Radius",
+            name: "radiusSwitch",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "textLayer",
+            helpText: "Toggle to set corner radius for the text layer.",
+            fieldProps: {
+              defaultValue: false,
+            },
           },
           {
             label: "Radius",
@@ -2177,6 +2223,15 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationGroup: "textLayer",
             helpText:
               "Set the radius for the corner of the text overlay. Set to 'max' for circle or oval.",
+            isVisible: (v) => {
+              if (v.radiusSwitch === true) return true
+              if (v.radiusSwitch === false) return false
+              const r = v.radius
+              return (
+                r === "max" ||
+                (typeof r === "number" && Number.isFinite(r) && r > 0)
+              )
+            },
           },
           {
             label: "Flip",
@@ -3779,6 +3834,21 @@ export const transformationFormatters: Record<
     const lfo = (values as any).lfo
     const hasLfo = typeof lfo === "string" && lfo.trim() !== ""
     if (children.length > 0 || hasLfo) {
+      const os = (values as any).opacitySwitch
+      const opacityEnabled =
+        os !== false &&
+        typeof (values as any).opacity === "number" &&
+        (values as any).opacity >= 1 &&
+        (values as any).opacity <= 9 &&
+        (os === true || os === undefined)
+      const rs = (values as any).radiusSwitch
+      const r = (values as any).radius
+      const radiusEnabled =
+        rs === true ||
+        (rs === undefined &&
+          r !== undefined &&
+          r !== "" &&
+          (r === "max" || (typeof r === "number" && r > 0)))
       const paddingValue = (values as any).padding as
         | { mode?: string; padding?: unknown }
         | undefined
@@ -3816,11 +3886,10 @@ export const transformationFormatters: Record<
           typography: (values as any).typography as any,
           backgroundColor: (values as any).backgroundColor as any,
           padding: paddingString,
-          radius: (values as any).radius as any,
-          opacity:
-            typeof (values as any).opacity === "number"
-              ? (values as any).opacity
-              : undefined,
+          radius: radiusEnabled ? (r as any) : undefined,
+          opacity: opacityEnabled
+            ? ((values as any).opacity as number)
+            : undefined,
           position: hasLfo
             ? { mode: "lfo", lfo: String(lfo).trim() }
             : (values as any).positionX || (values as any).positionY
@@ -3917,26 +3986,53 @@ export const transformationFormatters: Record<
       overlayTransform.flip = flip.join("_") as "h" | "v" | "h_v" | "v_h"
     }
 
-    if (
-      typeof values.rotation === "number" ||
-      typeof values.rotation === "string"
-    ) {
-      overlayTransform.rotation =
-        (values.rotation as number) < 0
-          ? `N${Math.abs(values.rotation as number)}`
-          : (values.rotation as number)
-    }
-
-    if (typeof values.radius === "string" && values.radius === "max") {
-      overlayTransform.radius = "max"
-    } else if (typeof values.radius === "number") {
-      overlayTransform.radius = values.radius
-    }
-
-    if (typeof values.opacity === "number") {
-      if (values.opacity >= 1 && values.opacity <= 9) {
-        overlayTransform.alpha = values.opacity
+    if (typeof values.rotation === "number") {
+      if (values.rotation !== 0) {
+        overlayTransform.rotation =
+          values.rotation < 0
+            ? `N${Math.abs(values.rotation)}`
+            : values.rotation
       }
+    } else if (typeof values.rotation === "string") {
+      const t = values.rotation.trim()
+      if (t !== "" && t !== "0") {
+        const n = Number(t)
+        if (!Number.isNaN(n) && t === String(n)) {
+          if (n !== 0) {
+            overlayTransform.rotation = n < 0 ? `N${Math.abs(n)}` : n
+          }
+        } else {
+          overlayTransform.rotation = values.rotation
+        }
+      }
+    }
+
+    const rsSdk = (values as any).radiusSwitch
+    const rSdk = (values as any).radius
+    const radiusEnabledSdk =
+      rsSdk === true ||
+      (rsSdk === undefined &&
+        rSdk !== undefined &&
+        rSdk !== "" &&
+        (rSdk === "max" ||
+          (typeof rSdk === "number" && Number.isFinite(rSdk) && rSdk > 0)))
+    if (radiusEnabledSdk) {
+      if (typeof values.radius === "string" && values.radius === "max") {
+        overlayTransform.radius = "max"
+      } else if (typeof values.radius === "number") {
+        overlayTransform.radius = values.radius
+      }
+    }
+
+    const osSdk = (values as any).opacitySwitch
+    const opacityEnabledSdk =
+      osSdk !== false &&
+      typeof values.opacity === "number" &&
+      values.opacity >= 1 &&
+      values.opacity <= 9 &&
+      (osSdk === true || osSdk === undefined)
+    if (opacityEnabledSdk) {
+      overlayTransform.alpha = values.opacity as number
     }
 
     if (typeof values.innerAlignment === "string") {
