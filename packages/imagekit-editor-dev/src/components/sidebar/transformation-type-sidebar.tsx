@@ -26,12 +26,27 @@ import { SidebarHeader } from "./sidebar-header"
 import { SidebarRoot } from "./sidebar-root"
 
 export const TransformationTypeSidebar: React.FC = () => {
-  const { transformations, _setSelectedTransformationKey, _setSidebarState } =
-    useEditorStore()
+  const {
+    transformations,
+    _internalState,
+    _setSelectedTransformationKey,
+    _setSidebarState,
+    _setParentForChild,
+  } = useEditorStore()
   const [searchQuery, setSearchQuery] = React.useState("")
+
+  // When the user opened the picker via the "+" on a layer row, the next
+  // pick must be added as a nested child of that layer. In that mode we
+  // restrict the picker to layer transformations only \u2014 nothing else can
+  // legally nest inside a layer\u2019s transformation chain.
+  const isChildAddMode = _internalState.parentForChild !== null
 
   const onClose = () => {
     _setSidebarState("none")
+    // Cancel any pending child-add when the user dismisses the picker so the
+    // next root-level "Add" doesn't silently re-route into the previously
+    // targeted parent.
+    _setParentForChild(null)
   }
 
   const hasTransformations = React.useMemo(
@@ -40,11 +55,25 @@ export const TransformationTypeSidebar: React.FC = () => {
   )
 
   const filteredTransformationSchema = React.useMemo(() => {
+    const base = isChildAddMode
+      ? transformationSchema
+          .map((category) => ({
+            ...category,
+            items: category.items.filter(
+              (item) =>
+                item.key === "layers-text" ||
+                item.key === "layers-image" ||
+                item.key === "layers-canvas",
+            ),
+          }))
+          .filter((category) => category.items.length > 0)
+      : transformationSchema
+
     if (!searchQuery.trim()) {
-      return transformationSchema
+      return base
     }
 
-    return transformationSchema
+    return base
       .map((category) => ({
         ...category,
         items: category.items.filter((item) =>
@@ -52,7 +81,7 @@ export const TransformationTypeSidebar: React.FC = () => {
         ),
       }))
       .filter((category) => category.items.length > 0)
-  }, [searchQuery])
+  }, [searchQuery, isChildAddMode])
 
   const handleSelectTransformation = (key: string) => {
     const transformation = transformationSchema
@@ -71,7 +100,7 @@ export const TransformationTypeSidebar: React.FC = () => {
     <SidebarRoot>
       <SidebarHeader justifyContent="space-between">
         <Text fontSize="md" fontWeight="normal" mt={0}>
-          Add Transformation
+          {isChildAddMode ? "Add Nested Layer" : "Add Transformation"}
         </Text>
         {hasTransformations && (
           <IconButton

@@ -31,17 +31,29 @@ import { RiCheckFill } from "@react-icons/all-files/ri/RiCheckFill"
 import { RiCloseFill } from "@react-icons/all-files/ri/RiCloseFill"
 import { RxTransform } from "@react-icons/all-files/rx/RxTransform"
 import { useEffect, useRef, useState } from "react"
-import { type Transformation, useEditorStore } from "../../store"
+import {
+  isLayerKey,
+  MAX_LAYER_NEST_DEPTH,
+  type Transformation,
+  useEditorStore,
+} from "../../store"
 import Hover from "../common/Hover"
 
 export type TransformationPosition = "inplace" | number
 
 interface SortableTransformationItemProps {
   transformation: Transformation
+  /**
+   * Nesting level. 0 = root list (drag-and-drop sortable). >0 = nested
+   * child of a layer; rendered indented and excluded from the root
+   * SortableContext (children reorder via menu actions in v1).
+   */
+  depth?: number
 }
 
 export const SortableTransformationItem = ({
   transformation,
+  depth = 0,
 }: SortableTransformationItemProps) => {
   const {
     attributes,
@@ -52,6 +64,9 @@ export const SortableTransformationItem = ({
     isDragging,
   } = useSortable({
     id: transformation.id,
+    // Children aren't part of the root sortable context; suppress dnd-kit's
+    // attempts to register them as draggable participants.
+    disabled: depth > 0,
   })
 
   const {
@@ -63,10 +78,19 @@ export const SortableTransformationItem = ({
     _setSidebarState,
     _setSelectedTransformationKey,
     _setTransformationToEdit,
+    _setParentForChild,
     _internalState,
     addTransformation,
     updateTransformation,
   } = useEditorStore()
+
+  const isRoot = depth === 0
+  // Text layers cannot nest anything (per docs). Image and canvas layers can
+  // host nested image/text/canvas children up to MAX_LAYER_NEST_DEPTH.
+  const canHostChildren =
+    isLayerKey(transformation.key) &&
+    transformation.key !== "layers-text" &&
+    depth < MAX_LAYER_NEST_DEPTH
 
   const style = transform
     ? {
@@ -105,10 +129,17 @@ export const SortableTransformationItem = ({
   return (
     <Hover display="flex">
       {(isHover) => (
+        <Box width="full">
         <HStack
-          ref={setNodeRef}
+          ref={isRoot ? setNodeRef : undefined}
           px={4}
           py={2}
+          // Visual indent for nested children. Uses a left border so the
+          // hierarchy reads at a glance even before hover.
+          pl={depth > 0 ? 4 + depth * 4 : 4}
+          borderLeft={depth > 0 ? "2px solid" : undefined}
+          borderLeftColor={depth > 0 ? "editorBattleshipGrey.100" : undefined}
+          ml={depth > 0 ? 4 : 0}
           cursor={isDragging ? "grabbing" : "pointer"}
           bg={isHover ? "gray.50" : isEditting ? "gray.50" : undefined}
           color={isEditting ? "editorBlue.500" : undefined}
@@ -118,7 +149,7 @@ export const SortableTransformationItem = ({
           width="full"
           minH="8"
           alignItems="center"
-          style={style}
+          style={isRoot ? style : undefined}
           onClick={(_e) => {
             _setSidebarState("config")
             _setSelectedTransformationKey(transformation.key)
@@ -128,12 +159,12 @@ export const SortableTransformationItem = ({
             e.stopPropagation()
             setIsRenaming(true)
           }}
-          {...attributes}
-          {...listeners}
+          {...(isRoot ? attributes : {})}
+          {...(isRoot ? listeners : {})}
         >
           {isHover && !isRenaming ? (
             <Box
-              cursor="grab"
+              cursor={isRoot ? "grab" : "default"}
               mr={-1}
               transition="opacity 0.2s"
               opacity={isHover ? 1 : 0}
@@ -144,7 +175,11 @@ export const SortableTransformationItem = ({
               alignItems="center"
               w="5"
             >
-              <Icon as={PiDotsSixVerticalBold} boxSize={4} color="gray.600" />
+              <Icon
+                as={isRoot ? PiDotsSixVerticalBold : RxTransform}
+                boxSize={4}
+                color="gray.600"
+              />
             </Box>
           ) : (
             <Box mr={-1} height="24px" display="flex" alignItems="center" w="5">
@@ -222,6 +257,35 @@ export const SortableTransformationItem = ({
           <Box flex={1} />
           {isHover && !isRenaming && (
             <HStack spacing={2} color={"initial"}>
+              {canHostChildren && (
+                <Tooltip label="Add nested layer" placement="top">
+                  <Box
+                    as="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      // Clear any prior in-place edit target so the config
+                      // sidebar doesn't seed the new child's form fields
+                      // from the parent's value (e.g. the parent image
+                      // layer's opacity=100 leaking into a new text child).
+                      _setTransformationToEdit(null)
+                      _setParentForChild(transformation.id)
+                      _setSidebarState("type")
+                    }}
+                    aria-label="Add nested layer"
+                    display="flex"
+                    alignItems="center"
+                    bg="transparent"
+                    p={0}
+                  >
+                    <Icon
+                      as={PiPlus}
+                      color="gray.600"
+                      boxSize={4}
+                      _hover={{ opacity: 1, color: "gray.800" }}
+                    />
+                  </Box>
+                </Tooltip>
+              )}
               <Tooltip
                 label={
                   isVisible ? "Hide transformation" : "Show transformation"
@@ -261,7 +325,8 @@ export const SortableTransformationItem = ({
                   </MenuButton>
                 </Tooltip>
                 <MenuList fontSize="md" minW="200px" zIndex={10}>
-                  <MenuItem
+                  {isRoot && (
+                    <MenuItem
                     icon={<Icon as={PiPlus} />}
                     onClick={(e) => {
                       e.stopPropagation()
@@ -271,6 +336,8 @@ export const SortableTransformationItem = ({
                   >
                     Add transformation before
                   </MenuItem>
+                  )}
+                  {isRoot && (
                   <MenuItem
                     icon={<Icon as={PiPlus} />}
                     onClick={(e) => {
@@ -281,6 +348,8 @@ export const SortableTransformationItem = ({
                   >
                     Add transformation after
                   </MenuItem>
+                  )}
+                  {isRoot && (
                   <MenuItem
                     icon={<Icon as={PiCopy} />}
                     onClick={(e) => {
@@ -303,6 +372,7 @@ export const SortableTransformationItem = ({
                   >
                     Duplicate
                   </MenuItem>
+                  )}
                   <MenuItem
                     icon={<Icon as={PiPencilSimple} />}
                     onClick={(e) => {
@@ -326,6 +396,7 @@ export const SortableTransformationItem = ({
                   >
                     Rename
                   </MenuItem>
+                  {isRoot && (
                   <MenuItem
                     icon={<Icon as={PiArrowUp} />}
                     onClick={(e) => {
@@ -346,6 +417,8 @@ export const SortableTransformationItem = ({
                   >
                     Move up
                   </MenuItem>
+                  )}
+                  {isRoot && (
                   <MenuItem
                     icon={<Icon as={PiArrowDown} />}
                     onClick={(e) => {
@@ -367,6 +440,7 @@ export const SortableTransformationItem = ({
                   >
                     Move down
                   </MenuItem>
+                  )}
                   <MenuItem
                     icon={<Icon as={PiTrash} color="red.500" />}
                     color="red.500"
@@ -390,6 +464,18 @@ export const SortableTransformationItem = ({
             </HStack>
           )}
         </HStack>
+        {transformation.children && transformation.children.length > 0 && (
+          <Box width="full">
+            {transformation.children.map((child) => (
+              <SortableTransformationItem
+                key={child.id}
+                transformation={child}
+                depth={depth + 1}
+              />
+            ))}
+          </Box>
+        )}
+        </Box>
       )}
     </Hover>
   )

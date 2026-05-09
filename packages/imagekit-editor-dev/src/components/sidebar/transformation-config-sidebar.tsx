@@ -42,7 +42,7 @@ import {
   RESIZE_CROP_MODES,
   transformationSchema,
 } from "../../schema"
-import { type SyncStatus, useEditorStore } from "../../store"
+import { type SyncStatus, findTransformationDeep, useEditorStore } from "../../store"
 import {
   generateVariableName,
   isVariableRef,
@@ -124,6 +124,7 @@ export const TransformationConfigSidebar: React.FC = () => {
   const {
     transformations,
     addTransformation,
+    addChildTransformation,
     updateTransformation,
     imageList,
     focusObjects,
@@ -131,6 +132,7 @@ export const TransformationConfigSidebar: React.FC = () => {
     _internalState,
     _setTransformationToEdit,
     _setSelectedTransformationKey,
+    _setParentForChild,
     setTransformationConfigFormDirty,
   } = useEditorStore()
   const syncStatus = useEditorStore((s) => s.syncStatus)
@@ -162,9 +164,9 @@ export const TransformationConfigSidebar: React.FC = () => {
 
   const editedTransformation = useMemo(() => {
     if (!transformationToEdit) return undefined
-    return transformations.find(
-      (transformation) =>
-        transformation.id === transformationToEdit.transformationId,
+    return findTransformationDeep(
+      transformations,
+      transformationToEdit.transformationId,
     )
   }, [transformations, transformationToEdit])
 
@@ -302,11 +304,15 @@ export const TransformationConfigSidebar: React.FC = () => {
     }
     _setSelectedTransformationKey(null)
     _setTransformationToEdit(null)
+    // Cancel any in-flight child-add: prevents the next root-level "Add"
+    // from being silently re-routed into the previously-targeted parent.
+    _setParentForChild(null)
   }, [
     transformations.length,
     _setSidebarState,
     _setSelectedTransformationKey,
     _setTransformationToEdit,
+    _setParentForChild,
   ])
 
   const onBack = () => {
@@ -400,12 +406,28 @@ export const TransformationConfigSidebar: React.FC = () => {
         for (const [fieldName, ref] of Object.entries(boundFields)) {
           persistedData[fieldName] = ref
         }
-        const transformationId = addTransformation({
-          type: "transformation",
-          name: displayName,
-          key: selectedTransformation.key,
-          value: persistedData,
-        })
+        // If a parent layer is in scope (the user clicked the "+" on a layer
+        // row), append the new step as a nested child rather than as a new
+        // top-level transformation. The parent context is one-shot — we
+        // clear it after the addition completes so subsequent root-level
+        // additions behave normally.
+        const parentId = _internalState.parentForChild
+        const transformationId = parentId
+          ? addChildTransformation(parentId, {
+              type: "transformation",
+              name: displayName,
+              key: selectedTransformation.key,
+              value: persistedData,
+            })
+          : addTransformation({
+              type: "transformation",
+              name: displayName,
+              key: selectedTransformation.key,
+              value: persistedData,
+            })
+        if (parentId) {
+          _setParentForChild(null)
+        }
 
         _setTransformationToEdit(transformationId, "inplace")
       }
@@ -415,12 +437,15 @@ export const TransformationConfigSidebar: React.FC = () => {
     },
     [
       _internalState.transformationToEdit,
+      _internalState.parentForChild,
       addTransformation,
+      addChildTransformation,
       editedTransformation,
       selectedTransformation,
       transformations,
       updateTransformation,
       _setTransformationToEdit,
+      _setParentForChild,
       boundFields,
     ],
   )

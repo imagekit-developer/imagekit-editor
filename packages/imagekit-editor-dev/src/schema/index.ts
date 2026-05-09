@@ -190,6 +190,18 @@ const LAYER_ANCHOR_VALUES = [
 
 type LayerAnchor = (typeof LAYER_ANCHOR_VALUES)[number]
 
+/**
+ * Reusable validator for the `layerAnchor` (lap) field. The clearable select
+ * emits `""` when the user clears the option, so we coerce empty strings to
+ * `undefined` before applying the enum check. Using a bare
+ * `z.enum(LAYER_ANCHOR_VALUES).optional()` would surface a confusing
+ * "Invalid enum value … received ''" error the moment the form mounts.
+ */
+const layerAnchorValidator = z.preprocess(
+  (val) => (val === "" ? undefined : val),
+  z.enum(LAYER_ANCHOR_VALUES).optional(),
+)
+
 const LAYER_ANCHOR_OPTIONS: Array<{ label: string; value: LayerAnchor }> = [
   { label: "Top Left", value: "top_left" },
   { label: "Top", value: "top" },
@@ -1841,7 +1853,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             // never set them keeps producing the exact same URL.
             positionXCenter: layerXValidator.optional(),
             positionYCenter: layerYValidator.optional(),
-            layerAnchor: z.enum(LAYER_ANCHOR_VALUES).optional(),
+            layerAnchor: layerAnchorValidator,
             // Free-form passthrough. Whatever the user types is appended
             // verbatim into the layer's inner transformation chain via the
             // SDK's `raw` field. Lets advanced users reach parameters the
@@ -2258,7 +2270,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             // templates serialize to byte-identical URLs.
             positionXCenter: layerXValidator.optional(),
             positionYCenter: layerYValidator.optional(),
-            layerAnchor: z.enum(LAYER_ANCHOR_VALUES).optional(),
+            layerAnchor: layerAnchorValidator,
             // Free-form passthrough appended verbatim to the layer's inner
             // transformation chain (SDK `raw`). Escape hatch for parameters
             // the editor UI doesn't yet model (e.g. `lm-multiply`).
@@ -3317,6 +3329,234 @@ const baseTransformationSchema: TransformationSchema[] = [
           },
         ],
       },
+      {
+        key: "layers-canvas",
+        name: "Canvas Layer",
+        description:
+          "Add a solid color block (canvas) on top of the base image. Useful as a backdrop for nested text or image children, or as a coloured badge.",
+        docsLink:
+          "https://imagekit.io/docs/add-overlays-on-images#add-solid-color-blocks-over-image",
+        defaultTransformation: {},
+        // Canvas (solid color) layers support a deliberately small subset of
+        // transformations per the docs: `w`, `h`, `bg`, `r`, `e-gradient`
+        // plus the standard layer position/mode params. Anything else is
+        // available via `rawTransformation`. Transparency is controlled by
+        // an 8-char RGBA in `backgroundColor`, so a separate `al` field is
+        // intentionally not exposed.
+        schema: z
+          .object({
+            backgroundColor: colorValidator.optional(),
+            width: widthValidator.optional(),
+            height: heightValidator.optional(),
+            // Position parameters (lx/ly/lxc/lyc/lap)
+            positionX: layerXValidator.optional(),
+            positionY: layerYValidator.optional(),
+            positionXCenter: layerXValidator.optional(),
+            positionYCenter: layerYValidator.optional(),
+            layerAnchor: layerAnchorValidator,
+            // Corner radius (uniform or per-corner). Reuses the same shape as
+            // image / text layers so the existing `radius-input` field works.
+            radius: z
+              .object({
+                mode: z.enum(["uniform", "individual"]).optional(),
+                radius: z
+                  .union([
+                    z.literal("max"),
+                    z.coerce.number().min(0),
+                    z.object({
+                      topLeft: z.union([
+                        z.literal("max"),
+                        z.coerce.number().min(0),
+                      ]),
+                      topRight: z.union([
+                        z.literal("max"),
+                        z.coerce.number().min(0),
+                      ]),
+                      bottomRight: z.union([
+                        z.literal("max"),
+                        z.coerce.number().min(0),
+                      ]),
+                      bottomLeft: z.union([
+                        z.literal("max"),
+                        z.coerce.number().min(0),
+                      ]),
+                    }),
+                  ])
+                  .optional(),
+              })
+              .optional(),
+            // Gradient overlay (e-gradient). Reuses the gradient picker UI.
+            gradientSwitch: z.coerce.boolean().optional(),
+            gradient: z
+              .object({
+                from: z.string().optional(),
+                to: z.string().optional(),
+                direction: z
+                  .union([
+                    z.coerce.number().min(0).max(359),
+                    z.string(),
+                  ])
+                  .optional(),
+                stopPoint: z.coerce.number().min(1).max(100).optional(),
+              })
+              .optional(),
+            // Free-form passthrough for layer-mode (`lm-`) or anything else
+            // not covered by the form above.
+            rawTransformation: z.string().optional(),
+          })
+          .refine(
+            (val) =>
+              Object.values(val).some(
+                (v) => v !== undefined && v !== null && v !== "",
+              ),
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          )
+          .superRefine((val, ctx) => refineLayerPosition(val, ctx)),
+        transformations: [
+          {
+            label: "Background Color",
+            name: "backgroundColor",
+            fieldType: "color-picker",
+            isTransformation: true,
+            transformationGroup: "canvasLayer",
+            transformationKey: "backgroundColor",
+            helpText:
+              "Solid fill colour for the canvas. Hex (e.g. `FF0000`), RGBA (e.g. `FFAABB50`) or a colour name (e.g. `red`). 8-character values use the last 2 digits as opacity (00–99).",
+            examples: ["FF0000", "red", "FFAABB50"],
+            fieldProps: {
+              isClearable: true,
+            },
+          },
+          {
+            label: "Width",
+            name: "width",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "width",
+            transformationGroup: "canvasLayer",
+            helpText: "Width of the solid colour block.",
+            examples: ["300", "bw_div_2"],
+          },
+          {
+            label: "Height",
+            name: "height",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "height",
+            transformationGroup: "canvasLayer",
+            helpText: "Height of the solid colour block.",
+            examples: ["100", "bh_div_2"],
+          },
+          {
+            label: "Position X",
+            name: "positionX",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "x",
+            transformationGroup: "canvasLayer",
+            helpText:
+              "Horizontal offset measured from the canvas's top-left corner.",
+            examples: ["10", "N20", "bw_div_2"],
+          },
+          {
+            label: "Position Y",
+            name: "positionY",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "y",
+            transformationGroup: "canvasLayer",
+            helpText:
+              "Vertical offset measured from the canvas's top-left corner.",
+            examples: ["10", "N20", "bh_div_2"],
+          },
+          {
+            label: "Position X (center)",
+            name: "positionXCenter",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "xCenter",
+            transformationGroup: "canvasLayer",
+            helpText:
+              "Horizontal offset measured from the canvas's center. Use instead of Position X for centre-anchored placement.",
+            examples: ["50", "N100", "bw_div_2"],
+          },
+          {
+            label: "Position Y (center)",
+            name: "positionYCenter",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "yCenter",
+            transformationGroup: "canvasLayer",
+            helpText:
+              "Vertical offset measured from the canvas's center. Use instead of Position Y for centre-anchored placement.",
+            examples: ["50", "N100", "bh_div_2"],
+          },
+          {
+            label: "Anchor Point",
+            name: "layerAnchor",
+            fieldType: "select",
+            isTransformation: true,
+            transformationKey: "anchorPoint",
+            transformationGroup: "canvasLayer",
+            helpText:
+              "Anchor on the base image from which the position offsets are measured. Requires at least one of Position X / Y / X (center) / Y (center).",
+            fieldProps: {
+              options: LAYER_ANCHOR_OPTIONS,
+              isClearable: true,
+            },
+          },
+          {
+            label: "Radius",
+            name: "radius",
+            fieldType: "radius-input",
+            isTransformation: true,
+            transformationGroup: "canvasLayer",
+            helpText:
+              "Corner radius for the canvas. Use 'max' for a circle / oval.",
+            examples: ["10", "max"],
+            fieldProps: { defaultValue: {} },
+          },
+          {
+            label: "Gradient",
+            name: "gradientSwitch",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "canvasLayer",
+            helpText: "Toggle to add a linear gradient overlay on the canvas.",
+          },
+          {
+            label: "Apply Gradient",
+            name: "gradient",
+            fieldType: "gradient-picker",
+            isTransformation: true,
+            transformationKey: "gradient",
+            transformationGroup: "canvasLayer",
+            isVisible: ({ gradientSwitch }) => gradientSwitch === true,
+            fieldProps: {
+              defaultValue: {
+                from: "#FFFFFFFF",
+                to: "#00000000",
+                direction: "bottom",
+                stopPoint: 100,
+              },
+            },
+          },
+          {
+            label: "Additional raw transformation",
+            name: "rawTransformation",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "raw",
+            transformationGroup: "canvasLayer",
+            helpText:
+              "Escape hatch: any transformation string appended verbatim into this canvas layer's chain (e.g. `lm-multiply`).",
+            examples: ["lm-multiply"],
+          },
+        ],
+      },
     ],
   },
   // Custom raw transformation section. Allows users to input a raw ImageKit
@@ -3883,6 +4123,76 @@ export const transformationFormatters: Record<
     }
 
     // Assign overlay to transforms
+    transforms.overlay = overlay
+  },
+  /**
+   * Formatter for canvas (solid color block) overlays. Emits a SolidColorOverlay
+   * which the SDK serializes as `l-image,i-ik_canvas,bg-<color>,...`.
+   *
+   * Per ImageKit docs, only a small subset of inner transformations apply:
+   * width (`w`), height (`h`), alpha (`al`), radius (`r`) and gradient
+   * (`e-gradient`). Layer-mode (`lm`) and the position params (`lx`, `ly`,
+   * `lxc`, `lyc`, `lap`) live on the overlay itself, not its inner
+   * transformation.
+   */
+  canvasLayer: (values, transforms) => {
+    const overlay: Record<string, unknown> = { type: "solidColor" }
+
+    if (typeof values.backgroundColor === "string" && values.backgroundColor) {
+      overlay.color = values.backgroundColor.replace(/^#/, "")
+    }
+
+    const overlayTransform: Record<string, unknown> = {}
+
+    if (
+      values.width !== undefined &&
+      values.width !== null &&
+      values.width !== ""
+    ) {
+      overlayTransform.width = values.width
+    }
+    if (
+      values.height !== undefined &&
+      values.height !== null &&
+      values.height !== ""
+    ) {
+      overlayTransform.height = values.height
+    }
+
+    transformationFormatters.gradient(values, overlayTransform)
+    transformationFormatters.radius(values, overlayTransform)
+
+    if (
+      typeof values.rawTransformation === "string" &&
+      values.rawTransformation.trim() !== ""
+    ) {
+      overlayTransform.raw = values.rawTransformation.trim()
+    }
+
+    if (Object.keys(overlayTransform).length > 0) {
+      overlay.transformation = [overlayTransform]
+    }
+
+    const position: Record<string, unknown> = {}
+    if (values.positionX) {
+      position.x = values.positionX.toString().replace(/^-/, "N")
+    }
+    if (values.positionY) {
+      position.y = values.positionY.toString().replace(/^-/, "N")
+    }
+    if (values.positionXCenter) {
+      position.xCenter = values.positionXCenter.toString().replace(/^-/, "N")
+    }
+    if (values.positionYCenter) {
+      position.yCenter = values.positionYCenter.toString().replace(/^-/, "N")
+    }
+    if (typeof values.layerAnchor === "string" && values.layerAnchor) {
+      position.anchorPoint = values.layerAnchor
+    }
+    if (Object.keys(position).length > 0) {
+      overlay.position = position
+    }
+
     transforms.overlay = overlay
   },
   flip: (values, transforms) => {

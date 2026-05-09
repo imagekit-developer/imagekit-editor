@@ -1274,6 +1274,202 @@ describe("Backward Compatibility - V1 Templates", () => {
     })
   })
 
+  describe("Nested Layers (children)", () => {
+    it("legacy template without children produces a byte-identical URL", async () => {
+      const { buildSrc } = await import("@imagekit/javascript")
+      const { convertTransformationToIK } = await import(
+        "./transformationConverter"
+      )
+      const layer: Transformation = {
+        id: "t1",
+        key: "layers-image",
+        name: "Image Layer",
+        type: "transformation",
+        value: { imageUrl: "logo.png", width: "100" },
+      }
+      const url = buildSrc({
+        urlEndpoint: "https://ik.imagekit.io/demo",
+        src: "/base.jpg",
+        transformation: [convertTransformationToIK(layer)],
+      })
+      expect(url).toBe(
+        "https://ik.imagekit.io/demo/base.jpg?tr=l-image,i-logo.png,w-100,l-end",
+      )
+    })
+
+    it("image layer with a nested image child appends a nested overlay step", async () => {
+      const { buildSrc } = await import("@imagekit/javascript")
+      const { convertTransformationToIK } = await import(
+        "./transformationConverter"
+      )
+      const parent: Transformation = {
+        id: "p",
+        key: "layers-image",
+        name: "Image Layer",
+        type: "transformation",
+        value: { imageUrl: "outer.png" },
+        children: [
+          {
+            id: "c",
+            key: "layers-image",
+            name: "Inner Logo",
+            type: "transformation",
+            value: { imageUrl: "inner.png" },
+          },
+        ],
+      }
+      const url = buildSrc({
+        urlEndpoint: "https://ik.imagekit.io/demo",
+        src: "/base.jpg",
+        transformation: [convertTransformationToIK(parent)],
+      })
+      expect(url).toBe(
+        "https://ik.imagekit.io/demo/base.jpg?tr=l-image,i-outer.png,l-image,i-inner.png,l-end,l-end",
+      )
+    })
+
+    it("canvas (ik_canvas) layer with text + image children", async () => {
+      const { buildSrc } = await import("@imagekit/javascript")
+      const { convertTransformationToIK } = await import(
+        "./transformationConverter"
+      )
+      const parent: Transformation = {
+        id: "p",
+        key: "layers-image",
+        name: "Canvas",
+        type: "transformation",
+        value: { imageUrl: "ik_canvas", width: "500", height: "120" },
+        children: [
+          {
+            id: "c1",
+            key: "layers-text",
+            name: "Caption",
+            type: "transformation",
+            value: { text: "Hello", radius: 0 },
+          },
+          {
+            id: "c2",
+            key: "layers-image",
+            name: "Logo",
+            type: "transformation",
+            value: { imageUrl: "logo.png" },
+          },
+        ],
+      }
+      const url = buildSrc({
+        urlEndpoint: "https://ik.imagekit.io/demo",
+        src: "/base.jpg",
+        transformation: [convertTransformationToIK(parent)],
+      })
+      expect(url).toBe(
+        "https://ik.imagekit.io/demo/base.jpg?tr=l-image,i-ik_canvas,w-500,h-120:l-text,i-Hello,r-0,l-end:l-image,i-logo.png,l-end,l-end",
+      )
+    })
+
+    it("hidden child (enabled === false) is skipped from the URL", async () => {
+      const { buildSrc } = await import("@imagekit/javascript")
+      const { convertTransformationToIK } = await import(
+        "./transformationConverter"
+      )
+      const parent: Transformation = {
+        id: "p",
+        key: "layers-image",
+        name: "Image Layer",
+        type: "transformation",
+        value: { imageUrl: "outer.png" },
+        children: [
+          {
+            id: "c1",
+            key: "layers-image",
+            name: "Visible",
+            type: "transformation",
+            value: { imageUrl: "shown.png" },
+          },
+          {
+            id: "c2",
+            key: "layers-image",
+            name: "Hidden",
+            type: "transformation",
+            value: { imageUrl: "hidden.png" },
+            enabled: false,
+          },
+        ],
+      }
+      const url = buildSrc({
+        urlEndpoint: "https://ik.imagekit.io/demo",
+        src: "/base.jpg",
+        transformation: [convertTransformationToIK(parent)],
+      })
+      expect(url).toBe(
+        "https://ik.imagekit.io/demo/base.jpg?tr=l-image,i-outer.png,l-image,i-shown.png,l-end,l-end",
+      )
+    })
+
+    it("3-level nesting (root + child + grandchild) emits all three layers", async () => {
+      const { buildSrc } = await import("@imagekit/javascript")
+      const { convertTransformationToIK } = await import(
+        "./transformationConverter"
+      )
+      const root: Transformation = {
+        id: "r",
+        key: "layers-image",
+        name: "Root",
+        type: "transformation",
+        value: { imageUrl: "outer.png" },
+        children: [
+          {
+            id: "c",
+            key: "layers-image",
+            name: "Child",
+            type: "transformation",
+            value: { imageUrl: "middle.png" },
+            children: [
+              {
+                id: "g",
+                key: "layers-text",
+                name: "Grandchild",
+                type: "transformation",
+                value: { text: "deep", radius: 0 },
+              },
+            ],
+          },
+        ],
+      }
+      const url = buildSrc({
+        urlEndpoint: "https://ik.imagekit.io/demo",
+        src: "/base.jpg",
+        transformation: [convertTransformationToIK(root)],
+      })
+      expect(url).toBe(
+        "https://ik.imagekit.io/demo/base.jpg?tr=l-image,i-outer.png,l-image,i-middle.png,l-text,i-deep,r-0,l-end,l-end,l-end",
+      )
+    })
+
+    it("findTransformationDeep locates a nested child by id", async () => {
+      const { findTransformationDeep } = await import("./store")
+      const tree: Transformation[] = [
+        {
+          id: "root",
+          key: "layers-image",
+          name: "Root",
+          type: "transformation",
+          value: { imageUrl: "x.png" },
+          children: [
+            {
+              id: "deep",
+              key: "layers-text",
+              name: "Deep",
+              type: "transformation",
+              value: { text: "hi", radius: 0 },
+            },
+          ],
+        },
+      ]
+      expect(findTransformationDeep(tree, "deep")?.name).toBe("Deep")
+      expect(findTransformationDeep(tree, "missing")).toBeUndefined()
+    })
+  })
+
   describe("Resize & Crop Complex Validations", () => {
     it("should require mode when both width and height are specified", () => {
       const template: Omit<Transformation, "id"> = {

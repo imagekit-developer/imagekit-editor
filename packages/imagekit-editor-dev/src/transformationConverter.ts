@@ -142,10 +142,46 @@ export function convertTransformationToIK(
     }
   }
 
-  return {
+  const result = {
     ...defaultTransformation,
     ...transforms,
   } as IKTransformation
+
+  // ── Nested layer children ────────────────────────────────────────────────
+  // For layer transformations (image / text), each child is serialized
+  // recursively and appended into the parent's `overlay.transformation`
+  // chain. The SDK's `processOverlay` then walks the `overlay` key found
+  // inside any inner step and emits a nested `l-...,l-end` segment, which is
+  // exactly the syntax ImageKit expects for nested layers.
+  //
+  // Hidden children (visibility toggled off) are skipped entirely so they
+  // never reach the URL — same convention as top-level steps.
+  if (
+    transformation.children &&
+    transformation.children.length > 0 &&
+    typeof (result as { overlay?: unknown }).overlay === "object" &&
+    (result as { overlay?: unknown }).overlay !== null
+  ) {
+    const overlay = (result as unknown as { overlay: Record<string, unknown> })
+      .overlay
+    const innerTransformation = Array.isArray(overlay.transformation)
+      ? [...(overlay.transformation as Record<string, unknown>[])]
+      : []
+    for (const child of transformation.children) {
+      if (child.enabled === false) continue
+      const childIK = convertTransformationToIK(child, ctx) as {
+        overlay?: unknown
+      }
+      if (childIK?.overlay) {
+        innerTransformation.push({ overlay: childIK.overlay })
+      }
+    }
+    if (innerTransformation.length > 0) {
+      overlay.transformation = innerTransformation
+    }
+  }
+
+  return result
 }
 
 /**

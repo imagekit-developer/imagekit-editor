@@ -48,6 +48,60 @@ export interface Transformation {
   version?: typeof TRANSFORMATION_STATE_VERSION
   /** Persisted visibility flag. Absent or true = visible; false = hidden. */
   enabled?: boolean
+  /**
+   * Nested layer children. Only meaningful for `layers-text` and
+   * `layers-image` transformations. ImageKit allows up to 3 levels of nesting
+   * (root + 2 children deep). Each child is a fully-formed `Transformation`
+   * with its own id; serialization recursively appends each child as a
+   * nested overlay step inside the parent layer's transformation chain.
+   *
+   * Optional and unused by older saved templates, so adding this field is
+   * backwards-compatible: any template without it produces the exact same
+   * URL as before.
+   */
+  children?: Transformation[]
+}
+
+/**
+ * Maximum nesting depth allowed for layers (root layer = depth 0). ImageKit
+ * supports up to 3 levels total, so children are allowed only when the parent
+ * is at depth < {@link MAX_LAYER_NEST_DEPTH}.
+ */
+export const MAX_LAYER_NEST_DEPTH = 2
+
+/**
+ * Layer-key prefix that opts a transformation into nesting. Image, text and
+ * canvas (solid color) layers may host children. Per ImageKit docs the
+ * children of any layer must themselves be image or text layers — canvases
+ * cannot be nested. The type-picker enforces that filter; this helper only
+ * gates whether the row exposes a "+" button at all.
+ */
+export function isLayerKey(key: string): boolean {
+  return (
+    key === "layers-image" ||
+    key === "layers-text" ||
+    key === "layers-canvas"
+  )
+}
+
+/**
+ * Recursively walks a transformation tree (root + arbitrary nested children)
+ * looking for a node by id. Returns `undefined` when not found. Used by the
+ * config sidebar so editing a nested child works without any caller changes.
+ */
+export function findTransformationDeep(
+  list: Transformation[] | undefined,
+  id: string,
+): Transformation | undefined {
+  if (!list) return undefined
+  for (const t of list) {
+    if (t.id === id) return t
+    if (t.children && t.children.length > 0) {
+      const hit = findTransformationDeep(t.children, id)
+      if (hit) return hit
+    }
+  }
+  return undefined
 }
 
 export type RequiredMetadata = { requireSignedUrl: boolean }
@@ -104,6 +158,12 @@ interface InternalState {
         targetId: string
       }
     | null
+  /**
+   * When set, the next addition from the type/config sidebar is appended as
+   * a nested child of the layer with this id, rather than as a new top-level
+   * step. Cleared after the addition completes (or the user cancels).
+   */
+  parentForChild: string | null
 }
 
 export type FocusObjects =
@@ -203,6 +263,10 @@ export type EditorActions<
     transformation: Omit<Transformation, "id">,
     position?: number,
   ) => string
+  addChildTransformation: (
+    parentId: string,
+    transformation: Omit<Transformation, "id">,
+  ) => string
   removeTransformation: (id: string) => void
   updateTransformation: (
     id: string,
@@ -258,6 +322,7 @@ export type EditorActions<
     transformationId: string | null,
     position?: "inplace" | "above" | "below",
   ) => void
+  _setParentForChild: (parentId: string | null) => void
 }
 
 const initialTransformations: Transformation[] = []
@@ -312,6 +377,7 @@ const DEFAULT_STATE: EditorState = {
     sidebarState: "none",
     selectedTransformationKey: null,
     transformationToEdit: null,
+    parentForChild: null,
   },
   templateName: "Untitled Template",
   templateId: null,
@@ -484,17 +550,36 @@ const useEditorStore = create<EditorState & EditorActions>()(
     },
 
     loadTemplate: (template) => {
-      const transformationsWithIds = template.map((transformation, index) => ({
-        ...transformation,
-        id: `transformation-${Date.now()}-${index}`,
-        version: TRANSFORMATION_STATE_VERSION,
-      }))
+      const stamp = `${Date.now()}`
+      let counter = 0
+      // Recursively assign fresh ids to root + nested children so saved
+      // templates with nested layers re-hydrate with stable, unique ids.
+      const stampIds = (
+        list: Array<Omit<Transformation, "id">>,
+      ): Transformation[] =>
+        list.map((transformation) => ({
+          ...transformation,
+          id: `transformation-${stamp}-${counter++}`,
+          version: TRANSFORMATION_STATE_VERSION,
+          children: transformation.children
+            ? stampIds(
+                transformation.children as Array<Omit<Transformation, "id">>,
+              )
+            : undefined,
+        }))
+      const transformationsWithIds = stampIds(template)
 
       const visibleTransformations: Record<string, boolean> = {}
-      transformationsWithIds.forEach((t) => {
-        // enabled absent or true → visible; false → hidden
-        visibleTransformations[t.id] = t.enabled !== false
-      })
+      const collectVisibility = (list: Transformation[]): void => {
+        list.forEach((t) => {
+          // enabled absent or true → visible; false → hidden
+          visibleTransformations[t.id] = t.enabled !== false
+          if (t.children && t.children.length > 0) {
+            collectVisibility(t.children)
+          }
+        })
+      }
+      collectVisibility(transformationsWithIds)
 
       set((state) => {
         const nextVersion = bumpVersion(state.localChangeVersion)
@@ -508,6 +593,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
             sidebarState: "none",
             selectedTransformationKey: null,
             transformationToEdit: null,
+            parentForChild: null,
           },
           isPristine: false,
           // Loading an existing template implies we're in sync with storage.
@@ -549,17 +635,23 @@ const useEditorStore = create<EditorState & EditorActions>()(
     toggleTransformationVisibility: (id) => {
       set((state) => {
         const newVisible = !state.visibleTransformations[id]
+        // Recurse so the eye-icon on a nested child correctly toggles the
+        // `enabled` flag on the matching tree node (otherwise the icon would
+        // flip but the URL would keep emitting the child).
+        const flipById = (list: Transformation[]): Transformation[] =>
+          list.map((t) => {
+            if (t.id === id) return { ...t, enabled: newVisible }
+            if (t.children && t.children.length > 0) {
+              return { ...t, children: flipById(t.children) }
+            }
+            return t
+          })
         return {
           visibleTransformations: {
             ...state.visibleTransformations,
             [id]: newVisible,
           },
-          // Sync enabled into the transformations array so the auto-save
-          // subscription (which watches `transformations`) fires, and so the
-          // visibility state is persisted alongside the transformation data.
-          transformations: state.transformations.map((t) =>
-            t.id === id ? { ...t, enabled: newVisible } : t,
-          ),
+          transformations: flipById(state.transformations),
           isPristine: false,
           localChangeVersion: bumpVersion(state.localChangeVersion),
         }
@@ -606,10 +698,18 @@ const useEditorStore = create<EditorState & EditorActions>()(
     },
 
     removeTransformation: (id) => {
+      // Recurse so a nested layer child can be removed by id without the
+      // caller needing to know which parent it lives under.
+      const stripById = (list: Transformation[]): Transformation[] =>
+        list
+          .filter((t) => t.id !== id)
+          .map((t) =>
+            t.children && t.children.length > 0
+              ? { ...t, children: stripById(t.children) }
+              : t,
+          )
       set((state) => ({
-        transformations: state.transformations.filter(
-          (transformation) => transformation.id !== id,
-        ),
+        transformations: stripById(state.transformations),
         isPristine: false,
         localChangeVersion: bumpVersion(state.localChangeVersion),
       }))
@@ -617,14 +717,70 @@ const useEditorStore = create<EditorState & EditorActions>()(
 
     updateTransformation: (
       id: string,
-      updatedTransformation: Transformation,
+      updatedTransformation: Omit<Transformation, "id">,
     ) => {
+      // Recurse so editing a nested child via the existing config sidebar
+      // flow updates it in place. Children of the matched node are preserved.
+      const replaceById = (list: Transformation[]): Transformation[] =>
+        list.map((t) => {
+          if (t.id === id) {
+            return {
+              ...updatedTransformation,
+              id,
+              children: t.children,
+            }
+          }
+          if (t.children && t.children.length > 0) {
+            return { ...t, children: replaceById(t.children) }
+          }
+          return t
+        })
       set((state) => ({
-        transformations: state.transformations.map((t) =>
-          t.id === id ? { ...updatedTransformation, id } : t,
-        ),
+        transformations: replaceById(state.transformations),
         isPristine: false,
         localChangeVersion: bumpVersion(state.localChangeVersion),
+      }))
+    },
+
+    /**
+     * Append a layer transformation as a nested child of the layer with id
+     * `parentId`. Caller is responsible for verifying the parent is a layer
+     * (`isLayerKey(parent.key)`) and within {@link MAX_LAYER_NEST_DEPTH}.
+     * Returns the new child's id, mirroring `addTransformation`.
+     */
+    addChildTransformation: (parentId, transformation) => {
+      const id = `transformation-${Date.now()}`
+      const appendChild = (list: Transformation[]): Transformation[] =>
+        list.map((t) => {
+          if (t.id === parentId) {
+            return {
+              ...t,
+              children: [...(t.children ?? []), { ...transformation, id }],
+            }
+          }
+          if (t.children && t.children.length > 0) {
+            return { ...t, children: appendChild(t.children) }
+          }
+          return t
+        })
+      set((state) => ({
+        transformations: appendChild(state.transformations),
+        visibleTransformations: {
+          ...state.visibleTransformations,
+          [id]: true,
+        },
+        isPristine: false,
+        localChangeVersion: bumpVersion(state.localChangeVersion),
+      }))
+      return id
+    },
+
+    _setParentForChild: (parentId) => {
+      set((state) => ({
+        _internalState: {
+          ...state._internalState,
+          parentForChild: parentId,
+        },
       }))
     },
 
@@ -753,6 +909,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
           sidebarState: "none",
           selectedTransformationKey: null,
           transformationToEdit: null,
+        parentForChild: null,
         },
       })
     },
@@ -784,6 +941,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
           sidebarState: "none",
           selectedTransformationKey: null,
           transformationToEdit: null,
+        parentForChild: null,
         },
       })
     },
@@ -804,14 +962,15 @@ const useEditorStore = create<EditorState & EditorActions>()(
     },
 
     _setTransformationToEdit: (
-      transformationOrTargetId: string,
-      position = "inplace",
+      transformationOrTargetId: string | null,
+      position: "inplace" | "above" | "below" = "inplace",
     ) => {
       if (!transformationOrTargetId) {
         set((state) => ({
           _internalState: {
             ...state._internalState,
             transformationToEdit: null,
+        parentForChild: null,
           },
         }))
       } else if (position === "inplace") {
