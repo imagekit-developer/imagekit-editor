@@ -171,6 +171,91 @@ export interface TransformationSchema {
   items: TransformationItem[]
 }
 
+/**
+ * Anchor points (`lap`) supported by the URL builder for layer positioning.
+ * Mirrors the SDK's `OverlayPosition.anchorPoint` union and the docs at
+ * https://imagekit.io/docs/add-overlays-on-images#control-position-of-image-overlay.
+ */
+const LAYER_ANCHOR_VALUES = [
+  "top_left",
+  "top",
+  "top_right",
+  "left",
+  "center",
+  "right",
+  "bottom_left",
+  "bottom",
+  "bottom_right",
+] as const
+
+type LayerAnchor = (typeof LAYER_ANCHOR_VALUES)[number]
+
+const LAYER_ANCHOR_OPTIONS: Array<{ label: string; value: LayerAnchor }> = [
+  { label: "Top Left (default)", value: "top_left" },
+  { label: "Top", value: "top" },
+  { label: "Top Right", value: "top_right" },
+  { label: "Left", value: "left" },
+  { label: "Center", value: "center" },
+  { label: "Right", value: "right" },
+  { label: "Bottom Left", value: "bottom_left" },
+  { label: "Bottom", value: "bottom" },
+  { label: "Bottom Right", value: "bottom_right" },
+]
+
+/**
+ * Cross-axis position validator shared by every layer type.
+ *
+ * Encodes the SDK rule that the top-left reference (`x` / `lx`) and the centre
+ * reference (`xCenter` / `lxc`) cannot both be set on the same axis — the URL
+ * builder rejects the combination. We surface the error against the centre
+ * field so the user keeps the more discoverable "Position X" untouched.
+ */
+function refineLayerPosition(
+  val: {
+    positionX?: unknown
+    positionY?: unknown
+    positionXCenter?: unknown
+    positionYCenter?: unknown
+    layerAnchor?: unknown
+  },
+  ctx: RefinementCtx,
+) {
+  const isSet = (v: unknown) => v !== undefined && v !== null && v !== ""
+  if (isSet(val.positionX) && isSet(val.positionXCenter)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        "Use either Position X (top-left) or Position X (center), not both.",
+      path: ["positionXCenter"],
+    })
+  }
+  if (isSet(val.positionY) && isSet(val.positionYCenter)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        "Use either Position Y (top-left) or Position Y (center), not both.",
+      path: ["positionYCenter"],
+    })
+  }
+  // `lap` cannot be used alone — the URL parser rejects an anchor without an
+  // accompanying offset. Require at least one of lx/ly/lxc/lyc when an anchor
+  // is set, and surface the error against the anchor field itself.
+  if (
+    isSet(val.layerAnchor) &&
+    !isSet(val.positionX) &&
+    !isSet(val.positionY) &&
+    !isSet(val.positionXCenter) &&
+    !isSet(val.positionYCenter)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        "Anchor Point requires at least one of Position X, Position Y, Position X (center), or Position Y (center).",
+      path: ["layerAnchor"],
+    })
+  }
+}
+
 const baseTransformationSchema: TransformationSchema[] = [
   resizeAndCropCategory,
   {
@@ -1750,6 +1835,13 @@ const baseTransformationSchema: TransformationSchema[] = [
             width: widthValidator.optional(),
             positionX: layerXValidator.optional(),
             positionY: layerYValidator.optional(),
+            // Centre-reference position (lxc / lyc) and base-image anchor
+            // point (lap). Optional and unused by older saved templates, so
+            // adding them here is backwards-compatible: any template that
+            // never set them keeps producing the exact same URL.
+            positionXCenter: layerXValidator.optional(),
+            positionYCenter: layerYValidator.optional(),
+            layerAnchor: z.enum(LAYER_ANCHOR_VALUES).optional(),
             fontSize: z.coerce
               .number({
                 invalid_type_error: "Should be a number.",
@@ -1842,6 +1934,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               })
               .optional(),
           })
+          .superRefine((val, ctx) => refineLayerPosition(val, ctx))
           .refine(
             (val) => {
               return Object.values(val).some(
@@ -1881,7 +1974,8 @@ const baseTransformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "x",
             transformationGroup: "textLayer",
-            helpText: "Specify horizontal offset for the text.",
+            helpText:
+              "Horizontal offset measured from the layer's top-left corner. Maps to lx.",
             examples: ["10", "-20", "N30", "bw_div_2"],
           },
           {
@@ -1891,8 +1985,45 @@ const baseTransformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "y",
             transformationGroup: "textLayer",
-            helpText: "Specify vertical offset for the text.",
+            helpText:
+              "Vertical offset measured from the layer's top-left corner. Maps to ly.",
             examples: ["10", "-20", "N30", "bh_div_2"],
+          },
+          {
+            label: "Position X (center)",
+            name: "positionXCenter",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "xCenter",
+            transformationGroup: "textLayer",
+            helpText:
+              "Horizontal offset measured from the layer's center. Maps to lxc. Use instead of Position X for centre-anchored placement.",
+            examples: ["50", "N100", "bw_div_2"],
+          },
+          {
+            label: "Position Y (center)",
+            name: "positionYCenter",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "yCenter",
+            transformationGroup: "textLayer",
+            helpText:
+              "Vertical offset measured from the layer's center. Maps to lyc. Use instead of Position Y for centre-anchored placement.",
+            examples: ["50", "N100", "bh_div_2"],
+          },
+          {
+            label: "Anchor Point",
+            name: "layerAnchor",
+            fieldType: "select",
+            isTransformation: true,
+            transformationKey: "anchorPoint",
+            transformationGroup: "textLayer",
+            helpText:
+              "Anchor on the base image from which the position offsets are calculated. Defaults to top-left. Maps to lap.",
+            fieldProps: {
+              options: LAYER_ANCHOR_OPTIONS,
+              isClearable: true,
+            },
           },
           {
             label: "Font Size",
@@ -2106,6 +2237,12 @@ const baseTransformationSchema: TransformationSchema[] = [
             crop: z.string().optional(),
             positionX: layerXValidator.optional(),
             positionY: layerYValidator.optional(),
+            // Centre-reference position (lxc / lyc) and base-image anchor
+            // point (lap). Optional + ignored when not set, so legacy
+            // templates serialize to byte-identical URLs.
+            positionXCenter: layerXValidator.optional(),
+            positionYCenter: layerYValidator.optional(),
+            layerAnchor: z.enum(LAYER_ANCHOR_VALUES).optional(),
             anchor: z.string().optional(),
             opacityEnabled: z.boolean().optional(),
             opacity: z.coerce
@@ -2392,6 +2529,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               })
             }
 
+            refineLayerPosition(val, ctx)
             validatePerspectiveDistort(val, ctx)
           }),
         transformations: [
@@ -2630,7 +2768,8 @@ const baseTransformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "x",
             transformationGroup: "imageLayer",
-            helpText: "Specify the horizontal offset for the overlay image.",
+            helpText:
+              "Horizontal offset measured from the layer's top-left corner. Maps to lx.",
             examples: ["10", "-20", "N30", "bw_div_2"],
           },
           {
@@ -2640,8 +2779,45 @@ const baseTransformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "y",
             transformationGroup: "imageLayer",
-            helpText: "Specify the vertical offset for the overlay image.",
+            helpText:
+              "Vertical offset measured from the layer's top-left corner. Maps to ly.",
             examples: ["10", "-20", "N30", "bh_div_2"],
+          },
+          {
+            label: "Position X (center)",
+            name: "positionXCenter",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "xCenter",
+            transformationGroup: "imageLayer",
+            helpText:
+              "Horizontal offset measured from the layer's center. Maps to lxc. Use instead of Position X for centre-anchored placement.",
+            examples: ["50", "N100", "bw_div_2"],
+          },
+          {
+            label: "Position Y (center)",
+            name: "positionYCenter",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "yCenter",
+            transformationGroup: "imageLayer",
+            helpText:
+              "Vertical offset measured from the layer's center. Maps to lyc. Use instead of Position Y for centre-anchored placement.",
+            examples: ["50", "N100", "bh_div_2"],
+          },
+          {
+            label: "Anchor Point",
+            name: "layerAnchor",
+            fieldType: "select",
+            isTransformation: true,
+            transformationKey: "anchorPoint",
+            transformationGroup: "imageLayer",
+            helpText:
+              "Anchor on the base image from which the position offsets are calculated. Defaults to top-left. Maps to lap.",
+            fieldProps: {
+              options: LAYER_ANCHOR_OPTIONS,
+              isClearable: true,
+            },
           },
           {
             label: "Opacity",
@@ -3493,6 +3669,24 @@ export const transformationFormatters: Record<
     ) {
       position.y = values.positionY.toString().replace(/^-/, "N")
     }
+    if (
+      typeof values.positionXCenter === "number" ||
+      typeof values.positionXCenter === "string"
+    ) {
+      position.xCenter = values.positionXCenter.toString().replace(/^-/, "N")
+    }
+    if (
+      typeof values.positionYCenter === "number" ||
+      typeof values.positionYCenter === "string"
+    ) {
+      position.yCenter = values.positionYCenter.toString().replace(/^-/, "N")
+    }
+    if (typeof values.layerAnchor === "string" && values.layerAnchor) {
+      // SDK union: 'top' | 'left' | ... | 'center'. Schema validates this
+      // with z.enum(LAYER_ANCHOR_VALUES), so the cast is sound.
+      position.anchorPoint =
+        values.layerAnchor as OverlayPosition["anchorPoint"]
+    }
     if (Object.keys(position).length > 0) {
       overlay.position = position
     }
@@ -3628,6 +3822,15 @@ export const transformationFormatters: Record<
     }
     if (values.positionY) {
       position.y = values.positionY.toString().replace(/^-/, "N")
+    }
+    if (values.positionXCenter) {
+      position.xCenter = values.positionXCenter.toString().replace(/^-/, "N")
+    }
+    if (values.positionYCenter) {
+      position.yCenter = values.positionYCenter.toString().replace(/^-/, "N")
+    }
+    if (typeof values.layerAnchor === "string" && values.layerAnchor) {
+      position.anchorPoint = values.layerAnchor
     }
 
     if (Object.keys(position).length > 0) {

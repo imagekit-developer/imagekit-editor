@@ -963,6 +963,238 @@ describe("Backward Compatibility - V1 Templates", () => {
     })
   })
 
+  describe("Schema Validators - Layer Anchor & Centre Position (lap/lxc/lyc)", () => {
+    // ----- Backwards-compatibility: legacy templates without the new fields
+    it("legacy text layer (no anchor/centre fields) still validates", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-text",
+        name: "Text",
+        type: "transformation",
+        value: {
+          text: "Hi",
+          positionX: "100",
+          positionY: "50",
+          fontSize: 24,
+          radius: 0,
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("legacy image layer (no anchor/centre fields) still validates", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-image",
+        name: "Image",
+        type: "transformation",
+        value: {
+          imageUrl: "logo.png",
+          positionX: "100",
+          positionY: "50",
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    // ----- Centre-reference (lxc / lyc) accepts numbers + expressions
+    it("text layer accepts positionXCenter / positionYCenter as numbers", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-text",
+        name: "Text",
+        type: "transformation",
+        value: {
+          text: "Hi",
+          positionXCenter: "50",
+          positionYCenter: "N100",
+          fontSize: 24,
+          radius: 0,
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("image layer accepts positionXCenter / positionYCenter as expressions", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-image",
+        name: "Image",
+        type: "transformation",
+        value: {
+          imageUrl: "logo.png",
+          positionXCenter: "bw_div_2",
+          positionYCenter: "bh_mul_0.4",
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    // ----- Mutual exclusion: x + xCenter (and y + yCenter) on the same axis
+    it("rejects positionX + positionXCenter set together (text layer)", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-text",
+        name: "Text",
+        type: "transformation",
+        value: {
+          text: "Hi",
+          positionX: "10",
+          positionXCenter: "20",
+          fontSize: 24,
+          radius: 0,
+        },
+        version: "v1",
+      }
+      const result = validateTransformation(template)
+      expect(result.valid).toBe(false)
+      expect(result.errors.join("\n")).toMatch(/Position X.*center.*not both/i)
+    })
+
+    it("rejects positionY + positionYCenter set together (image layer)", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-image",
+        name: "Image",
+        type: "transformation",
+        value: {
+          imageUrl: "logo.png",
+          positionY: "10",
+          positionYCenter: "20",
+        },
+        version: "v1",
+      }
+      const result = validateTransformation(template)
+      expect(result.valid).toBe(false)
+      expect(result.errors.join("\n")).toMatch(/Position Y.*center.*not both/i)
+    })
+
+    // ----- Anchor (lap)
+    it("text layer accepts a valid layerAnchor when paired with a position", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-text",
+        name: "Text",
+        type: "transformation",
+        value: {
+          text: "Hi",
+          positionX: "N25",
+          positionY: "25",
+          layerAnchor: "top_right",
+          fontSize: 24,
+          radius: 0,
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("rejects layerAnchor set without any position offset (text layer)", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-text",
+        name: "Text",
+        type: "transformation",
+        value: {
+          text: "Hi",
+          layerAnchor: "center",
+          fontSize: 24,
+          radius: 0,
+        },
+        version: "v1",
+      }
+      const result = validateTransformation(template)
+      expect(result.valid).toBe(false)
+      expect(result.errors.join("\n")).toMatch(/Anchor Point requires/i)
+    })
+
+    it("rejects layerAnchor set without any position offset (image layer)", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-image",
+        name: "Image",
+        type: "transformation",
+        value: {
+          imageUrl: "logo.png",
+          layerAnchor: "bottom",
+        },
+      }
+      const result = validateTransformation(template)
+      expect(result.valid).toBe(false)
+      expect(result.errors.join("\n")).toMatch(/Anchor Point requires/i)
+    })
+
+    it("rejects an unknown anchor value", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-image",
+        name: "Image",
+        type: "transformation",
+        value: {
+          imageUrl: "logo.png",
+          positionX: "10",
+          layerAnchor: "middle",
+        },
+      }
+      expect(validateTransformation(template).valid).toBe(false)
+    })
+
+    // ----- Formatter: emits xCenter/yCenter/anchorPoint, normalises `-` to `N`
+    it("textLayer formatter emits xCenter/yCenter/anchorPoint with negative-prefix normalisation", () => {
+      const transforms: Record<string, unknown> = {}
+      transformationFormatters.textLayer(
+        {
+          text: "Hi",
+          positionXCenter: "-50",
+          positionYCenter: "100",
+          layerAnchor: "bottom_right",
+        },
+        transforms,
+      )
+      expect(transforms.overlay).toMatchObject({
+        type: "text",
+        text: "Hi",
+        position: {
+          xCenter: "N50",
+          yCenter: "100",
+          anchorPoint: "bottom_right",
+        },
+      })
+    })
+
+    it("imageLayer formatter emits xCenter/yCenter/anchorPoint", () => {
+      const transforms: Record<string, unknown> = {}
+      transformationFormatters.imageLayer(
+        {
+          imageUrl: "logo.png",
+          positionXCenter: "bw_div_2",
+          positionYCenter: "-30",
+          layerAnchor: "center",
+        },
+        transforms,
+      )
+      expect(transforms.overlay).toMatchObject({
+        type: "image",
+        input: "logo.png",
+        position: {
+          xCenter: "bw_div_2",
+          yCenter: "N30",
+          anchorPoint: "center",
+        },
+      })
+    })
+
+    // ----- Formatter: legacy x/y still flow through unchanged
+    it("textLayer formatter without new fields produces no xCenter/yCenter/anchorPoint", () => {
+      const transforms: Record<string, unknown> = {}
+      transformationFormatters.textLayer(
+        { text: "Hi", positionX: "10", positionY: "20" },
+        transforms,
+      )
+      const overlay = transforms.overlay as {
+        position: Record<string, unknown>
+      }
+      expect(overlay.position).toEqual({ x: "10", y: "20" })
+      expect(overlay.position.xCenter).toBeUndefined()
+      expect(overlay.position.yCenter).toBeUndefined()
+      expect(overlay.position.anchorPoint).toBeUndefined()
+    })
+  })
+
   describe("Resize & Crop Complex Validations", () => {
     it("should require mode when both width and height are specified", () => {
       const template: Omit<Transformation, "id"> = {
