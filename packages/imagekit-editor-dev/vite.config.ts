@@ -104,6 +104,10 @@ export default defineConfig({
   // Dev server configuration
   server: {
     hmr: false,
+    watch: {
+      usePolling: true,
+      interval: 1000, // Adjust the interval as needed
+    },
   },
   optimizeDeps: {
     include: [

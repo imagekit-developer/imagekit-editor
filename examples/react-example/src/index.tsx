@@ -2,6 +2,7 @@ import {
   ImageKitEditor,
   type ImageKitEditorProps,
   type ImageKitEditorRef,
+  type SaveTemplateInput,
   type TemplateStorageProvider,
   TRANSFORMATION_STATE_VERSION,
   type Transformation,
@@ -18,6 +19,8 @@ type StoredTemplateRecord = {
   isPinned: boolean
   name: string
   transformations: Omit<Transformation, "id">[]
+  variables?: SaveTemplateInput["variables"]
+  presets?: SaveTemplateInput["presets"]
   createdBy: { userId: string; name: string; email: string }
   updatedBy: { userId: string; name: string; email: string }
   createdAt: number
@@ -70,6 +73,14 @@ function createLocalTemplateStorage(): TemplateStorageProvider {
         isPinned: input.isPinned ?? existing?.isPinned ?? false,
         name: input.name,
         transformations: input.transformations,
+        variables:
+          input.variables !== undefined
+            ? input.variables
+            : (existing?.variables ?? []),
+        presets:
+          input.presets !== undefined
+            ? input.presets
+            : (existing?.presets ?? []),
         createdBy: input.createdBy ??
           existing?.createdBy ?? {
             userId: session.userId,
@@ -186,29 +197,43 @@ function App() {
   }, [])
 
   useEffect(() => {
+    const URL_ENDPOINT_STORAGE_KEY = "ik-editor:urlEndpoint"
+    const urlEndpoint =
+      localStorage.getItem(URL_ENDPOINT_STORAGE_KEY) ??
+      "https://stage-ik.imagekit.io/cr29v1rbc"
+    localStorage.setItem(URL_ENDPOINT_STORAGE_KEY, urlEndpoint)
+
     setEditorProps({
+      urlEndpoint,
       initialImages: [
-        {
-          url: "https://ik.imagekit.io/v3sxk1svj/white%20BMW%20car%20on%20street.jpg",
-          metadata: {
-            requireSignedUrl: false,
-            fileName: "white BMW car on street.jpg",
-          },
-        },
-        {
-          url: "https://ik.imagekit.io/v3sxk1svj/Young%20Living%20Patchouili%20bot....jpg",
-          metadata: {
-            requireSignedUrl: false,
-            fileName: "Young Living Patchouili bot.jpg",
-          },
-        },
-        {
-          url: "https://ik.imagekit.io/v3sxk1svj/brown%20bear%20plush%20toy%20on%20whi....jpg?updatedAt=1760432666859",
-          metadata: {
-            requireSignedUrl: false,
-            fileName: "brown bear plush toy on white.jpg",
-          },
-        },
+        // {
+        //   url: "https://stage-ik.imagekit.io/cr29v1rbc/three-dogs.jpg",
+        //   metadata: {
+        //     requireSignedUrl: false,
+        //     fileName: "three-dogs.jpg",
+        //   },
+        // },
+        // {
+        //   url: "https://stage-ik.imagekit.io/cr29v1rbc/ranveer-singh-faces.png",
+        //   metadata: {
+        //     requireSignedUrl: false,
+        //     fileName: "ranveer-singh-faces.png",
+        //   },
+        // },
+        // {
+        //   url: "https://stage-ik.imagekit.io/cr29v1rbc/t12_cloudinary-demo.jpg",
+        //   metadata: {
+        //     requireSignedUrl: false,
+        //     fileName: "t12_cloudinary-demo.jpg",
+        //   },
+        // },
+        // {
+        //   url: "https://stage-ik.imagekit.io/cr29v1rbc/pikachu.png",
+        //   metadata: {
+        //     requireSignedUrl: false,
+        //     fileName: "pikachu.png",
+        //   },
+        // },
         // ...Array.from({ length: 10000 }).map((_, i) => ({
         //   url: `https://ik.imagekit.io/v3sxk1svj/placeholder.jpg?updatedAt=${Date.now()}&v=${i}`,
         //   metadata: {
