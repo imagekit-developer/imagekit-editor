@@ -1,5 +1,5 @@
 import { Box, Center, Spinner } from "@chakra-ui/react"
-import { type FC, useCallback, useMemo, useRef } from "react"
+import { type FC, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   buildBackdropUrl,
   buildSingleLayerUrl,
@@ -40,7 +40,16 @@ export const InteractivePreview: FC<InteractivePreviewProps> = ({
   } = useEditorStore()
 
   const containerRef = useRef<HTMLDivElement>(null)
-  const coordSpace = useCoordinateSpace(containerRef)
+
+  // Track the backdrop image's actual rendered dimensions (naturalWidth/Height)
+  // so that size-changing transforms (e.g. border) are reflected in all
+  // layer position calculations.
+  const [backdropDims, setBackdropDims] = useState<{
+    width: number
+    height: number
+  } | null>(null)
+
+  const coordSpace = useCoordinateSpace(containerRef, backdropDims)
 
   const selectedLayerId = _internalState.selectedLayerId
 
@@ -80,6 +89,11 @@ export const InteractivePreview: FC<InteractivePreviewProps> = ({
     [transformations, visibleTransformations, originalImageUrl, canvas],
   )
 
+  // Reset backdrop dims when the URL changes so stale sizes don't linger.
+  useEffect(() => {
+    setBackdropDims(null)
+  }, [backdropUrl])
+
   // Build per-layer URLs
   const layerUrls = useMemo(() => {
     const urls: Record<string, string | null> = {}
@@ -95,6 +109,12 @@ export const InteractivePreview: FC<InteractivePreviewProps> = ({
 
   const handleBackdropLoad = useCallback(
     (event: React.SyntheticEvent<HTMLImageElement>) => {
+      const natW = event.currentTarget.naturalWidth
+      const natH = event.currentTarget.naturalHeight
+
+      // Update backdrop dims used for coordinate-space calculations.
+      setBackdropDims({ width: natW, height: natH })
+
       if (!currentImage) return
       const idx = useEditorStore
         .getState()
@@ -103,8 +123,8 @@ export const InteractivePreview: FC<InteractivePreviewProps> = ({
       const originalUrl = originalImageList[idx]?.url
       if (!originalUrl) return
       setImageDimensions(originalUrl, {
-        width: event.currentTarget.naturalWidth,
-        height: event.currentTarget.naturalHeight,
+        width: natW,
+        height: natH,
       })
     },
     [currentImage, originalImageList, setImageDimensions],

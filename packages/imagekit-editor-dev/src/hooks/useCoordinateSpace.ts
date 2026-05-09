@@ -18,16 +18,27 @@ interface CoordinateSpace {
  * Provides coordinate-space conversion between the displayed preview
  * and the source canvas/image pixels. Watches `previewRef` for resize
  * and base-image dimension changes.
+ *
+ * @param sourceDims - When provided, these override the canvas/image
+ *   config dimensions.  Use the backdrop image's `naturalWidth` /
+ *   `naturalHeight` so that size-changing transforms (e.g. border)
+ *   are accounted for in all layer-position calculations.
  */
 export function useCoordinateSpace(
   previewRef: React.RefObject<HTMLElement | null>,
+  sourceDims?: { width: number; height: number } | null,
 ): CoordinateSpace {
   const { canvas, originalImageList, currentImage } = useEditorStore()
 
-  // Determine source dimensions
+  // Determine source dimensions.
+  // Prefer the caller-supplied sourceDims (actual rendered backdrop) so
+  // that transforms like border are reflected in position math.
   let canvasW = 1
   let canvasH = 1
-  if (canvas) {
+  if (sourceDims && sourceDims.width > 0 && sourceDims.height > 0) {
+    canvasW = sourceDims.width
+    canvasH = sourceDims.height
+  } else if (canvas) {
     canvasW = canvas.width
     canvasH = canvas.height
   } else if (currentImage) {
