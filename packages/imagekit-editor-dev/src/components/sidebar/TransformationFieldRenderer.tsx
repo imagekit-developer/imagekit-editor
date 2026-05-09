@@ -266,7 +266,7 @@ export const TransformationFieldRenderer: FC<
       return (
         <ColorPickerField
           fieldName={field.name}
-          value={value as string}
+          value={(value as string) ?? ""}
           setValue={setValueAdapter}
           fieldProps={field.fieldProps as ColorPickerProps}
           isClearable={field.fieldProps?.isClearable ?? false}

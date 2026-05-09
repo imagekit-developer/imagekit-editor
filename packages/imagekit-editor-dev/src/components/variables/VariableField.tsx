@@ -3,7 +3,7 @@ import {
   FormErrorMessage,
   FormLabel,
 } from "@chakra-ui/react"
-import { type FC, useMemo } from "react"
+import { type FC, useCallback, useMemo, useRef } from "react"
 import { TransformationFieldRenderer } from "../sidebar/TransformationFieldRenderer"
 import type { Transformation } from "../../store"
 import { listVariables } from "../../variables/listVariables"
@@ -54,6 +54,19 @@ export const VariableField: FC<VariableFieldProps> = ({
     [transformations, name],
   )
 
+  // ColorPickerField / GradientPicker put `setValue` in a useEffect dep array.
+  // If the host passes an inline arrow for `onChange`, it gets a new identity
+  // every render, which re-triggers that effect and causes an infinite loop.
+  // We break the cycle by holding the latest `onChange` in a ref and wrapping
+  // it in a stable useCallback so TransformationFieldRenderer always receives
+  // the same function reference regardless of how the host authors their prop.
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+  const stableOnChange = useCallback(
+    (v: unknown) => onChangeRef.current(v),
+    [], // intentionally empty — stableOnChange identity never changes
+  )
+
   if (!descriptor) return null
 
   return (
@@ -66,7 +79,7 @@ export const VariableField: FC<VariableFieldProps> = ({
       <TransformationFieldRenderer
         field={descriptor.field}
         value={value}
-        onChange={onChange}
+        onChange={stableOnChange}
       />
       {error && <FormErrorMessage fontSize="sm">{error}</FormErrorMessage>}
     </FormControl>
