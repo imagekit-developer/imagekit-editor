@@ -255,12 +255,19 @@ export const SortableTransformationItem = ({
             </Text>
           )}
           <Box flex={1} />
-          {isHover && !isRenaming && (
-            <HStack spacing={2} color={"initial"}>
+          {!isRenaming && (
+            <HStack
+              spacing={3}
+              color={"initial"}
+              // Always rendered so the row width never reflows on hover.
+              visibility={isHover ? "visible" : "hidden"}
+              aria-hidden={!isHover}
+            >
               {canHostChildren && (
                 <Tooltip label="Add nested layer" placement="top">
                   <Box
                     as="button"
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation()
                       // Clear any prior in-place edit target so the config
@@ -272,17 +279,15 @@ export const SortableTransformationItem = ({
                       _setSidebarState("type")
                     }}
                     aria-label="Add nested layer"
-                    display="flex"
+                    display="inline-flex"
                     alignItems="center"
+                    justifyContent="center"
+                    boxSize="18px"
                     bg="transparent"
                     p={0}
+                    sx={{ "&:hover svg": { color: "var(--chakra-colors-gray-800)" } }}
                   >
-                    <Icon
-                      as={PiPlus}
-                      color="gray.600"
-                      boxSize={4}
-                      _hover={{ opacity: 1, color: "gray.800" }}
-                    />
+                    <Icon as={PiPlus} color="gray.600" boxSize={4} />
                   </Box>
                 </Tooltip>
               )}
@@ -293,16 +298,27 @@ export const SortableTransformationItem = ({
                 placement="top"
               >
                 <Box
+                  as="button"
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation()
                     toggleTransformationVisibility(transformation.id)
                   }}
+                  aria-label={
+                    isVisible ? "Hide transformation" : "Show transformation"
+                  }
+                  display="inline-flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  boxSize="18px"
+                  bg="transparent"
+                  p={0}
+                  sx={{ "&:hover svg": { color: "var(--chakra-colors-gray-800)" } }}
                 >
                   <Icon
                     as={isVisible ? PiEye : PiEyeSlash}
                     color="gray.600"
                     boxSize={4}
-                    _hover={{ opacity: 1, color: "gray.800" }}
                   />
                 </Box>
               </Tooltip>
@@ -312,15 +328,19 @@ export const SortableTransformationItem = ({
                     as="button"
                     aria-label="Options"
                     onClick={(e) => e.stopPropagation()}
+                    display="inline-flex"
+                    alignItems="center"
+                    justifyContent="center"
+                    boxSize="18px"
                     p={0}
                     bg="transparent"
                     _hover={{ bg: "transparent" }}
+                    sx={{ "&:hover svg": { color: "var(--chakra-colors-gray-800)" } }}
                   >
                     <Icon
                       as={PiDotsThreeVertical}
                       color="gray.600"
                       boxSize={4}
-                      _hover={{ opacity: 1, color: "gray.800" }}
                     />
                   </MenuButton>
                 </Tooltip>
