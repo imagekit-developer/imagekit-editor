@@ -10,6 +10,7 @@ import {
 import type { CanvasState, Transformation } from "./store"
 import { CANVAS_IMAGE_PATH, DEFAULT_CANVAS } from "./store"
 import { extractImagePath } from "./utils"
+import { isLayerTransformation } from "./utils/layerGeometry"
 import { resolveTemplateParams } from "./utils/params"
 
 /**
@@ -238,5 +239,118 @@ export function buildTemplateUrl(options: BuildTemplateUrlOptions): string[] {
       urlEndpoint: "does-not-matter",
       transformation: resolved,
     })
+  })
+}
+
+export interface BuildLayerUrlOptions {
+  /** Full list of transformation steps (with `id`). */
+  transformations: Transformation[]
+  /** Visibility map (id → boolean). Only visible transformations are considered. */
+  visibleTransformations: Record<string, boolean>
+  /** The id of the layer transformation to isolate. */
+  layerId: string
+}
+
+/**
+ * Builds a standalone ImageKit URL that renders **only** the specified layer
+ * on a 1×1 transparent canvas.
+ *
+ * The URL structure is:
+ * ```
+ * /canvas_layer?tr=l-image,i-ik_canvas,bg-00000000,h-1,w-1:<layer>,l-end,l-end
+ * ```
+ *
+ * This isolates the layer from the rest of the transformation stack so it can
+ * be rendered independently (e.g. in an interactive preview).
+ */
+export function buildSingleLayerUrl(
+  options: BuildLayerUrlOptions,
+): string | null {
+  const { transformations, visibleTransformations, layerId } = options
+
+  const targetTransformation = transformations.find((t) => t.id === layerId)
+  if (!targetTransformation || !isLayerTransformation(targetTransformation.key))
+    return null
+  if (visibleTransformations[layerId] === false) return null
+
+  // Resolve the layer to its IKTransformation (contains an `overlay` property)
+  const rawLayer = resolveTransformationStep(targetTransformation)
+
+  // Strip positional properties from the overlay. The interactive preview
+  // positions each layer via CSS — baking position into the image URL
+  // would double-apply the offset.
+  let layerTransformation = rawLayer
+  if (rawLayer.overlay && typeof rawLayer.overlay === "object") {
+    const { position, ...rest } = rawLayer.overlay as Record<string, unknown>
+    layerTransformation = { ...rawLayer, overlay: rest }
+  }
+
+  // Wrap in a 1×1 transparent canvas overlay
+  const wrapperOverlay: IKTransformation = {
+    overlay: {
+      type: "solidColor",
+      color: "00000000",
+      transformation: [{ width: 1, height: 1 }, layerTransformation],
+    },
+  }
+
+  return buildSrc({
+    src: CANVAS_IMAGE_PATH,
+    urlEndpoint: "https://ik.imagekit.io/customeraccountdemo/",
+    transformation: [wrapperOverlay],
+  })
+}
+
+/**
+ * Builds a "backdrop" URL that includes only non-layer transformations.
+ * This provides the base image/canvas with standard transforms applied
+ * (resize, crop, blur, etc.) but without any overlay layers — suitable
+ * as a background behind individually-rendered interactive layers.
+ */
+export function buildBackdropUrl(options: {
+  transformations: Transformation[]
+  visibleTransformations: Record<string, boolean>
+  imageUrl?: string
+  canvas?: CanvasState | null
+}): string | null {
+  const { transformations, visibleTransformations, imageUrl, canvas } = options
+
+  const nonLayerSteps = transformations.filter(
+    (t) =>
+      visibleTransformations[t.id] !== false && !isLayerTransformation(t.key),
+  )
+
+  const ikTransformations = nonLayerSteps.map((t) =>
+    resolveTransformationStep(t),
+  )
+
+  if (canvas && !imageUrl) {
+    const canvasOverlay: IKTransformation = {
+      overlay: {
+        type: "solidColor",
+        color: canvas.color.replace(/^#/, ""),
+        transformation: [
+          { width: canvas.width, height: canvas.height },
+          ...ikTransformations,
+        ],
+      },
+    }
+    return buildSrc({
+      src: CANVAS_IMAGE_PATH,
+      urlEndpoint: "https://ik.imagekit.io/customeraccountdemo/",
+      transformation: [canvasOverlay],
+    })
+  }
+
+  if (!imageUrl) return null
+  if (ikTransformations.length === 0) return imageUrl
+
+  const imagePath = extractImagePath(imageUrl)
+  const resolved = replaceImagePathPlaceholders(ikTransformations, imagePath)
+
+  return buildSrc({
+    src: imageUrl,
+    urlEndpoint: "does-not-matter",
+    transformation: resolved,
   })
 }

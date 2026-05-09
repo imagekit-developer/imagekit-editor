@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import type { Transformation } from "./store"
 import {
+  buildBackdropUrl,
+  buildSingleLayerUrl,
   buildTemplateUrl,
   replaceImagePathPlaceholders,
   resolveTemplate,
@@ -287,5 +289,222 @@ describe("buildTemplateUrl", () => {
     })
     expect(result).toHaveLength(1)
     expect(result[0]).toContain("canvas_layer")
+  })
+})
+
+describe("buildSingleLayerUrl", () => {
+  const baseTransformations: Transformation[] = [
+    {
+      id: "t1",
+      key: "adjust-blur",
+      name: "Blur",
+      type: "transformation",
+      value: { blur: 5 },
+    },
+    {
+      id: "t2",
+      key: "layers-text",
+      name: "Text Layer",
+      type: "transformation",
+      value: {
+        text: "Hello",
+        fontSize: 20,
+        color: "#FF0000",
+        layerPositionMethod: "topleft",
+        positionX: 10,
+        positionY: 20,
+      },
+    },
+    {
+      id: "t3",
+      key: "layers-image",
+      name: "Image Layer",
+      type: "transformation",
+      value: {
+        imageUrl: "/overlay.png",
+        width: 200,
+        height: 100,
+        layerPositionMethod: "center",
+        positionXC: 50,
+        positionYC: 50,
+      },
+    },
+  ]
+
+  const allVisible: Record<string, boolean> = {
+    t1: true,
+    t2: true,
+    t3: true,
+  }
+
+  it("renders a text layer on a 1x1 transparent canvas", () => {
+    const url = buildSingleLayerUrl({
+      transformations: baseTransformations,
+      visibleTransformations: allVisible,
+      layerId: "t2",
+    })
+    expect(url).toBeTruthy()
+    // Uses the canvas_layer path
+    expect(url).toContain("canvas_layer")
+    // Wrapped in a 1x1 transparent base overlay
+    expect(url).toContain("bg-00000000")
+    expect(url).toContain("h-1")
+    expect(url).toContain("w-1")
+    // Contains the text layer
+    expect(url).toContain("l-text")
+    // Does NOT include upstream non-layer transforms (blur)
+    expect(url).not.toContain("bl-5")
+  })
+
+  it("renders an image layer without other layers", () => {
+    const url = buildSingleLayerUrl({
+      transformations: baseTransformations,
+      visibleTransformations: allVisible,
+      layerId: "t3",
+    })
+    expect(url).toBeTruthy()
+    expect(url).toContain("canvas_layer")
+    // The image layer is present (SDK serializes as l-image)
+    expect(url).toContain("l-image")
+    // The text layer t2 is NOT included
+    expect(url).not.toContain("l-text")
+    // No upstream blur
+    expect(url).not.toContain("bl-5")
+  })
+
+  it("returns null for a hidden layer", () => {
+    const url = buildSingleLayerUrl({
+      transformations: baseTransformations,
+      visibleTransformations: { ...allVisible, t2: false },
+      layerId: "t2",
+    })
+    expect(url).toBeNull()
+  })
+
+  it("returns null for a non-layer transformation id", () => {
+    const url = buildSingleLayerUrl({
+      transformations: baseTransformations,
+      visibleTransformations: allVisible,
+      layerId: "t1", // blur, not a layer
+    })
+    expect(url).toBeNull()
+  })
+
+  it("returns null for an unknown id", () => {
+    const url = buildSingleLayerUrl({
+      transformations: baseTransformations,
+      visibleTransformations: allVisible,
+      layerId: "nonexistent",
+    })
+    expect(url).toBeNull()
+  })
+
+  it("handles solid-color layer", () => {
+    const transformations: Transformation[] = [
+      {
+        id: "s1",
+        key: "layers-solid-color",
+        name: "Solid Color",
+        type: "transformation",
+        value: {
+          color: "#00FF00",
+          width: 100,
+          height: 100,
+          layerPositionMethod: "topleft",
+          positionX: 0,
+          positionY: 0,
+        },
+      },
+    ]
+    const url = buildSingleLayerUrl({
+      transformations,
+      visibleTransformations: { s1: true },
+      layerId: "s1",
+    })
+    expect(url).toBeTruthy()
+    expect(url).toContain("canvas_layer")
+    // IK SDK serializes solid-color overlays as l-image with ik_canvas and bg-
+    expect(url).toContain("bg-00FF00")
+  })
+})
+
+describe("buildBackdropUrl", () => {
+  const transformations: Transformation[] = [
+    {
+      id: "t1",
+      key: "adjust-blur",
+      name: "Blur",
+      type: "transformation",
+      value: { blur: 5 },
+    },
+    {
+      id: "t2",
+      key: "layers-text",
+      name: "Text Layer",
+      type: "transformation",
+      value: { text: "Hello" },
+    },
+    {
+      id: "t3",
+      key: "adjust-contrast",
+      name: "Contrast",
+      type: "transformation",
+      value: { contrast: true },
+    },
+  ]
+
+  const allVisible: Record<string, boolean> = {
+    t1: true,
+    t2: true,
+    t3: true,
+  }
+
+  it("includes non-layer transforms only", () => {
+    const url = buildBackdropUrl({
+      transformations,
+      visibleTransformations: allVisible,
+      imageUrl: "https://ik.imagekit.io/demo/sample.jpg",
+    })
+    expect(url).toBeTruthy()
+    expect(url).toContain("bl-5")
+    expect(url).not.toContain("l-text")
+  })
+
+  it("skips hidden non-layer transforms", () => {
+    const url = buildBackdropUrl({
+      transformations,
+      visibleTransformations: { ...allVisible, t1: false },
+      imageUrl: "https://ik.imagekit.io/demo/sample.jpg",
+    })
+    expect(url).toBeTruthy()
+    expect(url).not.toContain("bl-5")
+  })
+
+  it("returns original URL when no non-layer transforms", () => {
+    const url = buildBackdropUrl({
+      transformations: [transformations[1]], // only text layer
+      visibleTransformations: { t2: true },
+      imageUrl: "https://ik.imagekit.io/demo/sample.jpg",
+    })
+    expect(url).toBe("https://ik.imagekit.io/demo/sample.jpg")
+  })
+
+  it("works in canvas mode", () => {
+    const url = buildBackdropUrl({
+      transformations,
+      visibleTransformations: allVisible,
+      canvas: { width: 500, height: 500, color: "#FF0000FF" },
+    })
+    expect(url).toBeTruthy()
+    expect(url).toContain("canvas_layer")
+    expect(url).not.toContain("l-text")
+  })
+
+  it("returns null without imageUrl or canvas", () => {
+    const url = buildBackdropUrl({
+      transformations,
+      visibleTransformations: allVisible,
+    })
+    expect(url).toBeNull()
   })
 })

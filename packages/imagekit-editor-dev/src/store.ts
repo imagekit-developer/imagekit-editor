@@ -93,6 +93,10 @@ interface InternalState {
         targetId: string
       }
     | null
+  /** ID of the layer currently selected for interactive dragging in the preview. */
+  selectedLayerId: string | null
+  /** Layer IDs whose expression-valued coords the user has confirmed overwriting this session. */
+  acknowledgedExpressionOverwrites: Set<string>
 }
 
 export type FocusObjects =
@@ -242,6 +246,10 @@ export type EditorActions<
     transformationId: string | null,
     position?: "inplace" | "above" | "below",
   ) => void
+  /** Select a layer in the interactive preview. */
+  _setSelectedLayerId: (id: string | null) => void
+  /** Mark a layer as having expression overwrite acknowledged. */
+  _acknowledgeExpressionOverwrite: (layerId: string) => void
 
   /** Sets the full canvas state (or null to disable canvas mode). */
   setCanvas: (canvas: CanvasState | null) => void
@@ -300,6 +308,8 @@ const DEFAULT_STATE: EditorState = {
     sidebarState: "none",
     selectedTransformationKey: null,
     transformationToEdit: null,
+    selectedLayerId: null,
+    acknowledgedExpressionOverwrites: new Set<string>(),
   },
   templateName: "Untitled Template",
   templateId: null,
@@ -499,6 +509,8 @@ const useEditorStore = create<EditorState & EditorActions>()(
             sidebarState: "none",
             selectedTransformationKey: null,
             transformationToEdit: null,
+            selectedLayerId: null,
+            acknowledgedExpressionOverwrites: new Set<string>(),
           },
           isPristine: false,
           // Loading an existing template implies we're in sync with storage.
@@ -712,6 +724,8 @@ const useEditorStore = create<EditorState & EditorActions>()(
           sidebarState: "none",
           selectedTransformationKey: null,
           transformationToEdit: null,
+          selectedLayerId: null,
+          acknowledgedExpressionOverwrites: new Set<string>(),
         },
       }))
     },
@@ -743,6 +757,8 @@ const useEditorStore = create<EditorState & EditorActions>()(
           sidebarState: "none",
           selectedTransformationKey: null,
           transformationToEdit: null,
+          selectedLayerId: null,
+          acknowledgedExpressionOverwrites: new Set<string>(),
         },
       })
     },
@@ -869,6 +885,30 @@ const useEditorStore = create<EditorState & EditorActions>()(
           },
         }))
       }
+    },
+
+    _setSelectedLayerId: (id) => {
+      set((state) => ({
+        _internalState: {
+          ...state._internalState,
+          selectedLayerId: id,
+        },
+      }))
+    },
+
+    _acknowledgeExpressionOverwrite: (layerId) => {
+      set((state) => {
+        const next = new Set(
+          Array.from(state._internalState.acknowledgedExpressionOverwrites),
+        )
+        next.add(layerId)
+        return {
+          _internalState: {
+            ...state._internalState,
+            acknowledgedExpressionOverwrites: next,
+          },
+        }
+      })
     },
 
     setCanvas: (canvas) => {
