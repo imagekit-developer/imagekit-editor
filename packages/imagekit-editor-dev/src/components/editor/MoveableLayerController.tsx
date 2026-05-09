@@ -212,6 +212,8 @@ export const MoveableLayerController: FC<MoveableLayerControllerProps> = ({
           alt=""
           style={{
             display: "block",
+            maxWidth: "none",
+            maxHeight: "none",
             ...(displayRect.width != null
               ? { width: `${displayRect.width}px` }
               : {}),
@@ -246,7 +248,9 @@ export const MoveableLayerController: FC<MoveableLayerControllerProps> = ({
           target={targetRef.current}
           draggable={!dragBlocked}
           resizable={isResizable && !dragBlocked}
+          keepRatio
           snappable
+          // throttleResize={2}
           snapDirections={{
             top: true,
             left: true,
@@ -262,10 +266,6 @@ export const MoveableLayerController: FC<MoveableLayerControllerProps> = ({
             right: true,
             center: true,
             middle: true,
-          }}
-          bounds={{
-            left: 0,
-            top: 0,
           }}
           onDragStart={() => {
             const proceed = checkExpressionGuard(() => {
