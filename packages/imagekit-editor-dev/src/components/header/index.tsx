@@ -12,6 +12,7 @@ import {
 } from "@chakra-ui/react"
 import { PiBracketsCurly } from "@react-icons/all-files/pi/PiBracketsCurly"
 import { PiCaretRight } from "@react-icons/all-files/pi/PiCaretRight"
+import { PiDownloadSimple } from "@react-icons/all-files/pi/PiDownloadSimple"
 import { PiGear } from "@react-icons/all-files/pi/PiGear"
 import { PiGlobe } from "@react-icons/all-files/pi/PiGlobe"
 import { PiLock } from "@react-icons/all-files/pi/PiLock"
@@ -81,13 +82,13 @@ export const Header = ({
   const MenuListAny = chakraAny(MenuList)
   const MenuItemAny = chakraAny(MenuItem)
   const BoxAny = chakraAny(Box)
-  const TextAny = chakraAny(Text)
 
   const { imageList, originalImageList, currentImage } = useEditorStore()
   const templateId = useEditorStore((s) => s.templateId)
   const templateIsPrivate = useEditorStore((s) => s.templateIsPrivate)
   const syncStatus = useEditorStore((s) => s.syncStatus)
   const templateName = useEditorStore((s) => s.templateName)
+  const templateVariables = useEditorStore((s) => s.templateVariables)
   const templatePresets = useEditorStore((s) => s.templatePresets)
   const activeTemplatePresetId = useEditorStore((s) => s.activeTemplatePresetId)
   const setActiveTemplatePresetId = useEditorStore(
@@ -143,6 +144,36 @@ export const Header = ({
 
   const headerRowHeight = 12
 
+  const handleDownloadCsv = () => {
+    if (!templateVariables.length) return
+    const escapeLocal = (v: string) =>
+      v.includes(",") || v.includes('"') || v.includes("\n")
+        ? `"${v.replace(/"/g, '""')}"`
+        : v
+    const headers = [
+      "",
+      ...templateVariables.map((v) => escapeLocal(v.name)),
+    ].join(",")
+    const defaultRow = [
+      "Default Value for Sample",
+      ...templateVariables.map((v) => escapeLocal(v.defaultValue)),
+    ].join(",")
+    const blob = new Blob([[headers, defaultRow].join("\n")], {
+      type: "text/csv;charset=utf-8;",
+    })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.setAttribute(
+      "download",
+      templateName ? `${templateName}-variables.csv` : "variables.csv",
+    )
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <FlexAny
       as="header"
@@ -185,14 +216,16 @@ export const Header = ({
           </FlexAny>
         ) : null}
 
-        {provider && templateId ? (
+        {provider ? (
           <>
-            <Icon
-              as={PiCaretRight}
-              boxSize={4}
-              color="editorBattleshipGrey.500"
-              mx="1"
-            />
+            {templateId && (
+              <Icon
+                as={PiCaretRight}
+                boxSize={4}
+                color="editorBattleshipGrey.500"
+                mx="1"
+              />
+            )}
             <FlexAny
               alignItems="center"
               gap="2"
@@ -202,21 +235,23 @@ export const Header = ({
               _hover={{ bg: "gray.100" }}
               transition="background-color 0.15s"
             >
-              <Icon
-                as={
-                  // Prefer the editor store for the active template visibility; it updates immediately after save.
-                  templateIsPrivate !== null
-                    ? templateIsPrivate === false
-                      ? PiGlobe
-                      : PiLock
-                    : activeRecord?.isPrivate === false
-                      ? PiGlobe
-                      : PiLock
-                }
-                boxSize={5}
-                color="editorBattleshipGrey.500"
-                flexShrink={0}
-              />
+              {templateId && (
+                <Icon
+                  as={
+                    // Prefer the editor store for the active template visibility; it updates immediately after save.
+                    templateIsPrivate !== null
+                      ? templateIsPrivate === false
+                        ? PiGlobe
+                        : PiLock
+                      : activeRecord?.isPrivate === false
+                        ? PiGlobe
+                        : PiLock
+                  }
+                  boxSize={5}
+                  color="editorBattleshipGrey.500"
+                  flexShrink={0}
+                />
+              )}
               <TemplateNameInput />
             </FlexAny>
 
@@ -407,6 +442,23 @@ export const Header = ({
           />
 
           <Spacer />
+
+          <DividerAny
+            orientation="vertical"
+            borderColor="editorBattleshipGrey.200"
+            height="50%"
+          />
+
+          <NavbarItem
+            label="Download CSV"
+            icon={<PiDownloadSimple />}
+            onClick={handleDownloadCsv}
+            disabled={!templateId || !templateVariables.length}
+            _disabled={{
+              cursor: "not-allowed",
+              opacity: 0.5,
+            }}
+          />
         </FlexAny>
       ) : null}
 

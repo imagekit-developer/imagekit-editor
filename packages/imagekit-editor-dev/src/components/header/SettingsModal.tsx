@@ -1,6 +1,7 @@
 import { Box, Flex, Icon, IconButton, Input, Text } from "@chakra-ui/react"
 import { PiCheck } from "@react-icons/all-files/pi/PiCheck"
 import { PiCopy } from "@react-icons/all-files/pi/PiCopy"
+import { PiDownloadSimple } from "@react-icons/all-files/pi/PiDownloadSimple"
 import { PiGlobe } from "@react-icons/all-files/pi/PiGlobe"
 import { PiLock } from "@react-icons/all-files/pi/PiLock"
 import { PiTrash } from "@react-icons/all-files/pi/PiTrash"
@@ -144,6 +145,30 @@ export function SettingsModal({
     } catch {
       // ignore
     }
+  }
+
+  const handleExportJson = () => {
+    const {
+      id,
+      createdBy,
+      updatedBy,
+      createdAt,
+      updatedAt,
+      lastUsedAt,
+      ...exportable
+    } = data
+    const blob = new Blob([JSON.stringify(exportable, null, 2)], {
+      type: "application/json;charset=utf-8;",
+    })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    const safeName = (data.name || "template").replace(/[^a-z0-9_-]/gi, "_")
+    link.setAttribute("download", `${safeName}_${id}_exported.json`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
   }
 
   // -------------------------------------------------------------------------
@@ -417,6 +442,39 @@ export function SettingsModal({
                 isDisabled={!permissions.changeVisibility}
               />
             </Box>
+
+            {/* Export */}
+            <Box>
+              <TextAny
+                fontSize="sm"
+                fontWeight="medium"
+                color="editorGray.700"
+                mb="2"
+              >
+                Export
+              </TextAny>
+              <Box
+                as="button"
+                display="inline-flex"
+                alignItems="center"
+                gap="2"
+                px="3"
+                py="2"
+                borderRadius="md"
+                borderWidth="1px"
+                borderColor="editorGray.300"
+                bg="white"
+                fontSize="sm"
+                fontWeight="medium"
+                color="editorGray.700"
+                cursor="pointer"
+                _hover={{ bg: "gray.50" }}
+                onClick={handleExportJson}
+              >
+                <Icon as={PiDownloadSimple} boxSize={4} />
+                Download as JSON
+              </Box>
+            </Box>
           </FlexAny>
         </Box>
 
@@ -539,7 +597,6 @@ export function SettingsModal({
           borderTopWidth="1px"
           borderColor="editorGray.300"
         >
-          {/* Delete button — only shown when deletion is supported */}
           {onDeleteRequested ? (
             <FlexAny gap="2">
               <Box

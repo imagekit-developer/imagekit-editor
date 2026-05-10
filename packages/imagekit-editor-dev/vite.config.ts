@@ -56,10 +56,17 @@ export default defineConfig({
   },
   build: {
     lib: {
-      entry: path.resolve(__dirname, "src/index.tsx"),
+      entry: {
+        index: path.resolve(__dirname, "src/index.tsx"),
+        runtime: path.resolve(
+          __dirname,
+          "src/runtime/resolveTemplateToAutomationOutput.ts",
+        ),
+      },
       name: "ImageKitEditor",
       formats: ["es", "cjs"],
-      fileName: (format) => `index.${format}.js`,
+      fileName: (format, entryAlias) =>
+        `${entryAlias}.${format === "cjs" ? "cjs" : "es"}.js`,
     },
     outDir: path.join(__dirname, "../imagekit-editor/dist"),
     sourcemap: true,

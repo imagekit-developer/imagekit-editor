@@ -16,6 +16,7 @@ import {
   Spinner,
   Text,
   Tooltip,
+  useToast,
 } from "@chakra-ui/react"
 import { PiArrowLeft } from "@react-icons/all-files/pi/PiArrowLeft"
 import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
@@ -27,6 +28,7 @@ import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
 import { PiPushPin } from "@react-icons/all-files/pi/PiPushPin"
 import { PiPushPinFill } from "@react-icons/all-files/pi/PiPushPinFill"
 import { PiTrash } from "@react-icons/all-files/pi/PiTrash"
+import { PiUpload } from "@react-icons/all-files/pi/PiUpload"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import humanDate from "human-date"
 import type React from "react"
@@ -128,6 +130,10 @@ export function TemplatesLibraryView({ onClose }: Props) {
   const activeTemplate = templateId
     ? (templates.find((t) => t.id === templateId) ?? null)
     : null
+
+  const [isImporting, setIsImporting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const toast = useToast()
 
   const scrollParentRef = useRef<HTMLDivElement | null>(null)
 
@@ -237,6 +243,100 @@ export function TemplatesLibraryView({ onClose }: Props) {
     setSettingsRecord(record)
     setIsSettingsOpen(true)
   }, [])
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !provider) return
+
+    e.target.value = ""
+
+    setIsImporting(true)
+
+    try {
+      const text = await file.text()
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(text)
+      } catch {
+        toast({
+          title: "Invalid JSON file.",
+          status: "error",
+          duration: 4000,
+          isClosable: true,
+        })
+        return
+      }
+
+      if (
+        typeof parsed !== "object" ||
+        parsed === null ||
+        typeof (parsed as Record<string, unknown>).name !== "string" ||
+        !(parsed as Record<string, unknown>).name ||
+        !Array.isArray((parsed as Record<string, unknown>).transformations)
+      ) {
+        toast({
+          title: "File is not a valid template export.",
+          status: "error",
+          duration: 4000,
+          isClosable: true,
+        })
+        return
+      }
+
+      const {
+        name,
+        transformations,
+        variables,
+        presets,
+        isPrivate,
+        isPinned,
+        clientNumber,
+      } = parsed as Record<string, unknown>
+
+      const created = await provider.saveTemplate({
+        name: `${name as string}_imported`,
+        transformations: transformations as TemplateRecord["transformations"],
+        variables: Array.isArray(variables)
+          ? (variables as TemplateRecord["variables"])
+          : [],
+        presets: Array.isArray(presets)
+          ? (presets as TemplateRecord["presets"])
+          : [],
+        isPrivate: typeof isPrivate === "boolean" ? isPrivate : false,
+        isPinned: typeof isPinned === "boolean" ? isPinned : false,
+        ...(typeof clientNumber === "string" ? { clientNumber } : {}),
+      })
+
+      loadTemplate(created.transformations)
+      hydrateTemplateMetadata({
+        templateId: created.id,
+        templateName: created.name,
+        templateIsPrivate: created.isPrivate,
+      })
+      hydrateTemplateVariables(created.variables ?? [], created.presets ?? [])
+      toast({
+        title: "Template imported successfully.",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      })
+      onClose()
+    } catch (err) {
+      toast({
+        title: "Failed to import template.",
+        status: "error",
+        duration: 4000,
+        isClosable: true,
+      })
+      console.error("Template import failed:", err)
+    } finally {
+      setIsImporting(false)
+    }
+  }
 
   const showCurrentRow = shouldShowCurrent && activeTemplate !== null
 
@@ -354,18 +454,38 @@ export function TemplatesLibraryView({ onClose }: Props) {
                 Browse and load templates created by you or shared with you.
               </TextAny>
             </Box>
-            <ButtonAny
-              size="md"
-              colorScheme="blue"
-              leftIcon={<IconAny as={PiPlus} boxSize={4} />}
-              px="4"
-              onClick={() => {
-                resetToNewTemplate()
-                onClose()
-              }}
-            >
-              New template
-            </ButtonAny>
+            <FlexAny gap="2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                style={{ display: "none" }}
+                onChange={handleFileSelected}
+              />
+              <ButtonAny
+                size="md"
+                variant="outline"
+                leftIcon={<IconAny as={PiUpload} boxSize={4} />}
+                px="4"
+                isLoading={isImporting}
+                loadingText="Importing…"
+                onClick={handleImportClick}
+              >
+                Import
+              </ButtonAny>
+              <ButtonAny
+                size="md"
+                colorScheme="blue"
+                leftIcon={<IconAny as={PiPlus} boxSize={4} />}
+                px="4"
+                onClick={() => {
+                  resetToNewTemplate()
+                  onClose()
+                }}
+              >
+                New template
+              </ButtonAny>
+            </FlexAny>
           </FlexAny>
 
           {/* Controls bar */}

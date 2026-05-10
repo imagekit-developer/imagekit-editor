@@ -1,6 +1,6 @@
 import { ChakraProvider } from "@chakra-ui/react"
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { TemplateStorageContextProvider } from "../../context/TemplateStorageContext"
 import type { TemplateRecord } from "../../storage"
 import type { TemplateStorageProvider } from "../../storage/types"
@@ -255,6 +255,117 @@ describe("SettingsModal", () => {
       const deleteBtnsAfter = screen.getAllByText("Delete")
       const footerDelete = deleteBtnsAfter[deleteBtnsAfter.length - 1]
       expect(footerDelete.closest("[aria-disabled='true']")).not.toBeNull()
+    })
+  })
+
+  describe("export JSON", () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it("renders a Download as JSON button inside the modal content", async () => {
+      renderModal({})
+      expect(await screen.findByText("Download as JSON")).toBeTruthy()
+    })
+
+    it("omits id, createdBy, updatedBy, and timestamp fields from the exported JSON", async () => {
+      const now = Date.now()
+      const template = makeTemplate({
+        id: "t-export",
+        name: "Export Test",
+        clientNumber: "c99",
+        isPrivate: true,
+        isPinned: true,
+        transformations: [
+          { key: "k1", name: "Resize", type: "transformation", value: {} },
+        ],
+        variables: [{ id: "v1", name: "headline", defaultValue: "Hi" }],
+        presets: [
+          { id: "p1", name: "Default", valuesByVariableId: { v1: "Hello" } },
+        ],
+        createdAt: now,
+        updatedAt: now,
+        lastUsedAt: now,
+      })
+
+      let capturedBlob: Blob | null = null
+      vi.spyOn(URL, "createObjectURL").mockImplementation((b) => {
+        capturedBlob = b as Blob
+        return "blob:mock"
+      })
+      vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {})
+      vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
+        () => {},
+      )
+
+      renderModal({ data: template })
+      const btn = await screen.findByText("Download as JSON")
+      act(() => {
+        fireEvent.click(btn)
+      })
+
+      expect(capturedBlob).not.toBeNull()
+      const parsed = JSON.parse(await (capturedBlob as Blob).text())
+
+      expect(parsed.id).toBeUndefined()
+      expect(parsed.createdBy).toBeUndefined()
+      expect(parsed.updatedBy).toBeUndefined()
+      expect(parsed.createdAt).toBeUndefined()
+      expect(parsed.updatedAt).toBeUndefined()
+      expect(parsed.lastUsedAt).toBeUndefined()
+
+      expect(parsed.name).toBe("Export Test")
+      expect(parsed.clientNumber).toBe("c99")
+      expect(parsed.isPrivate).toBe(true)
+      expect(parsed.isPinned).toBe(true)
+      expect(parsed.transformations).toHaveLength(1)
+      expect(parsed.variables).toHaveLength(1)
+      expect(parsed.presets).toHaveLength(1)
+    })
+
+    it("sets the download filename to <sanitized_name>_<id>_exported.json", async () => {
+      const template = makeTemplate({ id: "t-abc", name: "My Template" })
+
+      vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:mock")
+      vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {})
+      vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
+        () => {},
+      )
+      const setAttrSpy = vi.spyOn(HTMLAnchorElement.prototype, "setAttribute")
+
+      renderModal({ data: template })
+      const btn = await screen.findByText("Download as JSON")
+      act(() => {
+        fireEvent.click(btn)
+      })
+
+      expect(setAttrSpy).toHaveBeenCalledWith(
+        "download",
+        "My_Template_t-abc_exported.json",
+      )
+    })
+
+    it("sanitizes special characters in the template name for the filename", async () => {
+      const template = makeTemplate({ id: "t-xyz", name: "Hello World! (v2)" })
+
+      vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:mock")
+      vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {})
+      vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
+        () => {},
+      )
+      const setAttrSpy = vi.spyOn(HTMLAnchorElement.prototype, "setAttribute")
+
+      renderModal({ data: template })
+      const btn = await screen.findByText("Download as JSON")
+      act(() => {
+        fireEvent.click(btn)
+      })
+
+      // "Hello World! (v2)" → space→_, !→_, space→_, (→_, )→_ giving triple-underscore before v2
+      expect(setAttrSpy).toHaveBeenCalledWith(
+        "download",
+        "Hello_World___v2__t-xyz_exported.json",
+      )
     })
   })
 })
