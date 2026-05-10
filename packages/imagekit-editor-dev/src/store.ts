@@ -733,21 +733,228 @@ const replaceImagePathPlaceholders = (
   transformations: IKTransformation[],
   imagePath: string,
 ): IKTransformation[] => {
-  return transformations.map((transformation) => {
-    const clonedTransformation = { ...transformation }
-
-    if (
-      typeof clonedTransformation.raw === "string" &&
-      clonedTransformation.raw.includes("__IMAGE_PATH__")
-    ) {
-      clonedTransformation.raw = clonedTransformation.raw.replace(
-        /__IMAGE_PATH__/g,
+  return transformations.map(
+    (transformation) =>
+      replaceImagePathPlaceholderInValue(
+        transformation,
         imagePath,
-      )
-    }
+      ) as IKTransformation,
+  )
+}
 
-    return clonedTransformation
-  })
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+const replaceImagePathPlaceholderInValue = (
+  value: unknown,
+  imagePath: string,
+): unknown => {
+  if (typeof value === "string") {
+    return value.includes("__IMAGE_PATH__")
+      ? value.replace(/__IMAGE_PATH__/g, imagePath)
+      : value
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) =>
+      replaceImagePathPlaceholderInValue(item, imagePath),
+    )
+  }
+
+  if (isRecord(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, childValue]) => [
+        key,
+        replaceImagePathPlaceholderInValue(childValue, imagePath),
+      ]),
+    )
+  }
+
+  return value
+}
+
+const NESTED_LAYER_KEYS = new Set(["layers-text", "layers-image"])
+const MAX_NESTED_LAYER_DEPTH = 10
+
+type EditorTransformationInput = {
+  key: string
+  value?: unknown
+  enabled?: boolean
+}
+
+function findTransformationItem(key: string) {
+  return transformationSchema
+    .find((schema) => schema.key === key.split("-")[0])
+    ?.items.find((item) => item.key === key)
+}
+
+function getNestedLayers(value: Record<string, unknown>) {
+  const rawNestedLayers = value.nestedLayers
+  let nestedLayers = rawNestedLayers
+
+  if (typeof rawNestedLayers === "string" && rawNestedLayers.trim() !== "") {
+    try {
+      nestedLayers = JSON.parse(rawNestedLayers)
+    } catch {
+      return []
+    }
+  }
+
+  if (!Array.isArray(nestedLayers)) {
+    return []
+  }
+
+  return nestedLayers.filter(
+    (layer): layer is EditorTransformationInput =>
+      isRecord(layer) &&
+      typeof layer.key === "string" &&
+      NESTED_LAYER_KEYS.has(layer.key) &&
+      layer.enabled !== false,
+  )
+}
+
+function appendNestedLayerTransformations(
+  sourceValue: Record<string, unknown>,
+  formattedTransformation: Record<string, unknown>,
+  depth: number,
+) {
+  if (depth >= MAX_NESTED_LAYER_DEPTH) {
+    return
+  }
+
+  const nestedLayerTransformations = getNestedLayers(sourceValue)
+    .map((layer) =>
+      formatTransformationForImageKit(
+        {
+          key: layer.key,
+          value: isRecord(layer.value) ? layer.value : {},
+          enabled: layer.enabled,
+        },
+        depth + 1,
+      ),
+    )
+    .filter(
+      (layer): layer is IKTransformation =>
+        isRecord(layer) && Object.keys(layer).length > 0,
+    )
+
+  if (!nestedLayerTransformations.length) {
+    return
+  }
+
+  const overlay = formattedTransformation.overlay
+  if (!isRecord(overlay)) {
+    return
+  }
+
+  const existingTransformations = Array.isArray(overlay.transformation)
+    ? overlay.transformation
+    : []
+
+  overlay.transformation = [
+    ...existingTransformations,
+    ...nestedLayerTransformations,
+  ]
+}
+
+function formatTransformationForImageKit(
+  transformation: EditorTransformationInput,
+  depth = 0,
+): IKTransformation {
+  const t = findTransformationItem(transformation.key)
+  const value = isRecord(transformation.value) ? transformation.value : {}
+
+  const groupedTransforms: Record<
+    string,
+    {
+      fields: Array<{
+        name: string
+        value: unknown
+        field: TransformationField
+      }>
+      transformationKey: string
+    }
+  > = {}
+
+  if (t?.transformations) {
+    t.transformations.forEach((transform) => {
+      if (
+        transform.transformationGroup &&
+        transform.isVisible?.(value) !== false
+      ) {
+        const fieldValue = value[transform.name]
+        if (fieldValue !== undefined && fieldValue !== "") {
+          if (!groupedTransforms[transform.transformationGroup]) {
+            groupedTransforms[transform.transformationGroup] = {
+              fields: [],
+              transformationKey: transform.transformationKey || transform.name,
+            }
+          }
+          groupedTransforms[transform.transformationGroup].fields.push({
+            name: transform.name,
+            value: fieldValue,
+            field: transform,
+          })
+        }
+      }
+    })
+  }
+
+  const transforms: Record<string, unknown> = Object.fromEntries(
+    Object.entries(value)
+      .map(([key, fieldValue]) => {
+        const transform = t?.transformations.find((field) => field.name === key)
+
+        if (transform?.transformationGroup) {
+          return []
+        }
+
+        if (
+          transform?.isTransformation &&
+          (transform.isVisible?.(value) ?? true) &&
+          fieldValue !== ""
+        ) {
+          return [transform.transformationKey ?? key, fieldValue]
+        }
+        return []
+      })
+      .filter((entry) => entry.length > 0),
+  )
+
+  for (const groupName in groupedTransforms) {
+    const group = groupedTransforms[groupName]
+    const formatter = transformationFormatters[groupName]
+
+    if (formatter) {
+      const groupValues = {} as Record<string, unknown>
+      group.fields.forEach((f) => {
+        groupValues[f.name] = f.value
+      })
+
+      formatter(groupValues, transforms)
+    }
+  }
+
+  let defaultTransformation = t?.defaultTransformation || {}
+  if (transformation.key === "resize_and_crop-resize_and_crop") {
+    if (value.width && value.height && value.mode) {
+      defaultTransformation = getDefaultTransformationFromMode(
+        value.mode as string,
+      )
+    } else {
+      defaultTransformation = {}
+    }
+  }
+
+  const formattedTransformation = {
+    ...defaultTransformation,
+    ...transforms,
+  }
+
+  appendNestedLayerTransformations(value, formattedTransformation, depth)
+
+  return formattedTransformation as IKTransformation
 }
 
 const calculateImageList = (
@@ -761,111 +968,7 @@ const calculateImageList = (
 ) => {
   const IKTransformations = transformations
     .filter((transformation) => visibleTransformations[transformation.id])
-    .map((transformation) => {
-      const t = transformationSchema
-        .find((schema) => schema.key === transformation.key.split("-")[0])
-        ?.items.find((item) => item.key === transformation.key)
-
-      const groupedTransforms: Record<
-        string,
-        {
-          fields: Array<{
-            name: string
-            value: unknown
-            field: TransformationField
-          }>
-          transformationKey: string
-        }
-      > = {}
-
-      if (t?.transformations) {
-        t.transformations.forEach((transform) => {
-          if (
-            transform.transformationGroup &&
-            transform.isVisible?.(
-              transformation.value as Record<string, unknown>,
-            ) !== false
-          ) {
-            const value = (transformation.value as Record<string, unknown>)[
-              transform.name
-            ]
-            if (value !== undefined && value !== "") {
-              if (!groupedTransforms[transform.transformationGroup]) {
-                groupedTransforms[transform.transformationGroup] = {
-                  fields: [],
-                  transformationKey:
-                    transform.transformationKey || transform.name,
-                }
-              }
-              groupedTransforms[transform.transformationGroup].fields.push({
-                name: transform.name,
-                value,
-                field: transform,
-              })
-            }
-          }
-        })
-      }
-
-      const transforms: Record<string, unknown> = Object.fromEntries(
-        Object.entries(transformation.value)
-          .map(([key, value]) => {
-            const transform = t?.transformations.find(
-              (field) => field.name === key,
-            )
-
-            if (transform?.transformationGroup) {
-              return []
-            }
-
-            if (
-              transform?.isTransformation &&
-              (transform.isVisible?.(
-                transformation.value as Record<string, unknown>,
-              ) ??
-                true) &&
-              value !== ""
-            ) {
-              return [transform.transformationKey ?? key, value]
-            }
-            return []
-          })
-          .filter((entry) => entry.length > 0),
-      )
-
-      for (const groupName in groupedTransforms) {
-        const group = groupedTransforms[groupName]
-        const formatter = transformationFormatters[groupName]
-
-        if (formatter) {
-          const groupValues = {} as Record<string, unknown>
-          group.fields.forEach((f) => {
-            groupValues[f.name] = f.value
-          })
-
-          formatter(groupValues, transforms)
-        }
-      }
-
-      // Special handling for resize_and_crop transformation
-      let defaultTransformation = t?.defaultTransformation || {}
-      if (transformation.key === "resize_and_crop-resize_and_crop") {
-        const value = transformation.value as Record<string, unknown>
-        // Only add crop/cropMode when both width and height and mode are set
-        if (value.width && value.height && value.mode) {
-          defaultTransformation = getDefaultTransformationFromMode(
-            value.mode as string,
-          )
-        } else {
-          defaultTransformation = {}
-        }
-      }
-
-      return {
-        ...defaultTransformation,
-        ...transforms,
-      }
-    })
+    .map((transformation) => formatTransformationForImageKit(transformation))
 
   const transformKey = showOriginal
     ? "original"

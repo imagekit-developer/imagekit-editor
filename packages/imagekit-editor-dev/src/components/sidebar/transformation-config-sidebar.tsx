@@ -36,9 +36,11 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { PiArrowLeft } from "@react-icons/all-files/pi/PiArrowLeft"
 import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
 import { PiInfo } from "@react-icons/all-files/pi/PiInfo"
+import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
+import { PiTrash } from "@react-icons/all-files/pi/PiTrash"
 import { PiX } from "@react-icons/all-files/pi/PiX"
 import startCase from "lodash/startCase"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ColorPickerProps } from "react-best-gradient-color-picker"
 import { Controller, type SubmitHandler, useForm } from "react-hook-form"
 import Select from "react-select"
@@ -141,6 +143,519 @@ export function getTransformationFooterActionsConfig(input: {
     menu: [{ label: "Save & Close", disabled: saveDisabled }],
     menuTriggerDisabled: saveDisabled,
   }
+}
+
+type NestedLayerKey = "layers-text" | "layers-image"
+
+type NestedLayerValue = {
+  key: NestedLayerKey
+  name?: string
+  type?: "transformation"
+  value?: Record<string, unknown>
+  version?: string
+  enabled?: boolean
+}
+
+const NESTED_LAYER_KEYS: NestedLayerKey[] = ["layers-text", "layers-image"]
+const MAX_NESTED_UI_DEPTH = 5
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function getLayerTransformationItem(key: string) {
+  return transformationSchema
+    .find((category) => category.key === "layers")
+    ?.items.find((item) => item.key === key)
+}
+
+function getNestedFieldDefault(field: TransformationField): unknown {
+  return field.fieldProps?.defaultValue ?? ""
+}
+
+function makeNestedLayer(key: NestedLayerKey): NestedLayerValue {
+  const item = getLayerTransformationItem(key)
+  const value =
+    item?.transformations.reduce<Record<string, unknown>>((acc, field) => {
+      if (field.name !== "nestedLayers") {
+        acc[field.name] = getNestedFieldDefault(field)
+      }
+      return acc
+    }, {}) ?? {}
+
+  return {
+    key,
+    name: item?.name ?? key,
+    type: "transformation",
+    value,
+  }
+}
+
+function normalizeNestedLayers(value: unknown): NestedLayerValue[] {
+  if (!Array.isArray(value)) return []
+  return value.filter(
+    (layer): layer is NestedLayerValue =>
+      isRecord(layer) &&
+      NESTED_LAYER_KEYS.includes(layer.key as NestedLayerKey),
+  )
+}
+
+type NestedLayerFieldProps = {
+  field: TransformationField
+  value: unknown
+  values: Record<string, unknown>
+  onChange: (value: unknown) => void
+  focusObjects?: ReadonlyArray<string>
+  depth: number
+}
+
+function NestedLayerField({
+  field,
+  value,
+  values,
+  onChange,
+  focusObjects,
+  depth,
+}: NestedLayerFieldProps) {
+  const normalizedValue =
+    field.fieldType === "color-picker" && typeof value !== "string" ? "" : value
+  const latestOnChangeRef = useRef(onChange)
+  const latestValueRef = useRef(normalizedValue)
+
+  useEffect(() => {
+    latestOnChangeRef.current = onChange
+  }, [onChange])
+
+  useEffect(() => {
+    latestValueRef.current = normalizedValue
+  }, [normalizedValue])
+
+  const setNestedColorValue = useCallback(
+    (_name: string, nextValue: string) => {
+      if (latestValueRef.current === nextValue) return
+      latestOnChangeRef.current(nextValue)
+    },
+    [],
+  )
+
+  const commonInputProps = {
+    id: `nested-${depth}-${field.name}`,
+    fontSize: "sm",
+  }
+
+  if (field.fieldType === "input") {
+    return (
+      <Input
+        {...commonInputProps}
+        value={(value as string | number | undefined) ?? ""}
+        onChange={(event) => onChange(event.target.value)}
+        {...(field.fieldProps ?? {})}
+      />
+    )
+  }
+
+  if (field.fieldType === "textarea") {
+    return (
+      <Textarea
+        {...commonInputProps}
+        value={(value as string | undefined) ?? ""}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    )
+  }
+
+  if (field.fieldType === "switch") {
+    return (
+      <Switch
+        id={`nested-${depth}-${field.name}`}
+        isChecked={value === true}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+    )
+  }
+
+  if (field.fieldType === "select" || field.fieldType === "select-creatable") {
+    const selectOptions =
+      field.name === "focusObject"
+        ? (focusObjects || DEFAULT_FOCUS_OBJECTS).map((obj) => ({
+            value: obj,
+            label: startCase(obj),
+          }))
+        : field.fieldProps?.options?.map((option) => ({
+            value: option.value,
+            label: option.label,
+          }))
+    const selectedValue =
+      selectOptions?.find((option) => option.value === value) ||
+      (value
+        ? {
+            value: value as string,
+            label: startCase(value as string),
+          }
+        : null)
+    const selectProps = {
+      id: `nested-${depth}-${field.name}`,
+      placeholder: "Select",
+      menuPlacement: "auto" as const,
+      options: selectOptions,
+      value: selectedValue,
+      onChange: (selectedOption: { value: string } | null) =>
+        onChange(selectedOption?.value ?? ""),
+      styles: {
+        control: (base: Record<string, unknown>) => ({
+          ...base,
+          fontSize: "12px",
+          minHeight: "32px",
+          borderColor: "#E2E8F0",
+        }),
+        menu: (base: Record<string, unknown>) => ({
+          ...base,
+          zIndex: 10,
+        }),
+        option: (base: Record<string, unknown>) => ({
+          ...base,
+          fontSize: "12px",
+        }),
+      },
+    }
+
+    return field.fieldType === "select-creatable" ||
+      field.fieldProps?.isCreatable === true ? (
+      <CreateableSelect
+        {...selectProps}
+        formatCreateLabel={(inputValue: string) => `Use "${inputValue}"`}
+        isClearable={field.fieldProps?.isClearable ?? false}
+      />
+    ) : (
+      <Select
+        {...selectProps}
+        isClearable={field.fieldProps?.isClearable ?? false}
+      />
+    )
+  }
+
+  if (field.fieldType === "slider") {
+    const raw = value ?? ""
+    const numericValue = Number(String(raw).toUpperCase().replace(/^N/, "-"))
+    const sliderValue = Number.isNaN(numericValue) ? 0 : numericValue
+    return (
+      <Box pt={2} pb={2}>
+        <Flex justify="space-between" mb={1}>
+          <Input
+            id={`nested-${depth}-${field.name}-input`}
+            type={
+              field.fieldProps?.inputType || field.fieldProps?.autoOption
+                ? "text"
+                : "number"
+            }
+            fontSize="sm"
+            width="80px"
+            value={raw as string | number}
+            onChange={(event) => onChange(event.target.value)}
+          />
+          {field.fieldProps?.autoOption && (
+            <Button
+              size="sm"
+              colorScheme={value === "auto" ? "blue" : "gray"}
+              onClick={() => onChange("auto")}
+            >
+              Auto
+            </Button>
+          )}
+        </Flex>
+        <Slider
+          id={`nested-${depth}-${field.name}`}
+          min={field.fieldProps?.min || 0}
+          max={field.fieldProps?.max || 100}
+          step={field.fieldProps?.step || 1}
+          value={sliderValue}
+          onChange={(nextValue) => onChange(nextValue.toString())}
+          focusThumbOnChange={false}
+        >
+          <SliderTrack>
+            <SliderFilledTrack />
+          </SliderTrack>
+          <SliderThumb borderColor="blue.500" border="1px" />
+        </Slider>
+      </Box>
+    )
+  }
+
+  if (field.fieldType === "color-picker") {
+    return (
+      <ColorPickerField
+        fieldName={field.name}
+        value={normalizedValue as string}
+        setValue={setNestedColorValue}
+        fieldProps={field.fieldProps as ColorPickerProps}
+        isClearable={field.fieldProps?.isClearable ?? false}
+      />
+    )
+  }
+
+  if (field.fieldType === "gradient-picker") {
+    return (
+      <GradientPicker
+        fieldName={field.name}
+        value={value as GradientPickerState}
+        setValue={(_name, nextValue) => onChange(nextValue)}
+        errors={{}}
+      />
+    )
+  }
+
+  if (field.fieldType === "anchor") {
+    return (
+      <AnchorField
+        value={value as string}
+        positions={field.fieldProps?.positions as string[]}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (field.fieldType === "radio-card") {
+    return (
+      <RadioCardField
+        value={value as string}
+        options={field.fieldProps?.options ?? []}
+        onChange={onChange}
+        {...field.fieldProps}
+      />
+    )
+  }
+
+  if (field.fieldType === "checkbox-card") {
+    return (
+      <CheckboxCardField
+        value={(value as string[]) ?? []}
+        options={field.fieldProps?.options ?? []}
+        onChange={onChange}
+        {...field.fieldProps}
+      />
+    )
+  }
+
+  if (field.fieldType === "padding-input") {
+    return (
+      <PaddingInputField
+        onChange={onChange}
+        errors={{} as PaddingErrors}
+        name={field.name}
+        value={value as Partial<PaddingState>}
+        {...field.fieldProps}
+      />
+    )
+  }
+
+  if (field.fieldType === "zoom") {
+    return (
+      <ZoomInput
+        value={value as number}
+        onChange={onChange}
+        defaultValue={
+          typeof field.fieldProps?.defaultValue === "number"
+            ? (field.fieldProps.defaultValue as number)
+            : undefined
+        }
+      />
+    )
+  }
+
+  if (field.fieldType === "distort-perspective-input") {
+    return (
+      <DistortPerspectiveInput
+        onChange={onChange}
+        errors={{} as PerspectiveErrors}
+        name={field.name}
+        value={value as PerspectiveObject}
+        {...field.fieldProps}
+      />
+    )
+  }
+
+  if (field.fieldType === "radius-input") {
+    return (
+      <RadiusInputField
+        onChange={onChange}
+        errors={{} as RadiusErrors}
+        name={field.name}
+        value={value as Partial<RadiusState>}
+        {...field.fieldProps}
+      />
+    )
+  }
+
+  if (field.fieldType === "nested-layers" && depth < MAX_NESTED_UI_DEPTH) {
+    return (
+      <NestedLayersInput
+        value={value}
+        onChange={onChange}
+        focusObjects={focusObjects}
+        depth={depth + 1}
+      />
+    )
+  }
+
+  return (
+    <Input
+      {...commonInputProps}
+      value={(values[field.name] as string | number | undefined) ?? ""}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  )
+}
+
+type NestedLayersInputProps = {
+  value: unknown
+  onChange: (value: unknown) => void
+  focusObjects?: ReadonlyArray<string>
+  depth?: number
+}
+
+function NestedLayersInput({
+  value,
+  onChange,
+  focusObjects,
+  depth = 0,
+}: NestedLayersInputProps) {
+  const layers = normalizeNestedLayers(value)
+
+  const updateLayer = (index: number, nextLayer: NestedLayerValue) => {
+    onChange(
+      layers.map((layer, layerIndex) =>
+        layerIndex === index ? nextLayer : layer,
+      ),
+    )
+  }
+
+  const removeLayer = (index: number) => {
+    onChange(layers.filter((_layer, layerIndex) => layerIndex !== index))
+  }
+
+  const addLayer = (key: NestedLayerKey) => {
+    onChange([...layers, makeNestedLayer(key)])
+  }
+
+  return (
+    <VStack align="stretch" spacing={3}>
+      <ButtonGroup size="sm" isAttached variant="outline">
+        <Button
+          leftIcon={<Icon as={PiPlus} />}
+          onClick={() => addLayer("layers-text")}
+        >
+          Text
+        </Button>
+        <Button
+          leftIcon={<Icon as={PiPlus} />}
+          onClick={() => addLayer("layers-image")}
+        >
+          Image
+        </Button>
+      </ButtonGroup>
+
+      {layers.map((layer, index) => {
+        const layerItem = getLayerTransformationItem(layer.key)
+        const layerValues = isRecord(layer.value) ? layer.value : {}
+        const setFieldValue = (fieldName: string, nextValue: unknown) => {
+          updateLayer(index, {
+            ...layer,
+            name: layer.name ?? layerItem?.name,
+            type: "transformation",
+            value: {
+              ...layerValues,
+              [fieldName]: nextValue,
+            },
+          })
+        }
+
+        return (
+          <Box
+            key={`${layer.key}-${index}`}
+            borderWidth="1px"
+            borderColor="gray.200"
+            borderRadius="md"
+            p={3}
+          >
+            <Flex align="center" justify="space-between" gap={2} mb={3}>
+              <HStack spacing={2}>
+                <Text fontSize="sm" fontWeight="medium">
+                  {layerItem?.name ?? layer.key}
+                </Text>
+                <Switch
+                  size="sm"
+                  isChecked={layer.enabled !== false}
+                  onChange={(event) =>
+                    updateLayer(index, {
+                      ...layer,
+                      enabled: event.target.checked,
+                    })
+                  }
+                />
+              </HStack>
+              <HStack spacing={1}>
+                <Button
+                  size="xs"
+                  variant={layer.key === "layers-text" ? "solid" : "outline"}
+                  onClick={() =>
+                    updateLayer(index, makeNestedLayer("layers-text"))
+                  }
+                >
+                  Text
+                </Button>
+                <Button
+                  size="xs"
+                  variant={layer.key === "layers-image" ? "solid" : "outline"}
+                  onClick={() =>
+                    updateLayer(index, makeNestedLayer("layers-image"))
+                  }
+                >
+                  Image
+                </Button>
+                <IconButton
+                  aria-label="Remove nested layer"
+                  size="xs"
+                  variant="ghost"
+                  icon={<Icon as={PiTrash} color="red.500" />}
+                  onClick={() => removeLayer(index)}
+                />
+              </HStack>
+            </Flex>
+
+            <VStack align="stretch" spacing={3}>
+              {(layerItem?.transformations ?? [])
+                .filter((field) => {
+                  if (
+                    field.fieldType === "nested-layers" &&
+                    depth >= MAX_NESTED_UI_DEPTH
+                  ) {
+                    return false
+                  }
+                  return field.isVisible?.(layerValues) ?? true
+                })
+                .map((field) => (
+                  <FormControl key={field.name}>
+                    <FormLabel fontSize="xs" mb={1}>
+                      {field.label}
+                    </FormLabel>
+                    <NestedLayerField
+                      field={field}
+                      value={layerValues[field.name]}
+                      values={layerValues}
+                      onChange={(nextValue) =>
+                        setFieldValue(field.name, nextValue)
+                      }
+                      focusObjects={focusObjects}
+                      depth={depth}
+                    />
+                  </FormControl>
+                ))}
+            </VStack>
+          </Box>
+        )
+      })}
+    </VStack>
+  )
 }
 
 export const TransformationConfigSidebar: React.FC = () => {
@@ -1038,6 +1553,18 @@ export const TransformationConfigSidebar: React.FC = () => {
                   name={field.name}
                   value={watch(field.name) as Partial<RadiusState>}
                   {...field.fieldProps}
+                />
+              ) : null}
+              {field.fieldType === "nested-layers" ? (
+                <NestedLayersInput
+                  value={watch(field.name)}
+                  onChange={(value) =>
+                    setValue(field.name, value, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                    })
+                  }
+                  focusObjects={focusObjects}
                 />
               ) : null}
               <FormErrorMessage fontSize="sm">

@@ -171,6 +171,39 @@ export interface TransformationSchema {
   items: TransformationItem[]
 }
 
+const nestedLayerSchema = z.object({
+  key: z.enum(["layers-text", "layers-image"]),
+  name: z.string().optional(),
+  type: z.literal("transformation").optional(),
+  value: z.record(z.unknown()).default({}),
+  version: z.string().optional(),
+  enabled: z.boolean().optional(),
+})
+
+const nestedLayersValidator = z.preprocess((val) => {
+  if (val === "" || val === null || val === undefined) {
+    return undefined
+  }
+
+  if (typeof val === "string") {
+    try {
+      return JSON.parse(val)
+    } catch {
+      return val
+    }
+  }
+
+  return val
+}, z.array(nestedLayerSchema).optional())
+
+const nestedLayersField: TransformationField = {
+  label: "Nested Layers",
+  name: "nestedLayers",
+  fieldType: "nested-layers",
+  isTransformation: false,
+  helpText: "Add child text or image layers inside this layer.",
+}
+
 const baseTransformationSchema: TransformationSchema[] = [
   resizeAndCropCategory,
   {
@@ -1841,6 +1874,7 @@ const baseTransformationSchema: TransformationSchema[] = [
                 invalid_type_error: "Should be a number.",
               })
               .optional(),
+            nestedLayers: nestedLayersValidator,
           })
           .refine(
             (val) => {
@@ -2088,6 +2122,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               defaultValue: "0",
             },
           },
+          nestedLayersField,
         ],
       },
       {
@@ -2334,6 +2369,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               optionalPositiveFloatNumberValidator.optional(),
             unsharpenMaskThreshold:
               optionalPositiveFloatNumberValidator.optional(),
+            nestedLayers: nestedLayersValidator,
           })
           .superRefine((val, ctx) => refineUnsharpenMask(val, ctx))
           .refine(
@@ -3108,6 +3144,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               skipStepCheck: true,
             },
           },
+          nestedLayersField,
         ],
       },
     ],
@@ -3162,6 +3199,21 @@ export const transformationSchema: TransformationSchema[] =
     ...category,
     items: [...category.items].sort((a, b) => a.name.localeCompare(b.name)),
   }))
+
+const isEmptyValue = (value: unknown) =>
+  value === undefined || value === null || value === ""
+
+const isZeroValue = (value: unknown) => {
+  if (isEmptyValue(value)) return false
+  const numberValue = Number(value)
+  return !Number.isNaN(numberValue) && numberValue === 0
+}
+
+const isPositiveNumberValue = (value: unknown) => {
+  if (isEmptyValue(value)) return false
+  const numberValue = Number(value)
+  return !Number.isNaN(numberValue) && numberValue > 0
+}
 
 export const transformationFormatters: Record<
   string,
@@ -3435,8 +3487,9 @@ export const transformationFormatters: Record<
     }
 
     if (
-      typeof values.rotation === "number" ||
-      typeof values.rotation === "string"
+      (typeof values.rotation === "number" ||
+        typeof values.rotation === "string") &&
+      !isZeroValue(values.rotation)
     ) {
       overlayTransform.rotation =
         (values.rotation as number) < 0
@@ -3562,7 +3615,7 @@ export const transformationFormatters: Record<
       }
     }
 
-    if (values.rotation) {
+    if (!isEmptyValue(values.rotation) && !isZeroValue(values.rotation)) {
       overlayTransform.rotation = values.rotation
     }
 
@@ -3583,7 +3636,7 @@ export const transformationFormatters: Record<
       overlayTransform.quality = values.quality
     }
 
-    if (values.blur) {
+    if (isPositiveNumberValue(values.blur)) {
       overlayTransform.blur = values.blur
     }
 
@@ -3802,6 +3855,7 @@ export const transformationFormatters: Record<
         mode === "uniform" &&
         (typeof radius === "number" || typeof radius === "string")
       ) {
+        if (isEmptyValue(radius)) return
         transforms.radius = radius
       } else if (
         mode === "individual" &&
@@ -3813,6 +3867,13 @@ export const transformationFormatters: Record<
           topRight: number | "max"
           bottomRight: number | "max"
           bottomLeft: number | "max"
+        }
+        if (
+          [topLeft, topRight, bottomRight, bottomLeft].some((corner) =>
+            isEmptyValue(corner),
+          )
+        ) {
+          return
         }
         if (
           topLeft === topRight &&

@@ -160,4 +160,37 @@ describe("getTemplateSignature", () => {
 
     expect(signature.transformations).toEqual([])
   })
+
+  it("keeps nested layer template values as an automation-visible array", () => {
+    const signature = getTemplateSignature(
+      makeTemplate([
+        {
+          type: "transformation",
+          name: "Parent Image",
+          key: "layers-image",
+          version: "v1",
+          value: {
+            imageUrl: "parent.png",
+            nestedLayers: [
+              {
+                key: "layers-text",
+                name: "Badge",
+                type: "transformation",
+                value: {
+                  text: "Sale",
+                  fontSize: 24,
+                  radius: 0,
+                },
+              },
+            ],
+          },
+        },
+      ]),
+    )
+
+    const fields = objectFields(signature.transformations[0].value)
+
+    expect(fields.imageUrl.kind).toBe("string")
+    expect(fields.nestedLayers.kind).toBe("array")
+  })
 })
