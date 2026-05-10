@@ -4582,11 +4582,39 @@ function validatePerspectiveDistort(
  * This is NOT part of the regular transformation schema — it's a special
  * first-class element that controls the canvas dimensions and background.
  */
-export const canvasSchema = z.object({
-  width: z.coerce.number().int().min(1).max(10000),
-  height: z.coerce.number().int().min(1).max(10000),
-  color: z.string().min(1, { message: "Color is required." }),
-})
+export const canvasSchema = z
+  .object({
+    mode: z.enum(["solid", "image"]),
+    width: z.coerce.number().int().min(1).max(10000).optional().default(1080),
+    height: z.coerce.number().int().min(1).max(10000).optional().default(1080),
+    color: z.string().optional().default("#00000000"),
+    imageUrl: z.string().optional().default(""),
+  })
+  .refine(
+    (data) => {
+      if (data.mode === "solid") {
+        return (
+          data.width !== undefined &&
+          data.width >= 1 &&
+          data.height !== undefined &&
+          data.height >= 1 &&
+          !!data.color
+        )
+      }
+      if (data.mode === "image") {
+        try {
+          new URL(data.imageUrl ?? "")
+          return true
+        } catch {
+          return false
+        }
+      }
+      return true
+    },
+    {
+      message: "Please provide valid settings for the selected canvas mode.",
+    },
+  )
 
 export const canvasFields: TransformationField[] = [
   {

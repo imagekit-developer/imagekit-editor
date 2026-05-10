@@ -198,9 +198,11 @@ export function buildTemplateUrl(options: BuildTemplateUrlOptions): string[] {
   if (template.length > 0 && template[0].key === "canvas") {
     const val = template[0].value as Record<string, unknown>
     canvas = {
+      mode: (val.mode as "solid" | "image") ?? "solid",
       width: (val.width as number) ?? DEFAULT_CANVAS.width,
       height: (val.height as number) ?? DEFAULT_CANVAS.height,
       color: (val.color as string) ?? DEFAULT_CANVAS.color,
+      imageUrl: (val.imageUrl as string) ?? undefined,
     }
     transformationSteps = template.slice(1)
   }
@@ -209,6 +211,16 @@ export function buildTemplateUrl(options: BuildTemplateUrlOptions): string[] {
 
   // Canvas mode: generate a single URL from the canvas path
   if (canvas && images.length === 0) {
+    if (canvas.mode === "image" && canvas.imageUrl) {
+      // Image canvas: use the provided URL as the base
+      return [
+        buildSrc({
+          src: canvas.imageUrl,
+          urlEndpoint: "https://ik.imagekit.io/customeraccountdemo/",
+          transformation: ikTransformations,
+        }),
+      ]
+    }
     const canvasOverlay: IKTransformation = {
       overlay: {
         type: "solidColor",
@@ -325,6 +337,13 @@ export function buildBackdropUrl(options: {
   )
 
   if (canvas && !imageUrl) {
+    if (canvas.mode === "image" && canvas.imageUrl) {
+      return buildSrc({
+        src: canvas.imageUrl,
+        urlEndpoint: "https://ik.imagekit.io/customeraccountdemo/",
+        transformation: ikTransformations,
+      })
+    }
     const canvasOverlay: IKTransformation = {
       overlay: {
         type: "solidColor",

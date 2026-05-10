@@ -30,10 +30,14 @@ export const CANVAS_IMAGE_PATH =
   "/110d1680-0875-470c-8afc-409bdb6b0a8e/canvas_layer"
 
 export interface CanvasState {
+  /** Whether the canvas is a solid color or an external image. */
+  mode: "solid" | "image"
   width: number
   height: number
   /** Hex color string including alpha, e.g. "#00000000" for transparent */
   color: string
+  /** URL of an external image to use as the canvas base (only used when mode is "image"). */
+  imageUrl?: string
 }
 
 export interface Transformation {
@@ -326,9 +330,10 @@ const DEFAULT_STATE: EditorState = {
 }
 
 export const DEFAULT_CANVAS: CanvasState = {
+  mode: "solid",
   width: 1080,
   height: 1080,
-  color: "#00000000",
+  color: "#E0E0E0FF",
 }
 
 const useEditorStore = create<EditorState & EditorActions>()(
@@ -476,9 +481,11 @@ const useEditorStore = create<EditorState & EditorActions>()(
         const canvasStep = template[0]
         const val = canvasStep.value as Record<string, unknown>
         canvasState = {
+          mode: (val.mode as "solid" | "image") ?? "solid",
           width: (val.width as number) ?? DEFAULT_CANVAS.width,
           height: (val.height as number) ?? DEFAULT_CANVAS.height,
           color: (val.color as string) ?? DEFAULT_CANVAS.color,
+          imageUrl: (val.imageUrl as string) ?? undefined,
         }
         transformationSteps = template.slice(1)
       }
@@ -1086,7 +1093,14 @@ const calculateImageList = (
   if (canvas && imageList.length === 0) {
     if (showOriginal) {
       // "Show original" in canvas mode shows the bare canvas path (no transformations)
-      imgs[0] = CANVAS_IMAGE_PATH
+      imgs[0] = canvas.mode === "image" && canvas.imageUrl ? canvas.imageUrl : CANVAS_IMAGE_PATH
+    } else if (canvas.mode === "image" && canvas.imageUrl) {
+      // Image canvas: use the provided URL as the base and apply transformations on top
+      imgs[0] = buildSrc({
+        src: canvas.imageUrl,
+        urlEndpoint: "https://ik.imagekit.io/customeraccountdemo/",
+        transformation: IKTransformations,
+      })
     } else {
       // Build a solid color overlay with dimensions and all user transformations inside it
       const canvasOverlay: IKTransformation = {
@@ -1314,10 +1328,12 @@ export function getTransformationsForPersistence(): Omit<
       name: "Canvas",
       type: "transformation",
       value: {
+        mode: state.canvas.mode,
         width: state.canvas.width,
         height: state.canvas.height,
         color: state.canvas.color,
-      },
+        ...(state.canvas.imageUrl ? { imageUrl: state.canvas.imageUrl } : {}),
+      } as unknown as IKTransformation,
       version: TRANSFORMATION_STATE_VERSION,
     }
     return [canvasStep, ...transformations]
