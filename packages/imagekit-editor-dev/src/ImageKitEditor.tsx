@@ -9,11 +9,13 @@ import React, {
 } from "react"
 import { EditorLayout, EditorWrapper } from "./components/editor"
 import type { HeaderProps } from "./components/header"
+import { PresetStorageContextProvider } from "./context/PresetStorageContext"
 import type { GetTemplatePermissions } from "./context/TemplatePermissionsContext"
 import { TemplatePermissionsContextProvider } from "./context/TemplatePermissionsContext"
 import { TemplateStorageContextProvider } from "./context/TemplateStorageContext"
 import {
   isTemplateAccessDeniedError,
+  type PresetStorageProvider,
   type TemplateStorageProvider,
 } from "./storage"
 import {
@@ -100,6 +102,11 @@ interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
    */
   templateStorage?: TemplateStorageProvider | null
   /**
+   * Preset persistence (list/save/delete) for image/text layer presets.
+   * Implemented by the host app. Omit or pass `null` to disable preset UI.
+   */
+  presetStorage?: PresetStorageProvider | null
+  /**
    * Host-controlled, per-template permissions for template management UI.
    * If omitted, the editor defaults to allowing all actions.
    */
@@ -122,6 +129,7 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     signer,
     focusObjects,
     templateStorage,
+    presetStorage,
     getTemplatePermissions,
     canvasMode,
     imagekitId,
@@ -139,6 +147,11 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
   const resolvedProvider = useMemo<TemplateStorageProvider | null>(
     () => templateStorage ?? null,
     [templateStorage],
+  )
+
+  const resolvedPresetProvider = useMemo<PresetStorageProvider | null>(
+    () => presetStorage ?? null,
+    [presetStorage],
   )
 
   const saveTemplateImperative = useCallback(async () => {
@@ -252,13 +265,15 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
           getTemplatePermissions={getTemplatePermissions}
         >
           <TemplateStorageContextProvider provider={resolvedProvider}>
-            <EditorWrapper>
-              <EditorLayout
-                onAddImage={props.onAddImage}
-                onClose={handleOnClose}
-                exportOptions={props.exportOptions}
-              />
-            </EditorWrapper>
+            <PresetStorageContextProvider provider={resolvedPresetProvider}>
+              <EditorWrapper>
+                <EditorLayout
+                  onAddImage={props.onAddImage}
+                  onClose={handleOnClose}
+                  exportOptions={props.exportOptions}
+                />
+              </EditorWrapper>
+            </PresetStorageContextProvider>
           </TemplateStorageContextProvider>
         </TemplatePermissionsContextProvider>
       </ChakraProvider>

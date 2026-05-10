@@ -2,6 +2,10 @@ import {
   ImageKitEditor,
   type ImageKitEditorProps,
   type ImageKitEditorRef,
+  type PresetLayerType,
+  type PresetRecord,
+  type PresetStorageProvider,
+  type SavePresetInput,
   type TemplateStorageProvider,
   TRANSFORMATION_STATE_VERSION,
   type Transformation,
@@ -102,6 +106,86 @@ function createLocalTemplateStorage(): TemplateStorageProvider {
       const updated = { ...existing, isPinned, updatedAt: Date.now() }
       writeAllTemplates([updated, ...all.filter((t) => t.id !== id)])
       return updated
+    },
+    getProviderName() {
+      return "localStorage"
+    },
+    getCurrentUserSession() {
+      return session
+    },
+  }
+}
+
+const PRESET_STORAGE_KEY = "ik-editor:presets:v1"
+
+function readAllPresets(): PresetRecord[] {
+  const raw = localStorage.getItem(PRESET_STORAGE_KEY)
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? (parsed as PresetRecord[]) : []
+  } catch {
+    return []
+  }
+}
+
+function writeAllPresets(records: PresetRecord[]) {
+  localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(records))
+}
+
+function createLocalPresetStorage(): PresetStorageProvider {
+  const session = {
+    userId: "demo-user",
+    name: "Demo User",
+    email: "demo@example.com",
+    clientNumber: "demo-client",
+  }
+
+  return {
+    async listPresets(layerType?: PresetLayerType) {
+      const all = readAllPresets().sort((a, b) => b.updatedAt - a.updatedAt)
+      return layerType ? all.filter((p) => p.layerType === layerType) : all
+    },
+    async getPreset(id: string) {
+      return readAllPresets().find((p) => p.id === id) ?? null
+    },
+    async savePreset(input: SavePresetInput) {
+      const now = Date.now()
+      const all = readAllPresets()
+      const existing = input.id
+        ? (all.find((p) => p.id === input.id) ?? null)
+        : null
+
+      const id = existing?.id ?? crypto.randomUUID?.() ?? String(now)
+      const record: PresetRecord = {
+        id,
+        clientNumber: input.clientNumber ?? existing?.clientNumber ?? "demo",
+        isPrivate: input.isPrivate ?? existing?.isPrivate ?? false,
+        name: input.name,
+        layerType: input.layerType,
+        fieldValues: input.fieldValues,
+        params: input.params,
+        createdBy: input.createdBy ??
+          existing?.createdBy ?? {
+            userId: session.userId,
+            name: session.name,
+            email: session.email,
+          },
+        updatedBy: input.updatedBy ?? {
+          userId: session.userId,
+          name: session.name,
+          email: session.email,
+        },
+        createdAt: input.createdAt ?? existing?.createdAt ?? now,
+        updatedAt: input.updatedAt ?? now,
+      }
+
+      const next = [record, ...all.filter((p) => p.id !== id)]
+      writeAllPresets(next)
+      return record
+    },
+    async deletePreset(id: string) {
+      writeAllPresets(readAllPresets().filter((p) => p.id !== id))
     },
     getProviderName() {
       return "localStorage"
@@ -256,6 +340,7 @@ function App() {
         return Promise.resolve(request.url)
       },
       templateStorage: createLocalTemplateStorage(),
+      presetStorage: createLocalPresetStorage(),
     })
   }, [handleAddImage])
 

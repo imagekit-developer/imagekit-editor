@@ -51,6 +51,8 @@ import { Controller, type SubmitHandler, useForm } from "react-hook-form"
 import Select from "react-select"
 import CreateableSelect from "react-select/creatable"
 import { z } from "zod/v3"
+import { usePresetStorage } from "../../context/PresetStorageContext"
+import { usePresetsLibraryToggle } from "../../context/PresetsLibraryToggleContext"
 import { useTemplateSync } from "../../hooks/useTemplateSync"
 import type { TransformationField } from "../../schema"
 import {
@@ -59,6 +61,7 @@ import {
   RESIZE_CROP_MODES,
   transformationSchema,
 } from "../../schema"
+import type { PresetLayerType, PresetRecord } from "../../storage/presetTypes"
 import { type SyncStatus, useEditorStore } from "../../store"
 import { isStepAligned } from "../../utils"
 import { isVariableNameUnique, validateVariableName } from "../../utils/params"
@@ -82,6 +85,12 @@ import PaddingInputField, {
 } from "../common/PaddingInput"
 import RadioCardField from "../common/RadioCardField"
 import ZoomInput from "../common/ZoomInput"
+import {
+  type ApplyPresetMode,
+  ApplyPresetModeDialog,
+} from "../presets/ApplyPresetModeDialog"
+import { PresetsInlineMenu } from "../presets/PresetsInlineMenu"
+import { SavePresetDialog } from "../presets/SavePresetDialog"
 import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
@@ -555,6 +564,7 @@ export const TransformationConfigSidebar: React.FC = () => {
     reset,
     watch,
     setValue,
+    getValues,
     control,
     trigger,
   } = useForm<Record<string, unknown>>({
@@ -576,6 +586,92 @@ export const TransformationConfigSidebar: React.FC = () => {
       setValue(name, value, { shouldDirty: true, shouldTouch: true })
     },
     [setValue],
+  )
+
+  // ----------------------------------------------------------------------
+  // Presets (only for layers-text / layers-image)
+  // ----------------------------------------------------------------------
+  const presetProvider = usePresetStorage()
+  const presetsLibraryToggle = usePresetsLibraryToggle()
+  const presetLayerType: PresetLayerType | null = useMemo(() => {
+    if (!selectedTransformation) return null
+    if (
+      selectedTransformation.key === "layers-text" ||
+      selectedTransformation.key === "layers-image"
+    ) {
+      return selectedTransformation.key
+    }
+    return null
+  }, [selectedTransformation])
+  const [isSavePresetOpen, setIsSavePresetOpen] = useState(false)
+  const [pendingPreset, setPendingPreset] = useState<PresetRecord | null>(null)
+  const [presetRefreshKey, setPresetRefreshKey] = useState(0)
+
+  /** Build a fresh defaults map from the schema (used for "reset and apply"). */
+  const buildSchemaDefaults = useCallback(
+    (fields: TransformationField[]): Record<string, unknown> =>
+      fields.reduce(
+        (acc, field) => {
+          acc[field.name] =
+            field.fieldProps?.defaultValue ??
+            (field.fieldType === "anchor" ? undefined : "")
+          return acc
+        },
+        {} as Record<string, unknown>,
+      ),
+    [],
+  )
+
+  /** Effective `params` for the open form: existing + draft overrides. */
+  const effectiveParams = useMemo<Record<string, string>>(() => {
+    const merged: Record<string, string> = {
+      ...(editedTransformation?.params ?? {}),
+      ...draftParams,
+    }
+    return merged
+  }, [editedTransformation, draftParams])
+
+  const applyPreset = useCallback(
+    (preset: PresetRecord, mode: ApplyPresetMode, applyParams: boolean) => {
+      if (!selectedTransformation) return
+      const fields = selectedTransformation.transformations
+
+      if (mode === "reset") {
+        const defaults = buildSchemaDefaults(fields)
+        const next: Record<string, unknown> = { ...defaults }
+        for (const field of fields) {
+          if (field.name in preset.fieldValues) {
+            next[field.name] = preset.fieldValues[field.name]
+          }
+        }
+        reset(next, { keepDefaultValues: true })
+        // RHF reset() doesn't mark dirty; re-set each field with shouldDirty so
+        // the "Apply" footer button enables.
+        for (const field of fields) {
+          setValue(field.name, next[field.name], {
+            shouldDirty: true,
+            shouldTouch: true,
+          })
+        }
+      } else {
+        for (const field of fields) {
+          if (field.name in preset.fieldValues) {
+            setValue(field.name, preset.fieldValues[field.name], {
+              shouldDirty: true,
+              shouldTouch: true,
+            })
+          }
+        }
+      }
+
+      if (applyParams && preset.params) {
+        setDraftParams((prev) => {
+          if (mode === "reset") return { ...preset.params }
+          return { ...prev, ...preset.params }
+        })
+      }
+    },
+    [selectedTransformation, buildSchemaDefaults, reset, setValue],
   )
 
   const values = watch()
@@ -908,6 +1004,18 @@ export const TransformationConfigSidebar: React.FC = () => {
           />
         )}
       </SidebarHeader>
+
+      {presetLayerType && presetProvider ? (
+        <PresetsInlineMenu
+          layerType={presetLayerType}
+          refreshKey={presetRefreshKey}
+          onPickPreset={(preset) => setPendingPreset(preset)}
+          onClickSave={() => setIsSavePresetOpen(true)}
+          onClickManage={
+            presetsLibraryToggle ? () => presetsLibraryToggle.open() : undefined
+          }
+        />
+      ) : null}
 
       <SidebarBody gap="6" p="4">
         {selectedTransformation.key === "resize_and_crop-resize_and_crop" && (
@@ -1551,6 +1659,28 @@ export const TransformationConfigSidebar: React.FC = () => {
           </ButtonGroup>
         </HStack>
       </SidebarFooter>
+      {presetLayerType ? (
+        <>
+          <SavePresetDialog
+            isOpen={isSavePresetOpen}
+            onClose={() => setIsSavePresetOpen(false)}
+            layerType={presetLayerType}
+            fieldValues={getValues()}
+            params={effectiveParams}
+            onSaved={() => setPresetRefreshKey((k) => k + 1)}
+          />
+          <ApplyPresetModeDialog
+            isOpen={pendingPreset !== null}
+            onClose={() => setPendingPreset(null)}
+            preset={pendingPreset}
+            onConfirm={(mode, applyParams) => {
+              if (pendingPreset) {
+                applyPreset(pendingPreset, mode, applyParams)
+              }
+            }}
+          />
+        </>
+      ) : null}
     </SidebarRoot>
   )
 }

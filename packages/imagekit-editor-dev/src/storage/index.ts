@@ -1,3 +1,9 @@
+export type {
+  PresetLayerType,
+  PresetRecord,
+  PresetStorageProvider,
+  SavePresetInput,
+} from "./presetTypes"
 export { normalizeTransformationStepsForPersistence } from "./serializeTransformations"
 export {
   applyTemplateStorageAccessFailure,

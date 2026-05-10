@@ -8,11 +8,13 @@ import {
   MenuList,
   Spacer,
 } from "@chakra-ui/react"
+import { PiBookmarksSimple } from "@react-icons/all-files/pi/PiBookmarksSimple"
 import { PiGear } from "@react-icons/all-files/pi/PiGear"
 import { PiGlobe } from "@react-icons/all-files/pi/PiGlobe"
 import { PiLock } from "@react-icons/all-files/pi/PiLock"
 import { PiX } from "@react-icons/all-files/pi/PiX"
 import React, { useEffect, useState } from "react"
+import { usePresetStorage } from "../../context/PresetStorageContext"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import { applyTemplateStorageAccessFailure } from "../../storage/templateAccessError"
 import type { TemplateRecord } from "../../storage/types"
@@ -59,12 +61,14 @@ export interface HeaderProps<
     ExportOptionButton<Metadata> | ExportOptionMenu<Metadata>
   >
   onViewAllTemplates?: () => void
+  onViewAllPresets?: () => void
 }
 
 export const Header = ({
   onClose,
   exportOptions,
   onViewAllTemplates,
+  onViewAllPresets,
 }: HeaderProps): React.ReactElement => {
   const FlexAny = chakraAny(Flex)
   const DividerAny = chakraAny(Divider)
@@ -77,6 +81,7 @@ export const Header = ({
   const templateIsPrivate = useEditorStore((s) => s.templateIsPrivate)
   const syncStatus = useEditorStore((s) => s.syncStatus)
   const provider = useTemplateStorage()
+  const presetProvider = usePresetStorage()
 
   const [activeRecord, setActiveRecord] = useState<TemplateRecord | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -179,6 +184,20 @@ export const Header = ({
           <FlexAny alignItems="center">
             <TemplatesDropdown onViewAllTemplates={onViewAllTemplates} />
           </FlexAny>
+          {presetProvider && onViewAllPresets ? (
+            <>
+              <DividerAny
+                orientation="vertical"
+                borderColor="editorBattleshipGrey.200"
+                height="40%"
+              />
+              <NavbarItem
+                label="Presets"
+                icon={<PiBookmarksSimple />}
+                onClick={onViewAllPresets}
+              />
+            </>
+          ) : null}
           <DividerAny
             orientation="vertical"
             borderColor="editorBattleshipGrey.200"
