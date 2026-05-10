@@ -168,14 +168,14 @@ export const MoveableLayerController: FC<MoveableLayerControllerProps> = ({
   const horizontalGuidelines = useMemo(() => {
     const total = coordSpace.canvasH * coordSpace.scale
     const lines: number[] = []
-    for (let y = 0; y <= total; y += 50) lines.push(y)
+    for (let y = 0; y <= total; y += 10) lines.push(y)
     return lines
   }, [coordSpace.canvasH, coordSpace.scale])
 
   const verticalGuidelines = useMemo(() => {
     const total = coordSpace.canvasW * coordSpace.scale
     const lines: number[] = []
-    for (let x = 0; x <= total; x += 50) lines.push(x)
+    for (let x = 0; x <= total; x += 10) lines.push(x)
     return lines
   }, [coordSpace.canvasW, coordSpace.scale])
 
@@ -321,30 +321,31 @@ export const MoveableLayerController: FC<MoveableLayerControllerProps> = ({
         <Moveable
           target={targetRef.current}
           draggable={!dragBlocked}
+          throttleDrag={10}
           resizable={isResizable && !dragBlocked}
           keepRatio
           snappable
-          snapThreshold={8}
+          // snapGridWidth={10}
+          // snapGridHeight={10}
+          isDisplayGridGuidelines={false}
           horizontalGuidelines={horizontalGuidelines}
           verticalGuidelines={verticalGuidelines}
-          isDisplaySnapDigit
-          isDisplayInnerSnapDigit
           snapDistFormat={(v) => `${Math.round(v)}px`}
           snapDirections={{
             top: true,
             left: true,
             bottom: true,
             right: true,
-            center: true,
-            middle: true,
+            // center: true,
+            // middle: true,
           }}
           elementSnapDirections={{
             top: true,
             left: true,
             bottom: true,
             right: true,
-            center: true,
-            middle: true,
+            // center: true,
+            // middle: true,
           }}
           onDragStart={() => {
             const proceed = checkExpressionGuard(() => {
