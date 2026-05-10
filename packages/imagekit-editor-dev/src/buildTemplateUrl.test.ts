@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-import type { Transformation } from "./store"
 import {
   buildBackdropUrl,
   buildSingleLayerUrl,
@@ -8,6 +7,7 @@ import {
   resolveTemplate,
   resolveTransformationStep,
 } from "./buildTemplateUrl"
+import type { Transformation } from "./store"
 
 describe("resolveTransformationStep", () => {
   it("resolves a blur transformation", () => {
@@ -94,9 +94,7 @@ describe("replaceImagePathPlaceholders", () => {
   })
 
   it("does not modify the original array", () => {
-    const original = [
-      { raw: "e-gradient:l-image,i-__IMAGE_PATH__,l-end" },
-    ]
+    const original = [{ raw: "e-gradient:l-image,i-__IMAGE_PATH__,l-end" }]
     const copy = JSON.parse(JSON.stringify(original))
     replaceImagePathPlaceholders(original, "photo.jpg")
     expect(original).toEqual(copy)

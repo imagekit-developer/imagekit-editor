@@ -1,9 +1,13 @@
 import { Box, Center, Spinner } from "@chakra-ui/react"
-import { type FC, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
-  buildBackdropUrl,
-  buildSingleLayerUrl,
-} from "../../buildTemplateUrl"
+  type FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
+import { buildBackdropUrl, buildSingleLayerUrl } from "../../buildTemplateUrl"
 import { useCoordinateSpace } from "../../hooks/useCoordinateSpace"
 import { useEditorStore } from "../../store"
 import { isLayerTransformation } from "../../utils/layerGeometry"
@@ -34,6 +38,7 @@ export const InteractivePreview: FC<InteractivePreviewProps> = ({
     visibleTransformations,
     originalImageList,
     signingImages,
+    imagekitId,
     _internalState,
     _setSelectedLayerId,
     setImageDimensions,
@@ -85,8 +90,15 @@ export const InteractivePreview: FC<InteractivePreviewProps> = ({
         visibleTransformations,
         imageUrl: originalImageUrl,
         canvas,
+        imagekitId,
       }),
-    [transformations, visibleTransformations, originalImageUrl, canvas],
+    [
+      transformations,
+      visibleTransformations,
+      originalImageUrl,
+      canvas,
+      imagekitId,
+    ],
   )
 
   // Reset backdrop dims when the URL changes so stale sizes don't linger.
@@ -102,10 +114,16 @@ export const InteractivePreview: FC<InteractivePreviewProps> = ({
         transformations,
         visibleTransformations,
         layerId: layer.id,
+        imagekitId,
       })
     }
     return urls
-  }, [transformations, visibleTransformations, layerTransformations])
+  }, [
+    transformations,
+    visibleTransformations,
+    layerTransformations,
+    imagekitId,
+  ])
 
   const handleBackdropLoad = useCallback(
     (event: React.SyntheticEvent<HTMLImageElement>) => {
