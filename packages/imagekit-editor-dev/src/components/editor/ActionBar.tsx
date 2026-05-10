@@ -108,21 +108,23 @@ export const ActionBar: FC<ActionBarProps> = ({
               h="6"
               borderColor="editorBattleshipGrey.200"
             />
-
-            <Flex flex="1" minW={0} flexDirection="row" gap="2">
-              <Button
-                aria-label="Open in new tab"
-                rightIcon={<Icon boxSize={5} as={ExternalLinkIcon} />}
-                variant="ghost"
-                size="md"
-                fontWeight="normal"
-                _hover={{ bg: "gray.100" }}
-                onClick={() => window.open(currentImage, "_blank")}
-              >
-                Open image in new tab
-              </Button>
-            </Flex>
           </>
+        )}
+
+        {currentImage && (
+          <Flex flex="1" minW={0} flexDirection="row" gap="2">
+            <Button
+              aria-label="Open in new tab"
+              rightIcon={<Icon boxSize={5} as={ExternalLinkIcon} />}
+              variant="ghost"
+              size="md"
+              fontWeight="normal"
+              _hover={{ bg: "gray.100" }}
+              onClick={() => window.open(currentImage, "_blank")}
+            >
+              Open in new tab
+            </Button>
+          </Flex>
         )}
       </HStack>
 

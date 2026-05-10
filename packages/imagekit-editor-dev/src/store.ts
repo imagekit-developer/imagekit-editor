@@ -15,7 +15,7 @@ import {
 } from "./schema"
 import { bumpLocalChangeVersion as bumpVersion } from "./sync/templateSyncVersioning"
 import { extractImagePath } from "./utils"
-import { isVariableNameUnique, validateVariableName } from "./utils/params"
+import { isVariableNameUnique, resolveTemplateParams, validateVariableName } from "./utils/params"
 
 export const TRANSFORMATION_STATE_VERSION = "v1" as const
 
@@ -982,7 +982,14 @@ const calculateImageList = (
   imagekitId: string,
 ) => {
   const canvasUrlEndpoint = `https://ik.imagekit.io/${imagekitId}/`
-  const IKTransformations = transformations
+  // Apply inline `{{var;default}}` substitutions so the preview/URL reflects
+  // the default values rather than the raw markers. No overrides are passed
+  // here — only inline defaults are resolved.
+  const resolvedTransformations = resolveTemplateParams(
+    transformations,
+    {},
+  ) as Transformation[]
+  const IKTransformations = resolvedTransformations
     .filter((transformation) => visibleTransformations[transformation.id])
     .map((transformation) => {
       const t = transformationSchema
