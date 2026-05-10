@@ -126,4 +126,56 @@ describe("buildVariablesSchema (host usage)", () => {
     const schema = buildVariablesSchema(template.transformations)
     expect(Object.keys(schema.shape)).toEqual([])
   })
+
+  // Regression: nested layer children (image/canvas can host nested
+  // text/image/canvas) participate in URL building via resolveVariableRefs,
+  // so variables bound on them must also surface in listVariables / the
+  // overrides schema.
+  it("surfaces variables bound on nested layer children", () => {
+    const template = {
+      transformations: asTemplate([
+        {
+          key: "layers-image",
+          name: "Image Layer",
+          type: "transformation",
+          value: { imageUrl: "logo.png" },
+          children: [
+            {
+              key: "layers-text",
+              name: "Text Layer",
+              type: "transformation",
+              value: {
+                text: { $var: "nestedHeadline", label: "Nested Headline" },
+                typography: [
+                  { $var: "nestedFontStyle", label: "Nested Font Style" },
+                ],
+              },
+            },
+          ],
+        },
+      ]),
+    }
+
+    const variables = listVariables(template.transformations)
+    expect(variables.map((v) => v.name)).toEqual([
+      "nestedHeadline",
+      "nestedFontStyle",
+    ])
+
+    const schema = buildVariablesSchema(template.transformations)
+    expect(Object.keys(schema.shape).sort()).toEqual(
+      ["nestedFontStyle", "nestedHeadline"].sort(),
+    )
+
+    // Schema enforces the nested text-layer's typography enum.
+    expect(
+      schema.safeParse({
+        nestedHeadline: "Hi",
+        nestedFontStyle: ["bold"],
+      }).success,
+    ).toBe(true)
+    expect(
+      schema.safeParse({ nestedFontStyle: ["galat bat"] }).success,
+    ).toBe(false)
+  })
 })

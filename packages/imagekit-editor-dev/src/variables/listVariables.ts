@@ -82,28 +82,37 @@ export function listVariables(
 ): VariableDescriptor[] {
   const seen = new Set<string>()
   const out: VariableDescriptor[] = []
-  for (const t of transformations) {
-    walkVariableRefs(t.value, (ref: VariableRef, path: string[]) => {
-      if (seen.has(ref.$var)) return
-      // The first path segment is always the field name on the step's value
-      // object; nested markers (inside composite fields like padding-input)
-      // share that top-level key, which is what we use to match against the
-      // step's schema entry.
-      const fieldName = path[0]
-      const field = fieldName
-        ? findTransformationField(t, fieldName)
-        : undefined
-      if (!field) return
-      seen.add(ref.$var)
-      out.push({
-        name: ref.$var,
-        label: ref.label,
-        transformationId: t.id,
-        fieldName,
-        field,
+  // Recurse so variables bound on nested layer children (image/canvas
+  // layers may host nested text/image/canvas children) are surfaced
+  // alongside top-level variables. Order = depth-first, document order.
+  const visit = (list: Transformation[]): void => {
+    for (const t of list) {
+      walkVariableRefs(t.value, (ref: VariableRef, path: string[]) => {
+        if (seen.has(ref.$var)) return
+        // The first path segment is always the field name on the step's value
+        // object; nested markers (inside composite fields like padding-input)
+        // share that top-level key, which is what we use to match against the
+        // step's schema entry.
+        const fieldName = path[0]
+        const field = fieldName
+          ? findTransformationField(t, fieldName)
+          : undefined
+        if (!field) return
+        seen.add(ref.$var)
+        out.push({
+          name: ref.$var,
+          label: ref.label,
+          transformationId: t.id,
+          fieldName,
+          field,
+        })
       })
-    })
+      if (t.children && t.children.length > 0) {
+        visit(t.children)
+      }
+    }
   }
+  visit(transformations)
   return out
 }
 
@@ -184,37 +193,48 @@ export function buildVariablesSchema(
   // is unsafe: persisted templates routinely have `id === undefined` on every
   // step, and `undefined === undefined` matching collapses to "first step
   // with this key", which silently mis-routes to the wrong schema.
-  for (const t of transformations) {
-    const stepItem = findStepSchemaItem(t)
-    const objectSchema = stepItem
-      ? unwrapToZodObject(stepItem.schema)
-      : undefined
+  //
+  // Also recurses into nested layer `children` so variables bound on nested
+  // text/image/canvas layers are surfaced — they participate in URL building
+  // via `resolveVariableRefs`, so they must also appear in host validation.
+  const visit = (list: Transformation[]): void => {
+    for (const t of list) {
+      const stepItem = findStepSchemaItem(t)
+      const objectSchema = stepItem
+        ? unwrapToZodObject(stepItem.schema)
+        : undefined
 
-    walkVariableRefs(t.value, (ref: VariableRef, path: string[]) => {
-      if (seen.has(ref.$var)) return
-      const fieldName = path[0]
-      if (!fieldName) return
+      walkVariableRefs(t.value, (ref: VariableRef, path: string[]) => {
+        if (seen.has(ref.$var)) return
+        const fieldName = path[0]
+        if (!fieldName) return
 
-      const fieldType = objectSchema?.shape[fieldName]
-      if (!fieldType) {
-        // Fail-loud in dev: a variable that can't be resolved against a real
-        // field would otherwise be silently accepted by `safeParse`, which
-        // defeats the purpose of the helper. We still skip adding a key so
-        // hosts get a strict schema (unknown keys passed by `safeParse` will
-        // be ignored, not blanket-accepted).
-        if (process.env.NODE_ENV !== "production") {
-          console.warn(
-            `[imagekit-editor] buildVariablesSchema: could not resolve Zod type for variable "${ref.$var}" (step key "${t.key}", field "${fieldName}"). Variable omitted from schema.`,
-          )
+        const fieldType = objectSchema?.shape[fieldName]
+        if (!fieldType) {
+          // Fail-loud in dev: a variable that can't be resolved against a real
+          // field would otherwise be silently accepted by `safeParse`, which
+          // defeats the purpose of the helper. We still skip adding a key so
+          // hosts get a strict schema (unknown keys passed by `safeParse` will
+          // be ignored, not blanket-accepted).
+          if (process.env.NODE_ENV !== "production") {
+            console.warn(
+              `[imagekit-editor] buildVariablesSchema: could not resolve Zod type for variable "${ref.$var}" (step key "${t.key}", field "${fieldName}"). Variable omitted from schema.`,
+            )
+          }
+          return
         }
-        return
-      }
 
-      seen.add(ref.$var)
-      // All overrides are optional — a host may supply only a subset.
-      shape[ref.$var] = fieldType.optional()
-    })
+        seen.add(ref.$var)
+        // All overrides are optional — a host may supply only a subset.
+        shape[ref.$var] = fieldType.optional()
+      })
+
+      if (t.children && t.children.length > 0) {
+        visit(t.children)
+      }
+    }
   }
+  visit(transformations)
 
   return z.object(shape)
 }
