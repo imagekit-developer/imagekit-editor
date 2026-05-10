@@ -157,7 +157,8 @@ export function resolveLayerRect(
   // But with explicit x/y, ImageKit basically does: layer_topLeft = anchor + (x, y)
   // When no explicit x/y, focus determines placement:
   //   layer placed so that its focus fraction aligns with the anchor
-  const hasExplicitOffset = config.positionX !== undefined || config.positionY !== undefined
+  const hasExplicitOffset =
+    config.positionX !== undefined || config.positionY !== undefined
   if (hasExplicitOffset) {
     return {
       x: anchorX + x,
@@ -188,8 +189,128 @@ export function rectToLayerCoords(
   canvasH: number,
   positionMethod: PositionMethod,
   anchorPoint?: AnchorPosition,
-): { positionX?: number; positionY?: number; positionXC?: number; positionYC?: number } {
+): {
+  positionX?: number
+  positionY?: number
+  positionXC?: number
+  positionYC?: number
+} {
   const anchor = anchorToFraction(anchorPoint || "center")
+  const anchorX = anchor.fx * canvasW
+  const anchorY = anchor.fy * canvasH
+
+  if (positionMethod === "center") {
+    const centerX = rect.x + rect.w / 2
+    const centerY = rect.y + rect.h / 2
+    return {
+      positionXC: Math.round(centerX - anchorX),
+      positionYC: Math.round(centerY - anchorY),
+    }
+  }
+
+  return {
+    positionX: Math.round(rect.x - anchorX),
+    positionY: Math.round(rect.y - anchorY),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// V2 implementation (matches ImageKit's documented `lap` / `lx,ly` / `lxc,lyc`
+// / `lfo` semantics):
+//
+//   * `lap` (anchorPoint) = origin point on the BASE image only. It does NOT
+//     change which point of the layer is being aligned.
+//   * `lx, ly` = offset from anchor to layer's TOP-LEFT corner.
+//   * `lxc, lyc` = offset from anchor to layer's CENTER.
+//   * `lfo` (focus) and `lx/ly/lxc/lyc` do NOT work together — when offsets are
+//     provided, `lfo` is ignored.
+//   * When NO positional parameters are provided at all, the layer is placed
+//     at the base center (equivalent to lap=center, lxc=0, lyc=0).
+//   * When offsets ARE provided, the default `lap` is `top_left`.
+//
+// Kept side-by-side with the original `resolveLayerRect` /
+// `rectToLayerCoords` so we can flip back to the previous behaviour by simply
+// swapping the import in MoveableLayerController.
+// ---------------------------------------------------------------------------
+
+function hasOffset(val: unknown): boolean {
+  return val !== undefined && val !== null && val !== ""
+}
+
+export function resolveLayerRectV2(
+  config: LayerPositionConfig,
+  canvasW: number,
+  canvasH: number,
+): Rect {
+  const lw = config.layerWidth ?? 0
+  const lh = config.layerHeight ?? 0
+
+  const hasCenterOffsets =
+    hasOffset(config.positionXC) || hasOffset(config.positionYC)
+  const hasTopLeftOffsets =
+    hasOffset(config.positionX) || hasOffset(config.positionY)
+  const hasAnyOffsets = hasCenterOffsets || hasTopLeftOffsets
+
+  // No positional parameters at all -> layer center at base center.
+  // (lfo is ignored per current product rules.)
+  if (!hasAnyOffsets) {
+    return {
+      x: canvasW / 2 - lw / 2,
+      y: canvasH / 2 - lh / 2,
+      w: lw,
+      h: lh,
+    }
+  }
+
+  // With offsets present, the default anchor is top_left.
+  const anchor = anchorToFraction(config.anchorPoint || "top_left")
+  const anchorX = anchor.fx * canvasW
+  const anchorY = anchor.fy * canvasH
+
+  // The active mode is dictated by which offsets are present, falling back
+  // to the explicit positionMethod when both/neither set is filled.
+  const useCenter =
+    hasCenterOffsets &&
+    (!hasTopLeftOffsets || config.positionMethod === "center")
+
+  if (useCenter) {
+    const xc = parseNumericPosition(config.positionXC)
+    const yc = parseNumericPosition(config.positionYC)
+    const centerX = anchorX + xc
+    const centerY = anchorY + yc
+    return {
+      x: centerX - lw / 2,
+      y: centerY - lh / 2,
+      w: lw,
+      h: lh,
+    }
+  }
+
+  const x = parseNumericPosition(config.positionX)
+  const y = parseNumericPosition(config.positionY)
+  return {
+    x: anchorX + x,
+    y: anchorY + y,
+    w: lw,
+    h: lh,
+  }
+}
+
+export function rectToLayerCoordsV2(
+  rect: Rect,
+  canvasW: number,
+  canvasH: number,
+  positionMethod: PositionMethod,
+  anchorPoint?: AnchorPosition,
+): {
+  positionX?: number
+  positionY?: number
+  positionXC?: number
+  positionYC?: number
+} {
+  // When no anchor is provided, write coordinates relative to top_left
+  // (the default `lap` whenever offsets are present).
+  const anchor = anchorToFraction(anchorPoint || "top_left")
   const anchorX = anchor.fx * canvasW
   const anchorY = anchor.fy * canvasH
 

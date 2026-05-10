@@ -7,7 +7,9 @@ import {
   extractLayerPositionConfig,
   getLayerType,
   hasExpressionCoords,
-  resolveLayerRect,
+  // To revert to the previous interpretation, swap `resolveLayerRectV2`
+  // back to `resolveLayerRect` here (and at the call sites below).
+  resolveLayerRectV2 as resolveLayerRect,
 } from "../../utils/layerGeometry"
 import { ExpressionConfirmDialog } from "./ExpressionConfirmDialog"
 
