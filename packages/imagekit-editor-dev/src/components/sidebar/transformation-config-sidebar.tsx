@@ -227,42 +227,72 @@ export const TransformationConfigSidebar: React.FC = () => {
   }, [initialBoundFields, footerSessionResetKey])
 
   const defaultValues = useMemo(() => {
-    if (
-      transformationToEdit &&
-      selectedTransformation &&
-      transformationToEdit.position === "inplace"
-    ) {
-      const currentValues: Record<string, unknown> = {}
+    if (!selectedTransformation) return {}
 
-      selectedTransformation.transformations.forEach((field) => {
-        if (
-          editedTransformationValue &&
-          field.name in editedTransformationValue
-        ) {
-          const stored = editedTransformationValue[field.name]
-          // Variabilized field: seed RHF with the field's schema default so
-          // the (hidden) input + Zod validator have something sane to work
-          // with. The marker is the source of truth and is restored on Apply.
-          currentValues[field.name] = isVariableRef(stored)
-            ? (field.fieldProps?.defaultValue ?? "")
-            : stored
-        } else {
-          currentValues[field.name] = field.fieldProps?.defaultValue ?? ""
-        }
-      })
+    // Seed defaults in field declaration order so cross-field `isVisible`
+    // checks (e.g. `dpr` depends on `width`/`height`/`dprEnabled`) see the
+    // values seeded earlier in the same pass. Fields whose `isVisible`
+    // returns false against the accumulated seed are left `undefined` —
+    // their `.optional()` Zod schemas accept that, and cross-field
+    // `superRefine` rules (e.g. "DPR can only be used when width or height
+    // is specified") don't fire on undefined values. Without this, hidden
+    // fields with truthy defaults (`dpr: 1`) would block Apply even though
+    // the user never saw them.
+    const isInplace =
+      transformationToEdit?.position === "inplace" && !!editedTransformationValue
+    const acc: Record<string, unknown> = {}
 
-      return currentValues
-    } else if (selectedTransformation) {
-      return selectedTransformation.transformations.reduce(
-        (acc, field) => {
-          acc[field.name] = field.fieldProps?.defaultValue ?? ""
-          return acc
-        },
-        {} as Record<string, unknown>,
-      )
+    for (const field of selectedTransformation.transformations) {
+      // Stored value (inplace edit) always wins, even if the field would
+      // currently be hidden — we don't want to silently drop user data.
+      if (isInplace && editedTransformationValue && field.name in editedTransformationValue) {
+        const stored = editedTransformationValue[field.name]
+        // Variabilized field: seed RHF with the field's schema default so
+        // the (hidden) input + Zod validator have something sane to work
+        // with. The marker is the source of truth and is restored on Apply.
+        acc[field.name] = isVariableRef(stored)
+          ? (field.fieldProps?.defaultValue ?? "")
+          : stored
+        continue
+      }
+
+      if (field.isVisible && !field.isVisible(acc)) {
+        // Hidden field: leave undefined so cross-field refines don't fire.
+        continue
+      }
+
+      acc[field.name] = field.fieldProps?.defaultValue ?? ""
     }
-    return {}
+
+    return acc
   }, [transformationToEdit, selectedTransformation, editedTransformationValue])
+
+  // Variable-bound fields are not edited via the normal input — the user
+  // sees a chip and the form holds a placeholder seed (e.g. "" for a hex
+  // color, default for a slider). Per-field Zod errors on those fields
+  // would block Apply for values the user can't directly fix. Strip
+  // errors keyed by a bound field name; cross-field refines on the same
+  // object are unaffected (they ran against the seed, which is the same
+  // as it would be without binding).
+  const resolver = useMemo(() => {
+    const baseResolver = zodResolver(
+      selectedTransformation?.schema ?? z.object({}),
+    )
+    return async (
+      values: Record<string, unknown>,
+      context: unknown,
+      options: Parameters<typeof baseResolver>[2],
+    ) => {
+      const result = await baseResolver(values, context, options)
+      const boundNames = Object.keys(boundFields)
+      if (boundNames.length === 0 || !result.errors) return result
+      const filtered: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(result.errors)) {
+        if (!boundNames.includes(k)) filtered[k] = v
+      }
+      return { ...result, errors: filtered }
+    }
+  }, [selectedTransformation, boundFields])
 
   const {
     register,
@@ -274,7 +304,7 @@ export const TransformationConfigSidebar: React.FC = () => {
     control,
     trigger,
   } = useForm<Record<string, unknown>>({
-    resolver: zodResolver(selectedTransformation?.schema ?? z.object({})),
+    resolver,
     defaultValues: defaultValues,
   })
 
