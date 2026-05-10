@@ -22,6 +22,7 @@ import {
   type RequiredMetadata,
   type Signer,
   type Transformation,
+  type OnPickImage,
   useEditorStore,
 } from "./store"
 import { themeOverrides } from "./theme"
@@ -82,6 +83,7 @@ interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
   initialImages?: Array<string | InputFileElement<Metadata>>
   signer?: Signer<Metadata>
   onAddImage?: () => void
+  onPickImage?: OnPickImage
   exportOptions?: HeaderProps<Metadata>["exportOptions"]
   focusObjects?: ReadonlyArray<FocusObjects>
   onClose: (args: { dirty: boolean; destroy: () => void }) => void
@@ -96,6 +98,19 @@ interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
    * If omitted, the editor defaults to allowing all actions.
    */
   getTemplatePermissions?: GetTemplatePermissions
+  /**
+   * Pre-load this template by id. The editor calls templateStorage.getTemplate(id).
+   */
+  initialTemplateId?: string
+  /**
+   * Hide media library file actions (save as new file, etc.) when the editor
+   * is used outside the media library context.
+   */
+  hideMediaLibraryFileActions?: boolean
+  /**
+   * Whether this is an automation template (canvas-based).
+   */
+  isAutomationTemplate?: boolean
 }
 
 function ImageKitEditorImpl<M extends RequiredMetadata>(

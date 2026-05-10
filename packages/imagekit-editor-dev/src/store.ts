@@ -18,6 +18,13 @@ import { extractImagePath } from "./utils"
 
 export const TRANSFORMATION_STATE_VERSION = "v1" as const
 
+export interface OutputDimensions {
+  width: number
+  height: number
+}
+
+export type OnPickImage = () => Promise<string | null | undefined>
+
 export interface Transformation {
   id: string
   key: string

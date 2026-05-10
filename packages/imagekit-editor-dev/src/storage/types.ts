@@ -6,12 +6,22 @@ export interface TemplateCreator {
   email: string
 }
 
+export interface TemplateVariable {
+  name: string
+  label: string
+  fieldKey: string
+  transformationKey: string
+  defaultValue?: unknown
+}
+
 export interface TemplateRecord {
   id: string
   clientNumber: string
   isPrivate: boolean
   name: string
   transformations: Omit<Transformation, "id">[]
+  variables: TemplateVariable[]
+  isAutomationTemplate?: boolean
   /** Whether the active user has this template pinned. */
   isPinned: boolean
   createdBy: TemplateCreator
@@ -25,9 +35,11 @@ export type SaveTemplateInput = {
   id?: string
   name: string
   transformations: Omit<Transformation, "id">[]
+  variables?: TemplateVariable[]
   clientNumber?: string
   isPrivate?: boolean
   isPinned?: boolean
+  isAutomationTemplate?: boolean
   createdBy?: TemplateCreator
   updatedBy?: TemplateCreator
   createdAt?: number

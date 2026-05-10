@@ -11,6 +11,7 @@ export type {
   TemplateRecord,
   TemplateStorageHttpClient,
   TemplateStorageProvider,
+  TemplateVariable,
 } from "./storage"
 export {
   applyTemplateStorageAccessFailure,
@@ -18,5 +19,24 @@ export {
   normalizeTransformationStepsForPersistence,
   TemplateAccessDeniedError,
 } from "./storage"
-export type { FileElement, Signer, Transformation } from "./store"
+export type { FileElement, Signer, Transformation, OutputDimensions, OnPickImage } from "./store"
 export { TRANSFORMATION_STATE_VERSION } from "./store"
+export {
+  buildEditorTransformationString,
+  buildImageKitUrl,
+} from "./transformationConverter"
+export {
+  listVariables,
+  type VariableDescriptor,
+} from "./variables/listVariables"
+export {
+  isVariableRef,
+  resolveVariableRefs,
+  generateVariableName,
+  walkVariableRefs,
+  type VariableRef,
+} from "./variables"
+export {
+  VariableField,
+  type VariableFieldProps,
+} from "./components/variables/VariableField"

@@ -54,9 +54,11 @@ import {
 } from "../../schema"
 import { type SyncStatus, useEditorStore } from "../../store"
 import { isStepAligned } from "../../utils"
+import { walkVariableRefs } from "../../variables"
 import AnchorField from "../common/AnchorField"
 import CheckboxCardField from "../common/CheckboxCardField"
 import ColorPickerField from "../common/ColorPickerField"
+import { canBeVariable, VariableMarkerButton } from "./VariableMarkerButton"
 import RadiusInputField, {
   type RadiusErrors,
   type RadiusState,
@@ -253,6 +255,14 @@ export const TransformationConfigSidebar: React.FC = () => {
   useEffect(() => {
     reset(defaultValues)
   }, [reset, defaultValues])
+
+  const takenVariableNames = useMemo(() => {
+    const names = new Set<string>()
+    for (const t of transformations) {
+      walkVariableRefs(t.value, (ref) => names.add(ref.$var))
+    }
+    return names
+  }, [transformations])
 
   useEffect(() => {
     setTransformationConfigFormDirty(isDirty)
@@ -565,9 +575,20 @@ export const TransformationConfigSidebar: React.FC = () => {
                 )
               }
             >
-              <FormLabel htmlFor={field.name} fontSize="sm">
-                {field.label}
-              </FormLabel>
+              <HStack spacing={1} align="center" role="group">
+                <FormLabel htmlFor={field.name} fontSize="sm" mb={0}>
+                  {field.label}
+                </FormLabel>
+                {canBeVariable(field.fieldType) && (
+                  <VariableMarkerButton
+                    fieldLabel={field.label}
+                    takenNames={takenVariableNames}
+                    onCreate={(variable) => {
+                      setValue(field.name, { $var: variable.name, label: variable.label } as any, { shouldDirty: true })
+                    }}
+                  />
+                )}
+              </HStack>
               {field.fieldType === "select" ? (
                 <Controller
                   name={field.name}
