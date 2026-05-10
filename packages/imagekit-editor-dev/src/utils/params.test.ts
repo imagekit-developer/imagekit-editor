@@ -78,9 +78,9 @@ describe("isVariableNameUnique", () => {
   ]
 
   it("returns true for an unused name", () => {
-    expect(isVariableNameUnique("new_var", "t1", "shadow", transformations)).toBe(
-      true,
-    )
+    expect(
+      isVariableNameUnique("new_var", "t1", "shadow", transformations),
+    ).toBe(true)
   })
 
   it("returns false when name is already used by another field", () => {
@@ -194,15 +194,17 @@ describe("extractInlineVariables", () => {
   })
 
   it("extracts multiple distinct variables in order", () => {
-    expect(extractInlineVariables("Hi {{name}}, save {{discount}}%")).toEqual(
-      ["name", "discount"],
-    )
+    expect(extractInlineVariables("Hi {{name}}, save {{discount}}%")).toEqual([
+      "name",
+      "discount",
+    ])
   })
 
   it("deduplicates repeated variables", () => {
-    expect(
-      extractInlineVariables("{{x}} and {{y}} and {{x}} again"),
-    ).toEqual(["x", "y"])
+    expect(extractInlineVariables("{{x}} and {{y}} and {{x}} again")).toEqual([
+      "x",
+      "y",
+    ])
   })
 
   it("ignores invalid marker shapes", () => {
@@ -344,9 +346,7 @@ describe("resolveTemplateParams — inline variables", () => {
       discount: null,
       name: undefined,
     })
-    expect((resolved[0].value as Record<string, unknown>).text).toBe(
-      "% off, !",
-    )
+    expect((resolved[0].value as Record<string, unknown>).text).toBe("% off, !")
   })
 
   it("does not mutate original template", () => {

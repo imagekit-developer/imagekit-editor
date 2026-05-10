@@ -35,9 +35,9 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod"
 import { PiArrowLeft } from "@react-icons/all-files/pi/PiArrowLeft"
 import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
+import { PiCodeBold } from "@react-icons/all-files/pi/PiCodeBold"
 import { PiInfo } from "@react-icons/all-files/pi/PiInfo"
 import { PiX } from "@react-icons/all-files/pi/PiX"
-import { PiCodeBold } from "@react-icons/all-files/pi/PiCodeBold"
 import startCase from "lodash/startCase"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ColorPickerProps } from "react-best-gradient-color-picker"
@@ -55,7 +55,7 @@ import {
 } from "../../schema"
 import { type SyncStatus, useEditorStore } from "../../store"
 import { isStepAligned } from "../../utils"
-import { validateVariableName, isVariableNameUnique } from "../../utils/params"
+import { isVariableNameUnique, validateVariableName } from "../../utils/params"
 import AnchorField from "../common/AnchorField"
 import CheckboxCardField from "../common/CheckboxCardField"
 import ColorPickerField from "../common/ColorPickerField"
@@ -365,20 +365,45 @@ export const TransformationConfigSidebar: React.FC = () => {
           let val = editedTransformationValue[field.name]
           // Normalize raw padding values (e.g. from older templates or SDK format)
           // into the { mode, padding } shape expected by PaddingInputField.
-          if (field.fieldType === "padding-input" && val != null && typeof val !== "object") {
+          if (
+            field.fieldType === "padding-input" &&
+            val != null &&
+            typeof val !== "object"
+          ) {
             const str = String(val)
             const parts = str.split("_").map(Number)
             if (parts.length === 4 && parts.every((p) => !Number.isNaN(p))) {
-              val = { mode: "individual", padding: { top: parts[0], right: parts[1], bottom: parts[2], left: parts[3] } }
-            } else if (parts.length === 2 && parts.every((p) => !Number.isNaN(p))) {
-              val = { mode: "individual", padding: { top: parts[0], right: parts[1], bottom: parts[0], left: parts[1] } }
+              val = {
+                mode: "individual",
+                padding: {
+                  top: parts[0],
+                  right: parts[1],
+                  bottom: parts[2],
+                  left: parts[3],
+                },
+              }
+            } else if (
+              parts.length === 2 &&
+              parts.every((p) => !Number.isNaN(p))
+            ) {
+              val = {
+                mode: "individual",
+                padding: {
+                  top: parts[0],
+                  right: parts[1],
+                  bottom: parts[0],
+                  left: parts[1],
+                },
+              }
             } else {
               val = { mode: "uniform", padding: str }
             }
           }
           currentValues[field.name] = val
         } else {
-          currentValues[field.name] = field.fieldProps?.defaultValue ?? (field.fieldType === "anchor" ? undefined : "")
+          currentValues[field.name] =
+            field.fieldProps?.defaultValue ??
+            (field.fieldType === "anchor" ? undefined : "")
         }
       })
 
@@ -386,7 +411,9 @@ export const TransformationConfigSidebar: React.FC = () => {
     } else if (selectedTransformation) {
       return selectedTransformation.transformations.reduce(
         (acc, field) => {
-          acc[field.name] = field.fieldProps?.defaultValue ?? (field.fieldType === "anchor" ? undefined : "")
+          acc[field.name] =
+            field.fieldProps?.defaultValue ??
+            (field.fieldType === "anchor" ? undefined : "")
           return acc
         },
         {} as Record<string, unknown>,
@@ -445,13 +472,26 @@ export const TransformationConfigSidebar: React.FC = () => {
       }
       // Check uniqueness across store transformations
       const state = useEditorStore.getState()
-      if (!isVariableNameUnique(variableName, "", fieldName, state.transformations)) {
-        return { success: false, error: `Variable name "${variableName}" is already in use.` }
+      if (
+        !isVariableNameUnique(
+          variableName,
+          "",
+          fieldName,
+          state.transformations,
+        )
+      ) {
+        return {
+          success: false,
+          error: `Variable name "${variableName}" is already in use.`,
+        }
       }
       // Check uniqueness within draft params
       for (const [fn, vn] of Object.entries(draftParams)) {
         if (fn !== fieldName && vn === variableName) {
-          return { success: false, error: `Variable name "${variableName}" is already in use.` }
+          return {
+            success: false,
+            error: `Variable name "${variableName}" is already in use.`,
+          }
         }
       }
       setDraftParams((prev) => ({ ...prev, [fieldName]: variableName }))
@@ -538,7 +578,8 @@ export const TransformationConfigSidebar: React.FC = () => {
             transformation.id === transformationToEdit.targetId,
         )
 
-        const pendingParams = Object.keys(draftParams).length > 0 ? draftParams : undefined
+        const pendingParams =
+          Object.keys(draftParams).length > 0 ? draftParams : undefined
         const transformationId = addTransformation(
           {
             type: "transformation",
@@ -552,7 +593,8 @@ export const TransformationConfigSidebar: React.FC = () => {
 
         _setTransformationToEdit(transformationId, "inplace")
       } else {
-        const pendingParams = Object.keys(draftParams).length > 0 ? draftParams : undefined
+        const pendingParams =
+          Object.keys(draftParams).length > 0 ? draftParams : undefined
         const transformationId = addTransformation({
           type: "transformation",
           name: displayName,
@@ -777,7 +819,9 @@ export const TransformationConfigSidebar: React.FC = () => {
                         ? editedTransformation?.params?.[field.name]
                         : draftParams[field.name]
                     }
-                    onSetParam={!transformationToEdit ? handleDraftParam : undefined}
+                    onSetParam={
+                      !transformationToEdit ? handleDraftParam : undefined
+                    }
                   />
                 )}
               </Flex>
