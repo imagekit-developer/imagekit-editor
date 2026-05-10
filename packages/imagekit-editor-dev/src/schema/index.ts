@@ -1893,8 +1893,8 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationKey: "text",
             transformationGroup: "textLayer",
             helpText:
-              "Enter the text to overlay on the image. Use {{variable_name}} to embed variables.",
-            examples: ["Hello ", "{{user_name}}"],
+              "Enter the text to overlay on the image. Use {{variable_name}} to embed variables, or {{variable_name;default_value}} to provide a fallback shown when no override is supplied.",
+            examples: ["Hello ", "{{user_name}}", "{{discount;25}}% off"],
             supportsInlineVariables: true,
           },
           {

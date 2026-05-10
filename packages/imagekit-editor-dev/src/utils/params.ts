@@ -4,15 +4,18 @@ const VARIABLE_NAME_REGEX = /^[a-zA-Z][a-zA-Z0-9_]*$/
 const MAX_VARIABLE_NAME_LENGTH = 40
 
 /**
- * Matches inline variable markers of the form `{{variable_name}}` embedded
- * inside a string field value. The captured group is the variable name and
- * follows the same rules as `VARIABLE_NAME_REGEX`.
+ * Matches inline variable markers of the form `{{variable_name}}` or
+ * `{{variable_name;default_value}}` embedded inside a string field value.
+ * Capture group 1 is the variable name (same rules as `VARIABLE_NAME_REGEX`).
+ * Capture group 2 is the optional default value — any sequence of characters
+ * that does not contain `}`.
  */
-export const INLINE_VARIABLE_REGEX = /\{\{([a-zA-Z][a-zA-Z0-9_]*)\}\}/g
+export const INLINE_VARIABLE_REGEX =
+  /\{\{([a-zA-Z][a-zA-Z0-9_]*)(?:;([^}]*))?\}\}/g
 
 /**
  * Extracts unique inline variable names from a string value, in the order
- * they first appear.
+ * they first appear. Optional default values (after `;`) are ignored here.
  */
 export function extractInlineVariables(value: string): string[] {
   const seen: Record<string, true> = {}
@@ -32,20 +35,54 @@ export function extractInlineVariables(value: string): string[] {
 }
 
 /**
- * Substitutes `{{variable_name}}` markers in a string with values from the
- * override map. Markers without an override are left intact.
+ * Extracts inline variables along with their optional inline default values.
+ * If the same variable appears multiple times with different defaults, the
+ * first occurrence wins (later defaults are ignored).
+ */
+export function extractInlineVariablesWithDefaults(
+  value: string,
+): Array<{ name: string; defaultValue?: string }> {
+  const seen: Record<string, true> = {}
+  const result: Array<{ name: string; defaultValue?: string }> = []
+  const re = new RegExp(INLINE_VARIABLE_REGEX.source, "g")
+  let match: RegExpExecArray | null
+  // biome-ignore lint/suspicious/noAssignInExpressions: standard exec loop
+  while ((match = re.exec(value)) !== null) {
+    const name = match[1]
+    if (seen[name]) continue
+    seen[name] = true
+    const defaultValue = match[2]
+    result.push(defaultValue !== undefined ? { name, defaultValue } : { name })
+  }
+  return result
+}
+
+/**
+ * Substitutes `{{variable_name}}` (and `{{variable_name;default_value}}`)
+ * markers in a string with values from the override map.
+ *
+ * Resolution order per marker:
+ *   1. Override value from `paramValues` (if the key is present).
+ *   2. Inline default value (the `;default_value` portion), if provided.
+ *   3. The marker is left intact so callers can detect unresolved variables.
  */
 function substituteInlineVariables(
   value: string,
   paramValues: Record<string, unknown>,
 ): string {
-  return value.replace(INLINE_VARIABLE_REGEX, (marker, name) => {
-    if (name in paramValues) {
-      const v = paramValues[name]
-      return v == null ? "" : String(v)
-    }
-    return marker
-  })
+  return value.replace(
+    INLINE_VARIABLE_REGEX,
+    (marker, name, defaultValue?: string) => {
+      if (name in paramValues) {
+        const v = paramValues[name]
+        return v == null ? "" : String(v)
+      }
+      if (defaultValue !== undefined) {
+        return defaultValue
+      }
+      return marker
+    },
+  )
 }
 
 /**
@@ -149,13 +186,16 @@ export function getTemplateParams(
       if (typeof fieldValue !== "string") continue
       // Skip fields that are already whole-field bound — the binding wins.
       if (t.params && fieldName in t.params) continue
-      for (const variableName of extractInlineVariables(fieldValue)) {
+      for (const { name, defaultValue } of extractInlineVariablesWithDefaults(
+        fieldValue,
+      )) {
         results.push({
-          variableName,
+          variableName: name,
           fieldName,
           transformationKey: t.key,
           transformationName: t.name,
           inline: true,
+          ...(defaultValue !== undefined ? { defaultValue } : {}),
         })
       }
     }

@@ -398,3 +398,108 @@ describe("resolveTemplateParams — inline variables", () => {
     expect((resolved[1].value as Record<string, unknown>).text).toBe("Hi Eve")
   })
 })
+
+describe("inline variables with default values", () => {
+  it("extractInlineVariables ignores the default portion", () => {
+    expect(extractInlineVariables("{{name;Stranger}}")).toEqual(["name"])
+    expect(
+      extractInlineVariables("Hi {{name;Stranger}}, save {{discount;25}}%"),
+    ).toEqual(["name", "discount"])
+  })
+
+  it("uses the inline default when no override is provided", () => {
+    const template: Omit<Transformation, "id">[] = [
+      {
+        key: "transformation-text_layer",
+        name: "Text Layer",
+        type: "transformation",
+        value: { text: "{{discount;25}}% off, {{name;Stranger}}!" },
+      },
+    ]
+    const resolved = resolveTemplateParams(template, {})
+    expect((resolved[0].value as Record<string, unknown>).text).toBe(
+      "25% off, Stranger!",
+    )
+  })
+
+  it("override wins over inline default", () => {
+    const template: Omit<Transformation, "id">[] = [
+      {
+        key: "transformation-text_layer",
+        name: "Text Layer",
+        type: "transformation",
+        value: { text: "{{discount;25}}% off" },
+      },
+    ]
+    const resolved = resolveTemplateParams(template, { discount: 50 })
+    expect((resolved[0].value as Record<string, unknown>).text).toBe("50% off")
+  })
+
+  it("supports empty inline default (substitutes empty string)", () => {
+    const template: Omit<Transformation, "id">[] = [
+      {
+        key: "transformation-text_layer",
+        name: "Text Layer",
+        type: "transformation",
+        value: { text: "Hi{{suffix;}}!" },
+      },
+    ]
+    const resolved = resolveTemplateParams(template, {})
+    expect((resolved[0].value as Record<string, unknown>).text).toBe("Hi!")
+  })
+
+  it("leaves markers without defaults intact when no override is provided", () => {
+    const template: Omit<Transformation, "id">[] = [
+      {
+        key: "transformation-text_layer",
+        name: "Text Layer",
+        type: "transformation",
+        value: { text: "{{name}}" },
+      },
+    ]
+    const resolved = resolveTemplateParams(template, {})
+    expect((resolved[0].value as Record<string, unknown>).text).toBe("{{name}}")
+  })
+
+  it("getTemplateParams exposes inline default values", () => {
+    const template: Omit<Transformation, "id">[] = [
+      {
+        key: "transformation-text_layer",
+        name: "Text Layer",
+        type: "transformation",
+        value: { text: "{{discount;25}}% off, {{name}}!" },
+      },
+    ]
+    const result = getTemplateParams(template)
+    expect(result).toEqual([
+      {
+        variableName: "discount",
+        fieldName: "text",
+        transformationKey: "transformation-text_layer",
+        transformationName: "Text Layer",
+        inline: true,
+        defaultValue: "25",
+      },
+      {
+        variableName: "name",
+        fieldName: "text",
+        transformationKey: "transformation-text_layer",
+        transformationName: "Text Layer",
+        inline: true,
+      },
+    ])
+  })
+
+  it("substitutes null/undefined override (default is not used as a fallback)", () => {
+    const template: Omit<Transformation, "id">[] = [
+      {
+        key: "transformation-text_layer",
+        name: "Text Layer",
+        type: "transformation",
+        value: { text: "{{name;Stranger}}" },
+      },
+    ]
+    const resolved = resolveTemplateParams(template, { name: null })
+    expect((resolved[0].value as Record<string, unknown>).text).toBe("")
+  })
+})

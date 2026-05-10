@@ -36,9 +36,8 @@ export function resolveTransformationStep(
     for (const field of schemaItem.transformations) {
       if (
         field.transformationGroup &&
-        field.isVisible?.(
-          transformation.value as Record<string, unknown>,
-        ) !== false
+        field.isVisible?.(transformation.value as Record<string, unknown>) !==
+          false
       ) {
         const value = (transformation.value as Record<string, unknown>)[
           field.name
@@ -62,17 +61,14 @@ export function resolveTransformationStep(
   const transforms: Record<string, unknown> = Object.fromEntries(
     Object.entries(transformation.value)
       .map(([key, value]) => {
-        const field = schemaItem?.transformations.find(
-          (f) => f.name === key,
-        )
+        const field = schemaItem?.transformations.find((f) => f.name === key)
 
         if (field?.transformationGroup) return []
 
         if (
           field?.isTransformation &&
-          (field.isVisible?.(
-            transformation.value as Record<string, unknown>,
-          ) ?? true) &&
+          (field.isVisible?.(transformation.value as Record<string, unknown>) ??
+            true) &&
           value !== ""
         ) {
           return [field.transformationKey ?? key, value]
@@ -155,9 +151,9 @@ export function resolveTemplate(
     steps = template.slice(1)
   }
 
-  const resolved = paramValues
-    ? resolveTemplateParams(steps, paramValues)
-    : steps
+  // Always run resolveTemplateParams (even with no overrides) so that
+  // inline `{{var;default}}` markers get substituted with their defaults.
+  const resolved = resolveTemplateParams(steps, paramValues ?? {})
 
   return resolved
     .filter((t) => t.enabled !== false)
@@ -295,8 +291,12 @@ export function buildSingleLayerUrl(
     return null
   if (visibleTransformations[layerId] === false) return null
 
+  // Apply inline `{{var;default}}` defaults so the preview renders the
+  // default text instead of the raw marker.
+  const [resolvedTarget] = resolveTemplateParams([targetTransformation], {})
+
   // Resolve the layer to its IKTransformation (contains an `overlay` property)
-  const rawLayer = resolveTransformationStep(targetTransformation)
+  const rawLayer = resolveTransformationStep(resolvedTarget)
 
   // Strip positional properties from the overlay. The interactive preview
   // positions each layer via CSS — baking position into the image URL
@@ -351,7 +351,11 @@ export function buildBackdropUrl(options: {
       visibleTransformations[t.id] !== false && !isLayerTransformation(t.key),
   )
 
-  const ikTransformations = nonLayerSteps.map((t) =>
+  // Apply inline `{{var;default}}` defaults so previews render with the
+  // default values rather than the raw marker text.
+  const resolvedSteps = resolveTemplateParams(nonLayerSteps, {})
+
+  const ikTransformations = resolvedSteps.map((t) =>
     resolveTransformationStep(t),
   )
 
