@@ -18,6 +18,14 @@ import { extractImagePath } from "./utils"
 
 export const TRANSFORMATION_STATE_VERSION = "v1" as const
 
+export type TemplateAutomationVariable = {
+  id: string
+  label: string
+  fieldName: string
+  valuePath: string
+  fieldType?: string
+}
+
 export interface Transformation {
   id: string
   key: string
@@ -27,6 +35,8 @@ export interface Transformation {
   version?: typeof TRANSFORMATION_STATE_VERSION
   /** Persisted visibility flag. Absent or true = visible; false = hidden. */
   enabled?: boolean
+  /** Editor-authored fields exposed to creative automation. */
+  automationVariables?: TemplateAutomationVariable[]
 }
 
 export type RequiredMetadata = { requireSignedUrl: boolean }
@@ -159,6 +169,10 @@ export type EditorActions<
   updateTransformation: (
     id: string,
     updatedTransformation: Omit<Transformation, "id">,
+  ) => void
+  setTransformationAutomationVariables: (
+    id: string,
+    automationVariables: TemplateAutomationVariable[],
   ) => void
   setShowOriginal: (showOriginal: boolean) => void
   setTemplateName: (name: string) => void
@@ -537,6 +551,23 @@ const useEditorStore = create<EditorState & EditorActions>()(
       set((state) => ({
         transformations: state.transformations.map((t) =>
           t.id === id ? { ...updatedTransformation, id } : t,
+        ),
+        isPristine: false,
+        localChangeVersion: bumpVersion(state.localChangeVersion),
+      }))
+    },
+
+    setTransformationAutomationVariables: (id, automationVariables) => {
+      set((state) => ({
+        transformations: state.transformations.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                automationVariables: automationVariables.length
+                  ? automationVariables
+                  : undefined,
+              }
+            : t,
         ),
         isPristine: false,
         localChangeVersion: bumpVersion(state.localChangeVersion),

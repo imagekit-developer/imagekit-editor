@@ -14,6 +14,7 @@ import { TemplatePermissionsContextProvider } from "./context/TemplatePermission
 import { TemplateStorageContextProvider } from "./context/TemplateStorageContext"
 import {
   isTemplateAccessDeniedError,
+  type TemplateRecord,
   type TemplateStorageProvider,
 } from "./storage"
 import {
@@ -85,6 +86,8 @@ interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
   exportOptions?: HeaderProps<Metadata>["exportOptions"]
   focusObjects?: ReadonlyArray<FocusObjects>
   onClose: (args: { dirty: boolean; destroy: () => void }) => void
+  /** Template to load immediately when mounting the editor. */
+  initialTemplate?: TemplateRecord | null
   /**
    * Template persistence (list/save/delete/pin). Implemented by the host app —
    * the editor does not perform media library or other remote API calls itself.
@@ -109,6 +112,7 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     focusObjects,
     templateStorage,
     getTemplatePermissions,
+    initialTemplate,
   } = props
   const {
     addImage,
@@ -205,7 +209,26 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
       signer,
       focusObjects,
     })
-  }, [initialImages, signer, focusObjects, initialize])
+
+    if (initialTemplate) {
+      loadTemplate(initialTemplate.transformations)
+      useEditorStore.getState().hydrateTemplateMetadata({
+        templateId: initialTemplate.id,
+        templateName: initialTemplate.name,
+        templateIsPrivate:
+          typeof initialTemplate.isPrivate === "boolean"
+            ? initialTemplate.isPrivate
+            : null,
+      })
+    }
+  }, [
+    initialImages,
+    signer,
+    focusObjects,
+    initialize,
+    initialTemplate,
+    loadTemplate,
+  ])
 
   useImperativeHandle(
     ref,

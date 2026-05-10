@@ -18,11 +18,18 @@ export {
   normalizeTransformationStepsForPersistence,
   TemplateAccessDeniedError,
 } from "./storage"
-export type { FileElement, Signer, Transformation } from "./store"
-export { TRANSFORMATION_STATE_VERSION, generateBatchImageUrls } from "./store"
+export type {
+  FileElement,
+  Signer,
+  TemplateAutomationVariable,
+  Transformation,
+} from "./store"
+export { generateBatchImageUrls, TRANSFORMATION_STATE_VERSION } from "./store"
 export type {
   SignatureNode,
   TemplateSignature,
   TemplateTransformationSignature,
+  TemplateVariableSignature,
+  TemplateVariableValidation,
 } from "./utils/templateSignature"
 export { getTemplateSignature } from "./utils/templateSignature"

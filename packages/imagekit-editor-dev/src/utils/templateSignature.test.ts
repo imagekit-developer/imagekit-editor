@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { TemplateRecord } from "../storage"
-import { getTemplateSignature, type SignatureNode } from "./templateSignature"
+import { getTemplateSignature } from "./templateSignature"
 
 function makeTemplate(
   transformations: TemplateRecord["transformations"],
@@ -19,13 +19,8 @@ function makeTemplate(
   }
 }
 
-function objectFields(node: SignatureNode): Record<string, SignatureNode> {
-  expect(node.kind).toBe("object")
-  return node.kind === "object" ? node.fields : {}
-}
-
 describe("getTemplateSignature", () => {
-  it("keeps color replace values that differ from defaults", () => {
+  it("returns an empty variable list for templates without explicit variables", () => {
     const signature = getTemplateSignature(
       makeTemplate([
         {
@@ -39,19 +34,15 @@ describe("getTemplateSignature", () => {
             fromColor: null,
           },
         },
-      ] as TemplateRecord["transformations"]),
+      ]),
     )
 
-    const transformation = signature.transformations[0]
-    const fields = objectFields(transformation.value)
-
-    expect(Object.keys(fields).sort()).toEqual(["toColor", "tolerance"])
-    expect(fields.toColor.kind).toBe("string")
-    expect(fields.tolerance.kind).toBe("number")
-    expect(fields.fromColor).toBeUndefined()
+    expect(signature.version).toBe(2)
+    expect(signature.variables).toEqual([])
+    expect(signature.transformations).toEqual([])
   })
 
-  it("drops color replace values that are null or equal to defaults", () => {
+  it("emits only explicitly assigned variables with validation metadata", () => {
     const signature = getTemplateSignature(
       makeTemplate([
         {
@@ -61,20 +52,48 @@ describe("getTemplateSignature", () => {
           version: "v1",
           value: {
             toColor: "#23142c",
-            tolerance: 35,
-            fromColor: "",
+            tolerance: 47,
+            fromColor: null,
           },
+          automationVariables: [
+            {
+              id: "var-color",
+              label: "Brand color",
+              fieldName: "toColor",
+              valuePath: "toColor",
+              fieldType: "color-picker",
+            },
+            {
+              id: "var-tolerance",
+              label: "Tolerance",
+              fieldName: "tolerance",
+              valuePath: "tolerance",
+              fieldType: "slider",
+            },
+          ],
         },
-      ]),
+      ] as TemplateRecord["transformations"]),
     )
 
-    const transformation = signature.transformations[0]
-    const fields = objectFields(transformation.value)
-
-    expect(Object.keys(fields)).toEqual(["toColor"])
+    expect(signature.variables.map((variable) => variable.label)).toEqual([
+      "Brand color",
+      "Tolerance",
+    ])
+    expect(signature.variables[0]).toMatchObject({
+      id: "var-color",
+      fieldPath: "adjust-color-replace.toColor",
+      valuePath: "toColor",
+      valueType: "string",
+      validation: { color: true },
+    })
+    expect(signature.variables[1]).toMatchObject({
+      id: "var-tolerance",
+      fieldPath: "adjust-color-replace.tolerance",
+      valueType: "number",
+    })
   })
 
-  it("emits only the selected individual radius branch", () => {
+  it("keeps radius variables pinned to the selected individual leaf", () => {
     const signature = getTemplateSignature(
       makeTemplate([
         {
@@ -93,25 +112,29 @@ describe("getTemplateSignature", () => {
               },
             },
           },
+          automationVariables: [
+            {
+              id: "var-top-left",
+              label: "Top left radius",
+              fieldName: "radius",
+              valuePath: "radius.radius.topLeft",
+              fieldType: "radius-input",
+            },
+          ],
         },
       ]),
     )
 
-    const radiusFields = objectFields(signature.transformations[0].value)
-    const radiusGroup = radiusFields.radius
-    const radiusGroupFields = objectFields(radiusGroup)
-    const radiusValueFields = objectFields(radiusGroupFields.radius)
-
-    expect(radiusGroupFields.mode).toBeUndefined()
-    expect(Object.keys(radiusValueFields).sort()).toEqual([
-      "bottomLeft",
-      "bottomRight",
-      "topLeft",
-      "topRight",
-    ])
+    expect(signature.variables).toHaveLength(1)
+    expect(signature.variables[0]).toMatchObject({
+      fieldPath: "adjust-radius.radius.radius.topLeft",
+      valuePath: "radius.radius.topLeft",
+      valueType: "number",
+      defaultValue: 0,
+    })
   })
 
-  it("emits scalar radius in uniform mode and omits the default mode selector", () => {
+  it("keeps radius variables pinned to the selected uniform value", () => {
     const signature = getTemplateSignature(
       makeTemplate([
         {
@@ -125,43 +148,72 @@ describe("getTemplateSignature", () => {
               radius: 24,
             },
           },
+          automationVariables: [
+            {
+              id: "var-radius",
+              label: "Radius",
+              fieldName: "radius",
+              valuePath: "radius.radius",
+              fieldType: "radius-input",
+            },
+          ],
         },
       ]),
     )
 
-    const radiusFields = objectFields(signature.transformations[0].value)
-    const radiusGroupFields = objectFields(radiusFields.radius)
-    const radiusValue = radiusGroupFields.radius
-
-    expect(radiusGroupFields.mode).toBeUndefined()
-    expect(radiusValue.kind).toBe("union")
-    expect(radiusValue.kind === "union" ? radiusValue.options : []).toEqual([
-      { kind: "literal", value: "max" },
-      { kind: "number" },
-    ])
+    expect(signature.variables[0]).toMatchObject({
+      fieldPath: "adjust-radius.radius.radius",
+      valuePath: "radius.radius",
+      defaultValue: 24,
+    })
+    expect(signature.variables[0].signatureNode?.kind).toBe("union")
   })
 
-  it("omits transformations when no non-default values remain", () => {
+  it("emits duplicate transformation variables with indexed field paths", () => {
     const signature = getTemplateSignature(
       makeTemplate([
         {
           type: "transformation",
-          name: "Color Replace",
-          key: "adjust-color-replace",
+          name: "Headline",
+          key: "layers-text",
           version: "v1",
-          value: {
-            toColor: null,
-            tolerance: 35,
-            fromColor: "",
-          },
+          value: { text: "Sale" },
+          automationVariables: [
+            {
+              id: "var-headline",
+              label: "Headline",
+              fieldName: "text",
+              valuePath: "text",
+              fieldType: "input",
+            },
+          ],
         },
-      ] as TemplateRecord["transformations"]),
+        {
+          type: "transformation",
+          name: "Subtitle",
+          key: "layers-text",
+          version: "v1",
+          value: { text: "Today" },
+          automationVariables: [
+            {
+              id: "var-subtitle",
+              label: "Headline",
+              fieldName: "text",
+              valuePath: "text",
+              fieldType: "input",
+            },
+          ],
+        },
+      ]),
     )
 
-    expect(signature.transformations).toEqual([])
+    expect(signature.variables.map((variable) => variable.fieldPath)).toEqual([
+      "transformations.0.layers-text.text",
+      "transformations.1.layers-text.text",
+    ])
   })
 
-  it("keeps nested layer template values as an automation-visible array", () => {
+  it("supports explicit nested layer variable paths", () => {
     const signature = getTemplateSignature(
       makeTemplate([
         {
@@ -179,18 +231,70 @@ describe("getTemplateSignature", () => {
                 value: {
                   text: "Sale",
                   fontSize: 24,
-                  radius: 0,
                 },
               },
             ],
           },
+          automationVariables: [
+            {
+              id: "var-badge",
+              label: "Badge text",
+              fieldName: "nestedLayers",
+              valuePath: "nestedLayers.0.value.text",
+              fieldType: "input",
+            },
+          ],
         },
       ]),
     )
 
-    const fields = objectFields(signature.transformations[0].value)
+    expect(signature.variables[0]).toMatchObject({
+      fieldPath: "layers-image.nestedLayers.0.value.text",
+      defaultValue: "Sale",
+      fieldType: "input",
+      valueType: "string",
+    })
+    expect(signature.variables[0].signatureNode?.kind).toBe("string")
+  })
 
-    expect(fields.imageUrl.kind).toBe("string")
-    expect(fields.nestedLayers.kind).toBe("array")
+  it("marks nested image layer URL variables as image asset sources", () => {
+    const signature = getTemplateSignature(
+      makeTemplate([
+        {
+          type: "transformation",
+          name: "Parent Text",
+          key: "layers-text",
+          version: "v1",
+          value: {
+            text: "Sale",
+            nestedLayers: [
+              {
+                key: "layers-image",
+                name: "Badge Image",
+                type: "transformation",
+                value: {
+                  imageUrl: "badge.png",
+                },
+              },
+            ],
+          },
+          automationVariables: [
+            {
+              id: "var-badge-image",
+              label: "Badge image",
+              fieldName: "imageUrl",
+              valuePath: "nestedLayers.0.value.imageUrl",
+              fieldType: "input",
+            },
+          ],
+        },
+      ]),
+    )
+
+    expect(signature.variables[0]).toMatchObject({
+      fieldPath: "layers-text.nestedLayers.0.value.imageUrl",
+      defaultValue: "badge.png",
+      specialSource: "imageLayer",
+    })
   })
 })

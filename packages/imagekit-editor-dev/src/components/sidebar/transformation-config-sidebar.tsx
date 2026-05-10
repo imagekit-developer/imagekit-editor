@@ -54,7 +54,11 @@ import {
   RESIZE_CROP_MODES,
   transformationSchema,
 } from "../../schema"
-import { type SyncStatus, useEditorStore } from "../../store"
+import {
+  type SyncStatus,
+  type TemplateAutomationVariable,
+  useEditorStore,
+} from "../../store"
 import { isStepAligned } from "../../utils"
 import AnchorField from "../common/AnchorField"
 import CheckboxCardField from "../common/CheckboxCardField"
@@ -158,9 +162,211 @@ type NestedLayerValue = {
 
 const NESTED_LAYER_KEYS: NestedLayerKey[] = ["layers-text", "layers-image"]
 const MAX_NESTED_UI_DEPTH = 5
+const SIMPLE_VARIABLE_FIELD_TYPES = new Set([
+  "input",
+  "textarea",
+  "switch",
+  "select",
+  "select-creatable",
+  "slider",
+  "color-picker",
+  "anchor",
+  "radio-card",
+  "checkbox-card",
+  "zoom",
+])
+
+type VariableCandidate = {
+  fieldName: string
+  valuePath: string
+  label: string
+  fieldType?: string
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function startCasePath(path: string): string {
+  return path
+    .split(".")
+    .map((segment) => startCase(segment))
+    .join(" / ")
+}
+
+function getFieldVariableCandidates(
+  field: TransformationField,
+  value: unknown,
+): VariableCandidate[] {
+  const fieldType = field.fieldType
+  const makeCandidate = (valuePath: string, label = field.label) => ({
+    fieldName: field.name,
+    valuePath,
+    label,
+    fieldType,
+  })
+
+  if (fieldType === "radius-input") {
+    const mode = isRecord(value) ? value.mode : undefined
+    if (mode === "individual") {
+      return ["topLeft", "topRight", "bottomRight", "bottomLeft"].map((key) =>
+        makeCandidate(
+          `${field.name}.radius.${key}`,
+          `${field.label} ${startCase(key)}`,
+        ),
+      )
+    }
+    return [makeCandidate(`${field.name}.radius`)]
+  }
+
+  if (fieldType === "padding-input") {
+    const mode = isRecord(value) ? value.mode : undefined
+    if (mode === "individual") {
+      return ["top", "right", "bottom", "left"].map((key) =>
+        makeCandidate(
+          `${field.name}.padding.${key}`,
+          `${field.label} ${startCase(key)}`,
+        ),
+      )
+    }
+    return [makeCandidate(`${field.name}.padding`)]
+  }
+
+  if (fieldType === "gradient-picker") {
+    return ["from", "to", "direction", "stopPoint"].map((key) =>
+      makeCandidate(`${field.name}.${key}`, `${field.label} ${startCase(key)}`),
+    )
+  }
+
+  if (fieldType === "distort-perspective-input") {
+    return ["x1", "y1", "x2", "y2", "x3", "y3", "x4", "y4"].map((key) =>
+      makeCandidate(
+        `${field.name}.${key}`,
+        `${field.label} ${key.toUpperCase()}`,
+      ),
+    )
+  }
+
+  if (fieldType && SIMPLE_VARIABLE_FIELD_TYPES.has(fieldType)) {
+    return [makeCandidate(field.name)]
+  }
+
+  return []
+}
+
+function makeVariableId(valuePath: string): string {
+  const sanitizedPath = valuePath.replace(/[^a-zA-Z0-9]+/g, "-")
+  return `var-${sanitizedPath}-${Date.now()}`
+}
+
+type AutomationVariableButtonProps = {
+  candidates: VariableCandidate[]
+  variables: TemplateAutomationVariable[]
+  isDisabled: boolean
+  onSave(candidate: VariableCandidate, label: string): void
+  onRemove(valuePath: string): void
+}
+
+function AutomationVariableButton({
+  candidates,
+  variables,
+  isDisabled,
+  onSave,
+  onRemove,
+}: AutomationVariableButtonProps) {
+  const variableByPath = useMemo(
+    () => new Map(variables.map((variable) => [variable.valuePath, variable])),
+    [variables],
+  )
+  const [draftLabels, setDraftLabels] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    setDraftLabels(
+      candidates.reduce<Record<string, string>>((acc, candidate) => {
+        acc[candidate.valuePath] =
+          variableByPath.get(candidate.valuePath)?.label ?? candidate.label
+        return acc
+      }, {}),
+    )
+  }, [candidates, variableByPath])
+
+  if (!candidates.length) {
+    return null
+  }
+
+  const assignedCount = candidates.filter((candidate) =>
+    variableByPath.has(candidate.valuePath),
+  ).length
+
+  return (
+    <Popover placement="bottom-end" isLazy lazyBehavior="unmount">
+      <PopoverTrigger>
+        <Button
+          size="xs"
+          variant={assignedCount ? "solid" : "outline"}
+          colorScheme={assignedCount ? "blue" : "gray"}
+          isDisabled={isDisabled}
+        >
+          {assignedCount ? `Variable ${assignedCount}` : "Variable"}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent w="280px">
+        <PopoverBody>
+          <VStack align="stretch" spacing={3}>
+            {isDisabled ? (
+              <Text fontSize="xs" color="gray.600">
+                Apply this transformation before assigning variables.
+              </Text>
+            ) : null}
+            {candidates.map((candidate) => {
+              const existing = variableByPath.get(candidate.valuePath)
+              const draftLabel =
+                draftLabels[candidate.valuePath] ?? candidate.label
+              return (
+                <Box key={candidate.valuePath}>
+                  <Text fontSize="xs" color="gray.500" mb={1}>
+                    {startCasePath(candidate.valuePath)}
+                  </Text>
+                  <HStack spacing={2}>
+                    <Input
+                      size="sm"
+                      value={draftLabel}
+                      placeholder="Variable label"
+                      onChange={(event) =>
+                        setDraftLabels((previous) => ({
+                          ...previous,
+                          [candidate.valuePath]: event.target.value,
+                        }))
+                      }
+                    />
+                    <Button
+                      size="sm"
+                      colorScheme="blue"
+                      isDisabled={!draftLabel.trim()}
+                      onClick={() => onSave(candidate, draftLabel.trim())}
+                    >
+                      {existing ? "Save" : "Add"}
+                    </Button>
+                  </HStack>
+                  {existing ? (
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      colorScheme="red"
+                      mt={1}
+                      onClick={() => onRemove(candidate.valuePath)}
+                    >
+                      Remove variable
+                    </Button>
+                  ) : null}
+                </Box>
+              )
+            })}
+          </VStack>
+        </PopoverBody>
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 function getLayerTransformationItem(key: string) {
@@ -207,6 +413,14 @@ type NestedLayerFieldProps = {
   onChange: (value: unknown) => void
   focusObjects?: ReadonlyArray<string>
   depth: number
+  valuePathPrefix: string
+  automationVariables: TemplateAutomationVariable[]
+  isVariableDisabled: boolean
+  onSaveAutomationVariable: (
+    candidate: VariableCandidate,
+    label: string,
+  ) => void
+  onRemoveAutomationVariable: (valuePath: string) => void
 }
 
 function NestedLayerField({
@@ -216,6 +430,11 @@ function NestedLayerField({
   onChange,
   focusObjects,
   depth,
+  valuePathPrefix,
+  automationVariables,
+  isVariableDisabled,
+  onSaveAutomationVariable,
+  onRemoveAutomationVariable,
 }: NestedLayerFieldProps) {
   const normalizedValue =
     field.fieldType === "color-picker" && typeof value !== "string" ? "" : value
@@ -493,6 +712,11 @@ function NestedLayerField({
         onChange={onChange}
         focusObjects={focusObjects}
         depth={depth + 1}
+        valuePathPrefix={`${valuePathPrefix}.${field.name}`}
+        automationVariables={automationVariables}
+        isVariableDisabled={isVariableDisabled}
+        onSaveAutomationVariable={onSaveAutomationVariable}
+        onRemoveAutomationVariable={onRemoveAutomationVariable}
       />
     )
   }
@@ -511,6 +735,14 @@ type NestedLayersInputProps = {
   onChange: (value: unknown) => void
   focusObjects?: ReadonlyArray<string>
   depth?: number
+  valuePathPrefix?: string
+  automationVariables?: TemplateAutomationVariable[]
+  isVariableDisabled?: boolean
+  onSaveAutomationVariable?: (
+    candidate: VariableCandidate,
+    label: string,
+  ) => void
+  onRemoveAutomationVariable?: (valuePath: string) => void
 }
 
 function NestedLayersInput({
@@ -518,6 +750,11 @@ function NestedLayersInput({
   onChange,
   focusObjects,
   depth = 0,
+  valuePathPrefix = "nestedLayers",
+  automationVariables = [],
+  isVariableDisabled = true,
+  onSaveAutomationVariable = () => {},
+  onRemoveAutomationVariable = () => {},
 }: NestedLayersInputProps) {
   const layers = normalizeNestedLayers(value)
 
@@ -633,23 +870,54 @@ function NestedLayersInput({
                   }
                   return field.isVisible?.(layerValues) ?? true
                 })
-                .map((field) => (
-                  <FormControl key={field.name}>
-                    <FormLabel fontSize="xs" mb={1}>
-                      {field.label}
-                    </FormLabel>
-                    <NestedLayerField
-                      field={field}
-                      value={layerValues[field.name]}
-                      values={layerValues}
-                      onChange={(nextValue) =>
-                        setFieldValue(field.name, nextValue)
-                      }
-                      focusObjects={focusObjects}
-                      depth={depth}
-                    />
-                  </FormControl>
-                ))}
+                .map((field) => {
+                  const layerLabel = layer.name ?? layerItem?.name ?? layer.key
+                  const candidates = getFieldVariableCandidates(
+                    field,
+                    layerValues[field.name],
+                  ).map((candidate) => ({
+                    ...candidate,
+                    valuePath: `${valuePathPrefix}.${index}.value.${candidate.valuePath}`,
+                    label: `${layerLabel} ${candidate.label}`,
+                  }))
+
+                  return (
+                    <FormControl key={field.name}>
+                      <Flex
+                        align="center"
+                        justify="space-between"
+                        gap={2}
+                        mb={1}
+                      >
+                        <FormLabel fontSize="xs" mb={0}>
+                          {field.label}
+                        </FormLabel>
+                        <AutomationVariableButton
+                          candidates={candidates}
+                          variables={automationVariables}
+                          isDisabled={isVariableDisabled}
+                          onSave={onSaveAutomationVariable}
+                          onRemove={onRemoveAutomationVariable}
+                        />
+                      </Flex>
+                      <NestedLayerField
+                        field={field}
+                        value={layerValues[field.name]}
+                        values={layerValues}
+                        onChange={(nextValue) =>
+                          setFieldValue(field.name, nextValue)
+                        }
+                        focusObjects={focusObjects}
+                        depth={depth}
+                        valuePathPrefix={`${valuePathPrefix}.${index}.value`}
+                        automationVariables={automationVariables}
+                        isVariableDisabled={isVariableDisabled}
+                        onSaveAutomationVariable={onSaveAutomationVariable}
+                        onRemoveAutomationVariable={onRemoveAutomationVariable}
+                      />
+                    </FormControl>
+                  )
+                })}
             </VStack>
           </Box>
         )
@@ -670,6 +938,7 @@ export const TransformationConfigSidebar: React.FC = () => {
     _setTransformationToEdit,
     _setSelectedTransformationKey,
     setTransformationConfigFormDirty,
+    setTransformationAutomationVariables,
   } = useEditorStore()
   const syncStatus = useEditorStore((s) => s.syncStatus)
   const templateStorageWriteBlocked = useEditorStore(
@@ -705,6 +974,7 @@ export const TransformationConfigSidebar: React.FC = () => {
         transformation.id === transformationToEdit.transformationId,
     )
   }, [transformations, transformationToEdit])
+  const automationVariables = editedTransformation?.automationVariables ?? []
 
   const [hasAppliedInSession, setHasAppliedInSession] = useState(false)
 
@@ -849,6 +1119,7 @@ export const TransformationConfigSidebar: React.FC = () => {
           name: finalName,
           key: selectedTransformation.key,
           value: data,
+          automationVariables: editedTransformation?.automationVariables,
         })
       } else if (
         transformationToEdit &&
@@ -892,6 +1163,55 @@ export const TransformationConfigSidebar: React.FC = () => {
       transformations,
       updateTransformation,
       _setTransformationToEdit,
+    ],
+  )
+
+  const saveAutomationVariable = useCallback(
+    (candidate: VariableCandidate, label: string) => {
+      if (!editedTransformation) return
+      const existingVariable = automationVariables.find(
+        (variable) => variable.valuePath === candidate.valuePath,
+      )
+      const nextVariable: TemplateAutomationVariable = {
+        id: existingVariable?.id ?? makeVariableId(candidate.valuePath),
+        label,
+        fieldName: candidate.fieldName,
+        valuePath: candidate.valuePath,
+        fieldType: candidate.fieldType,
+      }
+      const nextVariables = existingVariable
+        ? automationVariables.map((variable) =>
+            variable.valuePath === candidate.valuePath
+              ? nextVariable
+              : variable,
+          )
+        : [...automationVariables, nextVariable]
+      setTransformationAutomationVariables(
+        editedTransformation.id,
+        nextVariables,
+      )
+    },
+    [
+      automationVariables,
+      editedTransformation,
+      setTransformationAutomationVariables,
+    ],
+  )
+
+  const removeAutomationVariable = useCallback(
+    (valuePath: string) => {
+      if (!editedTransformation) return
+      setTransformationAutomationVariables(
+        editedTransformation.id,
+        automationVariables.filter(
+          (variable) => variable.valuePath !== valuePath,
+        ),
+      )
+    },
+    [
+      automationVariables,
+      editedTransformation,
+      setTransformationAutomationVariables,
     ],
   )
 
@@ -1080,9 +1400,21 @@ export const TransformationConfigSidebar: React.FC = () => {
                 )
               }
             >
-              <FormLabel htmlFor={field.name} fontSize="sm">
-                {field.label}
-              </FormLabel>
+              <Flex align="center" justify="space-between" gap={2} mb={2}>
+                <FormLabel htmlFor={field.name} fontSize="sm" mb={0}>
+                  {field.label}
+                </FormLabel>
+                <AutomationVariableButton
+                  candidates={getFieldVariableCandidates(
+                    field,
+                    watch(field.name),
+                  )}
+                  variables={automationVariables}
+                  isDisabled={!editedTransformation}
+                  onSave={saveAutomationVariable}
+                  onRemove={removeAutomationVariable}
+                />
+              </Flex>
               {field.fieldType === "select" ? (
                 <Controller
                   name={field.name}
@@ -1565,6 +1897,11 @@ export const TransformationConfigSidebar: React.FC = () => {
                     })
                   }
                   focusObjects={focusObjects}
+                  valuePathPrefix={field.name}
+                  automationVariables={automationVariables}
+                  isVariableDisabled={!editedTransformation}
+                  onSaveAutomationVariable={saveAutomationVariable}
+                  onRemoveAutomationVariable={removeAutomationVariable}
                 />
               ) : null}
               <FormErrorMessage fontSize="sm">
