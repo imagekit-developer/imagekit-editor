@@ -98,6 +98,9 @@ export const CanvasSettingsPopover: FC<Props> = ({ canvas }) => {
 
   const apply = () => {
     setCanvas({
+      // Preserve host-supplied sourceUrl — the popover only edits dimensions
+      // and the optional background; the source asset is not user-editable.
+      sourceUrl: canvas.sourceUrl,
       width: Math.max(MIN_DIM, Math.min(MAX_DIM, Math.round(width))),
       height: Math.max(MIN_DIM, Math.min(MAX_DIM, Math.round(height))),
       ...(bgEnabled ? { background: normalizeStoredBg(bg) } : {}),

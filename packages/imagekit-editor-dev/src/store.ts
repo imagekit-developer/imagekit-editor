@@ -29,15 +29,18 @@ export interface CanvasConfig {
   height: number
   /** Optional fill color (hex without `#`, e.g. "FFFFFF"). */
   background?: string
+  /**
+   * URL of the source asset the editor uses as the base image while authoring
+   * a canvas-mode template. Required: the editor never fetches its own asset
+   * and has no built-in default. Hosts typically point this at a 1×1
+   * transparent PNG on their own CDN (or any equivalent neutral source) so
+   * canvas templates don't depend on a third-party URL.
+   *
+   * Persisted with the template so re-rendering the same template later
+   * produces the same output without the host having to re-supply the URL.
+   */
+  sourceUrl: string
 }
-
-/**
- * Hardcoded source for canvas mode. A 1×1 fully transparent PNG hosted by
- * ImageKit; the resize step we inject in the preview pipeline expands it to
- * the configured canvas size.
- */
-export const CANVAS_SOURCE_URL =
-  "https://ik.imagekit.io/demo/pixel_transparent.png"
 
 export interface Transformation {
   id: string
@@ -406,10 +409,15 @@ const useEditorStore = create<EditorState & EditorActions>()(
       // run transformations against. The user never sees this in the image
       // grid because canvas-mode UI hides image management.
       if (initialData?.mode === "canvas") {
+        if (!initialData.canvas?.sourceUrl) {
+          throw new Error(
+            "ImageKitEditor: `canvas.sourceUrl` is required when mode is 'canvas'.",
+          )
+        }
         updates.mode = "canvas"
-        updates.canvas = initialData.canvas ?? null
+        updates.canvas = initialData.canvas
         const canvasImg: FileElement = {
-          url: CANVAS_SOURCE_URL,
+          url: initialData.canvas.sourceUrl,
           metadata: { requireSignedUrl: false },
           imageDimensions: null,
         }
@@ -857,14 +865,19 @@ const useEditorStore = create<EditorState & EditorActions>()(
 
     setMode: (mode, canvas) => {
       if (mode === "canvas") {
+        if (!canvas?.sourceUrl) {
+          throw new Error(
+            "ImageKitEditor: `canvas.sourceUrl` is required when switching to canvas mode.",
+          )
+        }
         const canvasImg: FileElement = {
-          url: CANVAS_SOURCE_URL,
+          url: canvas.sourceUrl,
           metadata: { requireSignedUrl: false },
           imageDimensions: null,
         }
         set({
           mode: "canvas",
-          canvas: canvas ?? null,
+          canvas,
           originalImageList: [canvasImg],
           imageList: [canvasImg.url],
           currentImage: canvasImg.url,
