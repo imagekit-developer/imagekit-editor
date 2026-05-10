@@ -52,10 +52,19 @@ export function findTransformationField(
   transformation: Transformation,
   fieldName: string,
 ): TransformationField | undefined {
-  const item = transformationSchema
+  const item = findStepSchemaItem(transformation)
+  return item?.transformations.find((f) => f.name === fieldName)
+}
+
+/**
+ * Resolve the full schema entry (containing the step's Zod object schema)
+ * for a transformation step purely from its `key` — no dependency on the
+ * runtime `id`, which is optional on persisted templates.
+ */
+function findStepSchemaItem(transformation: Transformation) {
+  return transformationSchema
     .find((schema) => schema.key === transformation.key.split("-")[0])
     ?.items.find((entry) => entry.key === transformation.key)
-  return item?.transformations.find((f) => f.name === fieldName)
 }
 
 /**
@@ -120,32 +129,91 @@ export function listVariables(
  * if (!result.success) console.error(result.error.flatten())
  * ```
  */
+/**
+ * Unwrap a Zod schema until we hit the underlying `ZodObject`, peeling off
+ * any `ZodEffects` (`.refine` / `.superRefine` / `.transform`),
+ * `ZodOptional`, `ZodNullable`, and `ZodDefault` wrappers along the way.
+ *
+ * Step schemas in this codebase are commonly built like:
+ *
+ * ```ts
+ * z.object({...}).superRefine(...).refine(...)
+ * ```
+ *
+ * which yields a `ZodEffects` at the top level. Naively reading `.shape`
+ * on that returns `undefined` because only `ZodObject` exposes `shape`.
+ * Unwrapping is safe: every wrapper here is a transparent decorator over
+ * the same inner object schema, so the field types we want to surface
+ * are unchanged.
+ */
+function unwrapToZodObject(
+  schema: z.ZodTypeAny,
+): z.ZodObject<Record<string, z.ZodTypeAny>> | undefined {
+  let current: z.ZodTypeAny = schema
+  // Bound the loop defensively in case of unforeseen wrapping; real schemas
+  // nest at most 2–3 levels deep.
+  for (let i = 0; i < 10; i++) {
+    if (current instanceof z.ZodObject) {
+      return current as z.ZodObject<Record<string, z.ZodTypeAny>>
+    }
+    if (current instanceof z.ZodEffects) {
+      current = current.innerType()
+      continue
+    }
+    if (
+      current instanceof z.ZodOptional ||
+      current instanceof z.ZodNullable ||
+      current instanceof z.ZodDefault
+    ) {
+      current = current._def.innerType
+      continue
+    }
+    return undefined
+  }
+  return undefined
+}
+
 export function buildVariablesSchema(
   transformations: Transformation[],
 ): z.ZodObject<Record<string, z.ZodTypeAny>> {
-  const variables = listVariables(transformations)
   const shape: Record<string, z.ZodTypeAny> = {}
+  const seen = new Set<string>()
 
-  for (const variable of variables) {
-    // Find the parent step's Zod schema and extract the shape for this field.
-    const stepSchema = transformationSchema
-      .flatMap((s) => s.items)
-      .find((item) =>
-        transformations.some(
-          (t) => t.id === variable.transformationId && t.key === item.key,
-        ),
-      )?.schema
+  // Walk transformations directly so each variable is resolved against the
+  // schema of the step that actually owns it. Resolving by `transformation.id`
+  // is unsafe: persisted templates routinely have `id === undefined` on every
+  // step, and `undefined === undefined` matching collapses to "first step
+  // with this key", which silently mis-routes to the wrong schema.
+  for (const t of transformations) {
+    const stepItem = findStepSchemaItem(t)
+    const objectSchema = stepItem
+      ? unwrapToZodObject(stepItem.schema)
+      : undefined
 
-    let fieldZodType: z.ZodTypeAny = z.unknown()
+    walkVariableRefs(t.value, (ref: VariableRef, path: string[]) => {
+      if (seen.has(ref.$var)) return
+      const fieldName = path[0]
+      if (!fieldName) return
 
-    if (stepSchema && "shape" in stepSchema) {
-      const fieldType = (stepSchema as z.ZodObject<Record<string, z.ZodTypeAny>>)
-        .shape[variable.fieldName]
-      if (fieldType) fieldZodType = fieldType
-    }
+      const fieldType = objectSchema?.shape[fieldName]
+      if (!fieldType) {
+        // Fail-loud in dev: a variable that can't be resolved against a real
+        // field would otherwise be silently accepted by `safeParse`, which
+        // defeats the purpose of the helper. We still skip adding a key so
+        // hosts get a strict schema (unknown keys passed by `safeParse` will
+        // be ignored, not blanket-accepted).
+        if (process.env.NODE_ENV !== "production") {
+          console.warn(
+            `[imagekit-editor] buildVariablesSchema: could not resolve Zod type for variable "${ref.$var}" (step key "${t.key}", field "${fieldName}"). Variable omitted from schema.`,
+          )
+        }
+        return
+      }
 
-    // All overrides are optional — a host may supply only a subset.
-    shape[variable.name] = fieldZodType.optional()
+      seen.add(ref.$var)
+      // All overrides are optional — a host may supply only a subset.
+      shape[ref.$var] = fieldType.optional()
+    })
   }
 
   return z.object(shape)
