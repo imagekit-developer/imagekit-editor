@@ -1019,6 +1019,69 @@ function recomputeImages() {
   }
 }
 
+export async function generateBatchImageUrls<
+  Metadata extends RequiredMetadata = RequiredMetadata,
+>(params: {
+  imageList: Array<string | InputFileElement<Metadata>>
+  transformations: Array<Omit<Transformation, "id">>
+  signer?: Signer<Metadata>
+  showOriginal?: boolean
+}): Promise<string[]> {
+  const normalizedTransformations: Transformation[] =
+    params.transformations.map((transformation, index) => ({
+      ...transformation,
+      id: `batch-${index}`,
+    }))
+  const visibleTransformations = normalizedTransformations.reduce<
+    Record<string, boolean>
+  >((acc, transformation) => {
+    acc[transformation.id] = transformation.enabled !== false
+    return acc
+  }, {})
+  const normalizedImageList: FileElement<Metadata>[] = params.imageList.map(
+    (image) => {
+      if (typeof image === "string") {
+        return {
+          url: image,
+          metadata: { requireSignedUrl: false } as Metadata,
+          imageDimensions: null,
+        }
+      }
+      return {
+        ...image,
+        imageDimensions: null,
+      }
+    },
+  )
+
+  const { imgs, toSign } = calculateImageList(
+    normalizedImageList,
+    normalizedTransformations,
+    visibleTransformations,
+    params.showOriginal ?? false,
+    params.signer,
+    0,
+    {},
+  )
+
+  const signer = params.signer
+  if (!signer || toSign.length === 0) {
+    return imgs
+  }
+
+  const signedImgs = [...imgs]
+  await Promise.all(
+    toSign.map(async ({ index, request }) => {
+      try {
+        signedImgs[index] = await signer(request)
+      } catch {
+        signedImgs[index] = imgs[index]
+      }
+    }),
+  )
+  return signedImgs
+}
+
 useEditorStore.subscribe(
   (state) => state.showOriginal,
   () => {

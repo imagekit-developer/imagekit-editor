@@ -19,4 +19,10 @@ export {
   TemplateAccessDeniedError,
 } from "./storage"
 export type { FileElement, Signer, Transformation } from "./store"
-export { TRANSFORMATION_STATE_VERSION } from "./store"
+export { TRANSFORMATION_STATE_VERSION, generateBatchImageUrls } from "./store"
+export type {
+  SignatureNode,
+  TemplateSignature,
+  TemplateTransformationSignature,
+} from "./utils/templateSignature"
+export { getTemplateSignature } from "./utils/templateSignature"

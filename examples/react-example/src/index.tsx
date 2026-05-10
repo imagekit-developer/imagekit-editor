@@ -1,4 +1,5 @@
 import {
+  generateBatchImageUrls,
   ImageKitEditor,
   type ImageKitEditorProps,
   type ImageKitEditorRef,
@@ -123,6 +124,11 @@ function App() {
     Omit<Transformation, "id">[] | null
   >(null)
   const [shouldLoadTemplate, setShouldLoadTemplate] = React.useState(false)
+  const [batchGeneratedUrls, setBatchGeneratedUrls] = React.useState<string[]>(
+    [],
+  )
+  const [visiblePreviewCount, setVisiblePreviewCount] = React.useState(10)
+  const [isGeneratingBatch, setIsGeneratingBatch] = React.useState(false)
 
   /**
    * Function moved from EditorLayout component
@@ -130,7 +136,8 @@ function App() {
    */
   const handleAddImage = useCallback(() => {
     const timestamp = Date.now()
-    const randomImage = `https://ik.imagekit.io/v3sxk1svj/placeholder.jpg?updatedAt=${timestamp}`
+    // const randomImage = `https://ik.imagekit.io/v3sxk1svj/placeholder.jpg?updatedAt=${timestamp}`
+    const randomImage = `https://stage-ik.imagekit.io/mulxmttk4/ik-canvas.png`
     ref.current?.loadImage(randomImage)
   }, [])
 
@@ -184,6 +191,30 @@ function App() {
       alert("🗑️ Template cleared!")
     }
   }, [])
+
+  const handleGenerateBatchPreview = useCallback(async () => {
+    if (!savedTemplate || savedTemplate.length === 0) {
+      alert("⚠️ Save a template first before generating batch preview.")
+      return
+    }
+
+    setIsGeneratingBatch(true)
+    try {
+      const sampleImages = Array.from({ length: 25 }).map((_, index) => ({
+        url: `https://ik.imagekit.io/v3sxk1svj/placeholder.jpg?updatedAt=${Date.now()}&batch=${index}`,
+        metadata: { requireSignedUrl: false, fileName: `batch-${index + 1}.jpg` },
+      }))
+
+      const urls = await generateBatchImageUrls({
+        imageList: sampleImages,
+        transformations: savedTemplate,
+      })
+      setBatchGeneratedUrls(urls)
+      setVisiblePreviewCount(10)
+    } finally {
+      setIsGeneratingBatch(false)
+    }
+  }, [savedTemplate])
 
   useEffect(() => {
     setEditorProps({
@@ -324,6 +355,21 @@ function App() {
             </button>
           )}
 
+          <button
+            type="button"
+            onClick={() => void handleGenerateBatchPreview()}
+            disabled={!savedTemplate || isGeneratingBatch}
+            style={{
+              padding: "10px 20px",
+              fontSize: "16px",
+              marginRight: "10px",
+              cursor: savedTemplate && !isGeneratingBatch ? "pointer" : "not-allowed",
+              opacity: savedTemplate && !isGeneratingBatch ? 1 : 0.5,
+            }}
+          >
+            {isGeneratingBatch ? "Generating..." : "Generate Batch Preview"}
+          </button>
+
           {savedTemplate && (
             <div
               style={{
@@ -374,6 +420,77 @@ function App() {
                   {JSON.stringify(savedTemplate, null, 2)}
                 </pre>
               </details>
+            </div>
+          )}
+
+          {batchGeneratedUrls.length > 0 && (
+            <div
+              style={{
+                marginTop: "20px",
+                padding: "15px",
+                backgroundColor: "#fff8e1",
+                borderRadius: "5px",
+                border: "2px solid #ffb300",
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>Batch preview</h3>
+              <p>
+                Showing {Math.min(visiblePreviewCount, batchGeneratedUrls.length)} of{" "}
+                {batchGeneratedUrls.length} generated URLs.
+              </p>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                  gap: "8px",
+                  maxHeight: "300px",
+                  overflow: "auto",
+                  marginBottom: "12px",
+                }}
+              >
+                {batchGeneratedUrls.slice(0, visiblePreviewCount).map((url) => (
+                  <img
+                    key={url}
+                    src={url}
+                    alt="Generated preview"
+                    style={{
+                      width: "100%",
+                      borderRadius: "4px",
+                      border: "1px solid #ddd",
+                    }}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setVisiblePreviewCount((prev) =>
+                    Math.min(prev + 10, batchGeneratedUrls.length),
+                  )
+                }
+                disabled={visiblePreviewCount >= batchGeneratedUrls.length}
+                style={{
+                  padding: "8px 14px",
+                  marginRight: "10px",
+                  cursor:
+                    visiblePreviewCount < batchGeneratedUrls.length
+                      ? "pointer"
+                      : "not-allowed",
+                }}
+              >
+                Preview more
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  alert(
+                    "Demo app: plug your upload flow here to store all generated images in Media Library.",
+                  )
+                }
+                style={{ padding: "8px 14px" }}
+              >
+                Store all in Media Library (demo hook)
+              </button>
             </div>
           )}
         </div>
