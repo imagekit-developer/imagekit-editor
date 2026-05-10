@@ -768,16 +768,18 @@ export const TransformationConfigSidebar: React.FC = () => {
                 <FormLabel htmlFor={field.name} fontSize="sm" mb={0}>
                   {field.label}
                 </FormLabel>
-                <FieldParamToggle
-                  transformationId={transformationToEdit?.transformationId}
-                  fieldName={field.name}
-                  currentVariable={
-                    transformationToEdit
-                      ? editedTransformation?.params?.[field.name]
-                      : draftParams[field.name]
-                  }
-                  onSetParam={!transformationToEdit ? handleDraftParam : undefined}
-                />
+                {field.supportsInlineVariables ? null : (
+                  <FieldParamToggle
+                    transformationId={transformationToEdit?.transformationId}
+                    fieldName={field.name}
+                    currentVariable={
+                      transformationToEdit
+                        ? editedTransformation?.params?.[field.name]
+                        : draftParams[field.name]
+                    }
+                    onSetParam={!transformationToEdit ? handleDraftParam : undefined}
+                  />
+                )}
               </Flex>
               {field.fieldType === "select" ? (
                 <Controller
