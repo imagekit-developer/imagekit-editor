@@ -15,10 +15,7 @@ import {
 } from "./schema"
 import { bumpLocalChangeVersion as bumpVersion } from "./sync/templateSyncVersioning"
 import { extractImagePath } from "./utils"
-import {
-  isVariableNameUnique,
-  validateVariableName,
-} from "./utils/params"
+import { isVariableNameUnique, validateVariableName } from "./utils/params"
 
 export const TRANSFORMATION_STATE_VERSION = "v1" as const
 
@@ -164,6 +161,13 @@ export interface EditorState<
    * null = image mode (backward compatible default).
    */
   canvas: CanvasState | null
+
+  /**
+   * ImageKit account ID used to construct the `urlEndpoint`
+   * (`https://ik.imagekit.io/<imagekitId>/`) for canvas-mode previews and
+   * single-layer URLs. Provided by the host via the editor `imagekitId` prop.
+   */
+  imagekitId: string
 }
 
 export type EditorActions<
@@ -177,6 +181,8 @@ export type EditorActions<
     templateId?: string
     /** When provided, the editor starts in canvas mode with this canvas config. */
     canvas?: CanvasState
+    /** ImageKit account ID used for canvas-mode `urlEndpoint`. */
+    imagekitId?: string
   }) => void
   destroy: () => void
   setCurrentImage: (imageSrc: string | undefined) => void
@@ -327,6 +333,7 @@ const DEFAULT_STATE: EditorState = {
   lastSavedAt: null,
   transformationConfigFormDirty: false,
   canvas: null,
+  imagekitId: "",
 }
 
 export const DEFAULT_CANVAS: CanvasState = {
@@ -371,6 +378,9 @@ const useEditorStore = create<EditorState & EditorActions>()(
       // Canvas mode initialization
       if (initialData?.canvas) {
         updates.canvas = initialData.canvas
+      }
+      if (initialData?.imagekitId !== undefined) {
+        updates.imagekitId = initialData.imagekitId
       }
       if (Object.keys(updates).length > 0) {
         set(updates as EditorState)
@@ -969,7 +979,9 @@ const calculateImageList = (
   activeImageIndex: number,
   signedUrlCache: Record<string, string>,
   canvas: CanvasState | null,
+  imagekitId: string,
 ) => {
+  const canvasUrlEndpoint = `https://ik.imagekit.io/${imagekitId}/`
   const IKTransformations = transformations
     .filter((transformation) => visibleTransformations[transformation.id])
     .map((transformation) => {
@@ -1093,12 +1105,15 @@ const calculateImageList = (
   if (canvas && imageList.length === 0) {
     if (showOriginal) {
       // "Show original" in canvas mode shows the bare canvas path (no transformations)
-      imgs[0] = canvas.mode === "image" && canvas.imageUrl ? canvas.imageUrl : CANVAS_IMAGE_PATH
+      imgs[0] =
+        canvas.mode === "image" && canvas.imageUrl
+          ? canvas.imageUrl
+          : CANVAS_IMAGE_PATH
     } else if (canvas.mode === "image" && canvas.imageUrl) {
       // Image canvas: use the provided URL as the base and apply transformations on top
       imgs[0] = buildSrc({
         src: canvas.imageUrl,
-        urlEndpoint: "https://ik.imagekit.io/customeraccountdemo/",
+        urlEndpoint: canvasUrlEndpoint,
         transformation: IKTransformations,
       })
     } else {
@@ -1115,7 +1130,7 @@ const calculateImageList = (
       }
       imgs[0] = buildSrc({
         src: CANVAS_IMAGE_PATH,
-        urlEndpoint: "https://ik.imagekit.io/customeraccountdemo/",
+        urlEndpoint: canvasUrlEndpoint,
         transformation: [canvasOverlay],
       })
     }
@@ -1198,6 +1213,7 @@ function recomputeImages() {
     currentIndex,
     state.signedUrlCache,
     state.canvas,
+    state.imagekitId,
   )
 
   const transformationsChanged = transformKey !== state.currentTransformKey

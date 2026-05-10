@@ -169,6 +169,12 @@ export interface BuildTemplateUrlOptions {
   template: Omit<Transformation, "id">[]
   /** Image URLs to apply the template to */
   images: string[]
+  /**
+   * ImageKit account ID used to construct the canvas-mode `urlEndpoint`
+   * (`https://ik.imagekit.io/<imagekitId>/`). Required when `template` contains
+   * a canvas step or the editor is otherwise rendering canvas-mode URLs.
+   */
+  imagekitId: string
   /** Values for template parameters (overrides for param-bound fields) */
   paramValues?: Record<string, unknown>
 }
@@ -191,7 +197,8 @@ export interface BuildTemplateUrlOptions {
  * ```
  */
 export function buildTemplateUrl(options: BuildTemplateUrlOptions): string[] {
-  const { template, images, paramValues } = options
+  const { template, images, paramValues, imagekitId } = options
+  const canvasUrlEndpoint = `https://ik.imagekit.io/${imagekitId}/`
 
   let canvas: CanvasState | null = null
   let transformationSteps = template
@@ -216,7 +223,7 @@ export function buildTemplateUrl(options: BuildTemplateUrlOptions): string[] {
       return [
         buildSrc({
           src: canvas.imageUrl,
-          urlEndpoint: "https://ik.imagekit.io/customeraccountdemo/",
+          urlEndpoint: canvasUrlEndpoint,
           transformation: ikTransformations,
         }),
       ]
@@ -234,7 +241,7 @@ export function buildTemplateUrl(options: BuildTemplateUrlOptions): string[] {
     return [
       buildSrc({
         src: CANVAS_IMAGE_PATH,
-        urlEndpoint: "https://ik.imagekit.io/customeraccountdemo/",
+        urlEndpoint: canvasUrlEndpoint,
         transformation: [canvasOverlay],
       }),
     ]
@@ -261,6 +268,8 @@ export interface BuildLayerUrlOptions {
   visibleTransformations: Record<string, boolean>
   /** The id of the layer transformation to isolate. */
   layerId: string
+  /** ImageKit account ID used to construct the `urlEndpoint`. */
+  imagekitId: string
 }
 
 /**
@@ -278,7 +287,8 @@ export interface BuildLayerUrlOptions {
 export function buildSingleLayerUrl(
   options: BuildLayerUrlOptions,
 ): string | null {
-  const { transformations, visibleTransformations, layerId } = options
+  const { transformations, visibleTransformations, layerId, imagekitId } =
+    options
 
   const targetTransformation = transformations.find((t) => t.id === layerId)
   if (!targetTransformation || !isLayerTransformation(targetTransformation.key))
@@ -308,7 +318,7 @@ export function buildSingleLayerUrl(
 
   return buildSrc({
     src: CANVAS_IMAGE_PATH,
-    urlEndpoint: "https://ik.imagekit.io/customeraccountdemo/",
+    urlEndpoint: `https://ik.imagekit.io/${imagekitId}/`,
     transformation: [wrapperOverlay],
   })
 }
@@ -324,8 +334,17 @@ export function buildBackdropUrl(options: {
   visibleTransformations: Record<string, boolean>
   imageUrl?: string
   canvas?: CanvasState | null
+  /** ImageKit account ID used to construct the canvas-mode `urlEndpoint`. */
+  imagekitId: string
 }): string | null {
-  const { transformations, visibleTransformations, imageUrl, canvas } = options
+  const {
+    transformations,
+    visibleTransformations,
+    imageUrl,
+    canvas,
+    imagekitId,
+  } = options
+  const canvasUrlEndpoint = `https://ik.imagekit.io/${imagekitId}/`
 
   const nonLayerSteps = transformations.filter(
     (t) =>
@@ -340,7 +359,7 @@ export function buildBackdropUrl(options: {
     if (canvas.mode === "image" && canvas.imageUrl) {
       return buildSrc({
         src: canvas.imageUrl,
-        urlEndpoint: "https://ik.imagekit.io/customeraccountdemo/",
+        urlEndpoint: canvasUrlEndpoint,
         transformation: ikTransformations,
       })
     }
@@ -356,7 +375,7 @@ export function buildBackdropUrl(options: {
     }
     return buildSrc({
       src: CANVAS_IMAGE_PATH,
-      urlEndpoint: "https://ik.imagekit.io/customeraccountdemo/",
+      urlEndpoint: canvasUrlEndpoint,
       transformation: [canvasOverlay],
     })
   }

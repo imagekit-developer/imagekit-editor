@@ -194,6 +194,7 @@ describe("buildTemplateUrl", () => {
     const result = buildTemplateUrl({
       template: [],
       images: ["https://ik.imagekit.io/demo/sample.jpg"],
+      imagekitId: "demo",
     })
     expect(result).toEqual(["https://ik.imagekit.io/demo/sample.jpg"])
   })
@@ -209,6 +210,7 @@ describe("buildTemplateUrl", () => {
         },
       ],
       images: ["https://ik.imagekit.io/demo/sample.jpg"],
+      imagekitId: "demo",
     })
     expect(result).toHaveLength(1)
     expect(result[0]).toContain("bl-10")
@@ -226,6 +228,7 @@ describe("buildTemplateUrl", () => {
         },
       ],
       images: ["https://ik.imagekit.io/demo/sample.jpg"],
+      imagekitId: "demo",
       paramValues: { my_blur: 50 },
     })
     expect(result).toHaveLength(1)
@@ -246,6 +249,7 @@ describe("buildTemplateUrl", () => {
         "https://ik.imagekit.io/demo/a.jpg",
         "https://ik.imagekit.io/demo/b.jpg",
       ],
+      imagekitId: "demo",
     })
     expect(result).toHaveLength(2)
     expect(result[0]).toContain("bl-5")
@@ -264,6 +268,7 @@ describe("buildTemplateUrl", () => {
         },
       ],
       images: ["https://ik.imagekit.io/demo/sample.jpg"],
+      imagekitId: "demo",
     })
     // No transformations applied → original URL returned
     expect(result).toEqual(["https://ik.imagekit.io/demo/sample.jpg"])
@@ -286,6 +291,7 @@ describe("buildTemplateUrl", () => {
         },
       ],
       images: [],
+      imagekitId: "demo",
     })
     expect(result).toHaveLength(1)
     expect(result[0]).toContain("canvas_layer")
@@ -342,6 +348,7 @@ describe("buildSingleLayerUrl", () => {
       transformations: baseTransformations,
       visibleTransformations: allVisible,
       layerId: "t2",
+      imagekitId: "demo",
     })
     expect(url).toBeTruthy()
     // Uses the canvas_layer path
@@ -361,6 +368,7 @@ describe("buildSingleLayerUrl", () => {
       transformations: baseTransformations,
       visibleTransformations: allVisible,
       layerId: "t3",
+      imagekitId: "demo",
     })
     expect(url).toBeTruthy()
     expect(url).toContain("canvas_layer")
@@ -377,6 +385,7 @@ describe("buildSingleLayerUrl", () => {
       transformations: baseTransformations,
       visibleTransformations: { ...allVisible, t2: false },
       layerId: "t2",
+      imagekitId: "demo",
     })
     expect(url).toBeNull()
   })
@@ -386,6 +395,7 @@ describe("buildSingleLayerUrl", () => {
       transformations: baseTransformations,
       visibleTransformations: allVisible,
       layerId: "t1", // blur, not a layer
+      imagekitId: "demo",
     })
     expect(url).toBeNull()
   })
@@ -395,6 +405,7 @@ describe("buildSingleLayerUrl", () => {
       transformations: baseTransformations,
       visibleTransformations: allVisible,
       layerId: "nonexistent",
+      imagekitId: "demo",
     })
     expect(url).toBeNull()
   })
@@ -420,6 +431,7 @@ describe("buildSingleLayerUrl", () => {
       transformations,
       visibleTransformations: { s1: true },
       layerId: "s1",
+      imagekitId: "demo",
     })
     expect(url).toBeTruthy()
     expect(url).toContain("canvas_layer")
@@ -464,6 +476,7 @@ describe("buildBackdropUrl", () => {
       transformations,
       visibleTransformations: allVisible,
       imageUrl: "https://ik.imagekit.io/demo/sample.jpg",
+      imagekitId: "demo",
     })
     expect(url).toBeTruthy()
     expect(url).toContain("bl-5")
@@ -475,6 +488,7 @@ describe("buildBackdropUrl", () => {
       transformations,
       visibleTransformations: { ...allVisible, t1: false },
       imageUrl: "https://ik.imagekit.io/demo/sample.jpg",
+      imagekitId: "demo",
     })
     expect(url).toBeTruthy()
     expect(url).not.toContain("bl-5")
@@ -485,6 +499,7 @@ describe("buildBackdropUrl", () => {
       transformations: [transformations[1]], // only text layer
       visibleTransformations: { t2: true },
       imageUrl: "https://ik.imagekit.io/demo/sample.jpg",
+      imagekitId: "demo",
     })
     expect(url).toBe("https://ik.imagekit.io/demo/sample.jpg")
   })
@@ -493,7 +508,8 @@ describe("buildBackdropUrl", () => {
     const url = buildBackdropUrl({
       transformations,
       visibleTransformations: allVisible,
-      canvas: { width: 500, height: 500, color: "#FF0000FF" },
+      canvas: { mode: "solid", width: 500, height: 500, color: "#FF0000FF" },
+      imagekitId: "demo",
     })
     expect(url).toBeTruthy()
     expect(url).toContain("canvas_layer")
@@ -504,6 +520,7 @@ describe("buildBackdropUrl", () => {
     const url = buildBackdropUrl({
       transformations,
       visibleTransformations: allVisible,
+      imagekitId: "demo",
     })
     expect(url).toBeNull()
   })

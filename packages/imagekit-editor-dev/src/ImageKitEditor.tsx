@@ -80,6 +80,12 @@ export interface ImageKitEditorRef {
 }
 
 interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
+  /**
+   * ImageKit account ID used to construct the `urlEndpoint`
+   * (`https://ik.imagekit.io/<imagekitId>/`) for canvas-mode previews and
+   * single-layer URLs.
+   */
+  imagekitId: string
   theme?: Dict
   initialImages?: Array<string | InputFileElement<Metadata>>
   signer?: Signer<Metadata>
@@ -118,6 +124,7 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     templateStorage,
     getTemplatePermissions,
     canvasMode,
+    imagekitId,
   } = props
   const {
     addImage,
@@ -212,8 +219,9 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
       signer,
       focusObjects,
       canvas: canvasMode ? DEFAULT_CANVAS : undefined,
+      imagekitId,
     })
-  }, [initialImages, signer, focusObjects, canvasMode, initialize])
+  }, [initialImages, signer, focusObjects, canvasMode, imagekitId, initialize])
 
   useImperativeHandle(
     ref,

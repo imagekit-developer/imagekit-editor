@@ -187,6 +187,7 @@ function App() {
 
   useEffect(() => {
     setEditorProps({
+      imagekitId: "customeraccountdemo",
       canvasMode: true,
       initialImages: [
         // {
