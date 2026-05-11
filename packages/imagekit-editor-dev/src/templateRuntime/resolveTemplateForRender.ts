@@ -26,6 +26,59 @@ function nameById(
 }
 
 /**
+ * Recursively substitutes template variables in `value` and every nested
+ * `children` transformation (same shape as top-level steps).
+ */
+function resolveTransformationSubtree(
+  step: Omit<Transformation, "id"> & {
+    id?: string
+    children?: Transformation[]
+  },
+  args: {
+    variables: TemplateVariable[]
+    valuesById: ReturnType<typeof resolveEffectiveVariableValuesById>
+    usedVariableIds: Set<string>
+    unresolvedIds: Set<string>
+  },
+): Omit<Transformation, "id"> & { id?: string } {
+  const { variables, valuesById, usedVariableIds, unresolvedIds } = args
+
+  const nextValue = deepMapStrings(step.value, (s) => {
+    for (const id of extractTemplateVariableIdsFromString({
+      input: s,
+      variables,
+    })) {
+      usedVariableIds.add(id)
+    }
+    const replaced = replaceTemplateVariablePlaceholders({
+      input: s,
+      variables,
+      valuesById,
+    })
+    if (!replaced.ok) {
+      replaced.unresolvedIds.forEach((id) => unresolvedIds.add(id))
+    }
+    return replaced.value
+  })
+
+  const rawChildren = step.children
+  if (!rawChildren?.length) {
+    return { ...step, value: nextValue as any }
+  }
+
+  const children = rawChildren.map((child) => ({
+    ...resolveTransformationSubtree(child, args),
+    id: child.id,
+  }))
+
+  return {
+    ...step,
+    value: nextValue as any,
+    children,
+  }
+}
+
+/**
  * Single entry point:
  * - determines which variables are used in the template
  * - resolves effective values (defaults + optional preset overrides)
@@ -49,29 +102,16 @@ export function resolveTemplateForRender(args: {
   const usedVariableIds = new Set<string>()
   const unresolvedIds = new Set<string>()
 
-  // First scan and attempt substitution; gather unresolved ids without mutating on failure.
-  const resolvedTransformations = transformations.map((step) => {
-    const nextValue = deepMapStrings(step.value, (s) => {
-      // Track usage even if we later fail.
-      for (const id of extractTemplateVariableIdsFromString({
-        input: s,
-        variables,
-      })) {
-        usedVariableIds.add(id)
-      }
-      const replaced = replaceTemplateVariablePlaceholders({
-        input: s,
-        variables,
-        valuesById,
-      })
-      if (!replaced.ok) {
-        replaced.unresolvedIds.forEach((id) => unresolvedIds.add(id))
-      }
-      return replaced.value
-    })
+  const scanArgs = {
+    variables,
+    valuesById,
+    usedVariableIds,
+    unresolvedIds,
+  }
 
-    return { ...step, value: nextValue as any }
-  })
+  const resolvedTransformations = transformations.map((step) =>
+    resolveTransformationSubtree(step, scanArgs),
+  )
 
   const used = Array.from(usedVariableIds)
   const unresolvedUsed = Array.from(unresolvedIds).filter((id) =>

@@ -364,15 +364,28 @@ describe("runtime/resolveTemplateToAutomationOutput", () => {
     expect(res.ok).toBe(true)
     if (!res.ok) return
 
+    // Canvas layers serialize as structured overlays (`solidColor`); `buildTransformationString`
+    // does not emit the legacy raw `l-image,i-ik_canvas,...` block between image overlays.
     expect(res.transformationString).toBe(
       [
         "cm-pad_resize,w-320,h-450,bg-E0E0E0",
         `l-image,ie-${encodeURIComponent(btoa("creative_automation_hackathon@@sample_images@@female-model-2.jpg"))},w-bw,h-bh,l-end`,
-        "l-image,i-ik_canvas,w-bw,h-150,e-gradient-ld-top_from-00000090_to-00000000_sp-0.6,lfo-bottom,l-end",
         `l-image,ie-${encodeURIComponent(btoa("creative_automation_hackathon@@sample_images@@gap_logo.png"))},lxc-60,lyc-N50,w-70,h-80,c-at_max,l-end`,
         `l-image,ie-${encodeURIComponent(btoa("creative_automation_hackathon@@sample_images@@h-m-1-logo-black-and-white.png"))},lxc-160,lyc-N50,w-70,h-80,c-at_max,t-10,l-end`,
       ].join(":"),
     )
+
+    const canvasIk = (
+      res.ikTransformations as Array<{ overlay?: unknown }>
+    ).find((t) => (t?.overlay as { type?: string })?.type === "solidColor")
+    expect(canvasIk?.overlay).toMatchObject({
+      type: "solidColor",
+      position: { focus: "bottom" },
+    })
+    const canvasTr = (
+      canvasIk?.overlay as { transformation?: Array<{ gradient?: string }> }
+    )?.transformation?.[0]
+    expect(canvasTr?.gradient).toContain("ld-top_from-00000090")
   })
 
   it("resolves a complex template without variables/presets (Ajio sample) and produces overlays for all layers", () => {
@@ -591,9 +604,20 @@ describe("runtime/resolveTemplateToAutomationOutput", () => {
     expect(res.transformationString).toContain(
       "l-image,i-creative_automation_hackathon@@sample_images@@female-model-2.jpg,w-bw,h-bh,l-end",
     )
-    expect(res.transformationString).toContain(
-      "l-image,i-ik_canvas,w-bw,h-150,e-gradient-ld-top_from-00000090_to-00000000_sp-0.6,lfo-bottom,l-end",
-    )
+    const canvasIkAjio = (
+      res.ikTransformations as Array<{ overlay?: unknown }>
+    ).find((t) => (t?.overlay as { type?: string })?.type === "solidColor")
+    expect(canvasIkAjio?.overlay).toMatchObject({
+      type: "solidColor",
+      position: { focus: "bottom" },
+    })
+    expect(
+      (
+        canvasIkAjio?.overlay as {
+          transformation?: Array<{ gradient?: string }>
+        }
+      )?.transformation?.[0]?.gradient,
+    ).toContain("ld-top_from-00000090")
     expect(res.transformationString).toContain(
       "l-image,i-creative_automation_hackathon@@sample_images@@gap_logo.png,lxc-60,lyc-N50,w-70,h-80,c-at_max,l-end",
     )
@@ -613,7 +637,7 @@ describe("runtime/resolveTemplateToAutomationOutput", () => {
       "l-text,i-JEANS,ly-N60,w-bw,co-666666,fs-20",
     )
     expect(res.transformationString).toContain(
-      "l-text,ie-TUlOLiA1MCUgT0ZGKg%3D%3D,w-bw,fs-30",
+      "l-text,ie-TUlOLiA1MCUgT0ZGKg%3D%3D,lfo-bottom,w-bw,fs-30",
     )
   })
 

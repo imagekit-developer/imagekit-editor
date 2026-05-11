@@ -7,6 +7,7 @@ import {
   InputGroup,
   InputLeftElement,
   Text,
+  useToast,
 } from "@chakra-ui/react"
 import { PiCheck } from "@react-icons/all-files/pi/PiCheck"
 import { PiCopy } from "@react-icons/all-files/pi/PiCopy"
@@ -14,6 +15,7 @@ import { PiMagnifyingGlass } from "@react-icons/all-files/pi/PiMagnifyingGlass"
 import { PiPlus } from "@react-icons/all-files/pi/PiPlus"
 import { PiStack } from "@react-icons/all-files/pi/PiStack"
 import { PiTrash } from "@react-icons/all-files/pi/PiTrash"
+import { PiUpload } from "@react-icons/all-files/pi/PiUpload"
 import { PiWarningCircle } from "@react-icons/all-files/pi/PiWarningCircle"
 import { PiX } from "@react-icons/all-files/pi/PiX"
 import type React from "react"
@@ -29,6 +31,41 @@ const InputAny = chakraAny(Input)
 const InputGroupAny = chakraAny(InputGroup)
 const InputLeftElementAny = chakraAny(InputLeftElement)
 const ButtonAny = chakraAny(Button)
+
+function parseCsvLine(line: string): string[] {
+  const result: string[] = []
+  let current = ""
+  let inQuotes = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') {
+        current += '"'
+        i++
+      } else if (ch === '"') {
+        inQuotes = false
+      } else {
+        current += ch
+      }
+    } else if (ch === '"') {
+      inQuotes = true
+    } else if (ch === ",") {
+      result.push(current)
+      current = ""
+    } else {
+      current += ch
+    }
+  }
+  result.push(current)
+  return result
+}
+
+function parseCsv(text: string): string[][] {
+  return text
+    .split(/\r?\n/)
+    .filter((line) => line.trim() !== "")
+    .map(parseCsvLine)
+}
 
 function makeId(prefix: "preset") {
   return typeof globalThis.crypto !== "undefined" &&
@@ -84,6 +121,8 @@ export function PresetsModal({ onClose }: PresetsModalProps) {
 
   const [isSaving, setIsSaving] = useState(false)
   const [copiedId, setCopiedId] = useState(false)
+  const csvInputRef = useRef<HTMLInputElement | null>(null)
+  const toast = useToast()
 
   const selectedPreset = useMemo(
     () => draftPresets.find((p) => p.id === selectedId) ?? null,
@@ -174,6 +213,110 @@ export function PresetsModal({ onClose }: PresetsModalProps) {
       window.setTimeout(() => setCopiedId(false), 1000)
     } catch {
       // ignore
+    }
+  }
+
+  const handleImportCsvClick = () => {
+    csvInputRef.current?.click()
+  }
+
+  const handleCsvFileSelected = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ""
+
+    try {
+      const rows = parseCsv(await file.text())
+
+      if (rows.length < 2) {
+        toast({
+          title: "CSV must have a header row and at least one data row.",
+          status: "error",
+          duration: 4000,
+          isClosable: true,
+        })
+        return
+      }
+
+      const [headerRow, ...dataRows] = rows
+      const variableHeaders = headerRow.slice(1)
+
+      if (variableHeaders.length === 0) {
+        toast({
+          title: "CSV has no variable columns.",
+          status: "error",
+          duration: 4000,
+          isClosable: true,
+        })
+        return
+      }
+
+      // Map header name → variable id (null when no matching variable exists)
+      const varIdByIndex = variableHeaders.map((name) => {
+        const found = storeVars.find((v) => v.name === name)
+        return found ? found.id : null
+      })
+
+      const skippedColumns = varIdByIndex.filter((id) => id === null).length
+
+      const newPresets: TemplatePreset[] = dataRows
+        .filter((row) => row[0]?.trim())
+        .map((row) => {
+          const valuesByVariableId: Record<string, string> = {}
+          for (let i = 0; i < variableHeaders.length; i++) {
+            const varId = varIdByIndex[i]
+            if (varId !== null && row[i + 1] !== undefined) {
+              valuesByVariableId[varId] = row[i + 1]
+            }
+          }
+          return {
+            id: makeId("preset"),
+            name: row[0].trim(),
+            valuesByVariableId,
+          }
+        })
+
+      if (newPresets.length === 0) {
+        toast({
+          title: "No valid preset rows found in the CSV.",
+          status: "error",
+          duration: 4000,
+          isClosable: true,
+        })
+        return
+      }
+
+      setDraftPresets((prev) => [...prev, ...newPresets])
+      setSelectedId(newPresets[0].id)
+
+      const count = newPresets.length
+      const presetWord = count === 1 ? "preset" : "presets"
+      if (skippedColumns > 0) {
+        const colWord = skippedColumns === 1 ? "column" : "columns"
+        toast({
+          title: `${count} ${presetWord} imported. ${skippedColumns} unknown variable ${colWord} skipped.`,
+          status: "warning",
+          duration: 5000,
+          isClosable: true,
+        })
+      } else {
+        toast({
+          title: `${count} ${presetWord} imported successfully.`,
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        })
+      }
+    } catch (err) {
+      console.error("CSV import failed:", err)
+      toast({
+        title: "Failed to read or parse the CSV file.",
+        status: "error",
+        duration: 4000,
+        isClosable: true,
+      })
     }
   }
 
@@ -658,48 +801,82 @@ export function PresetsModal({ onClose }: PresetsModalProps) {
           px="6"
           py="4"
           alignItems="center"
-          justifyContent="flex-end"
+          justifyContent="space-between"
           borderTopWidth="1px"
           borderColor="editorGray.300"
           gap="3"
         >
-          <Box
-            as="button"
-            display="inline-flex"
-            alignItems="center"
-            px="4"
-            py="2"
-            borderRadius="md"
-            borderWidth="1px"
-            borderColor="gray.200"
-            fontSize="sm"
-            fontWeight="medium"
-            color={isSaving ? "gray.400" : "editorGray.700"}
-            cursor={isSaving ? "not-allowed" : "pointer"}
-            onClick={isSaving ? undefined : onClose}
-            aria-disabled={isSaving}
-            _hover={{ bg: "gray.50" }}
-          >
-            Cancel
+          <Box>
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv"
+              style={{ display: "none" }}
+              onChange={handleCsvFileSelected}
+            />
+            <Box
+              as="button"
+              display="inline-flex"
+              alignItems="center"
+              gap="2"
+              px="4"
+              py="2"
+              borderRadius="md"
+              borderWidth="1px"
+              borderColor="gray.200"
+              bg="white"
+              fontSize="sm"
+              fontWeight="medium"
+              color={disableActions ? "gray.400" : "editorGray.700"}
+              cursor={disableActions ? "not-allowed" : "pointer"}
+              _hover={{ bg: disableActions ? "white" : "gray.50" }}
+              onClick={disableActions ? undefined : handleImportCsvClick}
+              aria-disabled={disableActions}
+            >
+              <Icon as={PiUpload} boxSize={4} />
+              Import Presets from CSV
+            </Box>
           </Box>
-          <Box
-            as="button"
-            display="inline-flex"
-            alignItems="center"
-            px="4"
-            py="2"
-            borderRadius="md"
-            bg={disableActions || isSaving ? "blue.200" : "blue.500"}
-            _hover={{ bg: "blue.600" }}
-            color="white"
-            fontSize="sm"
-            fontWeight="medium"
-            cursor={disableActions || isSaving ? "not-allowed" : "pointer"}
-            onClick={disableActions || isSaving ? undefined : handleSave}
-            aria-disabled={disableActions || isSaving}
-          >
-            {isSaving ? "Saving…" : "Save"}
-          </Box>
+
+          <FlexAny gap="3">
+            <Box
+              as="button"
+              display="inline-flex"
+              alignItems="center"
+              px="4"
+              py="2"
+              borderRadius="md"
+              borderWidth="1px"
+              borderColor="gray.200"
+              fontSize="sm"
+              fontWeight="medium"
+              color={isSaving ? "gray.400" : "editorGray.700"}
+              cursor={isSaving ? "not-allowed" : "pointer"}
+              onClick={isSaving ? undefined : onClose}
+              aria-disabled={isSaving}
+              _hover={{ bg: "gray.50" }}
+            >
+              Cancel
+            </Box>
+            <Box
+              as="button"
+              display="inline-flex"
+              alignItems="center"
+              px="4"
+              py="2"
+              borderRadius="md"
+              bg={disableActions || isSaving ? "blue.200" : "blue.500"}
+              _hover={{ bg: "blue.600" }}
+              color="white"
+              fontSize="sm"
+              fontWeight="medium"
+              cursor={disableActions || isSaving ? "not-allowed" : "pointer"}
+              onClick={disableActions || isSaving ? undefined : handleSave}
+              aria-disabled={disableActions || isSaving}
+            >
+              {isSaving ? "Saving…" : "Save"}
+            </Box>
+          </FlexAny>
         </FlexAny>
       </Box>
     </Box>

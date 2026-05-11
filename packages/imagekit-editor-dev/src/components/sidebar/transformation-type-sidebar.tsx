@@ -26,12 +26,20 @@ import { SidebarHeader } from "./sidebar-header"
 import { SidebarRoot } from "./sidebar-root"
 
 export const TransformationTypeSidebar: React.FC = () => {
-  const { transformations, _setSelectedTransformationKey, _setSidebarState } =
-    useEditorStore()
+  const {
+    transformations,
+    _internalState,
+    _setSelectedTransformationKey,
+    _setSidebarState,
+    _setParentForChild,
+  } = useEditorStore()
   const [searchQuery, setSearchQuery] = React.useState("")
+
+  const isChildAddMode = _internalState.parentForChild !== null
 
   const onClose = () => {
     _setSidebarState("none")
+    _setParentForChild(null)
   }
 
   const hasTransformations = React.useMemo(
@@ -40,11 +48,25 @@ export const TransformationTypeSidebar: React.FC = () => {
   )
 
   const filteredTransformationSchema = React.useMemo(() => {
+    const base = isChildAddMode
+      ? transformationSchema
+          .map((category) => ({
+            ...category,
+            items: category.items.filter(
+              (item) =>
+                item.key === "layers-text" ||
+                item.key === "layers-image" ||
+                item.key === "layers-canvas",
+            ),
+          }))
+          .filter((category) => category.items.length > 0)
+      : transformationSchema
+
     if (!searchQuery.trim()) {
-      return transformationSchema
+      return base
     }
 
-    return transformationSchema
+    return base
       .map((category) => ({
         ...category,
         items: category.items.filter((item) =>
@@ -52,7 +74,7 @@ export const TransformationTypeSidebar: React.FC = () => {
         ),
       }))
       .filter((category) => category.items.length > 0)
-  }, [searchQuery])
+  }, [searchQuery, isChildAddMode])
 
   const handleSelectTransformation = (key: string) => {
     const transformation = transformationSchema
@@ -71,7 +93,7 @@ export const TransformationTypeSidebar: React.FC = () => {
     <SidebarRoot>
       <SidebarHeader justifyContent="space-between">
         <Text fontSize="md" fontWeight="normal" mt={0}>
-          Add Transformation
+          {isChildAddMode ? "Add Nested Layer" : "Add Transformation"}
         </Text>
         {hasTransformations && (
           <IconButton

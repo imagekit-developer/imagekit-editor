@@ -15,6 +15,44 @@ function step(
 }
 
 describe("templateRuntime/resolveTemplateForRender", () => {
+  it("substitutes placeholders inside nested transformation.children values", () => {
+    const variables: TemplateVariable[] = [
+      { id: "nestedId", name: "Nested", defaultValue: "resolved-path" },
+    ]
+
+    const child: Transformation = {
+      id: "child-1",
+      key: "layers-image",
+      name: "Nested",
+      type: "transformation",
+      value: { imageUrl: "{{nestedId}}/badge.png" },
+    }
+
+    const res = resolveTemplateForRender({
+      transformations: [
+        {
+          key: "layers-image",
+          name: "Parent",
+          type: "transformation",
+          value: { imageUrl: "parent.jpg", width: "100" },
+          children: [child],
+        },
+      ],
+      variables,
+      presets: [],
+      activePresetId: null,
+    })
+
+    expect(res.ok).toBe(true)
+    if (res.ok) {
+      const parent = res.transformations[0]
+      expect(parent?.value.imageUrl).toBe("parent.jpg")
+      expect(parent?.children?.[0]?.value.imageUrl).toBe(
+        "resolved-path/badge.png",
+      )
+    }
+  })
+
   it("substitutes placeholders across nested string fields", () => {
     const variables: TemplateVariable[] = [
       { id: "a", name: "A", defaultValue: "da" },

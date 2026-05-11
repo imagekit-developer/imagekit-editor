@@ -126,70 +126,55 @@ describe("runtime/buildIkTransformations", () => {
     })
   })
 
-  it("includes typography (bold) in raw layer syntax when text layer uses lfo/nesting path", () => {
+  it("includes typography (bold) on SDK overlay when text layer uses lfo", () => {
     const out = buildIkTransformations([
       step("layers-text", {
         text: "Bold text",
         typography: ["bold"],
-        // Trigger raw path in formatter (lfo or children).
         lfo: "center",
       }),
     ])
 
     expect(out).toHaveLength(1)
     const t = out[0] as any
-    expect(typeof t.raw).toBe("string")
-    // ImageKit raw layer syntax uses `tg-` for typography (e.g. tg-b, tg-b_i).
-    expect(t.raw).toContain("tg-b")
-    expect(t.raw).not.toContain("al-")
-    expect(t.raw).not.toMatch(/\br-/)
-    // Raw path should not emit the structured overlay object.
-    expect(t.overlay).toBeUndefined()
+    expect(t.raw).toBeUndefined()
+    expect(t.overlay?.position?.focus).toBe("center")
+    expect(t.overlay?.transformation?.[0]?.typography).toBe("b")
   })
 
-  it("includes typography (italics) in raw layer syntax when text layer uses lfo/nesting path", () => {
+  it("includes typography (italics) on SDK overlay when text layer uses lfo", () => {
     const out = buildIkTransformations([
       step("layers-text", {
         text: "Italic text",
         typography: ["italic"],
-        // Trigger raw path in formatter (lfo or children).
         lfo: "center",
       }),
     ])
 
     expect(out).toHaveLength(1)
     const t = out[0] as any
-    expect(typeof t.raw).toBe("string")
-    // ImageKit raw layer syntax uses `tg-` for typography (e.g. tg-b, tg-b_i).
-    expect(t.raw).toContain("tg-i")
-    expect(t.raw).not.toContain("al-")
-    expect(t.raw).not.toMatch(/\br-/)
-    // Raw path should not emit the structured overlay object.
-    expect(t.overlay).toBeUndefined()
+    expect(t.raw).toBeUndefined()
+    expect(t.overlay?.position?.focus).toBe("center")
+    expect(t.overlay?.transformation?.[0]?.typography).toBe("i")
   })
 
-  it("includes typography (bold and italics) in raw layer syntax when text layer uses lfo/nesting path", () => {
+  it("includes typography (bold and italics) on SDK overlay when text layer uses lfo", () => {
     const out = buildIkTransformations([
       step("layers-text", {
         text: "Bold and Italic text",
         typography: ["bold", "italic"],
-        // Trigger raw path in formatter (lfo or children).
         lfo: "center",
       }),
     ])
 
     expect(out).toHaveLength(1)
     const t = out[0] as any
-    expect(typeof t.raw).toBe("string")
-    // ImageKit raw layer syntax uses `tg-` for typography (e.g. tg-b, tg-b_i).
-    expect(t.raw).toContain("tg-b_i")
-    expect(t.raw).not.toContain("al-")
-    expect(t.raw).not.toMatch(/\br-/)
-    // Raw path should not emit the structured overlay object.
-    expect(t.overlay).toBeUndefined()
+    expect(t.raw).toBeUndefined()
+    expect(t.overlay?.position?.focus).toBe("center")
+    expect(t.overlay?.transformation?.[0]?.typography).toBe("b_i")
   })
 
-  it("does not emit al- or r- on text raw path when opacity/radius switches are off (simulated form defaults)", () => {
+  it("does not emit alpha/radius on text overlay when opacity/radius switches are off", () => {
     const out = buildIkTransformations([
       step("layers-text", {
         text: "Hello",
@@ -200,13 +185,12 @@ describe("runtime/buildIkTransformations", () => {
         radius: 0,
       }),
     ])
-    const t = out[0] as any
-    expect(typeof t.raw).toBe("string")
-    expect(t.raw).not.toContain("al-")
-    expect(t.raw).not.toMatch(/\br-/)
+    const tr = (out[0] as any).overlay?.transformation?.[0]
+    expect(tr?.alpha).toBeUndefined()
+    expect(tr?.radius).toBeUndefined()
   })
 
-  it("emits al- and r- on text raw path when switches are on", () => {
+  it("emits alpha and radius on text overlay when switches are on (with lfo)", () => {
     const out = buildIkTransformations([
       step("layers-text", {
         text: "Hi",
@@ -217,9 +201,9 @@ describe("runtime/buildIkTransformations", () => {
         radius: 3,
       }),
     ])
-    const t = out[0] as any
-    expect(t.raw).toContain("al-5")
-    expect(t.raw).toContain("r-3")
+    const tr = (out[0] as any).overlay?.transformation?.[0]
+    expect(tr?.alpha).toBe(5)
+    expect(tr?.radius).toBe(3)
   })
 
   it("SDK text overlay omits alpha when opacitySwitch is false even if opacity is set", () => {
@@ -255,7 +239,7 @@ describe("runtime/buildIkTransformations", () => {
     expect(tr?.alpha).toBe(8)
   })
 
-  it("legacy text raw path without opacitySwitch still emits al- when opacity is set", () => {
+  it("legacy text layer without opacitySwitch still emits alpha when opacity is in range (with lfo)", () => {
     const out = buildIkTransformations([
       step("layers-text", {
         text: "LegacyRaw",
@@ -263,7 +247,8 @@ describe("runtime/buildIkTransformations", () => {
         opacity: 4,
       }),
     ])
-    expect((out[0] as any).raw).toContain("al-4")
+    const tr = (out[0] as any).overlay?.transformation?.[0]
+    expect(tr?.alpha).toBe(4)
   })
 
   it("omits rotation from SDK text overlay when angle is 0 (avoids rt-0 in URL)", () => {
@@ -376,7 +361,7 @@ describe("runtime/buildIkTransformations", () => {
     expect(tr.grayscale).toBe(true)
   })
 
-  it("builds a canvas layer as raw syntax with correct position precedence + optional switches", () => {
+  it("builds a canvas layer overlay with position precedence (lfo over coordinates) + optional switches", () => {
     const out = buildIkTransformations([
       step("layers-canvas", {
         width: 640,
@@ -404,20 +389,16 @@ describe("runtime/buildIkTransformations", () => {
 
     expect(out).toHaveLength(1)
     const t = out[0] as any
-    expect(typeof t.raw).toBe("string")
-    expect(t.overlay).toBeUndefined()
-
-    // Raw layer always starts with the canvas "ik_canvas" sentinel.
-    expect(t.raw).toContain("l-image,i-ik_canvas")
-    expect(t.raw).toContain("w-640")
-    expect(t.raw).toContain("h-480")
-    expect(t.raw).toContain("bg-112233")
-    expect(t.raw).toContain("al-7")
-    expect(t.raw).toContain("r-max")
-    expect(t.raw).toContain("e-gradient-")
-    // lfo should win over lxc/lyc and lx/ly
-    expect(t.raw).toContain("lfo-center")
-    expect(t.raw).not.toContain("lxc-")
-    expect(t.raw).not.toContain("lx-10")
+    expect(t.raw).toBeUndefined()
+    expect(t.overlay?.type).toBe("solidColor")
+    expect(t.overlay?.color).toBe("112233")
+    expect(t.overlay?.position).toEqual({ focus: "center" })
+    const tr = t.overlay?.transformation?.[0] as Record<string, unknown>
+    expect(tr?.width).toBe(640)
+    expect(tr?.height).toBe(480)
+    expect(tr?.alpha).toBe(7)
+    expect(tr?.radius).toBe("max")
+    expect(typeof tr?.gradient).toBe("string")
+    expect(tr?.gradient?.length ?? 0).toBeGreaterThan(0)
   })
 })

@@ -57,9 +57,10 @@ export function buildIkTransformations(
     }
 
     // Ensure layer formatters run even when only nested children are present.
-    // (Nested layers are stored in `value.children` which is not part of the visible field list.)
-    const children = (transformation.value as any)?.children
-    const hasChildren = Array.isArray(children) && children.length > 0
+    // (Nested layers are stored in `transformation.children`, not in visible fields.)
+    const hasChildren =
+      Array.isArray((transformation as any).children) &&
+      ((transformation as any).children as unknown[]).length > 0
     if (hasChildren) {
       const groupName =
         transformation.key === "layers-text"
@@ -114,6 +115,38 @@ export function buildIkTransformations(
         })
 
         formatter(groupValues, transforms)
+      }
+    }
+
+    // Append nested children into the parent overlay's transformation chain.
+    // Each enabled child is recursively serialized and added as an inner
+    // overlay step. Hidden children (enabled === false) are skipped.
+    const childList = (transformation as any).children as
+      | Transformation[]
+      | undefined
+    if (
+      childList &&
+      childList.length > 0 &&
+      typeof (transforms as any).overlay === "object" &&
+      (transforms as any).overlay !== null
+    ) {
+      const overlay = (transforms as any).overlay as Record<string, unknown>
+      const innerTransformation: Record<string, unknown>[] = Array.isArray(
+        overlay.transformation,
+      )
+        ? [...(overlay.transformation as Record<string, unknown>[])]
+        : []
+      for (const child of childList) {
+        if ((child as Transformation).enabled === false) continue
+        const childIK = buildIkTransformations([
+          child as Omit<Transformation, "id">,
+        ])[0]
+        if (childIK && (childIK as any).overlay) {
+          innerTransformation.push({ overlay: (childIK as any).overlay })
+        }
+      }
+      if (innerTransformation.length > 0) {
+        overlay.transformation = innerTransformation
       }
     }
 

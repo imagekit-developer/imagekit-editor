@@ -15,7 +15,6 @@ import { type RefinementCtx, z } from "zod/v3"
 import type { PerspectiveObject } from "../components/common/DistortPerspectiveInput"
 import type { GradientPickerState } from "../components/common/GradientPicker"
 import type { NestedLayer, NestedLayerPosition } from "../layers/nestedLayers"
-import { buildLayerRawString } from "../layers/nestedLayers"
 import { SIMPLE_OVERLAY_TEXT_REGEX, safeBtoa } from "../utils"
 import { gradientStopPointToDecimalExpr } from "../utils/ikGradient"
 import { background } from "./background"
@@ -2668,7 +2667,23 @@ const baseTransformationSchema: TransformationSchema[] = [
               defaultValue: "",
               isClearable: true,
             },
+            isVisible: ({ width, height }) => !!(width && height),
           },
+          // Focus for pad_resize (anchor only for padding position)
+          {
+            label: "Focus",
+            name: "focusAnchor",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              positions: ["center", "top", "bottom", "left", "right"],
+            },
+            helpText: "Position the image within the padded area.",
+            isVisible: ({ width, height, crop }) =>
+              !!(width && height && crop === "cm-pad_resize"),
+          },
+          // Focus for maintain_ratio (4 options)
           {
             label: "Focus",
             name: "focus",
@@ -2677,7 +2692,26 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationGroup: "imageLayer",
             fieldProps: {
               options: [
-                { label: "Select one", value: "" },
+                { label: "Auto", value: "auto" },
+                { label: "Anchor", value: "anchor" },
+                { label: "Face", value: "face" },
+                { label: "Object", value: "object" },
+              ],
+            },
+            helpText:
+              "Choose how to position the crop. Auto detects the most important part, anchor uses fixed positions, face/object focuses on detected subjects.",
+            isVisible: ({ width, height, crop }) =>
+              !!(width && height && crop === "c-maintain_ratio"),
+          },
+          // Focus for extract (6 options including Custom and Coordinates)
+          {
+            label: "Focus",
+            name: "focus",
+            fieldType: "select",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              options: [
                 { label: "Auto", value: "auto" },
                 { label: "Anchor", value: "anchor" },
                 { label: "Face", value: "face" },
@@ -2688,9 +2722,25 @@ const baseTransformationSchema: TransformationSchema[] = [
             },
             helpText:
               "Choose how to position the extracted region in overlay image. Custom uses a saved focus area from Media Library.",
-            isVisible: ({ crop }) => crop === "cm-extract",
+            isVisible: ({ width, height, crop }) =>
+              !!(width && height && crop === "cm-extract"),
           },
-          // Only for extract crop mode
+          // Focus for force (auto only)
+          {
+            label: "Focus",
+            name: "focus",
+            fieldType: "select",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              options: [{ label: "Auto", value: "auto" }],
+            },
+            helpText:
+              "Automatically detect the most important part of the overlay image.",
+            isVisible: ({ width, height, crop }) =>
+              !!(width && height && crop === "c-force"),
+          },
+          // Focus Anchor (for extract and maintain_ratio)
           {
             label: "Focus Anchor",
             name: "focusAnchor",
@@ -2710,20 +2760,13 @@ const baseTransformationSchema: TransformationSchema[] = [
                 "bottom_right",
               ],
             },
-            isVisible: ({ focus, crop }) =>
-              focus === "anchor" && crop === "cm-extract",
-          },
-          // Only for pad_resize crop mode
-          {
-            label: "Focus",
-            name: "focusAnchor",
-            fieldType: "anchor",
-            isTransformation: true,
-            transformationGroup: "imageLayer",
-            fieldProps: {
-              positions: ["center", "top", "bottom", "left", "right"],
-            },
-            isVisible: ({ crop }) => crop === "cm-pad_resize",
+            isVisible: ({ width, height, crop, focus }) =>
+              !!(
+                width &&
+                height &&
+                (crop === "cm-extract" || crop === "c-maintain_ratio") &&
+                focus === "anchor"
+              ),
           },
           {
             label: "Focus Object",
@@ -2736,7 +2779,13 @@ const baseTransformationSchema: TransformationSchema[] = [
             },
             helpText:
               "Select an object to focus on in the overlay image during extraction. The crop will center on this object.",
-            isVisible: ({ focus }) => focus === "object",
+            isVisible: ({ width, height, crop, focus }) =>
+              !!(
+                width &&
+                height &&
+                (crop === "cm-extract" || crop === "c-maintain_ratio") &&
+                focus === "object"
+              ),
           },
           {
             label: "Coordinate Method",
@@ -2753,7 +2802,13 @@ const baseTransformationSchema: TransformationSchema[] = [
             },
             helpText:
               "Choose whether coordinates are relative to the top-left corner or the center of the overlay image.",
-            isVisible: ({ focus }) => focus === "coordinates",
+            isVisible: ({ width, height, crop, focus }) =>
+              !!(
+                width &&
+                height &&
+                crop === "cm-extract" &&
+                focus === "coordinates"
+              ),
           },
           {
             label: "X (Horizontal)",
@@ -2764,8 +2819,14 @@ const baseTransformationSchema: TransformationSchema[] = [
             helpText:
               "Horizontal position from the top-left of the overlay image. Use an integer or expression.",
             examples: ["100", "iw_mul_0.4"],
-            isVisible: ({ focus, coordinateMethod }) =>
-              focus === "coordinates" && coordinateMethod === "topleft",
+            isVisible: ({ width, height, crop, focus, coordinateMethod }) =>
+              !!(
+                width &&
+                height &&
+                crop === "cm-extract" &&
+                focus === "coordinates" &&
+                coordinateMethod === "topleft"
+              ),
           },
           {
             label: "Y (Vertical)",
@@ -2776,8 +2837,14 @@ const baseTransformationSchema: TransformationSchema[] = [
             helpText:
               "Vertical position from the top-left of the overlay image. Use an integer or expression.",
             examples: ["100", "ih_mul_0.4"],
-            isVisible: ({ focus, coordinateMethod }) =>
-              focus === "coordinates" && coordinateMethod === "topleft",
+            isVisible: ({ width, height, crop, focus, coordinateMethod }) =>
+              !!(
+                width &&
+                height &&
+                crop === "cm-extract" &&
+                focus === "coordinates" &&
+                coordinateMethod === "topleft"
+              ),
           },
           {
             label: "XC (Horizontal Center)",
@@ -2788,8 +2855,14 @@ const baseTransformationSchema: TransformationSchema[] = [
             helpText:
               "Horizontal center position of the overlay image. Use an integer or expression.",
             examples: ["200", "iw_mul_0.5"],
-            isVisible: ({ focus, coordinateMethod }) =>
-              focus === "coordinates" && coordinateMethod === "center",
+            isVisible: ({ width, height, crop, focus, coordinateMethod }) =>
+              !!(
+                width &&
+                height &&
+                crop === "cm-extract" &&
+                focus === "coordinates" &&
+                coordinateMethod === "center"
+              ),
           },
           {
             label: "YC (Vertical Center)",
@@ -2800,8 +2873,14 @@ const baseTransformationSchema: TransformationSchema[] = [
             helpText:
               "Vertical center position of the overlay image. Use an integer or expression.",
             examples: ["200", "ih_mul_0.5"],
-            isVisible: ({ focus, coordinateMethod }) =>
-              focus === "coordinates" && coordinateMethod === "center",
+            isVisible: ({ width, height, crop, focus, coordinateMethod }) =>
+              !!(
+                width &&
+                height &&
+                crop === "cm-extract" &&
+                focus === "coordinates" &&
+                coordinateMethod === "center"
+              ),
           },
           {
             label: "Zoom",
@@ -2814,7 +2893,13 @@ const baseTransformationSchema: TransformationSchema[] = [
             },
             helpText:
               "Select the zoom level for the focus area. Higher zoom levels crop closer to the focus point.",
-            isVisible: ({ focus }) => focus === "object" || focus === "face",
+            isVisible: ({ width, height, crop, focus }) =>
+              !!(
+                width &&
+                height &&
+                (crop === "cm-extract" || crop === "c-maintain_ratio") &&
+                (focus === "object" || focus === "face")
+              ),
           },
           {
             label: "Position X",
@@ -3412,7 +3497,6 @@ const baseTransformationSchema: TransformationSchema[] = [
             positionY: layerYValidator.optional(),
             lxc: layerXValidator.optional(),
             lyc: layerYValidator.optional(),
-            children: z.array(nestedLayerSchema).optional(),
           })
           .refine(
             (val) => {
@@ -3828,83 +3912,6 @@ export const transformationFormatters: Record<
    * SDK's alpha range (1–9).
    */,
   textLayer: (values, transforms) => {
-    const children = Array.isArray((values as any).children)
-      ? ((values as any).children as NestedLayer[])
-      : []
-    const lfo = (values as any).lfo
-    const hasLfo = typeof lfo === "string" && lfo.trim() !== ""
-    if (children.length > 0 || hasLfo) {
-      const os = (values as any).opacitySwitch
-      const opacityEnabled =
-        os !== false &&
-        typeof (values as any).opacity === "number" &&
-        (values as any).opacity >= 1 &&
-        (values as any).opacity <= 9 &&
-        (os === true || os === undefined)
-      const rs = (values as any).radiusSwitch
-      const r = (values as any).radius
-      const radiusEnabled =
-        rs === true ||
-        (rs === undefined &&
-          r !== undefined &&
-          r !== "" &&
-          (r === "max" || (typeof r === "number" && r > 0)))
-      const paddingValue = (values as any).padding as
-        | { mode?: string; padding?: unknown }
-        | undefined
-      let paddingString: string | undefined
-      if (paddingValue?.mode === "uniform") {
-        const p = paddingValue.padding
-        if ((typeof p === "number" || typeof p === "string") && p !== "") {
-          paddingString = String(p)
-        }
-      } else if (paddingValue?.mode === "individual" && paddingValue.padding) {
-        const { top, right, bottom, left } = paddingValue.padding as any
-        if (
-          [top, right, bottom, left].every(
-            (n) => typeof n === "number" && Number.isFinite(n),
-          )
-        ) {
-          if (top === right && top === bottom && top === left) {
-            paddingString = String(top)
-          } else if (top === bottom && right === left) {
-            paddingString = `${top}_${right}`
-          } else {
-            paddingString = `${top}_${right}_${bottom}_${left}`
-          }
-        }
-      }
-
-      transforms.raw = buildLayerRawString({
-        layer: {
-          type: "text",
-          text: String((values as any).text ?? ""),
-          width: (values as any).width as any,
-          fontSize: (values as any).fontSize as any,
-          fontFamily: (values as any).fontFamily as any,
-          color: (values as any).color as any,
-          typography: (values as any).typography as any,
-          backgroundColor: (values as any).backgroundColor as any,
-          padding: paddingString,
-          radius: radiusEnabled ? (r as any) : undefined,
-          opacity: opacityEnabled
-            ? ((values as any).opacity as number)
-            : undefined,
-          position: hasLfo
-            ? { mode: "lfo", lfo: String(lfo).trim() }
-            : (values as any).positionX || (values as any).positionY
-              ? {
-                  mode: "topLeft",
-                  lx: String((values as any).positionX ?? ""),
-                  ly: String((values as any).positionY ?? ""),
-                }
-              : { mode: "none" },
-        },
-        children,
-      })
-      return
-    }
-
     const overlay: TextOverlay = { type: "text", text: "" }
 
     if (typeof values.text === "string") {
@@ -4058,39 +4065,40 @@ export const transformationFormatters: Record<
       overlay.transformation = [overlayTransform]
     }
 
-    // Positioning: use x/y coordinates or focus if anchor is provided
+    // Positioning: lfo (layer focus) wins over x/y and center coordinates
     const position: OverlayPosition = {}
-    if (
-      typeof values.positionX === "number" ||
-      typeof values.positionX === "string"
-    ) {
-      position.x = values.positionX.toString().replace(/^-/, "N")
-    }
-    if (
-      typeof values.positionY === "number" ||
-      typeof values.positionY === "string"
-    ) {
-      position.y = values.positionY.toString().replace(/^-/, "N")
-    }
-    if (
-      (values as any).lxc !== undefined &&
-      (values as any).lxc !== null &&
-      (values as any).lxc !== ""
-    ) {
-      // SDK maps this to `lxc` in URL
-      position.xCenter = String((values as any).lxc).replace(/^-/, "N")
-      // If xCenter is used, x should be ignored
-      delete (position as any).x
-    }
-    if (
-      (values as any).lyc !== undefined &&
-      (values as any).lyc !== null &&
-      (values as any).lyc !== ""
-    ) {
-      // SDK maps this to `lyc` in URL
-      position.yCenter = String((values as any).lyc).replace(/^-/, "N")
-      // If yCenter is used, y should be ignored
-      delete (position as any).y
+    const lfoText = (values as any).lfo
+    if (typeof lfoText === "string" && lfoText.trim() !== "") {
+      ;(position as OverlayPosition & { focus: string }).focus = lfoText.trim()
+    } else {
+      if (
+        typeof values.positionX === "number" ||
+        typeof values.positionX === "string"
+      ) {
+        position.x = values.positionX.toString().replace(/^-/, "N")
+      }
+      if (
+        typeof values.positionY === "number" ||
+        typeof values.positionY === "string"
+      ) {
+        position.y = values.positionY.toString().replace(/^-/, "N")
+      }
+      if (
+        (values as any).lxc !== undefined &&
+        (values as any).lxc !== null &&
+        (values as any).lxc !== ""
+      ) {
+        position.xCenter = String((values as any).lxc).replace(/^-/, "N")
+        delete (position as any).x
+      }
+      if (
+        (values as any).lyc !== undefined &&
+        (values as any).lyc !== null &&
+        (values as any).lyc !== ""
+      ) {
+        position.yCenter = String((values as any).lyc).replace(/^-/, "N")
+        delete (position as any).y
+      }
     }
     if (Object.keys(position).length > 0) {
       overlay.position = position
@@ -4108,44 +4116,6 @@ export const transformationFormatters: Record<
    * (0–100) are mapped to the SDK's alpha range (1–9).
    */
   imageLayer: (values, transforms) => {
-    const children = Array.isArray((values as any).children)
-      ? ((values as any).children as NestedLayer[])
-      : []
-    const lfo = (values as any).lfo
-    const hasLfo = typeof lfo === "string" && lfo.trim() !== ""
-    if (children.length > 0 || hasLfo) {
-      const opacity =
-        (values as any).opacityEnabled === true &&
-        (values as any).opacity !== undefined &&
-        (values as any).opacity !== ""
-          ? Number((values as any).opacity)
-          : undefined
-
-      transforms.raw = buildLayerRawString({
-        layer: {
-          type: "image",
-          imageUrl: String((values as any).imageUrl ?? ""),
-          width: (values as any).width as any,
-          height: (values as any).height as any,
-          opacity: Number.isFinite(opacity as number)
-            ? (opacity as number)
-            : undefined,
-          backgroundColor: (values as any).backgroundColor as any,
-          position: hasLfo
-            ? { mode: "lfo", lfo: String(lfo).trim() }
-            : (values as any).positionX || (values as any).positionY
-              ? {
-                  mode: "topLeft",
-                  lx: String((values as any).positionX ?? ""),
-                  ly: String((values as any).positionY ?? ""),
-                }
-              : { mode: "none" },
-        },
-        children,
-      })
-      return
-    }
-
     const overlay: Record<string, unknown> = { type: "image" }
 
     // Input path to the overlay image
@@ -4258,21 +4228,26 @@ export const transformationFormatters: Record<
       overlay.transformation = [overlayTransform]
     }
 
-    // Positioning via x/y or focus anchor
+    // Positioning: lfo (layer focus) wins over x/y and center coordinates
     const position: Record<string, unknown> = {}
-    if (values.positionX) {
-      position.x = values.positionX.toString().replace(/^-/, "N")
-    }
-    if (values.positionY) {
-      position.y = values.positionY.toString().replace(/^-/, "N")
-    }
-    if ((values as any).lxc !== undefined && (values as any).lxc !== "") {
-      position.xCenter = String((values as any).lxc).replace(/^-/, "N")
-      delete position.x
-    }
-    if ((values as any).lyc !== undefined && (values as any).lyc !== "") {
-      position.yCenter = String((values as any).lyc).replace(/^-/, "N")
-      delete position.y
+    const lfoImage = (values as any).lfo
+    if (typeof lfoImage === "string" && lfoImage.trim() !== "") {
+      position.focus = lfoImage.trim()
+    } else {
+      if (values.positionX) {
+        position.x = values.positionX.toString().replace(/^-/, "N")
+      }
+      if (values.positionY) {
+        position.y = values.positionY.toString().replace(/^-/, "N")
+      }
+      if ((values as any).lxc !== undefined && (values as any).lxc !== "") {
+        position.xCenter = String((values as any).lxc).replace(/^-/, "N")
+        delete position.x
+      }
+      if ((values as any).lyc !== undefined && (values as any).lyc !== "") {
+        position.yCenter = String((values as any).lyc).replace(/^-/, "N")
+        delete position.y
+      }
     }
 
     if (Object.keys(position).length > 0) {
@@ -4284,61 +4259,83 @@ export const transformationFormatters: Record<
   },
 
   canvasLayer: (values, transforms) => {
-    const children = Array.isArray((values as any).children)
-      ? ((values as any).children as NestedLayer[])
-      : []
+    const overlay: Record<string, unknown> = { type: "solidColor" }
+
+    if (typeof values.backgroundColor === "string" && values.backgroundColor) {
+      overlay.color = (values.backgroundColor as string).replace(/^#/, "")
+    }
+
+    const overlayTransform: Record<string, unknown> = {}
+
+    if (
+      values.width !== undefined &&
+      values.width !== null &&
+      values.width !== ""
+    ) {
+      overlayTransform.width = values.width
+    }
+    if (
+      values.height !== undefined &&
+      values.height !== null &&
+      values.height !== ""
+    ) {
+      overlayTransform.height = values.height
+    }
 
     const opacityEnabled = (values as any).opacitySwitch === true
-    const radiusEnabled = (values as any).radiusSwitch === true
-    const gradientEnabled = (values as any).gradientSwitch === true
-    const gradient = (values as any).gradient as
-      | {
-          from?: string
-          to?: string
-          direction?: string | number
-          stopPoint?: string | number
-        }
-      | undefined
+    if (opacityEnabled && typeof (values as any).opacity === "number") {
+      overlayTransform.alpha = (values as any).opacity
+    }
 
-    transforms.raw = buildLayerRawString({
-      layer: {
-        type: "canvas",
-        width: (values as any).width as any,
-        height: (values as any).height as any,
-        backgroundColor: (values as any).backgroundColor as any,
-        opacity:
-          opacityEnabled && typeof (values as any).opacity === "number"
-            ? (values as any).opacity
-            : undefined,
-        radius: radiusEnabled ? ((values as any).radius as any) : undefined,
-        gradient:
-          gradientEnabled && gradient
-            ? {
-                direction: gradient.direction,
-                from: gradient.from,
-                to: gradient.to,
-                stopPoint: gradient.stopPoint,
-              }
-            : undefined,
-        position: (values as any).lfo
-          ? { mode: "lfo", lfo: String((values as any).lfo) }
-          : ((values as any).lxc !== undefined && (values as any).lxc !== "") ||
-              ((values as any).lyc !== undefined && (values as any).lyc !== "")
-            ? {
-                mode: "center",
-                lxc: String((values as any).lxc ?? ""),
-                lyc: String((values as any).lyc ?? ""),
-              }
-            : (values as any).positionX || (values as any).positionY
-              ? {
-                  mode: "topLeft",
-                  lx: String((values as any).positionX ?? ""),
-                  ly: String((values as any).positionY ?? ""),
-                }
-              : { mode: "none" },
-        children,
-      },
-    })
+    const radiusEnabled = (values as any).radiusSwitch === true
+    if (radiusEnabled && (values as any).radius !== undefined) {
+      const r = (values as any).radius
+      if (r === "max" || (typeof r === "number" && r >= 0)) {
+        overlayTransform.radius = r
+      }
+    }
+
+    transformationFormatters.gradient(values, overlayTransform)
+
+    if (Object.keys(overlayTransform).length > 0) {
+      overlay.transformation = [overlayTransform]
+    }
+
+    const position: Record<string, unknown> = {}
+
+    const lfoCanvas = (values as any).lfo
+    if (typeof lfoCanvas === "string" && lfoCanvas.trim()) {
+      position.focus = lfoCanvas.trim()
+    } else {
+      if (values.positionX) {
+        position.x = values.positionX.toString().replace(/^-/, "N")
+      }
+      if (values.positionY) {
+        position.y = values.positionY.toString().replace(/^-/, "N")
+      }
+      if (
+        (values as any).lxc !== undefined &&
+        (values as any).lxc !== null &&
+        (values as any).lxc !== ""
+      ) {
+        position.xCenter = String((values as any).lxc).replace(/^-/, "N")
+        delete position.x
+      }
+      if (
+        (values as any).lyc !== undefined &&
+        (values as any).lyc !== null &&
+        (values as any).lyc !== ""
+      ) {
+        position.yCenter = String((values as any).lyc).replace(/^-/, "N")
+        delete position.y
+      }
+    }
+
+    if (Object.keys(position).length > 0) {
+      overlay.position = position
+    }
+
+    transforms.overlay = overlay
   },
   flip: (values, transforms) => {
     if ((values.flip as Array<string>)?.length) {

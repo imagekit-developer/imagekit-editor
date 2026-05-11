@@ -53,7 +53,11 @@ import {
   RESIZE_CROP_MODES,
   transformationSchema,
 } from "../../schema"
-import { type SyncStatus, useEditorStore } from "../../store"
+import {
+  findTransformationDeep,
+  type SyncStatus,
+  useEditorStore,
+} from "../../store"
 import { isStepAligned } from "../../utils"
 import AnchorField from "../common/AnchorField"
 import CheckboxCardField from "../common/CheckboxCardField"
@@ -76,7 +80,6 @@ import PaddingInputField, {
 import RadioCardField from "../common/RadioCardField"
 import { VariableAwareInput } from "../common/VariableAwareInput"
 import ZoomInput from "../common/ZoomInput"
-import { NestedLayersEditor } from "./NestedLayersEditor"
 import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
@@ -150,6 +153,7 @@ export const TransformationConfigSidebar: React.FC = () => {
   const {
     transformations,
     addTransformation,
+    addChildTransformation,
     updateTransformation,
     imageList,
     originalImageList,
@@ -159,6 +163,7 @@ export const TransformationConfigSidebar: React.FC = () => {
     _internalState,
     _setTransformationToEdit,
     _setSelectedTransformationKey,
+    _setParentForChild,
     setTransformationConfigFormDirty,
   } = useEditorStore()
   const syncStatus = useEditorStore((s) => s.syncStatus)
@@ -190,9 +195,9 @@ export const TransformationConfigSidebar: React.FC = () => {
 
   const editedTransformation = useMemo(() => {
     if (!transformationToEdit) return undefined
-    return transformations.find(
-      (transformation) =>
-        transformation.id === transformationToEdit.transformationId,
+    return findTransformationDeep(
+      transformations,
+      transformationToEdit.transformationId,
     )
   }, [transformations, transformationToEdit])
 
@@ -228,29 +233,15 @@ export const TransformationConfigSidebar: React.FC = () => {
         }
       })
 
-      // Layer nesting: not part of the visible field list, but persisted in value.
-      if (
-        editedTransformationValue &&
-        "children" in editedTransformationValue
-      ) {
-        currentValues.children = (editedTransformationValue as any).children
-      } else if (selectedTransformation.key.startsWith("layers-")) {
-        currentValues.children = []
-      }
-
       return currentValues
     } else if (selectedTransformation) {
-      const base = selectedTransformation.transformations.reduce(
+      return selectedTransformation.transformations.reduce(
         (acc, field) => {
           acc[field.name] = field.fieldProps?.defaultValue ?? ""
           return acc
         },
         {} as Record<string, unknown>,
       )
-      if (selectedTransformation.key.startsWith("layers-")) {
-        base.children = []
-      }
-      return base
     }
     return {}
   }, [transformationToEdit, selectedTransformation, editedTransformationValue])
@@ -344,11 +335,13 @@ export const TransformationConfigSidebar: React.FC = () => {
     }
     _setSelectedTransformationKey(null)
     _setTransformationToEdit(null)
+    _setParentForChild(null)
   }, [
     transformations.length,
     _setSidebarState,
     _setSelectedTransformationKey,
     _setTransformationToEdit,
+    _setParentForChild,
   ])
 
   const onBack = () => {
@@ -425,12 +418,23 @@ export const TransformationConfigSidebar: React.FC = () => {
 
         _setTransformationToEdit(transformationId, "inplace")
       } else {
-        const transformationId = addTransformation({
-          type: "transformation",
-          name: displayName,
-          key: selectedTransformation.key,
-          value: data,
-        })
+        const parentId = _internalState.parentForChild
+        const transformationId = parentId
+          ? addChildTransformation(parentId, {
+              type: "transformation",
+              name: displayName,
+              key: selectedTransformation.key,
+              value: data,
+            })
+          : addTransformation({
+              type: "transformation",
+              name: displayName,
+              key: selectedTransformation.key,
+              value: data,
+            })
+        if (parentId) {
+          _setParentForChild(null)
+        }
 
         _setTransformationToEdit(transformationId, "inplace")
       }
@@ -439,12 +443,15 @@ export const TransformationConfigSidebar: React.FC = () => {
     },
     [
       _internalState.transformationToEdit,
+      _internalState.parentForChild,
       addTransformation,
+      addChildTransformation,
       editedTransformation,
       selectedTransformation,
       transformations,
       updateTransformation,
       _setTransformationToEdit,
+      _setParentForChild,
     ],
   )
 
@@ -1146,20 +1153,6 @@ export const TransformationConfigSidebar: React.FC = () => {
               )}
             </FormControl>
           ))}
-
-        {selectedTransformation.key.startsWith("layers-") && (
-          <Box pt={2}>
-            <NestedLayersEditor
-              value={(watch("children") as any) ?? []}
-              onChange={(next) =>
-                setValue("children", next as any, {
-                  shouldDirty: true,
-                  shouldTouch: true,
-                })
-              }
-            />
-          </Box>
-        )}
       </SidebarBody>
       {selectedTransformation?.warning && (
         <Alert status="warning" fontSize="sm" px="8" py="2">

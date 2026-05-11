@@ -29,6 +29,28 @@ describe("runtime/replaceImagePathPlaceholders", () => {
     expect(out).toEqual(input)
   })
 
+  it("replaces __IMAGE_PATH__ inside nested overlay-like structures", () => {
+    const input = [
+      {
+        overlay: {
+          transformation: [
+            { nested: "prefix/__IMAGE_PATH__/suffix" },
+            { overlay: { raw: "l-image,i-__IMAGE_PATH__,l-end" } },
+          ],
+        },
+      },
+    ]
+
+    const out = replaceImagePathPlaceholders(input as any, "my@@path.png")
+
+    expect((out[0] as any).overlay.transformation[0].nested).toBe(
+      "prefix/my@@path.png/suffix",
+    )
+    expect((out[0] as any).overlay.transformation[1].overlay.raw).toBe(
+      "l-image,i-my@@path.png,l-end",
+    )
+  })
+
   it("does not mutate input objects (clones per transformation)", () => {
     const t1: any = { raw: "i-__IMAGE_PATH__" }
     const t2: any = { raw: "noop" }
