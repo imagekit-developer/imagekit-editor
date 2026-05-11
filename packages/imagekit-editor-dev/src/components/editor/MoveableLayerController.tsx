@@ -1,5 +1,12 @@
 import { Box } from "@chakra-ui/react"
-import { type FC, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  type FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import Moveable from "react-moveable"
 import type { Transformation } from "../../store"
 import { useEditorStore } from "../../store"
@@ -41,8 +48,11 @@ export const MoveableLayerController: FC<MoveableLayerControllerProps> = ({
   onClick,
 }) => {
   const targetRef = useRef<HTMLImageElement>(null)
-  const { updateTransformation, _internalState, _acknowledgeExpressionOverwrite } =
-    useEditorStore()
+  const {
+    updateTransformation,
+    _internalState,
+    _acknowledgeExpressionOverwrite,
+  } = useEditorStore()
   const [showExpressionDialog, setShowExpressionDialog] = useState(false)
   const [dragBlocked, setDragBlocked] = useState(false)
   const pendingActionRef = useRef<(() => void) | null>(null)
@@ -51,7 +61,10 @@ export const MoveableLayerController: FC<MoveableLayerControllerProps> = ({
   // Track the actual rendered dimensions of the single-layer image so we can
   // apply the correct centering offset when the layer config has no explicit
   // width/height (e.g. auto-sized text layers).
-  const [naturalDims, setNaturalDims] = useState<{ w: number; h: number } | null>(null)
+  const [naturalDims, setNaturalDims] = useState<{
+    w: number
+    h: number
+  } | null>(null)
 
   // Reset when the layer URL changes (layer content was re-rendered).
   useEffect(() => {
@@ -74,8 +87,9 @@ export const MoveableLayerController: FC<MoveableLayerControllerProps> = ({
   const value = layer.value as Record<string, unknown>
   const posConfig = extractLayerPositionConfig(value)
   const hasExpressions = hasExpressionCoords(posConfig)
-  const isAcknowledged =
-    _internalState.acknowledgedExpressionOverwrites.has(layer.id)
+  const isAcknowledged = _internalState.acknowledgedExpressionOverwrites.has(
+    layer.id,
+  )
 
   const checkExpressionGuard = useCallback(
     (action: () => void): boolean => {
@@ -196,7 +210,11 @@ export const MoveableLayerController: FC<MoveableLayerControllerProps> = ({
       if (posConfig.layerHeight == null) posConfig.layerHeight = naturalDims.h
     }
 
-    const rect = resolveLayerRect(posConfig, coordSpace.canvasW, coordSpace.canvasH)
+    const rect = resolveLayerRect(
+      posConfig,
+      coordSpace.canvasW,
+      coordSpace.canvasH,
+    )
 
     const left = rect.x * coordSpace.scale
     const top = rect.y * coordSpace.scale
@@ -220,6 +238,7 @@ export const MoveableLayerController: FC<MoveableLayerControllerProps> = ({
           ref={targetRef}
           src={layerUrl}
           alt=""
+          data-layer-id={layer.id}
           style={{
             display: "block",
             maxWidth: "none",
@@ -254,70 +273,140 @@ export const MoveableLayerController: FC<MoveableLayerControllerProps> = ({
       </Box>
 
       {/* Distance-to-edge overlay shown while dragging */}
-      {isSelected && dragOffset && (() => {
-        const canvasDisplayW = coordSpace.canvasW * coordSpace.scale
-        const canvasDisplayH = coordSpace.canvasH * coordSpace.scale
-        const lw = displayRect.width ?? targetRef.current?.offsetWidth ?? 0
-        const lh = displayRect.height ?? targetRef.current?.offsetHeight ?? 0
-        const lx = displayRect.left + dragOffset[0]
-        const ly = displayRect.top + dragOffset[1]
-        const lcx = lx + lw / 2
-        const lcy = ly + lh / 2
+      {isSelected &&
+        dragOffset &&
+        (() => {
+          const canvasDisplayW = coordSpace.canvasW * coordSpace.scale
+          const canvasDisplayH = coordSpace.canvasH * coordSpace.scale
+          const lw = displayRect.width ?? targetRef.current?.offsetWidth ?? 0
+          const lh = displayRect.height ?? targetRef.current?.offsetHeight ?? 0
+          const lx = displayRect.left + dragOffset[0]
+          const ly = displayRect.top + dragOffset[1]
+          const lcx = lx + lw / 2
+          const lcy = ly + lh / 2
 
-        const distTop = Math.round(ly / coordSpace.scale)
-        const distBottom = Math.round((canvasDisplayH - ly - lh) / coordSpace.scale)
-        const distLeft = Math.round(lx / coordSpace.scale)
-        const distRight = Math.round((canvasDisplayW - lx - lw) / coordSpace.scale)
+          const distTop = Math.round(ly / coordSpace.scale)
+          const distBottom = Math.round(
+            (canvasDisplayH - ly - lh) / coordSpace.scale,
+          )
+          const distLeft = Math.round(lx / coordSpace.scale)
+          const distRight = Math.round(
+            (canvasDisplayW - lx - lw) / coordSpace.scale,
+          )
 
-        const lineStyle = {
-          position: 'absolute' as const,
-          background: '#E53E3E',
-          zIndex: 10000,
-          pointerEvents: 'none' as const,
-        }
-        const labelStyle = {
-          position: 'absolute' as const,
-          background: '#E53E3E',
-          color: '#fff',
-          fontSize: '10px',
-          lineHeight: '14px',
-          padding: '0 4px',
-          borderRadius: '2px',
-          whiteSpace: 'nowrap' as const,
-          zIndex: 10001,
-          pointerEvents: 'none' as const,
-          transform: 'translate(-50%, -50%)',
-        }
+          const lineStyle = {
+            position: "absolute" as const,
+            background: "#E53E3E",
+            zIndex: 10000,
+            pointerEvents: "none" as const,
+          }
+          const labelStyle = {
+            position: "absolute" as const,
+            background: "#E53E3E",
+            color: "#fff",
+            fontSize: "10px",
+            lineHeight: "14px",
+            padding: "0 4px",
+            borderRadius: "2px",
+            whiteSpace: "nowrap" as const,
+            zIndex: 10001,
+            pointerEvents: "none" as const,
+            transform: "translate(-50%, -50%)",
+          }
 
-        return (
-          <>
-            {ly > 1 && (
-              <>
-                <div style={{ ...lineStyle, left: `${lcx}px`, top: '0px', width: '1px', height: `${ly}px` }} />
-                <div style={{ ...labelStyle, left: `${lcx}px`, top: `${ly / 2}px` }}>{distTop}px</div>
-              </>
-            )}
-            {canvasDisplayH - ly - lh > 1 && (
-              <>
-                <div style={{ ...lineStyle, left: `${lcx}px`, top: `${ly + lh}px`, width: '1px', height: `${canvasDisplayH - ly - lh}px` }} />
-                <div style={{ ...labelStyle, left: `${lcx}px`, top: `${ly + lh + (canvasDisplayH - ly - lh) / 2}px` }}>{distBottom}px</div>
-              </>
-            )}
-            {lx > 1 && (
-              <>
-                <div style={{ ...lineStyle, left: '0px', top: `${lcy}px`, width: `${lx}px`, height: '1px' }} />
-                <div style={{ ...labelStyle, left: `${lx / 2}px`, top: `${lcy}px` }}>{distLeft}px</div>
-              </>
-            )}
-            {canvasDisplayW - lx - lw > 1 && (
-              <>
-                <div style={{ ...lineStyle, left: `${lx + lw}px`, top: `${lcy}px`, width: `${canvasDisplayW - lx - lw}px`, height: '1px' }} />
-                <div style={{ ...labelStyle, left: `${lx + lw + (canvasDisplayW - lx - lw) / 2}px`, top: `${lcy}px` }}>{distRight}px</div>
-              </>
-            )}
-          </>
-        )
-      })()}
+          return (
+            <>
+              {ly > 1 && (
+                <>
+                  <div
+                    style={{
+                      ...lineStyle,
+                      left: `${lcx}px`,
+                      top: "0px",
+                      width: "1px",
+                      height: `${ly}px`,
+                    }}
+                  />
+                  <div
+                    style={{
+                      ...labelStyle,
+                      left: `${lcx}px`,
+                      top: `${ly / 2}px`,
+                    }}
+                  >
+                    {distTop}px
+                  </div>
+                </>
+              )}
+              {canvasDisplayH - ly - lh > 1 && (
+                <>
+                  <div
+                    style={{
+                      ...lineStyle,
+                      left: `${lcx}px`,
+                      top: `${ly + lh}px`,
+                      width: "1px",
+                      height: `${canvasDisplayH - ly - lh}px`,
+                    }}
+                  />
+                  <div
+                    style={{
+                      ...labelStyle,
+                      left: `${lcx}px`,
+                      top: `${ly + lh + (canvasDisplayH - ly - lh) / 2}px`,
+                    }}
+                  >
+                    {distBottom}px
+                  </div>
+                </>
+              )}
+              {lx > 1 && (
+                <>
+                  <div
+                    style={{
+                      ...lineStyle,
+                      left: "0px",
+                      top: `${lcy}px`,
+                      width: `${lx}px`,
+                      height: "1px",
+                    }}
+                  />
+                  <div
+                    style={{
+                      ...labelStyle,
+                      left: `${lx / 2}px`,
+                      top: `${lcy}px`,
+                    }}
+                  >
+                    {distLeft}px
+                  </div>
+                </>
+              )}
+              {canvasDisplayW - lx - lw > 1 && (
+                <>
+                  <div
+                    style={{
+                      ...lineStyle,
+                      left: `${lx + lw}px`,
+                      top: `${lcy}px`,
+                      width: `${canvasDisplayW - lx - lw}px`,
+                      height: "1px",
+                    }}
+                  />
+                  <div
+                    style={{
+                      ...labelStyle,
+                      left: `${lx + lw + (canvasDisplayW - lx - lw) / 2}px`,
+                      top: `${lcy}px`,
+                    }}
+                  >
+                    {distRight}px
+                  </div>
+                </>
+              )}
+            </>
+          )
+        })()}
 
       {isSelected && targetRef.current && (
         <Moveable
@@ -327,28 +416,30 @@ export const MoveableLayerController: FC<MoveableLayerControllerProps> = ({
           resizable={isResizable && !dragBlocked}
           keepRatio
           snappable
-          // snapGridWidth={10}
-          // snapGridHeight={10}
-          isDisplayGridGuidelines={false}
           horizontalGuidelines={horizontalGuidelines}
           verticalGuidelines={verticalGuidelines}
+          elementGuidelines={Array.from(
+            document.querySelectorAll<HTMLElement>("[data-layer-id]"),
+          ).filter((el) => el.dataset.layerId !== layer.id)}
+          snapThreshold={5}
           snapDistFormat={(v) => `${Math.round(v)}px`}
           snapDirections={{
             top: true,
             left: true,
             bottom: true,
             right: true,
-            // center: true,
-            // middle: true,
+            center: true,
+            middle: true,
           }}
           elementSnapDirections={{
             top: true,
             left: true,
             bottom: true,
             right: true,
-            // center: true,
-            // middle: true,
+            center: true,
+            middle: true,
           }}
+          snapGap={true}
           onDragStart={() => {
             const proceed = checkExpressionGuard(() => {
               // User confirmed — they can drag again now
