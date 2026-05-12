@@ -4,11 +4,20 @@ import react from "@vitejs/plugin-react"
 import { defineConfig, type Plugin } from "vite"
 import dts from "vite-plugin-dts"
 
+function isYalcPublishDisabled(): boolean {
+  return (
+    process.env.VITEST === "true" ||
+    process.env.CI === "true" ||
+    process.env.DISABLE_YALC === "1"
+  )
+}
+
 function yalcPublish(): Plugin {
   const editorPkgDir = path.resolve(__dirname, "../imagekit-editor")
   return {
     name: "vite-plugin-yalc-publish",
     closeBundle() {
+      if (isYalcPublishDisabled()) return
       try {
         execSync("yalc publish --push --changed", {
           cwd: editorPkgDir,
