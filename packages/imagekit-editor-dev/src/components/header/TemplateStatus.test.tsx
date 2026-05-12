@@ -7,6 +7,7 @@ import {
   INTERVAL_SAVE_MS,
   useAutoSaveTemplate,
 } from "../../hooks/useAutoSaveTemplate"
+import { APPLY_CHANGES_BEFORE_SAVE_MESSAGE } from "../../hooks/useSaveTemplate"
 import { useEditorStore } from "../../store"
 import { TransformationConfigSidebar } from "../sidebar/transformation-config-sidebar"
 import { TemplateStatus } from "./TemplateStatus"
@@ -116,6 +117,27 @@ describe("TemplateStatus", () => {
     renderWithProvider()
     expect(screen.getByText("Unsaved local changes")).toBeTruthy()
     expect(screen.getByLabelText("template-status-unsaved")).toBeTruthy()
+  })
+
+  it("disables Save in the status popover while transformation config has unapplied edits", () => {
+    useEditorStore.setState({
+      isPristine: true,
+      syncStatus: "saved",
+      localChangeVersion: 1,
+      lastSyncedVersion: 1,
+      transformationConfigFormDirty: true,
+      lastSavedAt: Date.now(),
+    } as unknown as Parameters<typeof useEditorStore.setState>[0])
+
+    renderWithProvider()
+    act(() => {
+      vi.advanceTimersByTime(3500)
+    })
+    fireEvent.click(screen.getByLabelText("template-status-unsaved"))
+    expect(screen.getByText(APPLY_CHANGES_BEFORE_SAVE_MESSAGE)).toBeTruthy()
+    expect(
+      screen.getByRole("button", { name: /^save$/i }).hasAttribute("disabled"),
+    ).toBe(true)
   })
 
   it("does not show the saved text while unsynced changes exist", () => {

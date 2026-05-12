@@ -1,8 +1,13 @@
-import { act, render, waitFor } from "@testing-library/react"
+import { ChakraProvider } from "@chakra-ui/react"
+import { act, render, screen, waitFor } from "@testing-library/react"
+import type { ReactElement } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { TemplateStorageContextProvider } from "../context/TemplateStorageContext"
 import { useEditorStore } from "../store"
-import { useSaveTemplate } from "./useSaveTemplate"
+import {
+  APPLY_CHANGES_BEFORE_SAVE_MESSAGE,
+  useSaveTemplate,
+} from "./useSaveTemplate"
 
 function stubProvider(saveTemplate: ReturnType<typeof vi.fn>) {
   return {
@@ -22,6 +27,10 @@ function MountSaveShortcut() {
   return null
 }
 
+function renderWithChakra(ui: ReactElement) {
+  return render(<ChakraProvider>{ui}</ChakraProvider>)
+}
+
 describe("useSaveTemplate", () => {
   beforeEach(() => {
     useEditorStore.getState().destroy()
@@ -30,7 +39,7 @@ describe("useSaveTemplate", () => {
 
   it("does not register shortcut when provider is null", () => {
     const addSpy = vi.spyOn(window, "addEventListener")
-    render(
+    renderWithChakra(
       <TemplateStorageContextProvider provider={null}>
         <MountSaveShortcut />
       </TemplateStorageContextProvider>,
@@ -57,7 +66,7 @@ describe("useSaveTemplate", () => {
       templateName: "T",
     } as Parameters<typeof useEditorStore.setState>[0])
 
-    render(
+    renderWithChakra(
       <TemplateStorageContextProvider
         provider={stubProvider(saveTemplate) as never}
       >
@@ -81,6 +90,49 @@ describe("useSaveTemplate", () => {
     })
   })
 
+  it("does not save when transformation config has unapplied edits; shows toast", async () => {
+    const saveTemplate = vi.fn().mockResolvedValue({
+      id: "t1",
+      clientNumber: "c1",
+      isPrivate: false,
+      name: "T",
+      transformations: [],
+      isPinned: false,
+      createdBy: { userId: "u1", name: "U", email: "u@x.com" },
+      updatedBy: { userId: "u1", name: "U", email: "u@x.com" },
+      createdAt: 1,
+      updatedAt: 2,
+    })
+    useEditorStore.setState({
+      templateId: "t1",
+      transformationConfigFormDirty: true,
+    } as Parameters<typeof useEditorStore.setState>[0])
+
+    renderWithChakra(
+      <TemplateStorageContextProvider
+        provider={stubProvider(saveTemplate) as never}
+      >
+        <MountSaveShortcut />
+      </TemplateStorageContextProvider>,
+    )
+
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "s",
+          metaKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      )
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText(APPLY_CHANGES_BEFORE_SAVE_MESSAGE)).toBeTruthy()
+    })
+    expect(saveTemplate).not.toHaveBeenCalled()
+  })
+
   it("triggers save on Meta+S", async () => {
     const saveTemplate = vi.fn().mockResolvedValue({
       id: "t1",
@@ -98,7 +150,7 @@ describe("useSaveTemplate", () => {
       templateId: "t1",
     } as Parameters<typeof useEditorStore.setState>[0])
 
-    render(
+    renderWithChakra(
       <TemplateStorageContextProvider
         provider={stubProvider(saveTemplate) as never}
       >
@@ -136,7 +188,7 @@ describe("useSaveTemplate", () => {
       updatedAt: 2,
     })
 
-    const { unmount } = render(
+    const { unmount } = renderWithChakra(
       <TemplateStorageContextProvider
         provider={stubProvider(saveTemplate) as never}
       >
