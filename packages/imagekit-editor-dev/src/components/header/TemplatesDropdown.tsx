@@ -60,7 +60,7 @@ const AvatarAny = chakraAny(Avatar)
 const SpinnerAny = chakraAny(Spinner)
 const TooltipAny = chakraAny(Tooltip)
 
-const MAX_VISIBLE = 5
+const MAX_VISIBLE = 10
 
 // ---------------------------------------------------------------------------
 // DropdownTemplateRow — extracted so hooks (useTemplatePermissions) can be used
