@@ -1,3 +1,4 @@
+import { Box, ChakraProvider, Portal } from "@chakra-ui/react"
 import {
   ImageKitEditor,
   type ImageKitEditorProps,
@@ -8,6 +9,7 @@ import {
 } from "@imagekit/editor"
 import React, { useCallback, useEffect } from "react"
 import ReactDOM from "react-dom"
+import { hostTheme } from "./theme/hostTheme"
 
 const TEMPLATE_STORAGE_KEY = "ik-editor:templates:v1"
 
@@ -422,7 +424,13 @@ function App() {
         </div>
       </div>
 
-      {open && editorProps && <ImageKitEditor {...editorProps} ref={ref} />}
+      {open && editorProps && (
+        <Portal>
+          <Box zIndex="modal" position="relative">
+            <ImageKitEditor {...editorProps} ref={ref} />
+          </Box>
+        </Portal>
+      )}
     </>
   )
 }
@@ -430,7 +438,9 @@ function App() {
 const root = document.getElementById("root")
 ReactDOM.render(
   <React.StrictMode>
-    <App />
+    <ChakraProvider theme={hostTheme}>
+      <App />
+    </ChakraProvider>
   </React.StrictMode>,
   root,
 )

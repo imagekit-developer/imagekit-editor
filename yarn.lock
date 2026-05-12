@@ -683,7 +683,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@chakra-ui/hooks@npm:1.9.1":
+"@chakra-ui/hooks@npm:1.9.1, @chakra-ui/hooks@npm:^1.7.1":
   version: 1.9.1
   resolution: "@chakra-ui/hooks@npm:1.9.1"
   dependencies:
@@ -986,7 +986,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@chakra-ui/react@npm:1.8.9, @chakra-ui/react@npm:~1.8.9":
+"@chakra-ui/react@npm:1.8.9, @chakra-ui/react@npm:^1.6.7":
   version: 1.8.9
   resolution: "@chakra-ui/react@npm:1.8.9"
   dependencies:
@@ -1505,7 +1505,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@emotion/react@npm:^11.14.0, @emotion/react@npm:^11.8.1":
+"@emotion/react@npm:^11, @emotion/react@npm:^11.14.0, @emotion/react@npm:^11.8.1":
   version: 11.14.0
   resolution: "@emotion/react@npm:11.14.0"
   dependencies:
@@ -1546,7 +1546,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@emotion/styled@npm:^11.14.1":
+"@emotion/styled@npm:^11, @emotion/styled@npm:^11.14.1":
   version: 11.14.1
   resolution: "@emotion/styled@npm:11.14.1"
   dependencies:
@@ -6420,10 +6420,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "react-example@workspace:examples/react-example"
   dependencies:
+    "@chakra-ui/hooks": "npm:^1.7.1"
     "@chakra-ui/icons": "npm:1.1.1"
-    "@chakra-ui/react": "npm:~1.8.9"
-    "@emotion/react": "npm:^11.14.0"
-    "@emotion/styled": "npm:^11.14.1"
+    "@chakra-ui/react": "npm:^1.6.7"
+    "@emotion/react": "npm:^11"
+    "@emotion/styled": "npm:^11"
     "@imagekit/editor": "workspace:*"
     "@types/node": "npm:^20.11.24"
     "@types/react": "npm:^17.0.2"
