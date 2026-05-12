@@ -52,14 +52,25 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
-      include: ["src/schema/**/*.{ts,tsx}"],
-      exclude: ["src/**/*.{test,spec}.{ts,tsx}", "node_modules/**"],
+      include: [
+        "src/store.ts",
+        "src/schema/**/*.{ts,tsx}",
+        "src/hooks/**/*.{ts,tsx}",
+        "src/context/**/*.{ts,tsx}",
+        "src/storage/**/*.{ts,tsx}",
+        "src/sync/**/*.{ts,tsx}",
+      ],
+      exclude: [
+        "src/**/*.{test,spec}.{ts,tsx}",
+        "node_modules/**",
+        /** Interfaces only; no runtime code to cover */
+        "src/storage/types.ts",
+      ],
       thresholds: {
-        // Only enforced on src/schema files - focusing on validation logic
-        lines: 90, // Realistic threshold given UI visibility code
+        lines: 90,
         branches: 90,
         statements: 90,
-        perFile: false, // Global threshold across all schema files
+        perFile: false,
       },
     },
   },
