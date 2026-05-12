@@ -144,8 +144,13 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
       EDITOR_SESSION_STORAGE_KEY,
     )
     if (!resumableSession) return
+    const persisted = resumableSession.state
+    const hasUnsavedChanges = resolvedProvider
+      ? persisted.localChangeVersion !== persisted.lastSyncedVersion
+      : !persisted.isPristine
+    if (!hasUnsavedChanges) return
     setResumeSession(resumableSession)
-  }, [])
+  }, [resolvedProvider])
 
   const saveTemplateImperative = useCallback(async () => {
     // Avoid importing hooks here; implement via store+provider with version gating.
