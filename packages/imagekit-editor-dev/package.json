@@ -1,6 +1,6 @@
 {
   "name": "imagekit-editor-dev",
-  "version": "3.0.0",
+  "version": "3.0.1-stage.1",
   "description": "AI Image Editor powered by ImageKit",
   "scripts": {
     "prepack": "yarn build",
