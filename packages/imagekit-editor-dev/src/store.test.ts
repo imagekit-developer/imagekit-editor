@@ -1,3 +1,16 @@
+/**
+ * This file was created before refactoring the store into slices.
+ * Even though we have a suite of tests for the slices, we will keep
+ * this file around for a while to ensure we don't break anything.
+ *
+ * This approach of refactoring was done to ensure that the store is treated
+ * as a black box to the rest of the application and tests here assert and lock
+ * the behavior of the store.
+ *
+ * If these tests pass before and after refactoring, it tells us that the behavior
+ * of the store has not changed.
+ */
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   TRANSFORMATION_STATE_VERSION,

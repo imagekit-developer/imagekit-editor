@@ -53,7 +53,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "json", "html"],
       include: [
-        "src/store.ts",
+        "src/store/**/*.ts",
         "src/schema/**/*.{ts,tsx}",
         "src/hooks/**/*.{ts,tsx}",
         "src/context/**/*.{ts,tsx}",
@@ -63,8 +63,8 @@ export default defineConfig({
       exclude: [
         "src/**/*.{test,spec}.{ts,tsx}",
         "node_modules/**",
-        /** Interfaces only; no runtime code to cover */
         "src/storage/types.ts",
+        "src/store/types.ts",
       ],
       thresholds: {
         lines: 90,
