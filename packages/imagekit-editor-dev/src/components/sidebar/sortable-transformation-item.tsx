@@ -154,10 +154,12 @@ export const SortableTransformationItem = ({
 
           <Box flex={1} minW={0}>
             {isRenaming ? (
-              <Box ref={renamingBoxRef}>
-                <Flex alignItems="center" gap={2}>
+              <Box ref={renamingBoxRef} w="100%" minW={0}>
+                <Flex alignItems="center" gap={2} w="100%" minW={0}>
                   <Input
                     autoFocus
+                    flex={1}
+                    minW={0}
                     type="text"
                     defaultValue={transformation.name}
                     ref={renameInputRef}
@@ -224,12 +226,13 @@ export const SortableTransformationItem = ({
             )}
           </Box>
 
-          {/* Reserve space for right-side actions to avoid layout shift */}
+          {/* Reserve space for right-side actions to avoid layout shift; hide while renaming so the input spans the full row */}
           <HStack
             spacing={2}
             color="initial"
             minW="14"
             justifyContent="flex-end"
+            display={isRenaming ? "none" : "flex"}
             opacity={isHover && !isRenaming ? 1 : 0}
             pointerEvents={isHover && !isRenaming ? "auto" : "none"}
             transition="opacity 0.15s"
