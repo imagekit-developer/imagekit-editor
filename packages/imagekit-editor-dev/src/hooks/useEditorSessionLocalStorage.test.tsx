@@ -3,14 +3,14 @@ import React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { EDITOR_SESSION_STORAGE_KEY } from "../persistence/editorSessionStorage"
 import { useEditorStore } from "../store"
-import { usePersistedEditorSession } from "./usePersistedEditorSession"
+import { useEditorSessionLocalStorage } from "./useEditorSessionLocalStorage"
 
 function Harness(props: { paused: boolean }) {
-  usePersistedEditorSession(props.paused)
+  useEditorSessionLocalStorage(props.paused)
   return null
 }
 
-describe("usePersistedEditorSession", () => {
+describe("useEditorSessionLocalStorage", () => {
   beforeEach(() => {
     useEditorStore.getState().destroy()
     vi.useFakeTimers()

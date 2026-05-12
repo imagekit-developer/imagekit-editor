@@ -1,7 +1,7 @@
 import { Box, Flex } from "@chakra-ui/react"
 import { useEffect, useState } from "react"
 import { useAutoSaveTemplate } from "../../hooks/useAutoSaveTemplate"
-import { usePersistedEditorSession } from "../../hooks/usePersistedEditorSession"
+import { useEditorSessionLocalStorage } from "../../hooks/useEditorSessionLocalStorage"
 import { useSaveTemplate } from "../../hooks/useSaveTemplate"
 import { Header, type HeaderProps } from "../header"
 import { Sidebar } from "../sidebar"
@@ -45,7 +45,7 @@ export function EditorLayout({
 
   useAutoSaveTemplate()
   useSaveTemplate()
-  usePersistedEditorSession(pauseLocalSessionPersistence)
+  useEditorSessionLocalStorage(pauseLocalSessionPersistence)
 
   const closeTemplatesLibrary = () => setIsTemplatesOpen(false)
 

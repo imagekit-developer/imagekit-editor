@@ -4,6 +4,7 @@ import type { SaveTemplateInput, TemplateRecord } from "../storage"
 import { isTemplateAccessDeniedError } from "../storage/templateAccessError"
 import { useEditorStore } from "../store"
 import { shouldMarkSyncedAfterSave } from "../sync/templateSyncVersioning"
+import { persistEditorSessionNow } from "./useEditorSessionLocalStorage"
 
 export type SaveReason =
   | "manual"
@@ -99,6 +100,7 @@ export function useTemplateSync() {
         return null
       } finally {
         savingRef.current = false
+        persistEditorSessionNow()
       }
     },
     [provider],
