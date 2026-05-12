@@ -55,6 +55,35 @@ export const colorValidator = z
     message: "Enter a valid hex colour code.",
   })
 
+/** Gradient picker colours: in-progress # + hex, complete values, or legacy hex without #. */
+export const gradientPickerColorValidator = z
+  .string()
+  .superRefine((val, ctx) => {
+    if (val === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Enter a valid hex colour code.",
+      })
+      return
+    }
+    if (/^#[0-9A-Fa-f]{0,8}$/.test(val)) {
+      const hex = val.slice(1)
+      if (hex.length === 0) return
+      if ([1, 2, 4, 5, 7].includes(hex.length)) return
+      if (colorValidator.safeParse(val).success) return
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Enter a valid hex colour code.",
+      })
+      return
+    }
+    if (colorValidator.safeParse(val).success) return
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Enter a valid hex colour code.",
+    })
+  })
+
 const aspectRatioValueValidator = z
   .string()
   .regex(/^\d+(\.\d{1,2})?-\d+(\.\d{1,2})?$/)
