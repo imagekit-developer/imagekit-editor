@@ -3,9 +3,11 @@ import { act, fireEvent, render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { TemplateStorageContextProvider } from "../../context/TemplateStorageContext"
 import {
+  DEBOUNCE_MS,
   INTERVAL_SAVE_MS,
   useAutoSaveTemplate,
 } from "../../hooks/useAutoSaveTemplate"
+import { APPLY_CHANGES_BEFORE_SAVE_MESSAGE } from "../../hooks/useSaveTemplate"
 import { useEditorStore } from "../../store"
 import { TransformationConfigSidebar } from "../sidebar/transformation-config-sidebar"
 import { TemplateStatus } from "./TemplateStatus"
@@ -117,6 +119,27 @@ describe("TemplateStatus", () => {
     expect(screen.getByLabelText("template-status-unsaved")).toBeTruthy()
   })
 
+  it("disables Save in the status popover while transformation config has unapplied edits", () => {
+    useEditorStore.setState({
+      isPristine: true,
+      syncStatus: "saved",
+      localChangeVersion: 1,
+      lastSyncedVersion: 1,
+      transformationConfigFormDirty: true,
+      lastSavedAt: Date.now(),
+    } as unknown as Parameters<typeof useEditorStore.setState>[0])
+
+    renderWithProvider()
+    act(() => {
+      vi.advanceTimersByTime(3500)
+    })
+    fireEvent.click(screen.getByLabelText("template-status-unsaved"))
+    expect(screen.getByText(APPLY_CHANGES_BEFORE_SAVE_MESSAGE)).toBeTruthy()
+    expect(
+      screen.getByRole("button", { name: /^save$/i }).hasAttribute("disabled"),
+    ).toBe(true)
+  })
+
   it("does not show the saved text while unsynced changes exist", () => {
     useEditorStore.setState({
       isPristine: false,
@@ -149,6 +172,7 @@ describe("TemplateStatus", () => {
 
     // Start in a fully synced "saved" state.
     useEditorStore.setState({
+      templateId: "t1",
       isPristine: false,
       syncStatus: "saved",
       localChangeVersion: 1,
@@ -194,6 +218,44 @@ describe("TemplateStatus", () => {
       await Promise.resolve()
     })
     expect(saveTemplate).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not auto-create a new template on blank slate (templateId=null)", async () => {
+    // biome-ignore lint/suspicious/noExplicitAny: test stub provider signature
+    const saveTemplate = vi.fn(async (r: any) => ({
+      id: "t-created",
+      clientNumber: "c1",
+      isPrivate: true,
+      name: r.name ?? "n",
+      transformations: r.transformations ?? [],
+      isPinned: false,
+      createdBy: { userId: "u1", name: "U", email: "u@example.com" },
+      updatedBy: { userId: "u1", name: "U", email: "u@example.com" },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }))
+
+    // Default store state starts as a blank slate: templateId=null.
+    renderWithProvider({ saveTemplate })
+
+    // Trigger the metadata auto-save path by changing the template name.
+    act(() => {
+      useEditorStore.getState().setTemplateName("My New Template")
+    })
+
+    // Debounced metadata save should NOT run when templateId is null.
+    await act(async () => {
+      vi.advanceTimersByTime(DEBOUNCE_MS + 1)
+      await Promise.resolve()
+    })
+    expect(saveTemplate).toHaveBeenCalledTimes(0)
+
+    // Interval auto-save should also NOT run (even though we are now "dirty").
+    await act(async () => {
+      vi.advanceTimersByTime(INTERVAL_SAVE_MS + 1)
+      await Promise.resolve()
+    })
+    expect(saveTemplate).toHaveBeenCalledTimes(0)
   })
 
   it("editing an existing transformation flips status to unsaved immediately (before Apply/Save)", () => {

@@ -13,6 +13,9 @@ import {
   PopoverBody,
   PopoverContent,
   PopoverTrigger,
+  Skeleton,
+  SkeletonCircle,
+  SkeletonText,
   Spinner,
   Text,
   Tooltip,
@@ -57,7 +60,7 @@ const AvatarAny = chakraAny(Avatar)
 const SpinnerAny = chakraAny(Spinner)
 const TooltipAny = chakraAny(Tooltip)
 
-const MAX_VISIBLE = 5
+const MAX_VISIBLE = 10
 
 // ---------------------------------------------------------------------------
 // DropdownTemplateRow — extracted so hooks (useTemplatePermissions) can be used
@@ -206,6 +209,7 @@ export function TemplatesDropdown({
   const { saveNow } = useTemplateSync()
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [templates, setTemplates] = useState<TemplateRecord[]>([])
+  const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState("")
   const [pinningId, setPinningId] = useState<string | null>(null)
   const [hoveredTemplateId, setHoveredTemplateId] = useState<string | null>(
@@ -238,8 +242,13 @@ export function TemplatesDropdown({
 
   const fetchTemplates = useCallback(async () => {
     if (!provider) return
-    const list = await provider.listTemplates()
-    setTemplates(list)
+    setLoading(true)
+    try {
+      const list = await provider.listTemplates()
+      setTemplates(list)
+    } finally {
+      setLoading(false)
+    }
   }, [provider])
 
   useEffect(() => {
@@ -280,6 +289,8 @@ export function TemplatesDropdown({
       searchMode: "name",
     }).slice(0, MAX_VISIBLE)
   }, [templates, templateId, templateName, shouldShowCurrent, search])
+
+  const skeletonRows = useMemo(() => Array.from({ length: 5 }), [])
 
   useEffect(() => {
     if (!isOpen) return
@@ -518,6 +529,8 @@ export function TemplatesDropdown({
                 variant="ghost"
                 leftIcon={<IconAny as={PiPlus} boxSize={4} />}
                 px="4"
+                h="10"
+                minH="10"
                 flexShrink={0}
                 fontWeight="normal"
                 onClick={handleNewTemplate}
@@ -526,99 +539,137 @@ export function TemplatesDropdown({
               </ButtonAny>
             </FlexAny>
 
-            <Box maxH="72" overflowY="auto" ref={resultsScrollRef}>
-              {shouldShowCurrent && (
-                <FlexAny
-                  px="4"
-                  py="2"
-                  alignItems="center"
-                  bg="blue.50"
-                  borderBottomWidth="1px"
-                  borderColor="blue.100"
-                  pointerEvents="none"
-                  gap="3"
-                >
-                  {/* Visibility Icon (fallback to private when unknown) */}
-                  <IconAny
-                    as={activeTemplate?.isPrivate === false ? PiGlobe : PiLock}
-                    boxSize={4}
-                    color="blue.700"
-                    flexShrink={0}
-                  />
-
-                  {/* Name + badge */}
-                  <Box flex="1" minW={0}>
-                    <FlexAny alignItems="center" gap="2">
-                      <TooltipAny
-                        label={templateNameUI}
-                        openDelay={300}
-                        placement="top-start"
-                        hasArrow
+            <Box h="72" overflowY="auto" ref={resultsScrollRef}>
+              {loading ? (
+                <Box px="4" py="3">
+                  <Flex direction="column" gap="2">
+                    {skeletonRows.map((_, i) => (
+                      <Flex
+                        // biome-ignore lint/suspicious/noArrayIndexKey: stable fixed skeleton list
+                        key={i}
+                        px="2"
+                        py="2"
+                        alignItems="center"
+                        gap="3"
                       >
-                        <TextAny
-                          fontSize="sm"
-                          fontWeight="medium"
-                          isTruncated
-                          color="blue.800"
-                        >
-                          {truncateTemplateName(templateName)}
-                        </TextAny>
-                      </TooltipAny>
-                      <BadgeAny colorScheme="blue" fontSize="xs" flexShrink={0}>
-                        Current
-                      </BadgeAny>
-                    </FlexAny>
-                  </Box>
-
-                  {/* Transform count on the right */}
-                  <TextAny fontSize="xs" color="blue.600" flexShrink={0}>
-                    {currentTransformCount} transformation
-                    {currentTransformCount !== 1 ? "s" : ""}
-                  </TextAny>
-                </FlexAny>
-              )}
-
-              {filtered.length === 0 && !shouldShowCurrent ? (
-                <FlexAny
-                  px="4"
-                  py="8"
-                  justifyContent="center"
-                  alignItems="center"
-                >
-                  <TextAny fontSize="sm" color="editorBattleshipGrey.500">
-                    {search ? "No templates found" : "No saved templates yet"}
-                  </TextAny>
-                </FlexAny>
-              ) : filtered.length === 0 && shouldShowCurrent ? (
-                <FlexAny
-                  px="4"
-                  py="6"
-                  justifyContent="center"
-                  alignItems="center"
-                >
-                  <TextAny fontSize="sm" color="editorBattleshipGrey.500">
-                    {search
-                      ? "No other templates found"
-                      : "No other saved templates"}
-                  </TextAny>
-                </FlexAny>
+                        <Skeleton
+                          height="16px"
+                          width="16px"
+                          borderRadius="md"
+                          flexShrink={0}
+                        />
+                        <Box flex="1" minW={0}>
+                          <SkeletonText noOfLines={1} spacing="2" />
+                        </Box>
+                        <SkeletonCircle size="6" flexShrink={0} />
+                      </Flex>
+                    ))}
+                  </Flex>
+                </Box>
               ) : (
-                filtered.map((record) => (
-                  <DropdownTemplateRow
-                    key={record.id}
-                    record={record}
-                    isHovered={hoveredTemplateId === record.id}
-                    pinningId={pinningId}
-                    onSelect={handleSelect}
-                    onTogglePin={handleTogglePin}
-                    onMouseEnter={() => setHoveredTemplateId(record.id)}
-                    onMouseLeave={() =>
-                      setHoveredTemplateId((current) =>
-                        current === record.id ? null : current,
-                      )
-                    }
-                  />
-                ))
+                <>
+                  {shouldShowCurrent && (
+                    <FlexAny
+                      px="4"
+                      py="2"
+                      alignItems="center"
+                      bg="blue.50"
+                      borderBottomWidth="1px"
+                      borderColor="blue.100"
+                      pointerEvents="none"
+                      gap="3"
+                    >
+                      {/* Visibility Icon (fallback to private when unknown) */}
+                      <IconAny
+                        as={
+                          activeTemplate?.isPrivate === false ? PiGlobe : PiLock
+                        }
+                        boxSize={4}
+                        color="blue.700"
+                        flexShrink={0}
+                      />
+
+                      {/* Name + badge */}
+                      <Box flex="1" minW={0}>
+                        <FlexAny alignItems="center" gap="2">
+                          <TooltipAny
+                            label={templateNameUI}
+                            openDelay={300}
+                            placement="top-start"
+                            hasArrow
+                          >
+                            <TextAny
+                              fontSize="sm"
+                              fontWeight="medium"
+                              isTruncated
+                              color="blue.800"
+                            >
+                              {truncateTemplateName(templateName)}
+                            </TextAny>
+                          </TooltipAny>
+                          <BadgeAny
+                            colorScheme="blue"
+                            fontSize="xs"
+                            flexShrink={0}
+                          >
+                            Current
+                          </BadgeAny>
+                        </FlexAny>
+                      </Box>
+
+                      {/* Transform count on the right */}
+                      <TextAny fontSize="xs" color="blue.600" flexShrink={0}>
+                        {currentTransformCount} transformation
+                        {currentTransformCount !== 1 ? "s" : ""}
+                      </TextAny>
+                    </FlexAny>
+                  )}
+
+                  {filtered.length === 0 && !shouldShowCurrent ? (
+                    <FlexAny
+                      px="4"
+                      py="8"
+                      justifyContent="center"
+                      alignItems="center"
+                    >
+                      <TextAny fontSize="sm" color="editorBattleshipGrey.500">
+                        {search
+                          ? "No templates found"
+                          : "No saved templates yet"}
+                      </TextAny>
+                    </FlexAny>
+                  ) : filtered.length === 0 && shouldShowCurrent ? (
+                    <FlexAny
+                      px="4"
+                      py="6"
+                      justifyContent="center"
+                      alignItems="center"
+                    >
+                      <TextAny fontSize="sm" color="editorBattleshipGrey.500">
+                        {search
+                          ? "No other templates found"
+                          : "No other saved templates"}
+                      </TextAny>
+                    </FlexAny>
+                  ) : (
+                    filtered.map((record) => (
+                      <DropdownTemplateRow
+                        key={record.id}
+                        record={record}
+                        isHovered={hoveredTemplateId === record.id}
+                        pinningId={pinningId}
+                        onSelect={handleSelect}
+                        onTogglePin={handleTogglePin}
+                        onMouseEnter={() => setHoveredTemplateId(record.id)}
+                        onMouseLeave={() =>
+                          setHoveredTemplateId((current) =>
+                            current === record.id ? null : current,
+                          )
+                        }
+                      />
+                    ))
+                  )}
+                </>
               )}
             </Box>
 

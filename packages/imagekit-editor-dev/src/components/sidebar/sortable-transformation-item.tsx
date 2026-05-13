@@ -152,243 +152,255 @@ export const SortableTransformationItem = ({
             </Box>
           )}
 
-          {isRenaming ? (
-            <Box ref={renamingBoxRef}>
-              <Flex alignItems="center" justifyContent="space-between">
-                <Input
-                  autoFocus
-                  type="text"
-                  defaultValue={transformation.name}
-                  ref={renameInputRef}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      const newName = renameInputRef.current?.value.trim()
-                      if (newName && newName.length > 0) {
-                        updateTransformation(transformation.id, {
-                          ...transformation,
-                          name: newName,
-                        })
+          <Box flex={1} minW={0}>
+            {isRenaming ? (
+              <Box ref={renamingBoxRef} w="100%" minW={0}>
+                <Flex alignItems="center" gap={2} w="100%" minW={0}>
+                  <Input
+                    autoFocus
+                    flex={1}
+                    minW={0}
+                    type="text"
+                    defaultValue={transformation.name}
+                    ref={renameInputRef}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const newName = renameInputRef.current?.value.trim()
+                        if (newName && newName.length > 0) {
+                          updateTransformation(transformation.id, {
+                            ...transformation,
+                            name: newName,
+                          })
+                        }
+                        setIsRenaming(false)
+                      } else if (e.key === "Escape") {
+                        setIsRenaming(false)
                       }
-                      setIsRenaming(false)
-                    } else if (e.key === "Escape") {
-                      setIsRenaming(false)
-                    }
-                  }}
-                  variant="flushed"
-                />
-                <Flex>
-                  <IconButton
-                    aria-label="Save"
-                    icon={<Icon as={RiCheckFill} />}
-                    variant="ghost"
-                    color={baseIconColor}
-                    onClick={() => {
-                      const newName = renameInputRef.current?.value.trim()
-                      if (newName && newName.length > 0) {
-                        updateTransformation(transformation.id, {
-                          ...transformation,
-                          name: newName,
-                        })
-                      }
-                      setIsRenaming(false)
                     }}
+                    variant="flushed"
                   />
-                  <IconButton
-                    aria-label="Cancel"
-                    icon={<Icon as={RiCloseFill} />}
-                    variant="ghost"
-                    color={baseIconColor}
-                    onClick={() => {
-                      setIsRenaming(false)
-                    }}
-                  />
+                  <Flex flexShrink={0}>
+                    <IconButton
+                      aria-label="Save"
+                      icon={<Icon as={RiCheckFill} />}
+                      variant="ghost"
+                      color={baseIconColor}
+                      onClick={() => {
+                        const newName = renameInputRef.current?.value.trim()
+                        if (newName && newName.length > 0) {
+                          updateTransformation(transformation.id, {
+                            ...transformation,
+                            name: newName,
+                          })
+                        }
+                        setIsRenaming(false)
+                      }}
+                    />
+                    <IconButton
+                      aria-label="Cancel"
+                      icon={<Icon as={RiCloseFill} />}
+                      variant="ghost"
+                      color={baseIconColor}
+                      onClick={() => {
+                        setIsRenaming(false)
+                      }}
+                    />
+                  </Flex>
                 </Flex>
-              </Flex>
-              <Text fontSize="xs" color="gray.500" mt={2}>
-                Press{" "}
-                <Tag size="sm">
-                  {navigator.platform.toLowerCase().includes("mac")
-                    ? "Return"
-                    : "Enter"}
-                </Tag>{" "}
-                to save, <Tag size="sm">Esc</Tag> to cancel
-              </Text>
-            </Box>
-          ) : (
-            <Text fontSize="md" opacity={isVisible ? 1 : 0.5}>
-              {transformation.name}
-            </Text>
-          )}
-          <Box flex={1} />
-          {isHover && !isRenaming && (
-            <HStack spacing={2} color={"initial"}>
-              <Tooltip
-                label={
-                  isVisible ? "Hide transformation" : "Show transformation"
-                }
-                placement="top"
+                <Text fontSize="xs" color="gray.500" mt={2}>
+                  Press{" "}
+                  <Tag size="sm">
+                    {navigator.platform.toLowerCase().includes("mac")
+                      ? "Return"
+                      : "Enter"}
+                  </Tag>{" "}
+                  to save, <Tag size="sm">Esc</Tag> to cancel
+                </Text>
+              </Box>
+            ) : (
+              <Tooltip label={transformation.name} placement="top">
+                <Text fontSize="md" opacity={isVisible ? 1 : 0.5} noOfLines={1}>
+                  {transformation.name}
+                </Text>
+              </Tooltip>
+            )}
+          </Box>
+
+          {/* Reserve space for right-side actions to avoid layout shift; hide while renaming so the input spans the full row */}
+          <HStack
+            spacing={2}
+            color="initial"
+            minW="14"
+            justifyContent="flex-end"
+            display={isRenaming ? "none" : "flex"}
+            opacity={isHover && !isRenaming ? 1 : 0}
+            pointerEvents={isHover && !isRenaming ? "auto" : "none"}
+            transition="opacity 0.15s"
+          >
+            <Tooltip
+              label={isVisible ? "Hide transformation" : "Show transformation"}
+              placement="top"
+            >
+              <Box
+                onClick={(e) => {
+                  e.stopPropagation()
+                  toggleTransformationVisibility(transformation.id)
+                }}
               >
-                <Box
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    toggleTransformationVisibility(transformation.id)
-                  }}
+                <Icon
+                  as={isVisible ? PiEye : PiEyeSlash}
+                  color="gray.600"
+                  boxSize={4}
+                  _hover={{ opacity: 1, color: "gray.800" }}
+                />
+              </Box>
+            </Tooltip>
+            <Menu closeOnSelect isLazy placement="bottom-end">
+              <Tooltip label="Options" placement="top">
+                <MenuButton
+                  as="button"
+                  aria-label="Options"
+                  onClick={(e) => e.stopPropagation()}
+                  p={0}
+                  bg="transparent"
+                  _hover={{ bg: "transparent" }}
                 >
                   <Icon
-                    as={isVisible ? PiEye : PiEyeSlash}
+                    as={PiDotsThreeVertical}
                     color="gray.600"
                     boxSize={4}
                     _hover={{ opacity: 1, color: "gray.800" }}
                   />
-                </Box>
+                </MenuButton>
               </Tooltip>
-              <Menu closeOnSelect isLazy placement="bottom-end">
-                <Tooltip label="Options" placement="top">
-                  <MenuButton
-                    as="button"
-                    aria-label="Options"
-                    onClick={(e) => e.stopPropagation()}
-                    p={0}
-                    bg="transparent"
-                    _hover={{ bg: "transparent" }}
-                  >
-                    <Icon
-                      as={PiDotsThreeVertical}
-                      color="gray.600"
-                      boxSize={4}
-                      _hover={{ opacity: 1, color: "gray.800" }}
-                    />
-                  </MenuButton>
-                </Tooltip>
-                <MenuList fontSize="md" minW="200px" zIndex={10}>
-                  <MenuItem
-                    icon={<Icon as={PiPlus} />}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      _setSidebarState("type")
-                      _setTransformationToEdit(transformation.id, "above")
-                    }}
-                  >
-                    Add transformation before
-                  </MenuItem>
-                  <MenuItem
-                    icon={<Icon as={PiPlus} />}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      _setSidebarState("type")
-                      _setTransformationToEdit(transformation.id, "below")
-                    }}
-                  >
-                    Add transformation after
-                  </MenuItem>
-                  <MenuItem
-                    icon={<Icon as={PiCopy} />}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      const currentIndex = transformations.findIndex(
-                        (t) => t.id === transformation.id,
-                      )
-                      const transformationId = addTransformation(
-                        {
-                          ...transformation,
-                          name: transformation.name
-                            ? `${transformation.name} (Copy)`
-                            : transformation.name,
-                        },
-                        currentIndex + 1,
-                      )
-                      _setSidebarState("config")
-                      _setTransformationToEdit(transformationId, "inplace")
-                    }}
-                  >
-                    Duplicate
-                  </MenuItem>
-                  <MenuItem
-                    icon={<Icon as={PiPencilSimple} />}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      _setSidebarState("config")
-                      _setSelectedTransformationKey(transformation.key)
-                      _setTransformationToEdit(transformation.id, "inplace")
-                    }}
-                  >
-                    Edit transformation
-                  </MenuItem>
-                  <MenuItem
-                    icon={<Icon as={PiCursorText} />}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setIsRenaming(true)
-                      _setSidebarState("config")
-                      _setSelectedTransformationKey(transformation.key)
-                      _setTransformationToEdit(transformation.id, "inplace")
-                    }}
-                  >
-                    Rename
-                  </MenuItem>
-                  <MenuItem
-                    icon={<Icon as={PiArrowUp} />}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      const currentIndex = transformations.findIndex(
-                        (t) => t.id === transformation.id,
-                      )
-                      if (currentIndex > 0) {
-                        const targetId = transformations[currentIndex - 1].id
-                        moveTransformation(transformation.id, targetId)
-                      }
-                    }}
-                    isDisabled={
-                      transformations.findIndex(
-                        (t) => t.id === transformation.id,
-                      ) <= 0
+              <MenuList fontSize="md" minW="200px" zIndex={10}>
+                <MenuItem
+                  icon={<Icon as={PiPlus} />}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    _setSidebarState("type")
+                    _setTransformationToEdit(transformation.id, "above")
+                  }}
+                >
+                  Add transformation before
+                </MenuItem>
+                <MenuItem
+                  icon={<Icon as={PiPlus} />}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    _setSidebarState("type")
+                    _setTransformationToEdit(transformation.id, "below")
+                  }}
+                >
+                  Add transformation after
+                </MenuItem>
+                <MenuItem
+                  icon={<Icon as={PiCopy} />}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const currentIndex = transformations.findIndex(
+                      (t) => t.id === transformation.id,
+                    )
+                    const transformationId = addTransformation(
+                      {
+                        ...transformation,
+                        name: transformation.name
+                          ? `${transformation.name} (Copy)`
+                          : transformation.name,
+                      },
+                      currentIndex + 1,
+                    )
+                    _setSidebarState("config")
+                    _setTransformationToEdit(transformationId, "inplace")
+                  }}
+                >
+                  Duplicate
+                </MenuItem>
+                <MenuItem
+                  icon={<Icon as={PiPencilSimple} />}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    _setSidebarState("config")
+                    _setSelectedTransformationKey(transformation.key)
+                    _setTransformationToEdit(transformation.id, "inplace")
+                  }}
+                >
+                  Edit transformation
+                </MenuItem>
+                <MenuItem
+                  icon={<Icon as={PiCursorText} />}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsRenaming(true)
+                    _setSidebarState("config")
+                    _setSelectedTransformationKey(transformation.key)
+                    _setTransformationToEdit(transformation.id, "inplace")
+                  }}
+                >
+                  Rename
+                </MenuItem>
+                <MenuItem
+                  icon={<Icon as={PiArrowUp} />}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const currentIndex = transformations.findIndex(
+                      (t) => t.id === transformation.id,
+                    )
+                    if (currentIndex > 0) {
+                      const targetId = transformations[currentIndex - 1].id
+                      moveTransformation(transformation.id, targetId)
                     }
-                  >
-                    Move up
-                  </MenuItem>
-                  <MenuItem
-                    icon={<Icon as={PiArrowDown} />}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      const currentIndex = transformations.findIndex(
-                        (t) => t.id === transformation.id,
-                      )
-                      if (currentIndex < transformations.length - 1) {
-                        const targetId = transformations[currentIndex + 1].id
-                        moveTransformation(transformation.id, targetId)
-                      }
-                    }}
-                    isDisabled={
-                      transformations.findIndex(
-                        (t) => t.id === transformation.id,
-                      ) >=
-                      transformations.length - 1
+                  }}
+                  isDisabled={
+                    transformations.findIndex(
+                      (t) => t.id === transformation.id,
+                    ) <= 0
+                  }
+                >
+                  Move up
+                </MenuItem>
+                <MenuItem
+                  icon={<Icon as={PiArrowDown} />}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const currentIndex = transformations.findIndex(
+                      (t) => t.id === transformation.id,
+                    )
+                    if (currentIndex < transformations.length - 1) {
+                      const targetId = transformations[currentIndex + 1].id
+                      moveTransformation(transformation.id, targetId)
                     }
-                  >
-                    Move down
-                  </MenuItem>
-                  <MenuItem
-                    icon={<Icon as={PiTrash} color="red.500" />}
-                    color="red.500"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      removeTransformation(transformation.id)
-                      if (
-                        _internalState.selectedTransformationKey ===
-                        transformation.key
-                      ) {
-                        _setSidebarState("none")
-                        _setSelectedTransformationKey(null)
-                        _setTransformationToEdit(null)
-                      }
-                    }}
-                  >
-                    Delete
-                  </MenuItem>
-                </MenuList>
-              </Menu>
-            </HStack>
-          )}
+                  }}
+                  isDisabled={
+                    transformations.findIndex(
+                      (t) => t.id === transformation.id,
+                    ) >=
+                    transformations.length - 1
+                  }
+                >
+                  Move down
+                </MenuItem>
+                <MenuItem
+                  icon={<Icon as={PiTrash} color="red.500" />}
+                  color="red.500"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    removeTransformation(transformation.id)
+                    if (
+                      _internalState.selectedTransformationKey ===
+                      transformation.key
+                    ) {
+                      _setSidebarState("none")
+                      _setSelectedTransformationKey(null)
+                      _setTransformationToEdit(null)
+                    }
+                  }}
+                >
+                  Delete
+                </MenuItem>
+              </MenuList>
+            </Menu>
+          </HStack>
         </HStack>
       )}
     </Hover>

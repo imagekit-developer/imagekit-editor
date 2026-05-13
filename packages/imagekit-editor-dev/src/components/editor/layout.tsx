@@ -1,6 +1,7 @@
 import { Box, Flex } from "@chakra-ui/react"
 import { useEffect, useState } from "react"
 import { useAutoSaveTemplate } from "../../hooks/useAutoSaveTemplate"
+import { useEditorSessionLocalStorage } from "../../hooks/useEditorSessionLocalStorage"
 import { useSaveTemplate } from "../../hooks/useSaveTemplate"
 import { Header, type HeaderProps } from "../header"
 import { Sidebar } from "../sidebar"
@@ -13,9 +14,16 @@ interface Props {
   onAddImage?: () => void
   onClose: () => void
   exportOptions?: HeaderProps["exportOptions"]
+  /** When true, do not read/write the local session snapshot (e.g. resume modal open). */
+  pauseLocalSessionPersistence?: boolean
 }
 
-export function EditorLayout({ onAddImage, onClose, exportOptions }: Props) {
+export function EditorLayout({
+  onAddImage,
+  onClose,
+  exportOptions,
+  pauseLocalSessionPersistence = false,
+}: Props) {
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
   const [gridImageSize, setGridImageSize] = useState<number>(300)
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false)
@@ -37,6 +45,7 @@ export function EditorLayout({ onAddImage, onClose, exportOptions }: Props) {
 
   useAutoSaveTemplate()
   useSaveTemplate()
+  useEditorSessionLocalStorage(pauseLocalSessionPersistence)
 
   const closeTemplatesLibrary = () => setIsTemplatesOpen(false)
 

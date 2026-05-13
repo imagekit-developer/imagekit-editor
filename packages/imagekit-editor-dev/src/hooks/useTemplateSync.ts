@@ -4,6 +4,7 @@ import type { SaveTemplateInput, TemplateRecord } from "../storage"
 import { isTemplateAccessDeniedError } from "../storage/templateAccessError"
 import { useEditorStore } from "../store"
 import { shouldMarkSyncedAfterSave } from "../sync/templateSyncVersioning"
+import { persistEditorSessionNow } from "./useEditorSessionLocalStorage"
 
 export type SaveReason =
   | "manual"
@@ -29,6 +30,14 @@ export function useTemplateSync() {
 
       const state = useEditorStore.getState()
       if (state.templateStorageWriteBlocked) return null
+      // Auto-save must never create a brand new template (noise on blank slate).
+      // Creating a new template is reserved for explicit user actions (manual/imperative/etc).
+      if (
+        state.templateId === null &&
+        (args.reason === "auto_metadata" || args.reason === "auto_interval")
+      ) {
+        return null
+      }
 
       const saveStartedAtVersion = state.localChangeVersion
       savingRef.current = true
@@ -91,6 +100,7 @@ export function useTemplateSync() {
         return null
       } finally {
         savingRef.current = false
+        persistEditorSessionNow()
       }
     },
     [provider],

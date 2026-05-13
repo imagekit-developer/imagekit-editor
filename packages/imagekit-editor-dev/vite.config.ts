@@ -4,11 +4,20 @@ import react from "@vitejs/plugin-react"
 import { defineConfig, type Plugin } from "vite"
 import dts from "vite-plugin-dts"
 
+function isYalcPublishDisabled(): boolean {
+  return (
+    process.env.VITEST === "true" ||
+    process.env.CI === "true" ||
+    process.env.DISABLE_YALC === "1"
+  )
+}
+
 function yalcPublish(): Plugin {
   const editorPkgDir = path.resolve(__dirname, "../imagekit-editor")
   return {
     name: "vite-plugin-yalc-publish",
     closeBundle() {
+      if (isYalcPublishDisabled()) return
       try {
         execSync("yalc publish --push --changed", {
           cwd: editorPkgDir,
@@ -43,14 +52,25 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
-      include: ["src/schema/**/*.{ts,tsx}"],
-      exclude: ["src/**/*.{test,spec}.{ts,tsx}", "node_modules/**"],
+      include: [
+        "src/store/**/*.ts",
+        "src/schema/**/*.{ts,tsx}",
+        "src/hooks/**/*.{ts,tsx}",
+        "src/context/**/*.{ts,tsx}",
+        "src/storage/**/*.{ts,tsx}",
+        "src/sync/**/*.{ts,tsx}",
+      ],
+      exclude: [
+        "src/**/*.{test,spec}.{ts,tsx}",
+        "node_modules/**",
+        "src/storage/types.ts",
+        "src/store/types.ts",
+      ],
       thresholds: {
-        // Only enforced on src/schema files - focusing on validation logic
-        lines: 90, // Realistic threshold given UI visibility code
+        lines: 90,
         branches: 90,
         statements: 90,
-        perFile: false, // Global threshold across all schema files
+        perFile: false,
       },
     },
   },
