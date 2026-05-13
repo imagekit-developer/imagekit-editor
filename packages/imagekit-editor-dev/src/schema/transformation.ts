@@ -117,6 +117,46 @@ export const layerYValidator = z.any().superRefine((val, ctx) => {
   })
 })
 
+const layerXcNumber = z.coerce.string().regex(/^[N-]?\d+(\.\d{1,2})?$/)
+
+const layerXcExpr = z
+  .string()
+  .regex(/^(?:bw|cw)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/)
+
+export const layerXcValidator = z.any().superRefine((val, ctx) => {
+  if (val === undefined || val === "") return
+  if (layerXcNumber.safeParse(val).success) {
+    return
+  }
+  if (layerXcExpr.safeParse(val).success) {
+    return
+  }
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: "Layer XC must be a number or a valid expression string.",
+  })
+})
+
+const layerYcNumber = z.coerce.string().regex(/^[N-]?\d+(\.\d{1,2})?$/)
+
+const layerYcExpr = z
+  .string()
+  .regex(/^(?:bh|ch)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/)
+
+export const layerYcValidator = z.any().superRefine((val, ctx) => {
+  if (val === undefined || val === "") return
+  if (layerYcNumber.safeParse(val).success) {
+    return
+  }
+  if (layerYcExpr.safeParse(val).success) {
+    return
+  }
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: "Layer YC must be a number or a valid expression string.",
+  })
+})
+
 const commonNumber = z.coerce
   .number({ invalid_type_error: "Should be a number." })
   .min(0, {

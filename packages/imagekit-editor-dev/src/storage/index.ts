@@ -8,6 +8,7 @@ export type {
   SaveTemplateInput,
   TemplateCreator,
   TemplateRecord,
+  TemplateRecordKind,
   TemplateStorageHttpClient,
   TemplateStorageProvider,
 } from "./types"

@@ -232,6 +232,7 @@ export function TemplatesDropdown({
     (s) => s.localChangeVersion !== s.lastSyncedVersion,
   )
   const isPristine = useEditorStore((s) => s.isPristine)
+  const overlayMode = useEditorStore((s) => s._internalState.overlayMode)
   const templateStorageWriteBlocked = useEditorStore(
     (s) => s.templateStorageWriteBlocked,
   )
@@ -239,7 +240,8 @@ export function TemplatesDropdown({
   const fetchTemplates = useCallback(async () => {
     if (!provider) return
     const list = await provider.listTemplates()
-    setTemplates(list)
+    // Overlays are managed separately in the OverlayDropdown.
+    setTemplates(list.filter((t) => t.kind !== "overlay"))
   }, [provider])
 
   useEffect(() => {
@@ -263,7 +265,9 @@ export function TemplatesDropdown({
 
   // Show a "Current" row whenever the editor has live (non-pristine) state,
   // regardless of whether the template has been saved to the provider yet.
-  const shouldShowCurrent = !isPristine
+  // While in overlay mode the editor is editing an overlay, not a template, so
+  // hide the "Current" row from the Templates dropdown.
+  const shouldShowCurrent = !isPristine && !overlayMode
 
   // Prefer server-side transformation count when available; fall back to store.
   const currentTransformCount = activeTemplate

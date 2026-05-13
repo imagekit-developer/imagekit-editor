@@ -57,7 +57,7 @@ export type Signer<Metadata extends RequiredMetadata = RequiredMetadata> = (
 ) => Promise<string>
 
 interface InternalState {
-  sidebarState: "none" | "type" | "config"
+  sidebarState: "none" | "type" | "config" | "insert-overlay"
   selectedTransformationKey: string | null
   transformationToEdit:
     | {
@@ -69,6 +69,11 @@ interface InternalState {
         targetId: string
       }
     | null
+  pendingOpenNestedLayerIndex: number | null
+  activeNestedLayerIndex: number | null
+  overlayMode: boolean
+  overlayBaseWidth: number
+  overlayBaseHeight: number
 }
 
 export type FocusObjects =
@@ -192,12 +197,16 @@ export type EditorActions<
    */
   denyTemplateStorageAccessAndReset: (message?: string) => void
 
-  _setSidebarState: (state: "none" | "type" | "config") => void
+  _setSidebarState: (state: "none" | "type" | "config" | "insert-overlay") => void
+  _setOverlayMode: (overlayMode: boolean) => void
+  _setOverlayBaseDimensions: (dims: { width?: number; height?: number }) => void
   _setSelectedTransformationKey: (key: string | null) => void
   _setTransformationToEdit: (
     transformationId: string | null,
     position?: "inplace" | "above" | "below",
   ) => void
+  _setPendingOpenNestedLayer: (index: number | null) => void
+  _setActiveNestedLayerIndex: (index: number | null) => void
 }
 
 const initialTransformations: Transformation[] = []
@@ -251,6 +260,11 @@ const DEFAULT_STATE: EditorState = {
     sidebarState: "none",
     selectedTransformationKey: null,
     transformationToEdit: null,
+    pendingOpenNestedLayerIndex: null,
+    activeNestedLayerIndex: null,
+    overlayMode: false,
+    overlayBaseWidth: 1024,
+    overlayBaseHeight: 1024,
   },
   templateName: "Untitled Template",
   templateId: null,
@@ -423,6 +437,11 @@ const useEditorStore = create<EditorState & EditorActions>()(
             sidebarState: "none",
             selectedTransformationKey: null,
             transformationToEdit: null,
+            pendingOpenNestedLayerIndex: null,
+            activeNestedLayerIndex: null,
+            overlayMode: false,
+            overlayBaseWidth: 1024,
+            overlayBaseHeight: 1024,
           },
           isPristine: false,
           // Loading an existing template implies we're in sync with storage.
@@ -482,7 +501,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
     },
 
     addTransformation: (transformation, position) => {
-      const id = `transformation-${Date.now()}`
+      const id = `transformation-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
       if (typeof position === "number") {
         set((state) => {
@@ -633,6 +652,11 @@ const useEditorStore = create<EditorState & EditorActions>()(
           sidebarState: "none",
           selectedTransformationKey: null,
           transformationToEdit: null,
+          pendingOpenNestedLayerIndex: null,
+          activeNestedLayerIndex: null,
+          overlayMode: false,
+          overlayBaseWidth: 1024,
+          overlayBaseHeight: 1024,
         },
       })
     },
@@ -664,6 +688,11 @@ const useEditorStore = create<EditorState & EditorActions>()(
           sidebarState: "none",
           selectedTransformationKey: null,
           transformationToEdit: null,
+          pendingOpenNestedLayerIndex: null,
+          activeNestedLayerIndex: null,
+          overlayMode: false,
+          overlayBaseWidth: 1024,
+          overlayBaseHeight: 1024,
         },
       })
     },
@@ -674,11 +703,52 @@ const useEditorStore = create<EditorState & EditorActions>()(
       }))
     },
 
+    _setOverlayMode: (overlayMode) => {
+      set((state) => ({
+        _internalState: { ...state._internalState, overlayMode },
+      }))
+      recomputeImages()
+    },
+
+    _setOverlayBaseDimensions: ({ width, height }) => {
+      set((state) => ({
+        _internalState: {
+          ...state._internalState,
+          overlayBaseWidth:
+            typeof width === "number" && width > 0
+              ? width
+              : state._internalState.overlayBaseWidth,
+          overlayBaseHeight:
+            typeof height === "number" && height > 0
+              ? height
+              : state._internalState.overlayBaseHeight,
+        },
+      }))
+      recomputeImages()
+    },
+
     _setSelectedTransformationKey: (key) => {
       set((state) => ({
         _internalState: {
           ...state._internalState,
           selectedTransformationKey: key,
+        },
+      }))
+    },
+
+    _setPendingOpenNestedLayer: (index: number | null) => {
+      set((state) => ({
+        _internalState: {
+          ...state._internalState,
+          pendingOpenNestedLayerIndex: index,
+        },
+      }))
+    },
+    _setActiveNestedLayerIndex: (index: number | null) => {
+      set((state) => ({
+        _internalState: {
+          ...state._internalState,
+          activeNestedLayerIndex: index,
         },
       }))
     },
@@ -758,6 +828,7 @@ const calculateImageList = (
   signer: Signer | undefined,
   activeImageIndex: number,
   signedUrlCache: Record<string, string>,
+  baseTransformationStep?: Record<string, unknown>,
 ) => {
   const IKTransformations = transformations
     .filter((transformation) => visibleTransformations[transformation.id])
@@ -843,6 +914,46 @@ const calculateImageList = (
             groupValues[f.name] = f.value
           })
 
+          // Pipe nested layer data through to the imageLayer formatter so
+          // it can recursively build nested overlays. Strip empty/undefined
+          // values to mirror the parent grouping filter, otherwise defaults
+          // like `backgroundColor: ""` or `radius: 0` would leak into the
+          // generated transformation string.
+          if (groupName === "imageLayer") {
+            const txValue = transformation.value as Record<string, unknown>
+            const rawArr = Array.isArray(txValue.nestedLayers)
+              ? (txValue.nestedLayers as Array<Record<string, unknown>>)
+              : []
+            if (rawArr.length > 0) {
+              const filteredArr: Array<Record<string, unknown>> = []
+              for (const layer of rawArr) {
+                if (!layer || typeof layer !== "object") continue
+                if ((layer as Record<string, unknown>).__hidden === true)
+                  continue
+                const filtered: Record<string, unknown> = {}
+                for (const [k, v] of Object.entries(
+                  layer as Record<string, unknown>,
+                )) {
+                  if (k === "__name" || k === "__hidden") continue
+                  if (k === "__kind") {
+                    filtered[k] = v
+                    continue
+                  }
+                  if (v === undefined || v === null || v === "") continue
+                  filtered[k] = v
+                }
+                if (
+                  Object.keys(filtered).some((k) => k !== "__kind")
+                ) {
+                  filteredArr.push(filtered)
+                }
+              }
+              if (filteredArr.length > 0) {
+                groupValues.nestedLayers = filteredArr
+              }
+            }
+          }
+
           formatter(groupValues, transforms)
         }
       }
@@ -866,6 +977,10 @@ const calculateImageList = (
         ...transforms,
       }
     })
+
+  if (baseTransformationStep && Object.keys(baseTransformationStep).length > 0) {
+    IKTransformations.unshift({ ...baseTransformationStep })
+  }
 
   const transformKey = showOriginal
     ? "original"
@@ -929,8 +1044,23 @@ const calculateImageList = (
 function recomputeImages() {
   const state = useEditorStore.getState()
 
+  const overlayMode = state._internalState.overlayMode
+  const overlayW = state._internalState.overlayBaseWidth
+  const overlayH = state._internalState.overlayBaseHeight
+  const OVERLAY_BASE_URL =
+    "https://stage-ik.imagekit.io/mulxmttk4/ik-canvas.png"
+  const effectiveOriginalImageList: FileElement[] = overlayMode
+    ? [
+        {
+          url: OVERLAY_BASE_URL,
+          metadata: {} as RequiredMetadata,
+          imageDimensions: null,
+        },
+      ]
+    : state.originalImageList
+
   let currentIndex = 0
-  if (state.currentImage) {
+  if (!overlayMode && state.currentImage) {
     const originalIndex = state.originalImageList.findIndex(
       (img) => img.url === state.currentImage,
     )
@@ -946,13 +1076,14 @@ function recomputeImages() {
   }
 
   const { imgs, activeImageIndex, toSign, transformKey } = calculateImageList(
-    state.originalImageList,
+    effectiveOriginalImageList,
     state.transformations,
     state.visibleTransformations,
-    state.showOriginal,
-    state.signer,
+    overlayMode ? false : state.showOriginal,
+    overlayMode ? undefined : state.signer,
     currentIndex,
     state.signedUrlCache,
+    overlayMode ? { width: overlayW, height: overlayH } : undefined,
   )
 
   const transformationsChanged = transformKey !== state.currentTransformKey

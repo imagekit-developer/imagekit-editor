@@ -6,6 +6,14 @@ export interface TemplateCreator {
   email: string
 }
 
+/**
+ * Discriminator for stored records.
+ * - "template" (default): a regular template that appears in the Templates list.
+ * - "overlay": a saved overlay (a single layer) that only appears in the Overlays list
+ *   and can be inserted into a template as-is.
+ */
+export type TemplateRecordKind = "template" | "overlay"
+
 export interface TemplateRecord {
   id: string
   clientNumber: string
@@ -14,6 +22,8 @@ export interface TemplateRecord {
   transformations: Omit<Transformation, "id">[]
   /** Whether the active user has this template pinned. */
   isPinned: boolean
+  /** Distinguishes regular templates from saved overlays. Defaults to "template". */
+  kind?: TemplateRecordKind
   createdBy: TemplateCreator
   updatedBy: TemplateCreator
   createdAt: number
@@ -28,6 +38,8 @@ export type SaveTemplateInput = {
   clientNumber?: string
   isPrivate?: boolean
   isPinned?: boolean
+  /** When omitted the provider should treat the record as a regular template. */
+  kind?: TemplateRecordKind
   createdBy?: TemplateCreator
   updatedBy?: TemplateCreator
   createdAt?: number

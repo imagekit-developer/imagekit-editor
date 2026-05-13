@@ -2,6 +2,7 @@ import { Box, Flex } from "@chakra-ui/react"
 import { useEffect, useState } from "react"
 import { useAutoSaveTemplate } from "../../hooks/useAutoSaveTemplate"
 import { useSaveTemplate } from "../../hooks/useSaveTemplate"
+import { useEditorStore } from "../../store"
 import { Header, type HeaderProps } from "../header"
 import { Sidebar } from "../sidebar"
 import { TemplatesLibraryView } from "../templates/TemplatesLibraryView"
@@ -19,6 +20,8 @@ export function EditorLayout({ onAddImage, onClose, exportOptions }: Props) {
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
   const [gridImageSize, setGridImageSize] = useState<number>(300)
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false)
+  const overlayMode = useEditorStore((s) => s._internalState.overlayMode)
+  const effectiveViewMode: "list" | "grid" = overlayMode ? "list" : viewMode
 
   // Close templates modal on Escape while it's open
   useEffect(() => {
@@ -56,13 +59,13 @@ export function EditorLayout({ onAddImage, onClose, exportOptions }: Props) {
           position="relative"
         >
           <ActionBar
-            viewMode={viewMode}
+            viewMode={effectiveViewMode}
             setViewMode={setViewMode}
             gridImageSize={gridImageSize}
             setGridImageSize={setGridImageSize}
           />
-          {viewMode === "list" && <ListView onAddImage={onAddImage} />}
-          {viewMode === "grid" && (
+          {effectiveViewMode === "list" && <ListView onAddImage={onAddImage} />}
+          {effectiveViewMode === "grid" && (
             <GridView imageSize={gridImageSize} onAddImage={onAddImage} />
           )}
         </Flex>

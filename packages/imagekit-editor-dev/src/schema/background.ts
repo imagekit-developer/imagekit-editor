@@ -91,6 +91,8 @@ export const backgroundTransformations: Record<
       isTransformation: true,
       helpText: "Apply a solid color to the background.",
       examples: ["FFFFFF", "FF0000"],
+      isVariable: false,
+      isDefaultValueRequired: true,
       isVisible: ({ backgroundType }) => backgroundType === "color",
       fieldProps: {
         isClearable: true,
@@ -255,6 +257,8 @@ export const backgroundTransformations: Record<
       fieldType: "gradient-picker",
       transformationGroup: transformationGroup,
       isTransformation: true,
+      isVariable: false,
+      isDefaultValueRequired: true,
       helpText:
         "Create a custom gradient background with your chosen colors and direction.",
       fieldProps: {

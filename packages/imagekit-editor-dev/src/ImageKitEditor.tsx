@@ -140,6 +140,7 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
         transformations: state.transformations.map(
           ({ id: _id, ...rest }) => rest,
         ),
+        kind: state._internalState.overlayMode ? "overlay" : "template",
         ...(state.templateIsPrivate !== null
           ? { isPrivate: state.templateIsPrivate }
           : {}),

@@ -39,7 +39,9 @@ export const ActionBar: FC<ActionBarProps> = ({
     originalImageList,
     showOriginal,
     setShowOriginal,
+    _internalState,
   } = useEditorStore()
+  const overlayMode = _internalState.overlayMode
 
   const imageDimensions = useMemo(() => {
     const idx = imageList.findIndex((img) => img === currentImage)
@@ -61,18 +63,20 @@ export const ActionBar: FC<ActionBarProps> = ({
       alignItems="center"
     >
       <HStack spacing={2} flex="1" minW={0} mr={8}>
-        <Button
-          variant="ghost"
-          size="md"
-          fontWeight="normal"
-          leftIcon={<Icon boxSize={4} as={PiImageSquare} />}
-          _hover={{ bg: "gray.100" }}
-          onClick={() => setShowOriginal(!showOriginal)}
-        >
-          {showOriginal ? "Show Transformed" : "Show Original"}
-        </Button>
+        {!overlayMode && (
+          <Button
+            variant="ghost"
+            size="md"
+            fontWeight="normal"
+            leftIcon={<Icon boxSize={4} as={PiImageSquare} />}
+            _hover={{ bg: "gray.100" }}
+            onClick={() => setShowOriginal(!showOriginal)}
+          >
+            {showOriginal ? "Show Transformed" : "Show Original"}
+          </Button>
+        )}
 
-        {viewMode === "list" && imageDimensions && (
+        {!overlayMode && viewMode === "list" && imageDimensions && (
           <>
             <Divider
               orientation="vertical"
@@ -157,6 +161,8 @@ export const ActionBar: FC<ActionBarProps> = ({
               />
             }
             onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
+            isDisabled={overlayMode}
+            visibility={overlayMode ? "hidden" : "visible"}
           />
         </Tooltip>
       </HStack>

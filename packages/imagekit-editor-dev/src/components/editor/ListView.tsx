@@ -18,6 +18,7 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
     setImageDimensions,
     _internalState,
   } = useEditorStore()
+  const overlayMode = _internalState.overlayMode
 
   return (
     <>
@@ -68,12 +69,14 @@ export const ListView: FC<ListViewProps> = ({ onAddImage }) => {
           />
         </Flex>
       </Flex>
-      <Toolbar
-        onAddImage={onAddImage}
-        onSelectImage={(imageSrc: string) => {
-          setCurrentImage(imageSrc)
-        }}
-      />
+      {!overlayMode && (
+        <Toolbar
+          onAddImage={onAddImage}
+          onSelectImage={(imageSrc: string) => {
+            setCurrentImage(imageSrc)
+          }}
+        />
+      )}
     </>
   )
 }

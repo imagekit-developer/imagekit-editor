@@ -58,11 +58,27 @@ const GradientPickerField = ({
   setValue,
   value,
   errors,
+  renderSubfieldVariableToggle,
+  renderSubfieldVariableNameInput,
 }: {
   fieldName: string
   setValue: (name: string, value: GradientPickerState | string) => void
   value?: GradientPickerState | null
   errors?: FieldErrors<Record<string, unknown>>
+  /**
+   * Optional render-prop for the small "is variable" toggle shown next to the
+   * `from` / `to` color label.
+   */
+  renderSubfieldVariableToggle?: (
+    subfield: "from" | "to",
+  ) => React.ReactNode
+  /**
+   * Optional render-prop for the Variable Name input rendered below the
+   * `from` / `to` color input when the corresponding toggle is on.
+   */
+  renderSubfieldVariableNameInput?: (
+    subfield: "from" | "to",
+  ) => React.ReactNode
 }) => {
   function getLinearGradientString(value: GradientPickerState): string {
     let direction = ""
@@ -222,9 +238,12 @@ const GradientPickerField = ({
       </Popover>
 
       <Box>
-        <FormLabel htmlFor="from_color" fontSize="sm">
-          From Color
-        </FormLabel>
+        <Flex justify="space-between" align="center" mb={2}>
+          <FormLabel htmlFor="from_color" fontSize="sm" mb={0}>
+            From Color
+          </FormLabel>
+          {renderSubfieldVariableToggle?.("from")}
+        </Flex>
         <Input
           size="md"
           value={localValue.from}
@@ -244,12 +263,16 @@ const GradientPickerField = ({
         <Text fontSize="xs" color={errorRed}>
           {errors?.[fieldName]?.from?.message}
         </Text>
+        {renderSubfieldVariableNameInput?.("from")}
       </Box>
 
       <Box>
-        <FormLabel htmlFor="to_color" fontSize="sm">
-          To Color
-        </FormLabel>
+        <Flex justify="space-between" align="center" mb={2}>
+          <FormLabel htmlFor="to_color" fontSize="sm" mb={0}>
+            To Color
+          </FormLabel>
+          {renderSubfieldVariableToggle?.("to")}
+        </Flex>
         <Input
           size="md"
           value={localValue.to}
@@ -269,6 +292,7 @@ const GradientPickerField = ({
         <Text fontSize="xs" color={errorRed}>
           {errors?.[fieldName]?.to?.message}
         </Text>
+        {renderSubfieldVariableNameInput?.("to")}
       </Box>
 
       <Box>

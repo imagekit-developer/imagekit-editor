@@ -29,18 +29,28 @@ export function useTemplateSync() {
 
       const state = useEditorStore.getState()
       if (state.templateStorageWriteBlocked) return null
+      // Don't persist an "overlay" with zero layers — that produces a
+      // record that can't be inserted anywhere. Require Apply first.
+      if (
+        state._internalState.overlayMode &&
+        state.transformations.length === 0
+      ) {
+        return null
+      }
 
       const saveStartedAtVersion = state.localChangeVersion
       savingRef.current = true
       state.setSyncStatus("saving")
 
       try {
+        const isOverlay = state._internalState.overlayMode
         const record = await provider.saveTemplate({
           id: state.templateId ?? undefined,
           name: args.overrides?.name ?? state.templateName,
           transformations: state.transformations.map(
             ({ id: _id, ...rest }) => rest,
           ),
+          kind: isOverlay ? "overlay" : "template",
           ...(args.overrides?.isPrivate !== undefined
             ? { isPrivate: args.overrides.isPrivate }
             : state.templateIsPrivate !== null

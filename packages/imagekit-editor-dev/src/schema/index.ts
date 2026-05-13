@@ -26,7 +26,9 @@ import {
   colorValidator,
   commonNumberAndExpressionValidator,
   heightValidator,
+  layerXcValidator,
   layerXValidator,
+  layerYcValidator,
   layerYValidator,
   lineHeightValidator,
   optionalPositiveFloatNumberValidator,
@@ -137,6 +139,11 @@ export interface TransformationItem {
     heading?: string
     message?: string
   }
+  nestedLayers?: {
+    key: string
+    name: string
+    items: TransformationItem[]
+  }
 }
 
 export interface TransformationField {
@@ -163,6 +170,8 @@ export interface TransformationField {
   transformationKey?: string
   isVisible?: (value: Record<string, unknown>) => boolean
   transformationGroup?: string
+  isVariable?: boolean
+  isDefaultValueRequired?: boolean
 }
 
 export interface TransformationSchema {
@@ -170,6 +179,1570 @@ export interface TransformationSchema {
   name: string
   items: TransformationItem[]
 }
+
+const createImageLayerItem = (maxDepth = 2, currentDepth = 0): TransformationItem => ({
+  key: "layers-image",
+  name: "Image Layer",
+  description:
+    "Overlay another image on top of the base image. Position, resize and set opacity for the overlaid image.",
+  docsLink:
+    "https://imagekit.io/docs/add-overlays-on-images#add-images-over-image",
+  defaultTransformation: {},
+  schema: z
+    .object({
+      imageUrl: z.string().optional(),
+      width: widthValidator.optional(),
+      height: heightValidator.optional(),
+      crop: z.string().optional(),
+      positionX: layerXValidator.optional(),
+      positionY: layerYValidator.optional(),
+      positionXc: layerXcValidator.optional(),
+      positionYc: layerYcValidator.optional(),
+      layerAnchorPoint: z.string().optional(),
+      anchor: z.string().optional(),
+      opacityEnabled: z.boolean().optional(),
+      opacity: z.coerce
+        .number({
+          invalid_type_error: "Should be a number.",
+        })
+        .optional(),
+      backgroundColor: z.string().optional(),
+      dprEnabled: z.boolean().optional(),
+      dpr: z
+        .union([
+          z.coerce.number({
+            invalid_type_error: "Should be a number.",
+          }),
+          z.literal("auto"),
+        ])
+        .optional(),
+      flip: z
+        .array(z.enum(["horizontal", "vertical"]).optional())
+        .optional(),
+      rotation: z.coerce
+        .number({
+          invalid_type_error: "Should be a number.",
+        })
+        .optional(),
+      trimEnabled: z.coerce
+        .boolean({
+          invalid_type_error: "Should be a boolean.",
+        })
+        .optional(),
+      trimThreshold: z.coerce
+        .number({
+          invalid_type_error: "Should be a number.",
+        })
+        .int()
+        .min(1)
+        .max(99)
+        .optional(),
+      qualityEnabled: z.boolean().optional(),
+      quality: z.coerce
+        .number({
+          invalid_type_error: "Should be a number.",
+        })
+        .optional(),
+      blur: z.coerce
+        .number({
+          invalid_type_error: "Should be a number.",
+        })
+        .optional(),
+      borderWidth: commonNumberAndExpressionValidator.optional(),
+      borderColor: colorValidator.optional(),
+      // Focus + Zoom properties
+      focus: z.string().optional(),
+      focusAnchor: z.string().optional(),
+      focusObject: z.string().optional(),
+      coordinateMethod: z.string().optional(),
+      x: z.string().optional(),
+      y: z.string().optional(),
+      xc: z.string().optional(),
+      yc: z.string().optional(),
+      zoom: z.coerce.number().optional(),
+
+      // Gradient properties
+      gradientSwitch: z.coerce
+        .boolean({
+          invalid_type_error: "Should be a boolean.",
+        })
+        .optional(),
+      gradient: z
+        .object({
+          from: z.string().optional(),
+          to: z.string().optional(),
+          direction: z
+            .union([
+              z.coerce
+                .number({
+                  invalid_type_error: "Should be a number.",
+                })
+                .min(0)
+                .max(359),
+              z.string(),
+            ])
+            .optional(),
+          stopPoint: z.coerce
+            .number({
+              invalid_type_error: "Should be a number.",
+            })
+            .min(1)
+            .max(100)
+            .optional(),
+        })
+        .optional(),
+
+      // Shadow properties
+      shadow: z.coerce
+        .boolean({
+          invalid_type_error: "Should be a boolean.",
+        })
+        .optional(),
+      shadowBlur: z.coerce
+        .number({
+          invalid_type_error: "Should be a number.",
+        })
+        .optional(),
+      shadowSaturation: z.coerce
+        .number({
+          invalid_type_error: "Should be a number.",
+        })
+        .optional(),
+      shadowOffsetX: z.coerce
+        .number({
+          invalid_type_error: "Should be a number.",
+        })
+        .optional(),
+      shadowOffsetY: z.coerce
+        .number({
+          invalid_type_error: "Should be a number.",
+        })
+        .optional(),
+
+      // Grayscale
+      grayscale: z.coerce
+        .boolean({
+          invalid_type_error: "Should be a boolean.",
+        })
+        .optional(),
+
+      // Distort
+      distort: z.coerce.boolean(),
+      distortType: z.enum(["perspective", "arc"]).optional(),
+      distortPerspective: z
+        .object({
+          x1: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+          y1: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+          x2: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+          y2: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+          x3: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+          y3: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+          x4: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+          y4: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
+        })
+        .optional(),
+      distortArcDegree: z
+        .string()
+        .regex(/^[-N]?\d+$/)
+        .optional(),
+
+      // Radius
+      radius: z
+        .object({
+          mode: z.enum(["uniform", "individual"]).optional(),
+          radius: z
+            .union([
+              z.literal("max"),
+              z.coerce
+                .number({
+                  invalid_type_error: "Should be a number.",
+                })
+                .min(0, {
+                  message: "Negative values are not allowed.",
+                }),
+              z.object({
+                topLeft: z.union([
+                  z.literal("max"),
+                  z.coerce
+                    .number({
+                      invalid_type_error: "Should be a number.",
+                    })
+                    .min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                ]),
+                topRight: z.union([
+                  z.literal("max"),
+                  z.coerce
+                    .number({
+                      invalid_type_error: "Should be a number.",
+                    })
+                    .min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                ]),
+                bottomRight: z.union([
+                  z.literal("max"),
+                  z.coerce
+                    .number({
+                      invalid_type_error: "Should be a number.",
+                    })
+                    .min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                ]),
+                bottomLeft: z.union([
+                  z.literal("max"),
+                  z.coerce
+                    .number({
+                      invalid_type_error: "Should be a number.",
+                    })
+                    .min(0, {
+                      message: "Negative values are not allowed.",
+                    }),
+                ]),
+              }),
+            ])
+            .optional(),
+        })
+        .optional(),
+      sharpenEnabled: z.coerce
+        .boolean({
+          invalid_type_error: "Should be a boolean.",
+        })
+        .optional(),
+      sharpen: z.coerce
+        .number({
+          invalid_type_error: "Should be a number.",
+        })
+        .int()
+        .min(1)
+        .max(99)
+        .optional(),
+      unsharpenMask: z.coerce.boolean().optional(),
+      unsharpenMaskRadius:
+        optionalPositiveFloatNumberValidator.optional(),
+      unsharpenMaskSigma: optionalPositiveFloatNumberValidator.optional(),
+      unsharpenMaskAmount:
+        optionalPositiveFloatNumberValidator.optional(),
+      unsharpenMaskThreshold:
+        optionalPositiveFloatNumberValidator.optional(),
+
+      // Color Replace
+      colorReplace: z.coerce.boolean().optional(),
+      crToColor: z.union([colorValidator, z.literal("")]).optional(),
+      crTolerance: z.coerce
+        .number({
+          invalid_type_error: "Should be a number.",
+        })
+        .int()
+        .min(0)
+        .max(100)
+        .optional(),
+      crFromColor: z.union([colorValidator, z.literal("")]).optional(),
+      nestedLayers: z.array(z.any()).optional(),
+    })
+    .passthrough()
+    .superRefine((val, ctx) => refineUnsharpenMask(val, ctx))
+    .refine(
+      (val) => {
+        return Object.values(val).some(
+          (v) => v !== undefined && v !== null && v !== "",
+        )
+      },
+      {
+        message: "At least one value is required",
+        path: [],
+      },
+    )
+    .superRefine((val, ctx) => {
+      if (val.focus === "object" && !val.focusObject) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Focus object is required",
+          path: ["focusObject"],
+        })
+      }
+      if (val.focus === "anchor" && !val.focusAnchor) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Focus anchor is required",
+          path: ["focusAnchor"],
+        })
+      }
+      if (val.focus === "coordinates") {
+        if (val.coordinateMethod === "topleft") {
+          if (!val.x && !val.y) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: "At least one coordinate (x or y) is required",
+              path: [],
+            })
+          }
+        } else if (val.coordinateMethod === "center") {
+          if (!val.xc && !val.yc) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: "At least one coordinate (xc or yc) is required",
+              path: [],
+            })
+          }
+        }
+      }
+
+      // DPR for image layers: only valid when either width or height is specified
+      if (val.dpr && !(val.width || val.height)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "DPR can only be used when either width or height is specified",
+          path: ["dpr"],
+        })
+      }
+
+      validatePerspectiveDistort(val, ctx)
+    }),
+  transformations: [
+    {
+      label: "Image URL",
+      name: "imageUrl",
+      fieldType: "input",
+      isTransformation: true,
+      transformationKey: "input",
+      transformationGroup: "imageLayer",
+      helpText: "Enter the URL or path of the overlay image.",
+      examples: ["overlay.png"],
+      isVariable: false,
+      isDefaultValueRequired: true,
+    },
+    {
+      label: "Width",
+      name: "width",
+      fieldType: "input",
+      isTransformation: true,
+      transformationKey: "width",
+      transformationGroup: "imageLayer",
+      helpText: "Specify the width of the overlay image.",
+      examples: ["100", "iw_div_2"],
+    },
+    {
+      label: "Height",
+      name: "height",
+      fieldType: "input",
+      isTransformation: true,
+      transformationKey: "height",
+      transformationGroup: "imageLayer",
+      helpText: "Specify the height of the overlay image.",
+      examples: ["100", "ih_div_2"],
+    },
+    {
+      label: "Adjust DPR",
+      name: "dprEnabled",
+      fieldType: "switch",
+      isTransformation: false,
+      transformationGroup: "imageLayer",
+      transformationKey: "dprEnabled",
+      helpText: "Adjust the DPR of the overlay image.",
+      fieldProps: {
+        defaultValue: false,
+      },
+      isVisible: ({ width, height }) => !!(width || height),
+    },
+    {
+      label: "DPR",
+      name: "dpr",
+      helpText:
+        "Set this value to deliver images optimised for high-resolution displays. The value can be between 0.1 and 5.",
+      fieldType: "slider",
+      isTransformation: true,
+      transformationGroup: "imageLayer",
+      transformationKey: "dpr",
+      fieldProps: {
+        defaultValue: 1,
+        autoOption: true,
+        min: 0.1,
+        max: 5,
+        step: 0.1,
+      },
+      isVisible: ({ dprEnabled, width, height }) =>
+        dprEnabled === true && !!(width || height),
+    },
+    {
+      label: "Crop Mode",
+      name: "crop",
+      fieldType: "select",
+      isTransformation: true,
+      transformationKey: "crop",
+      transformationGroup: "imageLayer",
+      helpText: "Crop the overlay image.",
+      fieldProps: {
+        options: [
+          ...RESIZE_CROP_MODES.map((mode) => ({
+            label: `${mode.label} (${mode.paramLabel})`,
+            value: mode.value,
+          })),
+        ],
+        defaultValue: "",
+        isClearable: true,
+      },
+    },
+    {
+      label: "Focus",
+      name: "focus",
+      fieldType: "select",
+      isTransformation: true,
+      transformationGroup: "imageLayer",
+      fieldProps: {
+        options: [
+          { label: "Select one", value: "" },
+          { label: "Auto", value: "auto" },
+          { label: "Anchor", value: "anchor" },
+          { label: "Face", value: "face" },
+          { label: "Object", value: "object" },
+          { label: "Custom", value: "custom" },
+          { label: "Coordinates", value: "coordinates" },
+        ],
+      },
+      helpText:
+        "Choose how to position the extracted region in overlay image. Custom uses a saved focus area from Media Library.",
+      isVisible: ({ crop }) => crop === "cm-extract",
+    },
+    // Only for extract crop mode
+    {
+      label: "Focus Anchor",
+      name: "focusAnchor",
+      fieldType: "anchor",
+      isTransformation: true,
+      transformationGroup: "imageLayer",
+      fieldProps: {
+        positions: [
+          "center",
+          "top",
+          "bottom",
+          "left",
+          "right",
+          "top_left",
+          "top_right",
+          "bottom_left",
+          "bottom_right",
+        ],
+      },
+      isVisible: ({ focus, crop }) =>
+        focus === "anchor" && crop === "cm-extract",
+    },
+    // Only for pad_resize crop mode
+    {
+      label: "Focus",
+      name: "focusAnchor",
+      fieldType: "anchor",
+      isTransformation: true,
+      transformationGroup: "imageLayer",
+      fieldProps: {
+        positions: ["center", "top", "bottom", "left", "right"],
+      },
+      isVisible: ({ crop }) => crop === "cm-pad_resize",
+    },
+    {
+      label: "Focus Object",
+      name: "focusObject",
+      fieldType: "select",
+      isTransformation: true,
+      transformationGroup: "imageLayer",
+      fieldProps: {
+        isCreatable: false,
+      },
+      helpText:
+        "Select an object to focus on in the overlay image during extraction. The crop will center on this object.",
+      isVisible: ({ focus }) => focus === "object",
+    },
+    {
+      label: "Coordinate Method",
+      name: "coordinateMethod",
+      fieldType: "radio-card",
+      isTransformation: false,
+      transformationGroup: "imageLayer",
+      fieldProps: {
+        options: [
+          { label: "Top-left (x, y)", value: "topleft" },
+          { label: "Center (xc, yc)", value: "center" },
+        ],
+        defaultValue: "topleft",
+      },
+      helpText:
+        "Choose whether coordinates are relative to the top-left corner or the center of the overlay image.",
+      isVisible: ({ focus }) => focus === "coordinates",
+    },
+    {
+      label: "X (Horizontal)",
+      name: "x",
+      fieldType: "input",
+      isTransformation: true,
+      transformationGroup: "imageLayer",
+      helpText:
+        "Horizontal position from the top-left of the overlay image. Use an integer or expression.",
+      examples: ["100", "iw_mul_0.4"],
+      isVisible: ({ focus, coordinateMethod }) =>
+        focus === "coordinates" && coordinateMethod === "topleft",
+    },
+    {
+      label: "Y (Vertical)",
+      name: "y",
+      fieldType: "input",
+      isTransformation: true,
+      transformationGroup: "imageLayer",
+      helpText:
+        "Vertical position from the top-left of the overlay image. Use an integer or expression.",
+      examples: ["100", "ih_mul_0.4"],
+      isVisible: ({ focus, coordinateMethod }) =>
+        focus === "coordinates" && coordinateMethod === "topleft",
+    },
+    {
+      label: "XC (Horizontal Center)",
+      name: "xc",
+      fieldType: "input",
+      isTransformation: true,
+      transformationGroup: "imageLayer",
+      helpText:
+        "Horizontal center position of the overlay image. Use an integer or expression.",
+      examples: ["200", "iw_mul_0.5"],
+      isVisible: ({ focus, coordinateMethod }) =>
+        focus === "coordinates" && coordinateMethod === "center",
+    },
+    {
+      label: "YC (Vertical Center)",
+      name: "yc",
+      fieldType: "input",
+      isTransformation: true,
+      transformationGroup: "imageLayer",
+      helpText:
+        "Vertical center position of the overlay image. Use an integer or expression.",
+      examples: ["200", "ih_mul_0.5"],
+      isVisible: ({ focus, coordinateMethod }) =>
+        focus === "coordinates" && coordinateMethod === "center",
+    },
+    {
+      label: "Zoom",
+      name: "zoom",
+      fieldType: "zoom",
+      isTransformation: true,
+      transformationGroup: "imageLayer",
+      fieldProps: {
+        defaultValue: 100,
+      },
+      helpText:
+        "Select the zoom level for the focus area. Higher zoom levels crop closer to the focus point.",
+      isVisible: ({ focus }) => focus === "object" || focus === "face",
+    },
+    {
+      label: "Position X",
+      name: "positionX",
+      fieldType: "input",
+      isTransformation: true,
+      transformationKey: "x",
+      transformationGroup: "imageLayer",
+      helpText: "Specify the horizontal offset for the overlay image.",
+      examples: ["10", "-20", "N30", "bw_div_2"],
+    },
+    {
+      label: "Position Y",
+      name: "positionY",
+      fieldType: "input",
+      isTransformation: true,
+      transformationKey: "y",
+      transformationGroup: "imageLayer",
+      helpText: "Specify the vertical offset for the overlay image.",
+      examples: ["10", "-20", "N30", "bh_div_2"],
+    },
+    {
+      label: "Position XC",
+      name: "positionXc",
+      fieldType: "input",
+      isTransformation: true,
+      transformationKey: "xc",
+      transformationGroup: "imageLayer",
+      helpText:
+        "Specify the horizontal center offset for the overlay image.",
+      examples: ["10", "-20", "N30", "bw_div_2"],
+    },
+    {
+      label: "Position YC",
+      name: "positionYc",
+      fieldType: "input",
+      isTransformation: true,
+      transformationKey: "yc",
+      transformationGroup: "imageLayer",
+      helpText:
+        "Specify the vertical center offset for the overlay image.",
+      examples: ["10", "-20", "N30", "bh_div_2"],
+    },
+    {
+      label: "Layer Anchor Point",
+      name: "layerAnchorPoint",
+      fieldType: "anchor",
+      isTransformation: true,
+      transformationGroup: "imageLayer",
+      fieldProps: {
+        positions: [
+          "center",
+          "top",
+          "bottom",
+          "left",
+          "right",
+          "top_left",
+          "top_right",
+          "bottom_left",
+          "bottom_right",
+        ],
+      },
+      helpText:
+        "Select the anchor point of the overlay layer for positioning.",
+    },
+    {
+      label: "Opacity",
+      name: "opacityEnabled",
+      fieldType: "switch",
+      isTransformation: false,
+      transformationKey: "opacityEnabled",
+      transformationGroup: "imageLayer",
+      helpText: "Toggle to set a custom opacity for the overlay image.",
+      fieldProps: {
+        defaultValue: false,
+      },
+    },
+    {
+      label: "Opacity",
+      name: "opacity",
+      fieldType: "slider",
+      isTransformation: true,
+      transformationKey: "opacity",
+      transformationGroup: "imageLayer",
+      helpText: "Set the opacity for the overlay image (0-100).",
+      examples: ["80"],
+      fieldProps: {
+        min: 0,
+        max: 100,
+        step: 1,
+        defaultValue: 100,
+      },
+      isVisible: ({ opacityEnabled }) => opacityEnabled === true,
+    },
+    {
+      label: "Background Color",
+      name: "backgroundColor",
+      fieldType: "color-picker",
+      isTransformation: true,
+      transformationKey: "background",
+      transformationGroup: "imageLayer",
+      helpText: "Set a background color for the overlay image.",
+      isVariable: false,
+      isDefaultValueRequired: true,
+      fieldProps: {
+        isClearable: true,
+      },
+    },
+    {
+      label: "Radius",
+      name: "radius",
+      fieldType: "radius-input",
+      isTransformation: true,
+      transformationGroup: "imageLayer",
+      helpText:
+        "Set the corner radius for the overlay image. Use 'max' for a circle or oval.",
+      examples: ["10", "max"],
+      fieldProps: {
+        defaultValue: {},
+      },
+    },
+    {
+      label: "Flip",
+      name: "flip",
+      fieldType: "checkbox-card",
+      isTransformation: true,
+      transformationKey: "flip",
+      transformationGroup: "imageLayer",
+      helpText: "Flip the overlay image horizontally or vertically.",
+      fieldProps: {
+        options: [
+          {
+            label: "Horizontal",
+            icon: PiFlipHorizontalFill,
+            value: "horizontal",
+          },
+          {
+            label: "Vertical",
+            icon: PiFlipVerticalFill,
+            value: "vertical",
+          },
+        ],
+        columns: 2,
+        defaultValue: [],
+      },
+    },
+    {
+      label: "Rotation",
+      name: "rotation",
+      fieldType: "slider",
+      isTransformation: true,
+      transformationKey: "rotation",
+      transformationGroup: "imageLayer",
+      helpText: "Rotate the overlay image (in degrees).",
+      fieldProps: {
+        min: -180,
+        max: 180,
+        step: 1,
+        defaultValue: "0",
+      },
+    },
+    {
+      label: "Trim",
+      name: "trimEnabled",
+      fieldType: "switch",
+      isTransformation: false,
+      transformationKey: "trimEnabled",
+      transformationGroup: "imageLayer",
+      helpText: "Control trimming of the overlay image.",
+      fieldProps: {
+        defaultValue: true,
+      },
+    },
+    {
+      label: "Trim Threshold",
+      name: "trimThreshold",
+      fieldType: "slider",
+      isTransformation: true,
+      transformationKey: "trimThreshold",
+      transformationGroup: "imageLayer",
+      helpText:
+        "Control the intensity of this effect using a threshold value between 1% and 99%.",
+      fieldProps: {
+        min: 1,
+        max: 99,
+        step: 1,
+        defaultValue: 10,
+      },
+      isVisible: ({ trimEnabled }) => trimEnabled === true,
+    },
+    {
+      label: "Quality",
+      name: "qualityEnabled",
+      fieldType: "switch",
+      isTransformation: false,
+      transformationKey: "qualityEnabled",
+      transformationGroup: "imageLayer",
+      helpText:
+        "Toggle to set a custom compression quality for the overlay image.",
+      fieldProps: {
+        defaultValue: false,
+      },
+    },
+    {
+      label: "Quality",
+      name: "quality",
+      fieldType: "slider",
+      isTransformation: true,
+      transformationKey: "quality",
+      transformationGroup: "imageLayer",
+      helpText: "Set the compression quality of the overlay image.",
+      fieldProps: {
+        min: 0,
+        max: 100,
+        step: 1,
+        defaultValue: 80,
+      },
+      isVisible: ({ qualityEnabled }) => qualityEnabled === true,
+    },
+    {
+      label: "Blur",
+      name: "blur",
+      fieldType: "slider",
+      isTransformation: true,
+      transformationKey: "blur",
+      transformationGroup: "imageLayer",
+      helpText: "Apply a Gaussian blur to the overlay image.",
+      fieldProps: {
+        min: 1,
+        max: 100,
+        step: 1,
+        defaultValue: "0",
+      },
+    },
+    {
+      label: "Border Width",
+      name: "borderWidth",
+      fieldType: "input",
+      isTransformation: false,
+      transformationKey: "borderWidth",
+      transformationGroup: "imageLayer",
+      fieldProps: {
+        defaultValue: "",
+      },
+      helpText:
+        "Enter the width of the border or expression of the overlay image.",
+      examples: ["10", "ch_div_2"],
+    },
+    {
+      label: "Border Color",
+      name: "borderColor",
+      fieldType: "color-picker",
+      isTransformation: false,
+      transformationKey: "borderColor",
+      transformationGroup: "imageLayer",
+      isVisible: ({ borderWidth }) => (borderWidth as string) !== "",
+      helpText: "Select the color of the border of the overlay image.",
+      fieldProps: {
+        hideOpacity: true,
+        showHexAlpha: false,
+        defaultValue: "#000000",
+        isClearable: true,
+      },
+    },
+    {
+      label: "Sharpen Overlay",
+      name: "sharpenEnabled",
+      fieldType: "switch",
+      isTransformation: false,
+      transformationKey: "sharpenEnabled",
+      transformationGroup: "imageLayer",
+      helpText:
+        "Toggle to sharpen the overlay image to highlight edges and fine details.",
+      fieldProps: {
+        defaultValue: false,
+      },
+    },
+    {
+      label: "Sharpen Threshold",
+      name: "sharpen",
+      fieldType: "slider",
+      isTransformation: false,
+      transformationKey: "sharpen",
+      transformationGroup: "imageLayer",
+      helpText:
+        "Sharpen the overlay image. Control the intensity of this effect using a threshold value between 1% and 99%.",
+      fieldProps: {
+        min: 1,
+        defaultValue: 50,
+        max: 99,
+        step: 1,
+      },
+      isVisible: ({ sharpenEnabled }) => sharpenEnabled === true,
+    },
+    {
+      name: "unsharpenMask",
+      fieldType: "switch",
+      isTransformation: false,
+      transformationGroup: "imageLayer",
+      helpText:
+        "Toggle to unsharpen the overlay image to remove the edges and finer details within an image.",
+      fieldProps: {
+        defaultValue: false,
+      },
+      label: "Unsharpen Mask",
+    },
+    {
+      name: "unsharpenMaskRadius",
+      fieldType: "input",
+      label: "Radius",
+      isTransformation: false,
+      transformationGroup: "imageLayer",
+      helpText:
+        "Controls how wide the sharpening effect spreads from each edge. Larger values affect broader areas; smaller values focus on fine details.",
+      fieldProps: {
+        defaultValue: "",
+      },
+      examples: ["1", "8", "15"],
+      isVisible: ({ unsharpenMask }) => unsharpenMask === true,
+    },
+    {
+      name: "unsharpenMaskSigma",
+      fieldType: "input",
+      label: "Sigma",
+      isTransformation: false,
+      transformationGroup: "imageLayer",
+      helpText:
+        "Defines the amount of blur used to detect edges before sharpening. Higher values smooth more before sharpening; lower values preserve fine textures.",
+      fieldProps: {
+        defaultValue: "",
+      },
+      examples: ["1", "5", "6"],
+      isVisible: ({ unsharpenMask }) => unsharpenMask === true,
+    },
+    {
+      name: "unsharpenMaskAmount",
+      fieldType: "input",
+      label: "Amount",
+      isTransformation: false,
+      transformationGroup: "imageLayer",
+      helpText: "Sets the strength of the sharpening effect.",
+      fieldProps: {
+        defaultValue: "",
+      },
+      examples: ["0.1", "2", "0.8"],
+      isVisible: ({ unsharpenMask }) => unsharpenMask === true,
+    },
+    {
+      name: "unsharpenMaskThreshold",
+      fieldType: "input",
+      label: "Threshold",
+      isTransformation: false,
+      transformationGroup: "imageLayer",
+      helpText: "Set the threshold value for the unsharpen mask.",
+      fieldProps: {
+        defaultValue: "",
+      },
+      examples: ["0.1", "2", "0.8"],
+      isVisible: ({ unsharpenMask }) => unsharpenMask === true,
+    },
+
+    {
+      label: "Gradient",
+      name: "gradientSwitch",
+      fieldType: "switch",
+      isTransformation: false,
+      transformationGroup: "imageLayer",
+      helpText:
+        "Toggle to add a gradient overlay over the overlay image.",
+    },
+    {
+      label: "Apply Gradient",
+      name: "gradient",
+      fieldType: "gradient-picker",
+      isTransformation: true,
+      transformationKey: "gradient",
+      transformationGroup: "imageLayer",
+      isVariable: false,
+      isDefaultValueRequired: true,
+      isVisible: ({ gradientSwitch }) => gradientSwitch === true,
+      fieldProps: {
+        defaultValue: {
+          from: "#FFFFFFFF",
+          to: "#00000000",
+          direction: "bottom",
+          stopPoint: 100,
+        },
+      },
+    },
+    {
+      label: "Shadow",
+      name: "shadow",
+      fieldType: "switch",
+      isTransformation: true,
+      transformationGroup: "imageLayer",
+      helpText:
+        "Toggle to add a non-AI shadow under objects in the overlay image.",
+    },
+    {
+      label: "Blur",
+      name: "shadowBlur",
+      fieldType: "slider",
+      isTransformation: true,
+      transformationGroup: "imageLayer",
+      helpText:
+        "Set the blur radius for the shadow. Higher values create a softer shadow.",
+      fieldProps: {
+        min: 0,
+        max: 15,
+        step: 1,
+        defaultValue: 10,
+      },
+      isVisible: ({ shadow }) => shadow === true,
+    },
+    {
+      label: "Saturation",
+      name: "shadowSaturation",
+      fieldType: "slider",
+      isTransformation: true,
+      transformationGroup: "imageLayer",
+      helpText:
+        "Adjust the saturation of the shadow. Higher values produce a darker shadow.",
+      fieldProps: {
+        min: 0,
+        max: 100,
+        step: 1,
+        defaultValue: 30,
+      },
+      isVisible: ({ shadow }) => shadow === true,
+    },
+    {
+      label: "X Offset",
+      name: "shadowOffsetX",
+      fieldType: "slider",
+      isTransformation: true,
+      transformationGroup: "imageLayer",
+      helpText:
+        "Enter the horizontal offset as a percentage of the overlay image width.",
+      isVisible: ({ shadow }) => shadow === true,
+      fieldProps: {
+        min: -100,
+        max: 100,
+        step: 1,
+        defaultValue: 2,
+      },
+    },
+    {
+      label: "Y Offset",
+      name: "shadowOffsetY",
+      fieldType: "slider",
+      isTransformation: true,
+      transformationGroup: "imageLayer",
+      helpText:
+        "Enter the vertical offset as a percentage of the overlay image height.",
+      isVisible: ({ shadow }) => shadow === true,
+      fieldProps: {
+        min: -100,
+        max: 100,
+        step: 1,
+        defaultValue: 2,
+      },
+    },
+    {
+      label: "Grayscale",
+      name: "grayscale",
+      fieldType: "switch",
+      isTransformation: true,
+      transformationKey: "grayscale",
+      transformationGroup: "imageLayer",
+      helpText: "Toggle to convert the overlay image to grayscale.",
+    },
+    {
+      label: "Distort",
+      name: "distort",
+      fieldType: "switch",
+      isTransformation: false,
+      transformationGroup: "imageLayer",
+      helpText: "Toggle to apply distortion to the overlay image.",
+    },
+    {
+      label: "Distortion Type",
+      name: "distortType",
+      fieldType: "radio-card",
+      isTransformation: false,
+      transformationGroup: "imageLayer",
+      isVisible: ({ distort }) => distort === true,
+      fieldProps: {
+        options: [
+          { label: "Perspective", value: "perspective" },
+          { label: "Arc", value: "arc" },
+        ],
+        defaultValue: "perspective",
+      },
+    },
+    {
+      label: "Distortion Perspective",
+      name: "distortPerspective",
+      fieldType: "distort-perspective-input",
+      isTransformation: false,
+      transformationGroup: "imageLayer",
+      isVisible: ({ distort, distortType }) =>
+        distort === true && distortType === "perspective",
+      fieldProps: {
+        defaultValue: {
+          x1: "",
+          y1: "",
+          x2: "",
+          y2: "",
+          x3: "",
+          y3: "",
+          x4: "",
+          y4: "",
+        },
+      },
+    },
+    {
+      label: "Distortion Arc Degrees",
+      name: "distortArcDegree",
+      fieldType: "slider",
+      isTransformation: true,
+      transformationGroup: "imageLayer",
+      isVisible: ({ distort, distortType }) =>
+        distort === true && distortType === "arc",
+      helpText: "Enter the arc degree for the arc distortion effect.",
+      examples: ["15", "30", "-45", "N50"],
+      fieldProps: {
+        min: -360,
+        max: 360,
+        step: 5,
+        defaultValue: "0",
+        inputType: "text",
+        skipStepCheck: true,
+      },
+    },
+    {
+      label: "Color Replace",
+      name: "colorReplace",
+      fieldType: "switch",
+      isTransformation: false,
+      transformationGroup: "imageLayer",
+      helpText:
+        "Toggle to replace specific colors in the overlay image with a new color.",
+    },
+    {
+      label: "From Color",
+      name: "crFromColor",
+      fieldType: "color-picker",
+      isTransformation: false,
+      transformationGroup: "imageLayer",
+      helpText:
+        "Select the source color you want to replace (optional - if not specified, dominant color will be replaced).",
+      isVariable: false,
+      isDefaultValueRequired: true,
+      fieldProps: {
+        hideOpacity: true,
+        showHexAlpha: false,
+        isClearable: true,
+      },
+      isVisible: ({ colorReplace }) => colorReplace === true,
+    },
+    {
+      label: "Tolerance",
+      name: "crTolerance",
+      fieldType: "slider",
+      isTransformation: false,
+      transformationGroup: "imageLayer",
+      helpText:
+        "Set the tolerance for the color replacement. Lower values are more precise, higher values are more forgiving.",
+      fieldProps: {
+        defaultValue: 35,
+        min: 0,
+        max: 100,
+        step: 1,
+      },
+      isVisible: ({ colorReplace }) => colorReplace === true,
+    },
+    {
+      label: "To Color",
+      name: "crToColor",
+      fieldType: "color-picker",
+      isTransformation: false,
+      transformationGroup: "imageLayer",
+      helpText: "Select the target color to replace with.",
+      isVariable: false,
+      isDefaultValueRequired: true,
+      fieldProps: {
+        hideOpacity: true,
+        showHexAlpha: false,
+        isClearable: true,
+      },
+      isVisible: ({ colorReplace }) => colorReplace === true,
+    },
+  ],
+  ...(currentDepth < maxDepth ? {
+    nestedLayers: {
+      key: "layers",
+      name: "Layers",
+      items: [
+        createImageLayerItem(maxDepth, currentDepth + 1),
+        createTextLayerItem(),
+      ],
+    },
+  } : {}),
+})
+
+const createTextLayerItem = (): TransformationItem => ({
+  ...({
+        key: "layers-text",
+        name: "Text Layer",
+        description:
+          "Add a text overlay on top of the base image. Specify text content, font, size, color, position and optional background or padding.",
+        docsLink:
+          "https://imagekit.io/docs/add-overlays-on-images#add-text-over-image",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            text: z.string(),
+            width: widthValidator.optional(),
+            positionX: layerXValidator.optional(),
+            positionY: layerYValidator.optional(),
+            positionXc: layerXcValidator.optional(),
+            positionYc: layerYcValidator.optional(),
+            layerAnchorPoint: z.string().optional(),
+            fontSize: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
+            fontFamily: z.string().optional(),
+            color: z.string().optional(),
+            innerAlignment: z
+              .enum(["left", "right", "center"])
+              .default("center"),
+            padding: z.preprocess(
+              (val) => (val === "" ? undefined : val),
+              z
+                .object({
+                  mode: z.enum(["uniform", "individual"]).optional(),
+                  padding: z
+                    .union([
+                      z.coerce
+                        .number({
+                          invalid_type_error: "Should be a number.",
+                        })
+                        .min(0, {
+                          message: "Negative values are not allowed.",
+                        }),
+                      z.object({
+                        top: z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
+                        right: z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
+                        bottom: z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
+                        left: z.coerce
+                          .number({
+                            invalid_type_error: "Should be a number.",
+                          })
+                          .min(0, {
+                            message: "Negative values are not allowed.",
+                          }),
+                      }),
+                    ])
+                    .optional(),
+                })
+                .optional(),
+            ),
+            opacity: z
+              .union([
+                z.coerce
+                  .number({
+                    invalid_type_error: "Should be a number.",
+                  })
+                  .min(1)
+                  .max(10),
+                z.literal(""),
+              ])
+              .optional(),
+            typography: z
+              .array(z.enum(["bold", "italic"]).optional())
+              .optional(),
+            backgroundColor: z.string().optional(),
+            radius: z.union([
+              z.literal("max"),
+              z.coerce
+                .number({
+                  invalid_type_error: "Should be a number.",
+                })
+                .min(0),
+            ]),
+            lineHeight: lineHeightValidator,
+            flip: z
+              .array(z.enum(["horizontal", "vertical"]).optional())
+              .optional(),
+            rotation: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .optional(),
+          })
+          .passthrough()
+          .refine(
+            (val) => {
+              return Object.values(val).some(
+                (v) => v !== undefined && v !== null && v !== "",
+              )
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
+          {
+            label: "Text",
+            name: "text",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "text",
+            transformationGroup: "textLayer",
+            helpText: "Enter the text to overlay on the image.",
+            examples: ["Hello World"],
+            isVariable: false,
+            isDefaultValueRequired: true,
+          },
+          {
+            label: "Width",
+            name: "width",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "width",
+            transformationGroup: "textLayer",
+            helpText: "Specify the width of the overlaid text.",
+            examples: ["300", "bw_div_2"],
+          },
+          {
+            label: "Position X",
+            name: "positionX",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "x",
+            transformationGroup: "textLayer",
+            helpText: "Specify horizontal offset for the text.",
+            examples: ["10", "-20", "N30", "bw_div_2"],
+          },
+          {
+            label: "Position Y",
+            name: "positionY",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "y",
+            transformationGroup: "textLayer",
+            helpText: "Specify vertical offset for the text.",
+            examples: ["10", "-20", "N30", "bh_div_2"],
+          },
+          {
+            label: "Position XC",
+            name: "positionXc",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "xc",
+            transformationGroup: "textLayer",
+            helpText: "Specify horizontal center offset for the text.",
+            examples: ["10", "-20", "N30", "bw_div_2"],
+          },
+          {
+            label: "Position YC",
+            name: "positionYc",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "yc",
+            transformationGroup: "textLayer",
+            helpText: "Specify vertical center offset for the text.",
+            examples: ["10", "-20", "N30", "bh_div_2"],
+          },
+          {
+            label: "Layer Anchor Point",
+            name: "layerAnchorPoint",
+            fieldType: "anchor",
+            isTransformation: true,
+            transformationGroup: "textLayer",
+            fieldProps: {
+              positions: [
+                "center",
+                "top",
+                "bottom",
+                "left",
+                "right",
+                "top_left",
+                "top_right",
+                "bottom_left",
+                "bottom_right",
+              ],
+            },
+            helpText:
+              "Select the anchor point of the overlay layer for positioning.",
+          },
+          {
+            label: "Font Size",
+            name: "fontSize",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "fontSize",
+            transformationGroup: "textLayer",
+            helpText: "Specify the font size of the text.",
+            examples: ["24", "12"],
+            fieldProps: {
+              defaultValue: "14",
+            },
+          },
+          {
+            label: "Font Family",
+            name: "fontFamily",
+            fieldType: "select",
+            isTransformation: true,
+            transformationKey: "fontFamily",
+            transformationGroup: "textLayer",
+            helpText: "Choose a font family for the text.",
+            fieldProps: {
+              options: [
+                { label: "AbrilFatFace", value: "AbrilFatFace" },
+                { label: "Amaranth", value: "Amaranth" },
+                { label: "Arvo", value: "Arvo" },
+                { label: "Audiowide", value: "Audiowide" },
+                { label: "Chivo", value: "Chivo" },
+                { label: "Crimson Text", value: "Crimson Text" },
+                { label: "exo", value: "exo" },
+                { label: "Fredoka One", value: "Fredoka One" },
+                { label: "Gravitas One", value: "Gravitas One" },
+                { label: "Kanit", value: "Kanit" },
+                { label: "Lato", value: "Lato" },
+                { label: "Lobster", value: "Lobster" },
+                { label: "Lora", value: "Lora" },
+                { label: "Monoton", value: "Monoton" },
+                { label: "Montserrat", value: "Montserrat" },
+                { label: "PT Mono", value: "PT Mono" },
+                { label: "PT_Serif", value: "PT_Serif" },
+                { label: "Open Sans", value: "Open Sans" },
+                { label: "Roboto", value: "Roboto" },
+                { label: "Old Standard", value: "Old Standard" },
+                { label: "Ubuntu", value: "Ubuntu" },
+                { label: "Vollkorn", value: "Vollkorn" },
+              ],
+              defaultValue: "Open Sans",
+            },
+          },
+          {
+            label: "Typography",
+            name: "typography",
+            fieldType: "checkbox-card",
+            isTransformation: true,
+            transformationKey: "typography",
+            transformationGroup: "textLayer",
+            helpText: "Set the typography of the text.",
+            fieldProps: {
+              options: [
+                { label: "Bold", icon: RxFontBold, value: "bold" },
+                { label: "Italic", icon: RxFontItalic, value: "italic" },
+              ],
+              defaultValue: [],
+              columns: 2,
+            },
+          },
+          {
+            label: "Color",
+            name: "color",
+            fieldType: "color-picker",
+            isTransformation: true,
+            transformationKey: "fontColor",
+            transformationGroup: "textLayer",
+            helpText: "Select a color for the text.",
+            examples: ["FFFFFF", "FF0000"],
+            fieldProps: {
+              isClearable: true,
+            },
+          },
+          {
+            label: "Background Color",
+            name: "backgroundColor",
+            fieldType: "color-picker",
+            isTransformation: true,
+            transformationKey: "background",
+            transformationGroup: "textLayer",
+            helpText: "Set a background color for the text box.",
+            examples: ["FFFFFF", "FF0000"],
+            isVariable: false,
+            isDefaultValueRequired: true,
+            fieldProps: {
+              isClearable: true,
+            },
+          },
+          {
+            label: "Inner Alignment",
+            name: "innerAlignment",
+            fieldType: "radio-card",
+            isTransformation: true,
+            transformationKey: "innerAlignment",
+            transformationGroup: "textLayer",
+            helpText: "Choose the alignment of the text within the text box.",
+            fieldProps: {
+              options: [
+                { label: "Left", icon: RxTextAlignLeft, value: "left" },
+                { label: "Center", icon: RxTextAlignCenter, value: "center" },
+                { label: "Right", icon: RxTextAlignRight, value: "right" },
+              ],
+              defaultValue: "center",
+            },
+          },
+          {
+            label: "Padding",
+            name: "padding",
+            fieldType: "padding-input",
+            isTransformation: true,
+            transformationKey: "padding",
+            transformationGroup: "textLayer",
+            helpText: "Specify padding around the text (in pixels).",
+            examples: ["10", "20"],
+          },
+          {
+            label: "Line Height",
+            name: "lineHeight",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "lineHeight",
+            transformationGroup: "textLayer",
+            helpText:
+              "Specify the line height for the text overlay. Must be a positive integer or a valid expression string.",
+            examples: ["1", "3", "bh_div_2"],
+          },
+          {
+            label: "Opacity",
+            name: "opacity",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationGroup: "textLayer",
+            helpText: "Set opacity for the text overlay (1-9).",
+            fieldProps: {
+              min: 1,
+              max: 9,
+              step: 1,
+              defaultValue: 9,
+            },
+          },
+          {
+            label: "Radius",
+            name: "radius",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "radius",
+            transformationGroup: "textLayer",
+            helpText:
+              "Set the radius for the corner of the text overlay. Set to 'max' for circle or oval.",
+          },
+          {
+            label: "Flip",
+            name: "flip",
+            fieldType: "checkbox-card",
+            isTransformation: true,
+            transformationKey: "flip",
+            transformationGroup: "textLayer",
+            helpText: "Flip the text overlay horizontally or vertically.",
+            fieldProps: {
+              options: [
+                {
+                  label: "Horizontal",
+                  icon: PiFlipHorizontalFill,
+                  value: "horizontal",
+                },
+                {
+                  label: "Vertical",
+                  icon: PiFlipVerticalFill,
+                  value: "vertical",
+                },
+              ],
+              columns: 2,
+              defaultValue: [],
+            },
+          },
+          {
+            label: "Rotation",
+            name: "rotation",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationKey: "rotation",
+            transformationGroup: "textLayer",
+            helpText: "Rotate the text overlay (in degrees).",
+            fieldProps: {
+              min: -180,
+              max: 180,
+              step: 1,
+              defaultValue: "0",
+            },
+          },
+        ],
+      } as TransformationItem),
+})
 
 const baseTransformationSchema: TransformationSchema[] = [
   resizeAndCropCategory,
@@ -185,9 +1758,11 @@ const baseTransformationSchema: TransformationSchema[] = [
         docsLink:
           "https://imagekit.io/docs/effects-and-enhancements#background---bg",
         defaultTransformation: {},
-        schema: z.object({
-          ...background.getPropsFor("root_image").schema,
-        }),
+        schema: z
+          .object({
+            ...background.getPropsFor("root_image").schema,
+          })
+          .passthrough(),
         transformations: [
           ...background
             .getPropsFor("root_image")
@@ -213,6 +1788,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               })
               .optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -277,6 +1853,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               })
               .optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -382,6 +1959,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               })
               .optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -444,6 +2022,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               invalid_type_error: "Should be a boolean.",
             }),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -474,6 +2053,8 @@ const baseTransformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "gradient",
             transformationGroup: "gradient",
+            isVariable: false,
+            isDefaultValueRequired: true,
             isVisible: ({ gradientSwitch }) => gradientSwitch === true,
             fieldProps: {
               defaultValue: {
@@ -514,6 +2095,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               .regex(/^[-N]?\d+$/)
               .optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -612,6 +2194,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               })
               .optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -664,6 +2247,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               ])
               .optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -720,6 +2304,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               return []
             }, z.array(z.enum(["horizontal", "vertical"])).optional()),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -833,6 +2418,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               })
               .optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -879,6 +2465,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               })
               .optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -923,6 +2510,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             borderWidth: commonNumberAndExpressionValidator.optional(),
             borderColor: colorValidator,
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -993,6 +2581,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               .max(99)
               .optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -1056,6 +2645,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               .optional(),
             fromColor: z.union([colorValidator, z.literal("")]).optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               // At least toColor must be provided
@@ -1137,6 +2727,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               .max(99)
               .optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -1202,6 +2793,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               message: "Should be a positive floating point number.",
             }),
           })
+          .passthrough()
           .refine((val) => {
             if (Object.values(val).some((v) => v !== undefined && v !== null)) {
               return true
@@ -1283,6 +2875,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               })
               .optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -1330,6 +2923,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               })
               .optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -1373,6 +2967,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           .object({
             changebg: z.string().optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -1417,6 +3012,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           .object({
             edit: z.string().optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -1464,6 +3060,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               })
               .optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -1510,6 +3107,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               })
               .optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -1557,6 +3155,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               })
               .optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -1604,6 +3203,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               })
               .optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -1652,6 +3252,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           .object({
             format: z.string().optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -1699,6 +3300,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               })
               .optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               if (
@@ -1736,1380 +3338,8 @@ const baseTransformationSchema: TransformationSchema[] = [
     key: "layers",
     name: "Layers",
     items: [
-      {
-        key: "layers-text",
-        name: "Text Layer",
-        description:
-          "Add a text overlay on top of the base image. Specify text content, font, size, color, position and optional background or padding.",
-        docsLink:
-          "https://imagekit.io/docs/add-overlays-on-images#add-text-over-image",
-        defaultTransformation: {},
-        schema: z
-          .object({
-            text: z.string(),
-            width: widthValidator.optional(),
-            positionX: layerXValidator.optional(),
-            positionY: layerYValidator.optional(),
-            fontSize: z.coerce
-              .number({
-                invalid_type_error: "Should be a number.",
-              })
-              .optional(),
-            fontFamily: z.string().optional(),
-            color: z.string().optional(),
-            innerAlignment: z
-              .enum(["left", "right", "center"])
-              .default("center"),
-            padding: z.preprocess(
-              (val) => (val === "" ? undefined : val),
-              z
-                .object({
-                  mode: z.enum(["uniform", "individual"]).optional(),
-                  padding: z
-                    .union([
-                      z.coerce
-                        .number({
-                          invalid_type_error: "Should be a number.",
-                        })
-                        .min(0, {
-                          message: "Negative values are not allowed.",
-                        }),
-                      z.object({
-                        top: z.coerce
-                          .number({
-                            invalid_type_error: "Should be a number.",
-                          })
-                          .min(0, {
-                            message: "Negative values are not allowed.",
-                          }),
-                        right: z.coerce
-                          .number({
-                            invalid_type_error: "Should be a number.",
-                          })
-                          .min(0, {
-                            message: "Negative values are not allowed.",
-                          }),
-                        bottom: z.coerce
-                          .number({
-                            invalid_type_error: "Should be a number.",
-                          })
-                          .min(0, {
-                            message: "Negative values are not allowed.",
-                          }),
-                        left: z.coerce
-                          .number({
-                            invalid_type_error: "Should be a number.",
-                          })
-                          .min(0, {
-                            message: "Negative values are not allowed.",
-                          }),
-                      }),
-                    ])
-                    .optional(),
-                })
-                .optional(),
-            ),
-            opacity: z
-              .union([
-                z.coerce
-                  .number({
-                    invalid_type_error: "Should be a number.",
-                  })
-                  .min(1)
-                  .max(10),
-                z.literal(""),
-              ])
-              .optional(),
-            typography: z
-              .array(z.enum(["bold", "italic"]).optional())
-              .optional(),
-            backgroundColor: z.string().optional(),
-            radius: z.union([
-              z.literal("max"),
-              z.coerce
-                .number({
-                  invalid_type_error: "Should be a number.",
-                })
-                .min(0),
-            ]),
-            lineHeight: lineHeightValidator,
-            flip: z
-              .array(z.enum(["horizontal", "vertical"]).optional())
-              .optional(),
-            rotation: z.coerce
-              .number({
-                invalid_type_error: "Should be a number.",
-              })
-              .optional(),
-          })
-          .refine(
-            (val) => {
-              return Object.values(val).some(
-                (v) => v !== undefined && v !== null && v !== "",
-              )
-            },
-            {
-              message: "At least one value is required",
-              path: [],
-            },
-          ),
-        transformations: [
-          {
-            label: "Text",
-            name: "text",
-            fieldType: "input",
-            isTransformation: true,
-            transformationKey: "text",
-            transformationGroup: "textLayer",
-            helpText: "Enter the text to overlay on the image.",
-            examples: ["Hello World"],
-          },
-          {
-            label: "Width",
-            name: "width",
-            fieldType: "input",
-            isTransformation: true,
-            transformationKey: "width",
-            transformationGroup: "textLayer",
-            helpText: "Specify the width of the overlaid text.",
-            examples: ["300", "bw_div_2"],
-          },
-          {
-            label: "Position X",
-            name: "positionX",
-            fieldType: "input",
-            isTransformation: true,
-            transformationKey: "x",
-            transformationGroup: "textLayer",
-            helpText: "Specify horizontal offset for the text.",
-            examples: ["10", "-20", "N30", "bw_div_2"],
-          },
-          {
-            label: "Position Y",
-            name: "positionY",
-            fieldType: "input",
-            isTransformation: true,
-            transformationKey: "y",
-            transformationGroup: "textLayer",
-            helpText: "Specify vertical offset for the text.",
-            examples: ["10", "-20", "N30", "bh_div_2"],
-          },
-          {
-            label: "Font Size",
-            name: "fontSize",
-            fieldType: "input",
-            isTransformation: true,
-            transformationKey: "fontSize",
-            transformationGroup: "textLayer",
-            helpText: "Specify the font size of the text.",
-            examples: ["24", "12"],
-            fieldProps: {
-              defaultValue: "14",
-            },
-          },
-          {
-            label: "Font Family",
-            name: "fontFamily",
-            fieldType: "select",
-            isTransformation: true,
-            transformationKey: "fontFamily",
-            transformationGroup: "textLayer",
-            helpText: "Choose a font family for the text.",
-            fieldProps: {
-              options: [
-                { label: "AbrilFatFace", value: "AbrilFatFace" },
-                { label: "Amaranth", value: "Amaranth" },
-                { label: "Arvo", value: "Arvo" },
-                { label: "Audiowide", value: "Audiowide" },
-                { label: "Chivo", value: "Chivo" },
-                { label: "Crimson Text", value: "Crimson Text" },
-                { label: "exo", value: "exo" },
-                { label: "Fredoka One", value: "Fredoka One" },
-                { label: "Gravitas One", value: "Gravitas One" },
-                { label: "Kanit", value: "Kanit" },
-                { label: "Lato", value: "Lato" },
-                { label: "Lobster", value: "Lobster" },
-                { label: "Lora", value: "Lora" },
-                { label: "Monoton", value: "Monoton" },
-                { label: "Montserrat", value: "Montserrat" },
-                { label: "PT Mono", value: "PT Mono" },
-                { label: "PT_Serif", value: "PT_Serif" },
-                { label: "Open Sans", value: "Open Sans" },
-                { label: "Roboto", value: "Roboto" },
-                { label: "Old Standard", value: "Old Standard" },
-                { label: "Ubuntu", value: "Ubuntu" },
-                { label: "Vollkorn", value: "Vollkorn" },
-              ],
-              defaultValue: "Open Sans",
-            },
-          },
-          {
-            label: "Typography",
-            name: "typography",
-            fieldType: "checkbox-card",
-            isTransformation: true,
-            transformationKey: "typography",
-            transformationGroup: "textLayer",
-            helpText: "Set the typography of the text.",
-            fieldProps: {
-              options: [
-                { label: "Bold", icon: RxFontBold, value: "bold" },
-                { label: "Italic", icon: RxFontItalic, value: "italic" },
-              ],
-              defaultValue: [],
-              columns: 2,
-            },
-          },
-          {
-            label: "Color",
-            name: "color",
-            fieldType: "color-picker",
-            isTransformation: true,
-            transformationKey: "fontColor",
-            transformationGroup: "textLayer",
-            helpText: "Select a color for the text.",
-            examples: ["FFFFFF", "FF0000"],
-            fieldProps: {
-              isClearable: true,
-            },
-          },
-          {
-            label: "Background Color",
-            name: "backgroundColor",
-            fieldType: "color-picker",
-            isTransformation: true,
-            transformationKey: "background",
-            transformationGroup: "textLayer",
-            helpText: "Set a background color for the text box.",
-            examples: ["FFFFFF", "FF0000"],
-            fieldProps: {
-              isClearable: true,
-            },
-          },
-          {
-            label: "Inner Alignment",
-            name: "innerAlignment",
-            fieldType: "radio-card",
-            isTransformation: true,
-            transformationKey: "innerAlignment",
-            transformationGroup: "textLayer",
-            helpText: "Choose the alignment of the text within the text box.",
-            fieldProps: {
-              options: [
-                { label: "Left", icon: RxTextAlignLeft, value: "left" },
-                { label: "Center", icon: RxTextAlignCenter, value: "center" },
-                { label: "Right", icon: RxTextAlignRight, value: "right" },
-              ],
-              defaultValue: "center",
-            },
-          },
-          {
-            label: "Padding",
-            name: "padding",
-            fieldType: "padding-input",
-            isTransformation: true,
-            transformationKey: "padding",
-            transformationGroup: "textLayer",
-            helpText: "Specify padding around the text (in pixels).",
-            examples: ["10", "20"],
-          },
-          {
-            label: "Line Height",
-            name: "lineHeight",
-            fieldType: "input",
-            isTransformation: true,
-            transformationKey: "lineHeight",
-            transformationGroup: "textLayer",
-            helpText:
-              "Specify the line height for the text overlay. Must be a positive integer or a valid expression string.",
-            examples: ["1", "3", "bh_div_2"],
-          },
-          {
-            label: "Opacity",
-            name: "opacity",
-            fieldType: "slider",
-            isTransformation: true,
-            transformationGroup: "textLayer",
-            helpText: "Set opacity for the text overlay (1-9).",
-            fieldProps: {
-              min: 1,
-              max: 9,
-              step: 1,
-              defaultValue: 9,
-            },
-          },
-          {
-            label: "Radius",
-            name: "radius",
-            fieldType: "input",
-            isTransformation: true,
-            transformationKey: "radius",
-            transformationGroup: "textLayer",
-            helpText:
-              "Set the radius for the corner of the text overlay. Set to 'max' for circle or oval.",
-          },
-          {
-            label: "Flip",
-            name: "flip",
-            fieldType: "checkbox-card",
-            isTransformation: true,
-            transformationKey: "flip",
-            transformationGroup: "textLayer",
-            helpText: "Flip the text overlay horizontally or vertically.",
-            fieldProps: {
-              options: [
-                {
-                  label: "Horizontal",
-                  icon: PiFlipHorizontalFill,
-                  value: "horizontal",
-                },
-                {
-                  label: "Vertical",
-                  icon: PiFlipVerticalFill,
-                  value: "vertical",
-                },
-              ],
-              columns: 2,
-              defaultValue: [],
-            },
-          },
-          {
-            label: "Rotation",
-            name: "rotation",
-            fieldType: "slider",
-            isTransformation: true,
-            transformationKey: "rotation",
-            transformationGroup: "textLayer",
-            helpText: "Rotate the text overlay (in degrees).",
-            fieldProps: {
-              min: -180,
-              max: 180,
-              step: 1,
-              defaultValue: "0",
-            },
-          },
-        ],
-      },
-      {
-        key: "layers-image",
-        name: "Image Layer",
-        description:
-          "Overlay another image on top of the base image. Position, resize and set opacity for the overlaid image.",
-        docsLink:
-          "https://imagekit.io/docs/add-overlays-on-images#add-images-over-image",
-        defaultTransformation: {},
-        schema: z
-          .object({
-            imageUrl: z.string().optional(),
-            width: widthValidator.optional(),
-            height: heightValidator.optional(),
-            crop: z.string().optional(),
-            positionX: layerXValidator.optional(),
-            positionY: layerYValidator.optional(),
-            anchor: z.string().optional(),
-            opacityEnabled: z.boolean().optional(),
-            opacity: z.coerce
-              .number({
-                invalid_type_error: "Should be a number.",
-              })
-              .optional(),
-            backgroundColor: z.string().optional(),
-            dprEnabled: z.boolean().optional(),
-            dpr: z
-              .union([
-                z.coerce.number({
-                  invalid_type_error: "Should be a number.",
-                }),
-                z.literal("auto"),
-              ])
-              .optional(),
-            flip: z
-              .array(z.enum(["horizontal", "vertical"]).optional())
-              .optional(),
-            rotation: z.coerce
-              .number({
-                invalid_type_error: "Should be a number.",
-              })
-              .optional(),
-            trimEnabled: z.coerce
-              .boolean({
-                invalid_type_error: "Should be a boolean.",
-              })
-              .optional(),
-            trimThreshold: z.coerce
-              .number({
-                invalid_type_error: "Should be a number.",
-              })
-              .int()
-              .min(1)
-              .max(99)
-              .optional(),
-            qualityEnabled: z.boolean().optional(),
-            quality: z.coerce
-              .number({
-                invalid_type_error: "Should be a number.",
-              })
-              .optional(),
-            blur: z.coerce
-              .number({
-                invalid_type_error: "Should be a number.",
-              })
-              .optional(),
-            borderWidth: commonNumberAndExpressionValidator.optional(),
-            borderColor: colorValidator.optional(),
-            // Focus + Zoom properties
-            focus: z.string().optional(),
-            focusAnchor: z.string().optional(),
-            focusObject: z.string().optional(),
-            coordinateMethod: z.string().optional(),
-            x: z.string().optional(),
-            y: z.string().optional(),
-            xc: z.string().optional(),
-            yc: z.string().optional(),
-            zoom: z.coerce.number().optional(),
-
-            // Gradient properties
-            gradientSwitch: z.coerce
-              .boolean({
-                invalid_type_error: "Should be a boolean.",
-              })
-              .optional(),
-            gradient: z
-              .object({
-                from: z.string().optional(),
-                to: z.string().optional(),
-                direction: z
-                  .union([
-                    z.coerce
-                      .number({
-                        invalid_type_error: "Should be a number.",
-                      })
-                      .min(0)
-                      .max(359),
-                    z.string(),
-                  ])
-                  .optional(),
-                stopPoint: z.coerce
-                  .number({
-                    invalid_type_error: "Should be a number.",
-                  })
-                  .min(1)
-                  .max(100)
-                  .optional(),
-              })
-              .optional(),
-
-            // Shadow properties
-            shadow: z.coerce
-              .boolean({
-                invalid_type_error: "Should be a boolean.",
-              })
-              .optional(),
-            shadowBlur: z.coerce
-              .number({
-                invalid_type_error: "Should be a number.",
-              })
-              .optional(),
-            shadowSaturation: z.coerce
-              .number({
-                invalid_type_error: "Should be a number.",
-              })
-              .optional(),
-            shadowOffsetX: z.coerce
-              .number({
-                invalid_type_error: "Should be a number.",
-              })
-              .optional(),
-            shadowOffsetY: z.coerce
-              .number({
-                invalid_type_error: "Should be a number.",
-              })
-              .optional(),
-
-            // Grayscale
-            grayscale: z.coerce
-              .boolean({
-                invalid_type_error: "Should be a boolean.",
-              })
-              .optional(),
-
-            // Distort
-            distort: z.coerce.boolean(),
-            distortType: z.enum(["perspective", "arc"]).optional(),
-            distortPerspective: z
-              .object({
-                x1: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-                y1: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-                x2: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-                y2: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-                x3: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-                y3: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-                x4: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-                y4: z.union([z.literal(""), z.string().regex(/^[-N]?\d+$/)]),
-              })
-              .optional(),
-            distortArcDegree: z
-              .string()
-              .regex(/^[-N]?\d+$/)
-              .optional(),
-
-            // Radius
-            radius: z
-              .object({
-                mode: z.enum(["uniform", "individual"]).optional(),
-                radius: z
-                  .union([
-                    z.literal("max"),
-                    z.coerce
-                      .number({
-                        invalid_type_error: "Should be a number.",
-                      })
-                      .min(0, {
-                        message: "Negative values are not allowed.",
-                      }),
-                    z.object({
-                      topLeft: z.union([
-                        z.literal("max"),
-                        z.coerce
-                          .number({
-                            invalid_type_error: "Should be a number.",
-                          })
-                          .min(0, {
-                            message: "Negative values are not allowed.",
-                          }),
-                      ]),
-                      topRight: z.union([
-                        z.literal("max"),
-                        z.coerce
-                          .number({
-                            invalid_type_error: "Should be a number.",
-                          })
-                          .min(0, {
-                            message: "Negative values are not allowed.",
-                          }),
-                      ]),
-                      bottomRight: z.union([
-                        z.literal("max"),
-                        z.coerce
-                          .number({
-                            invalid_type_error: "Should be a number.",
-                          })
-                          .min(0, {
-                            message: "Negative values are not allowed.",
-                          }),
-                      ]),
-                      bottomLeft: z.union([
-                        z.literal("max"),
-                        z.coerce
-                          .number({
-                            invalid_type_error: "Should be a number.",
-                          })
-                          .min(0, {
-                            message: "Negative values are not allowed.",
-                          }),
-                      ]),
-                    }),
-                  ])
-                  .optional(),
-              })
-              .optional(),
-            sharpenEnabled: z.coerce
-              .boolean({
-                invalid_type_error: "Should be a boolean.",
-              })
-              .optional(),
-            sharpen: z.coerce
-              .number({
-                invalid_type_error: "Should be a number.",
-              })
-              .int()
-              .min(1)
-              .max(99)
-              .optional(),
-            unsharpenMask: z.coerce.boolean().optional(),
-            unsharpenMaskRadius:
-              optionalPositiveFloatNumberValidator.optional(),
-            unsharpenMaskSigma: optionalPositiveFloatNumberValidator.optional(),
-            unsharpenMaskAmount:
-              optionalPositiveFloatNumberValidator.optional(),
-            unsharpenMaskThreshold:
-              optionalPositiveFloatNumberValidator.optional(),
-          })
-          .superRefine((val, ctx) => refineUnsharpenMask(val, ctx))
-          .refine(
-            (val) => {
-              return Object.values(val).some(
-                (v) => v !== undefined && v !== null && v !== "",
-              )
-            },
-            {
-              message: "At least one value is required",
-              path: [],
-            },
-          )
-          .superRefine((val, ctx) => {
-            if (val.focus === "object" && !val.focusObject) {
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "Focus object is required",
-                path: ["focusObject"],
-              })
-            }
-            if (val.focus === "anchor" && !val.focusAnchor) {
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "Focus anchor is required",
-                path: ["focusAnchor"],
-              })
-            }
-            if (val.focus === "coordinates") {
-              if (val.coordinateMethod === "topleft") {
-                if (!val.x && !val.y) {
-                  ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    message: "At least one coordinate (x or y) is required",
-                    path: [],
-                  })
-                }
-              } else if (val.coordinateMethod === "center") {
-                if (!val.xc && !val.yc) {
-                  ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    message: "At least one coordinate (xc or yc) is required",
-                    path: [],
-                  })
-                }
-              }
-            }
-
-            // DPR for image layers: only valid when either width or height is specified
-            if (val.dpr && !(val.width || val.height)) {
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message:
-                  "DPR can only be used when either width or height is specified",
-                path: ["dpr"],
-              })
-            }
-
-            validatePerspectiveDistort(val, ctx)
-          }),
-        transformations: [
-          {
-            label: "Image URL",
-            name: "imageUrl",
-            fieldType: "input",
-            isTransformation: true,
-            transformationKey: "input",
-            transformationGroup: "imageLayer",
-            helpText: "Enter the URL or path of the overlay image.",
-            examples: ["overlay.png"],
-          },
-          {
-            label: "Width",
-            name: "width",
-            fieldType: "input",
-            isTransformation: true,
-            transformationKey: "width",
-            transformationGroup: "imageLayer",
-            helpText: "Specify the width of the overlay image.",
-            examples: ["100", "iw_div_2"],
-          },
-          {
-            label: "Height",
-            name: "height",
-            fieldType: "input",
-            isTransformation: true,
-            transformationKey: "height",
-            transformationGroup: "imageLayer",
-            helpText: "Specify the height of the overlay image.",
-            examples: ["100", "ih_div_2"],
-          },
-          {
-            label: "Adjust DPR",
-            name: "dprEnabled",
-            fieldType: "switch",
-            isTransformation: false,
-            transformationGroup: "imageLayer",
-            transformationKey: "dprEnabled",
-            helpText: "Adjust the DPR of the overlay image.",
-            fieldProps: {
-              defaultValue: false,
-            },
-            isVisible: ({ width, height }) => !!(width || height),
-          },
-          {
-            label: "DPR",
-            name: "dpr",
-            helpText:
-              "Set this value to deliver images optimised for high-resolution displays. The value can be between 0.1 and 5.",
-            fieldType: "slider",
-            isTransformation: true,
-            transformationGroup: "imageLayer",
-            transformationKey: "dpr",
-            fieldProps: {
-              defaultValue: 1,
-              autoOption: true,
-              min: 0.1,
-              max: 5,
-              step: 0.1,
-            },
-            isVisible: ({ dprEnabled, width, height }) =>
-              dprEnabled === true && !!(width || height),
-          },
-          {
-            label: "Crop Mode",
-            name: "crop",
-            fieldType: "select",
-            isTransformation: true,
-            transformationKey: "crop",
-            transformationGroup: "imageLayer",
-            helpText: "Crop the overlay image.",
-            fieldProps: {
-              options: [
-                ...RESIZE_CROP_MODES.map((mode) => ({
-                  label: `${mode.label} (${mode.paramLabel})`,
-                  value: mode.value,
-                })),
-              ],
-              defaultValue: "",
-              isClearable: true,
-            },
-          },
-          {
-            label: "Focus",
-            name: "focus",
-            fieldType: "select",
-            isTransformation: true,
-            transformationGroup: "imageLayer",
-            fieldProps: {
-              options: [
-                { label: "Select one", value: "" },
-                { label: "Auto", value: "auto" },
-                { label: "Anchor", value: "anchor" },
-                { label: "Face", value: "face" },
-                { label: "Object", value: "object" },
-                { label: "Custom", value: "custom" },
-                { label: "Coordinates", value: "coordinates" },
-              ],
-            },
-            helpText:
-              "Choose how to position the extracted region in overlay image. Custom uses a saved focus area from Media Library.",
-            isVisible: ({ crop }) => crop === "cm-extract",
-          },
-          // Only for extract crop mode
-          {
-            label: "Focus Anchor",
-            name: "focusAnchor",
-            fieldType: "anchor",
-            isTransformation: true,
-            transformationGroup: "imageLayer",
-            fieldProps: {
-              positions: [
-                "center",
-                "top",
-                "bottom",
-                "left",
-                "right",
-                "top_left",
-                "top_right",
-                "bottom_left",
-                "bottom_right",
-              ],
-            },
-            isVisible: ({ focus, crop }) =>
-              focus === "anchor" && crop === "cm-extract",
-          },
-          // Only for pad_resize crop mode
-          {
-            label: "Focus",
-            name: "focusAnchor",
-            fieldType: "anchor",
-            isTransformation: true,
-            transformationGroup: "imageLayer",
-            fieldProps: {
-              positions: ["center", "top", "bottom", "left", "right"],
-            },
-            isVisible: ({ crop }) => crop === "cm-pad_resize",
-          },
-          {
-            label: "Focus Object",
-            name: "focusObject",
-            fieldType: "select",
-            isTransformation: true,
-            transformationGroup: "imageLayer",
-            fieldProps: {
-              isCreatable: false,
-            },
-            helpText:
-              "Select an object to focus on in the overlay image during extraction. The crop will center on this object.",
-            isVisible: ({ focus }) => focus === "object",
-          },
-          {
-            label: "Coordinate Method",
-            name: "coordinateMethod",
-            fieldType: "radio-card",
-            isTransformation: false,
-            transformationGroup: "imageLayer",
-            fieldProps: {
-              options: [
-                { label: "Top-left (x, y)", value: "topleft" },
-                { label: "Center (xc, yc)", value: "center" },
-              ],
-              defaultValue: "topleft",
-            },
-            helpText:
-              "Choose whether coordinates are relative to the top-left corner or the center of the overlay image.",
-            isVisible: ({ focus }) => focus === "coordinates",
-          },
-          {
-            label: "X (Horizontal)",
-            name: "x",
-            fieldType: "input",
-            isTransformation: true,
-            transformationGroup: "imageLayer",
-            helpText:
-              "Horizontal position from the top-left of the overlay image. Use an integer or expression.",
-            examples: ["100", "iw_mul_0.4"],
-            isVisible: ({ focus, coordinateMethod }) =>
-              focus === "coordinates" && coordinateMethod === "topleft",
-          },
-          {
-            label: "Y (Vertical)",
-            name: "y",
-            fieldType: "input",
-            isTransformation: true,
-            transformationGroup: "imageLayer",
-            helpText:
-              "Vertical position from the top-left of the overlay image. Use an integer or expression.",
-            examples: ["100", "ih_mul_0.4"],
-            isVisible: ({ focus, coordinateMethod }) =>
-              focus === "coordinates" && coordinateMethod === "topleft",
-          },
-          {
-            label: "XC (Horizontal Center)",
-            name: "xc",
-            fieldType: "input",
-            isTransformation: true,
-            transformationGroup: "imageLayer",
-            helpText:
-              "Horizontal center position of the overlay image. Use an integer or expression.",
-            examples: ["200", "iw_mul_0.5"],
-            isVisible: ({ focus, coordinateMethod }) =>
-              focus === "coordinates" && coordinateMethod === "center",
-          },
-          {
-            label: "YC (Vertical Center)",
-            name: "yc",
-            fieldType: "input",
-            isTransformation: true,
-            transformationGroup: "imageLayer",
-            helpText:
-              "Vertical center position of the overlay image. Use an integer or expression.",
-            examples: ["200", "ih_mul_0.5"],
-            isVisible: ({ focus, coordinateMethod }) =>
-              focus === "coordinates" && coordinateMethod === "center",
-          },
-          {
-            label: "Zoom",
-            name: "zoom",
-            fieldType: "zoom",
-            isTransformation: true,
-            transformationGroup: "imageLayer",
-            fieldProps: {
-              defaultValue: 100,
-            },
-            helpText:
-              "Select the zoom level for the focus area. Higher zoom levels crop closer to the focus point.",
-            isVisible: ({ focus }) => focus === "object" || focus === "face",
-          },
-          {
-            label: "Position X",
-            name: "positionX",
-            fieldType: "input",
-            isTransformation: true,
-            transformationKey: "x",
-            transformationGroup: "imageLayer",
-            helpText: "Specify the horizontal offset for the overlay image.",
-            examples: ["10", "-20", "N30", "bw_div_2"],
-          },
-          {
-            label: "Position Y",
-            name: "positionY",
-            fieldType: "input",
-            isTransformation: true,
-            transformationKey: "y",
-            transformationGroup: "imageLayer",
-            helpText: "Specify the vertical offset for the overlay image.",
-            examples: ["10", "-20", "N30", "bh_div_2"],
-          },
-          {
-            label: "Opacity",
-            name: "opacityEnabled",
-            fieldType: "switch",
-            isTransformation: false,
-            transformationKey: "opacityEnabled",
-            transformationGroup: "imageLayer",
-            helpText: "Toggle to set a custom opacity for the overlay image.",
-            fieldProps: {
-              defaultValue: false,
-            },
-          },
-          {
-            label: "Opacity",
-            name: "opacity",
-            fieldType: "slider",
-            isTransformation: true,
-            transformationKey: "opacity",
-            transformationGroup: "imageLayer",
-            helpText: "Set the opacity for the overlay image (0-100).",
-            examples: ["80"],
-            fieldProps: {
-              min: 0,
-              max: 100,
-              step: 1,
-              defaultValue: 100,
-            },
-            isVisible: ({ opacityEnabled }) => opacityEnabled === true,
-          },
-          {
-            label: "Background Color",
-            name: "backgroundColor",
-            fieldType: "color-picker",
-            isTransformation: true,
-            transformationKey: "background",
-            transformationGroup: "imageLayer",
-            helpText: "Set a background color for the overlay image.",
-            fieldProps: {
-              isClearable: true,
-            },
-          },
-          {
-            label: "Radius",
-            name: "radius",
-            fieldType: "radius-input",
-            isTransformation: true,
-            transformationGroup: "imageLayer",
-            helpText:
-              "Set the corner radius for the overlay image. Use 'max' for a circle or oval.",
-            examples: ["10", "max"],
-            fieldProps: {
-              defaultValue: {},
-            },
-          },
-          {
-            label: "Flip",
-            name: "flip",
-            fieldType: "checkbox-card",
-            isTransformation: true,
-            transformationKey: "flip",
-            transformationGroup: "imageLayer",
-            helpText: "Flip the overlay image horizontally or vertically.",
-            fieldProps: {
-              options: [
-                {
-                  label: "Horizontal",
-                  icon: PiFlipHorizontalFill,
-                  value: "horizontal",
-                },
-                {
-                  label: "Vertical",
-                  icon: PiFlipVerticalFill,
-                  value: "vertical",
-                },
-              ],
-              columns: 2,
-              defaultValue: [],
-            },
-          },
-          {
-            label: "Rotation",
-            name: "rotation",
-            fieldType: "slider",
-            isTransformation: true,
-            transformationKey: "rotation",
-            transformationGroup: "imageLayer",
-            helpText: "Rotate the overlay image (in degrees).",
-            fieldProps: {
-              min: -180,
-              max: 180,
-              step: 1,
-              defaultValue: "0",
-            },
-          },
-          {
-            label: "Trim",
-            name: "trimEnabled",
-            fieldType: "switch",
-            isTransformation: false,
-            transformationKey: "trimEnabled",
-            transformationGroup: "imageLayer",
-            helpText: "Control trimming of the overlay image.",
-            fieldProps: {
-              defaultValue: true,
-            },
-          },
-          {
-            label: "Trim Threshold",
-            name: "trimThreshold",
-            fieldType: "slider",
-            isTransformation: true,
-            transformationKey: "trimThreshold",
-            transformationGroup: "imageLayer",
-            helpText:
-              "Control the intensity of this effect using a threshold value between 1% and 99%.",
-            fieldProps: {
-              min: 1,
-              max: 99,
-              step: 1,
-              defaultValue: 10,
-            },
-            isVisible: ({ trimEnabled }) => trimEnabled === true,
-          },
-          {
-            label: "Quality",
-            name: "qualityEnabled",
-            fieldType: "switch",
-            isTransformation: false,
-            transformationKey: "qualityEnabled",
-            transformationGroup: "imageLayer",
-            helpText:
-              "Toggle to set a custom compression quality for the overlay image.",
-            fieldProps: {
-              defaultValue: false,
-            },
-          },
-          {
-            label: "Quality",
-            name: "quality",
-            fieldType: "slider",
-            isTransformation: true,
-            transformationKey: "quality",
-            transformationGroup: "imageLayer",
-            helpText: "Set the compression quality of the overlay image.",
-            fieldProps: {
-              min: 0,
-              max: 100,
-              step: 1,
-              defaultValue: 80,
-            },
-            isVisible: ({ qualityEnabled }) => qualityEnabled === true,
-          },
-          {
-            label: "Blur",
-            name: "blur",
-            fieldType: "slider",
-            isTransformation: true,
-            transformationKey: "blur",
-            transformationGroup: "imageLayer",
-            helpText: "Apply a Gaussian blur to the overlay image.",
-            fieldProps: {
-              min: 1,
-              max: 100,
-              step: 1,
-              defaultValue: "0",
-            },
-          },
-          {
-            label: "Border Width",
-            name: "borderWidth",
-            fieldType: "input",
-            isTransformation: false,
-            transformationKey: "borderWidth",
-            transformationGroup: "imageLayer",
-            fieldProps: {
-              defaultValue: "",
-            },
-            helpText:
-              "Enter the width of the border or expression of the overlay image.",
-            examples: ["10", "ch_div_2"],
-          },
-          {
-            label: "Border Color",
-            name: "borderColor",
-            fieldType: "color-picker",
-            isTransformation: false,
-            transformationKey: "borderColor",
-            transformationGroup: "imageLayer",
-            isVisible: ({ borderWidth }) => (borderWidth as string) !== "",
-            helpText: "Select the color of the border of the overlay image.",
-            fieldProps: {
-              hideOpacity: true,
-              showHexAlpha: false,
-              defaultValue: "#000000",
-              isClearable: true,
-            },
-          },
-          {
-            label: "Sharpen Overlay",
-            name: "sharpenEnabled",
-            fieldType: "switch",
-            isTransformation: false,
-            transformationKey: "sharpenEnabled",
-            transformationGroup: "imageLayer",
-            helpText:
-              "Toggle to sharpen the overlay image to highlight edges and fine details.",
-            fieldProps: {
-              defaultValue: false,
-            },
-          },
-          {
-            label: "Sharpen Threshold",
-            name: "sharpen",
-            fieldType: "slider",
-            isTransformation: false,
-            transformationKey: "sharpen",
-            transformationGroup: "imageLayer",
-            helpText:
-              "Sharpen the overlay image. Control the intensity of this effect using a threshold value between 1% and 99%.",
-            fieldProps: {
-              min: 1,
-              defaultValue: 50,
-              max: 99,
-              step: 1,
-            },
-            isVisible: ({ sharpenEnabled }) => sharpenEnabled === true,
-          },
-          {
-            name: "unsharpenMask",
-            fieldType: "switch",
-            isTransformation: false,
-            transformationGroup: "imageLayer",
-            helpText:
-              "Toggle to unsharpen the overlay image to remove the edges and finer details within an image.",
-            fieldProps: {
-              defaultValue: false,
-            },
-            label: "Unsharpen Mask",
-          },
-          {
-            name: "unsharpenMaskRadius",
-            fieldType: "input",
-            label: "Radius",
-            isTransformation: false,
-            transformationGroup: "imageLayer",
-            helpText:
-              "Controls how wide the sharpening effect spreads from each edge. Larger values affect broader areas; smaller values focus on fine details.",
-            fieldProps: {
-              defaultValue: "",
-            },
-            examples: ["1", "8", "15"],
-            isVisible: ({ unsharpenMask }) => unsharpenMask === true,
-          },
-          {
-            name: "unsharpenMaskSigma",
-            fieldType: "input",
-            label: "Sigma",
-            isTransformation: false,
-            transformationGroup: "imageLayer",
-            helpText:
-              "Defines the amount of blur used to detect edges before sharpening. Higher values smooth more before sharpening; lower values preserve fine textures.",
-            fieldProps: {
-              defaultValue: "",
-            },
-            examples: ["1", "5", "6"],
-            isVisible: ({ unsharpenMask }) => unsharpenMask === true,
-          },
-          {
-            name: "unsharpenMaskAmount",
-            fieldType: "input",
-            label: "Amount",
-            isTransformation: false,
-            transformationGroup: "imageLayer",
-            helpText: "Sets the strength of the sharpening effect.",
-            fieldProps: {
-              defaultValue: "",
-            },
-            examples: ["0.1", "2", "0.8"],
-            isVisible: ({ unsharpenMask }) => unsharpenMask === true,
-          },
-          {
-            name: "unsharpenMaskThreshold",
-            fieldType: "input",
-            label: "Threshold",
-            isTransformation: false,
-            transformationGroup: "imageLayer",
-            helpText: "Set the threshold value for the unsharpen mask.",
-            fieldProps: {
-              defaultValue: "",
-            },
-            examples: ["0.1", "2", "0.8"],
-            isVisible: ({ unsharpenMask }) => unsharpenMask === true,
-          },
-
-          {
-            label: "Gradient",
-            name: "gradientSwitch",
-            fieldType: "switch",
-            isTransformation: false,
-            transformationGroup: "imageLayer",
-            helpText:
-              "Toggle to add a gradient overlay over the overlay image.",
-          },
-          {
-            label: "Apply Gradient",
-            name: "gradient",
-            fieldType: "gradient-picker",
-            isTransformation: true,
-            transformationKey: "gradient",
-            transformationGroup: "imageLayer",
-            isVisible: ({ gradientSwitch }) => gradientSwitch === true,
-            fieldProps: {
-              defaultValue: {
-                from: "#FFFFFFFF",
-                to: "#00000000",
-                direction: "bottom",
-                stopPoint: 100,
-              },
-            },
-          },
-          {
-            label: "Shadow",
-            name: "shadow",
-            fieldType: "switch",
-            isTransformation: true,
-            transformationGroup: "imageLayer",
-            helpText:
-              "Toggle to add a non-AI shadow under objects in the overlay image.",
-          },
-          {
-            label: "Blur",
-            name: "shadowBlur",
-            fieldType: "slider",
-            isTransformation: true,
-            transformationGroup: "imageLayer",
-            helpText:
-              "Set the blur radius for the shadow. Higher values create a softer shadow.",
-            fieldProps: {
-              min: 0,
-              max: 15,
-              step: 1,
-              defaultValue: 10,
-            },
-            isVisible: ({ shadow }) => shadow === true,
-          },
-          {
-            label: "Saturation",
-            name: "shadowSaturation",
-            fieldType: "slider",
-            isTransformation: true,
-            transformationGroup: "imageLayer",
-            helpText:
-              "Adjust the saturation of the shadow. Higher values produce a darker shadow.",
-            fieldProps: {
-              min: 0,
-              max: 100,
-              step: 1,
-              defaultValue: 30,
-            },
-            isVisible: ({ shadow }) => shadow === true,
-          },
-          {
-            label: "X Offset",
-            name: "shadowOffsetX",
-            fieldType: "slider",
-            isTransformation: true,
-            transformationGroup: "imageLayer",
-            helpText:
-              "Enter the horizontal offset as a percentage of the overlay image width.",
-            isVisible: ({ shadow }) => shadow === true,
-            fieldProps: {
-              min: -100,
-              max: 100,
-              step: 1,
-              defaultValue: 2,
-            },
-          },
-          {
-            label: "Y Offset",
-            name: "shadowOffsetY",
-            fieldType: "slider",
-            isTransformation: true,
-            transformationGroup: "imageLayer",
-            helpText:
-              "Enter the vertical offset as a percentage of the overlay image height.",
-            isVisible: ({ shadow }) => shadow === true,
-            fieldProps: {
-              min: -100,
-              max: 100,
-              step: 1,
-              defaultValue: 2,
-            },
-          },
-          {
-            label: "Grayscale",
-            name: "grayscale",
-            fieldType: "switch",
-            isTransformation: true,
-            transformationKey: "grayscale",
-            transformationGroup: "imageLayer",
-            helpText: "Toggle to convert the overlay image to grayscale.",
-          },
-          {
-            label: "Distort",
-            name: "distort",
-            fieldType: "switch",
-            isTransformation: false,
-            transformationGroup: "imageLayer",
-            helpText: "Toggle to apply distortion to the overlay image.",
-          },
-          {
-            label: "Distortion Type",
-            name: "distortType",
-            fieldType: "radio-card",
-            isTransformation: false,
-            transformationGroup: "imageLayer",
-            isVisible: ({ distort }) => distort === true,
-            fieldProps: {
-              options: [
-                { label: "Perspective", value: "perspective" },
-                { label: "Arc", value: "arc" },
-              ],
-              defaultValue: "perspective",
-            },
-          },
-          {
-            label: "Distortion Perspective",
-            name: "distortPerspective",
-            fieldType: "distort-perspective-input",
-            isTransformation: false,
-            transformationGroup: "imageLayer",
-            isVisible: ({ distort, distortType }) =>
-              distort === true && distortType === "perspective",
-            fieldProps: {
-              defaultValue: {
-                x1: "",
-                y1: "",
-                x2: "",
-                y2: "",
-                x3: "",
-                y3: "",
-                x4: "",
-                y4: "",
-              },
-            },
-          },
-          {
-            label: "Distortion Arc Degrees",
-            name: "distortArcDegree",
-            fieldType: "slider",
-            isTransformation: true,
-            transformationGroup: "imageLayer",
-            isVisible: ({ distort, distortType }) =>
-              distort === true && distortType === "arc",
-            helpText: "Enter the arc degree for the arc distortion effect.",
-            examples: ["15", "30", "-45", "N50"],
-            fieldProps: {
-              min: -360,
-              max: 360,
-              step: 5,
-              defaultValue: "0",
-              inputType: "text",
-              skipStepCheck: true,
-            },
-          },
-        ],
-      },
+      createTextLayerItem(),
+      createImageLayerItem(2),
     ],
   },
   // Custom raw transformation section. Allows users to input a raw ImageKit
@@ -3130,6 +3360,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           .object({
             raw: z.string().optional(),
           })
+          .passthrough()
           .refine(
             (val) => {
               return Object.values(val).some(
@@ -3285,7 +3516,10 @@ export const transformationFormatters: Record<
       zoom !== undefined &&
       zoom !== null &&
       !Number.isNaN(Number(zoom)) &&
-      zoom !== 0
+      zoom !== 0 &&
+      // 100 is the default (no-zoom). The zoom input emits 100 on mount,
+      // so skip it to avoid an unnecessary z-1 in the URL.
+      Number(zoom) !== 100
     ) {
       transforms.zoom = (zoom as number) / 100
     }
@@ -3479,6 +3713,17 @@ export const transformationFormatters: Record<
       overlay.transformation = [overlayTransform]
     }
 
+    // lxc/lyc for center-based positioning
+    if (values.positionXc) {
+      ;(overlayTransform as Record<string, unknown>).lxc = values.positionXc
+    }
+    if (values.positionYc) {
+      ;(overlayTransform as Record<string, unknown>).lyc = values.positionYc
+    }
+    if (values.layerAnchorPoint) {
+      ;(overlayTransform as Record<string, unknown>).lap = values.layerAnchorPoint
+    }
+
     // Positioning: use x/y coordinates or focus if anchor is provided
     const position: OverlayPosition = {}
     if (
@@ -3617,8 +3862,70 @@ export const transformationFormatters: Record<
       overlayTransform.grayscale = true
     }
 
+    if (values.colorReplace === true && values.crToColor) {
+      const cleanToColor = (values.crToColor as string).replace(/^#/, "")
+      const params: string[] = [cleanToColor]
+      if (values.crTolerance !== undefined && values.crTolerance !== null) {
+        params.push(String(values.crTolerance))
+      }
+      if (values.crFromColor && values.crFromColor !== "") {
+        const cleanFromColor = (values.crFromColor as string).replace(/^#/, "")
+        params.push(cleanFromColor)
+      }
+      overlayTransform.cr = params.join("_")
+    }
+
     if (Object.keys(overlayTransform).length > 0) {
       overlay.transformation = [overlayTransform]
+    }
+
+    // Nested image layers: recursively build each as a nested overlay and
+    // append as `{ overlay: ... }` entries inside this overlay's transformation
+    // array.
+    const nestedLayersArr = Array.isArray(values.nestedLayers)
+      ? (values.nestedLayers as Array<Record<string, unknown>>)
+      : []
+    for (const nested of nestedLayersArr) {
+      if (!nested || typeof nested !== "object") continue
+      // Skip hidden layers entirely.
+      if ((nested as Record<string, unknown>).__hidden === true) continue
+      const nestedKind =
+        (nested as Record<string, unknown>).__kind === "text"
+          ? "text"
+          : "image"
+      // Strip empty/undefined fields and internal meta so defaults / UI
+      // bookkeeping don't leak into the URL.
+      const filteredNested: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(nested)) {
+        if (k === "__name" || k === "__hidden" || k === "__kind") continue
+        if (v === undefined || v === null || v === "") continue
+        filteredNested[k] = v
+      }
+      const nestedTransforms: Record<string, unknown> = {}
+      if (nestedKind === "text") {
+        transformationFormatters.textLayer(filteredNested, nestedTransforms)
+      } else {
+        transformationFormatters.imageLayer(filteredNested, nestedTransforms)
+      }
+      if (nestedTransforms.overlay) {
+        if (!Array.isArray(overlay.transformation)) {
+          overlay.transformation = []
+        }
+        ;(overlay.transformation as Array<unknown>).push({
+          overlay: nestedTransforms.overlay,
+        })
+      }
+    }
+
+    // lxc/lyc for center-based positioning
+    if (values.positionXc) {
+      overlayTransform.lxc = values.positionXc
+    }
+    if (values.positionYc) {
+      overlayTransform.lyc = values.positionYc
+    }
+    if (values.layerAnchorPoint) {
+      overlayTransform.lap = values.layerAnchorPoint
     }
 
     // Positioning via x/y or focus anchor
@@ -3629,7 +3936,6 @@ export const transformationFormatters: Record<
     if (values.positionY) {
       position.y = values.positionY.toString().replace(/^-/, "N")
     }
-
     if (Object.keys(position).length > 0) {
       overlay.position = position
     }
@@ -3798,6 +4104,12 @@ export const transformationFormatters: Record<
   radius: (values, transforms) => {
     if (values.radius) {
       const { radius, mode } = values.radius as Record<string, unknown>
+      // Skip when the user hasn't entered a value. The radius input component
+      // emits { mode: "uniform", radius: "" } on mount, which would otherwise
+      // serialize as an empty/zero radius parameter.
+      if (radius === undefined || radius === null || radius === "") {
+        return
+      }
       if (
         mode === "uniform" &&
         (typeof radius === "number" || typeof radius === "string")

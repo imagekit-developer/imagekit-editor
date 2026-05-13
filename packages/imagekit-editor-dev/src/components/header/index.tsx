@@ -26,6 +26,7 @@ import { NavbarItem } from "./NavbarItem"
 import { SettingsModal } from "./SettingsModal"
 import { TemplateNameInput } from "./TemplateNameInput"
 import { TemplateStatus } from "./TemplateStatus"
+import { OverlayDropdown } from "./OverlayDropdown"
 import { TemplatesDropdown } from "./TemplatesDropdown"
 
 interface ExportOptionButton<
@@ -176,8 +177,9 @@ export const Header = ({
             borderColor="editorBattleshipGrey.200"
             height="40%"
           />
-          <FlexAny alignItems="center">
+          <FlexAny alignItems="center" gap="1">
             <TemplatesDropdown onViewAllTemplates={onViewAllTemplates} />
+            <OverlayDropdown />
           </FlexAny>
           <DividerAny
             orientation="vertical"

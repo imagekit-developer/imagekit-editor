@@ -18,6 +18,7 @@ type StoredTemplateRecord = {
   isPinned: boolean
   name: string
   transformations: Omit<Transformation, "id">[]
+  kind?: "template" | "overlay"
   createdBy: { userId: string; name: string; email: string }
   updatedBy: { userId: string; name: string; email: string }
   createdAt: number
@@ -70,6 +71,7 @@ function createLocalTemplateStorage(): TemplateStorageProvider {
         isPinned: input.isPinned ?? existing?.isPinned ?? false,
         name: input.name,
         transformations: input.transformations,
+        kind: input.kind ?? existing?.kind ?? "template",
         createdBy: input.createdBy ??
           existing?.createdBy ?? {
             userId: session.userId,
