@@ -220,7 +220,8 @@ export function TemplatesDropdown({
     null,
   )
 
-  const { loadTemplate, resetToNewTemplate } = useEditorStore()
+  const loadTemplatePayload = useEditorStore((s) => s.loadTemplatePayload)
+  const resetToNewTemplate = useEditorStore((s) => s.resetToNewTemplate)
   const hydrateTemplateMetadata = useEditorStore(
     (s) => s.hydrateTemplateMetadata,
   )
@@ -334,7 +335,10 @@ export function TemplatesDropdown({
   }
 
   const doLoadTemplate = (record: TemplateRecord) => {
-    loadTemplate(record.transformations)
+    loadTemplatePayload({
+      transformations: record.transformations,
+      variables: record.variables,
+    })
     hydrateTemplateMetadata({
       templateId: record.id,
       templateName: record.name,
@@ -626,21 +630,32 @@ export function TemplatesDropdown({
             {onViewAllTemplates ? (
               <>
                 <DividerAny borderColor="editorGray.300" />
-                <FlexAny px="4" py="3" justifyContent="flex-start">
-                  <ButtonAny
-                    size="sm"
-                    variant="ghost"
-                    leftIcon={<IconAny as={PiSquaresFourLight} boxSize={4} />}
-                    color="editorGray.700"
-                    fontWeight="normal"
-                    onClick={() => {
-                      onClose()
-                      // Defer to next tick to allow popover to close cleanly
-                      setTimeout(() => onViewAllTemplates?.(), 0)
-                    }}
+                <FlexAny
+                  px="4"
+                  py="2"
+                  cursor="pointer"
+                  alignItems="center"
+                  gap="3"
+                  _hover={{ bg: "editorGray.100" }}
+                  transition="background-color 0.15s"
+                  onClick={() => {
+                    onClose()
+                    setTimeout(() => onViewAllTemplates?.(), 0)
+                  }}
+                >
+                  <IconAny
+                    as={PiSquaresFourLight}
+                    boxSize={4}
+                    color="editorBattleshipGrey.500"
+                    flexShrink={0}
+                  />
+                  <TextAny
+                    fontSize="sm"
+                    fontWeight="medium"
+                    color="editorBattleshipGrey.700"
                   >
                     View all templates
-                  </ButtonAny>
+                  </TextAny>
                 </FlexAny>
               </>
             ) : templates.length > MAX_VISIBLE + (shouldShowCurrent ? 1 : 0) ? (

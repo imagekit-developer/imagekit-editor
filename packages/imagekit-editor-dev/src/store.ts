@@ -15,6 +15,12 @@ import {
 } from "./schema"
 import { bumpLocalChangeVersion as bumpVersion } from "./sync/templateSyncVersioning"
 import { extractImagePath } from "./utils"
+import { resolveTransformationValues } from "./variables/resolveVariables"
+import type {
+  CustomMetadataFieldDefinition,
+  DynamicVariableDefinition,
+  VariableAssetResolver,
+} from "./variables/types"
 
 export const TRANSFORMATION_STATE_VERSION = "v1" as const
 
@@ -77,6 +83,11 @@ export type FocusObjects =
 
 export type SyncStatus = "unsaved" | "saving" | "saved" | "error"
 
+export interface TemplatePayload {
+  transformations: Omit<Transformation, "id">[]
+  variables?: DynamicVariableDefinition[]
+}
+
 export interface EditorState<
   Metadata extends RequiredMetadata = RequiredMetadata,
 > {
@@ -92,6 +103,12 @@ export interface EditorState<
   signedUrlCache: Record<string, string>
   currentTransformKey: string
   focusObjects?: ReadonlyArray<FocusObjects>
+  variableAssetResolver?: VariableAssetResolver
+  customMetadataFields?: CustomMetadataFieldDefinition[]
+  onBulkGenerate?: (template: { id: string; name: string }) => void
+  onAddImage?: () => void
+  dynamicVariables: DynamicVariableDefinition[]
+  isVariablesModalOpen: boolean
   _internalState: InternalState
   templateName: string
   templateId: string | null
@@ -135,6 +152,10 @@ export type EditorActions<
     focusObjects?: ReadonlyArray<FocusObjects>
     templateName?: string
     templateId?: string
+    variableAssetResolver?: VariableAssetResolver
+    customMetadataFields?: CustomMetadataFieldDefinition[]
+    onBulkGenerate?: (template: { id: string; name: string }) => void
+    onAddImage?: () => void
   }) => void
   destroy: () => void
   setCurrentImage: (imageSrc: string | undefined) => void
@@ -146,6 +167,7 @@ export type EditorActions<
   addImages: (imageSrcs: Array<string | InputFileElement<Metadata>>) => void
   removeImage: (imageSrc: string) => void
   loadTemplate: (template: Omit<Transformation, "id">[]) => void
+  loadTemplatePayload: (payload: TemplatePayload) => void
   moveTransformation: (
     activeId: UniqueIdentifier,
     overId: UniqueIdentifier,
@@ -163,6 +185,14 @@ export type EditorActions<
   setShowOriginal: (showOriginal: boolean) => void
   setTemplateName: (name: string) => void
   setTemplateId: (id: string | null) => void
+  setDynamicVariables: (variables: DynamicVariableDefinition[]) => void
+  addDynamicVariable: (variable: DynamicVariableDefinition) => void
+  updateDynamicVariable: (
+    id: string,
+    variable: DynamicVariableDefinition,
+  ) => void
+  removeDynamicVariable: (id: string) => void
+  setIsVariablesModalOpen: (open: boolean) => void
   setTemplateIsPrivate: (isPrivate: boolean | null) => void
   /**
    * Sets template metadata from storage responses without bumping local version.
@@ -247,6 +277,12 @@ const DEFAULT_STATE: EditorState = {
   signedUrlCache: {},
   currentTransformKey: "",
   focusObjects: undefined,
+  variableAssetResolver: undefined,
+  customMetadataFields: undefined,
+  onBulkGenerate: undefined,
+  onAddImage: undefined,
+  dynamicVariables: [],
+  isVariablesModalOpen: false,
   _internalState: {
     sidebarState: "none",
     selectedTransformationKey: null,
@@ -282,6 +318,18 @@ const useEditorStore = create<EditorState & EditorActions>()(
       }
       if (initialData?.focusObjects) {
         updates.focusObjects = initialData.focusObjects
+      }
+      if (initialData?.variableAssetResolver) {
+        updates.variableAssetResolver = initialData.variableAssetResolver
+      }
+      if (initialData?.customMetadataFields) {
+        updates.customMetadataFields = initialData.customMetadataFields
+      }
+      if (initialData?.onBulkGenerate) {
+        updates.onBulkGenerate = initialData.onBulkGenerate
+      }
+      if (initialData?.onAddImage) {
+        updates.onAddImage = initialData.onAddImage
       }
       if (initialData?.templateName) {
         updates.templateName = initialData.templateName
@@ -399,15 +447,20 @@ const useEditorStore = create<EditorState & EditorActions>()(
     },
 
     loadTemplate: (template) => {
-      const transformationsWithIds = template.map((transformation, index) => ({
-        ...transformation,
-        id: `transformation-${Date.now()}-${index}`,
-        version: TRANSFORMATION_STATE_VERSION,
-      }))
+      get().loadTemplatePayload({ transformations: template })
+    },
+
+    loadTemplatePayload: ({ transformations, variables }) => {
+      const transformationsWithIds = transformations.map(
+        (transformation, index) => ({
+          ...transformation,
+          id: `transformation-${Date.now()}-${index}`,
+          version: TRANSFORMATION_STATE_VERSION,
+        }),
+      )
 
       const visibleTransformations: Record<string, boolean> = {}
       transformationsWithIds.forEach((t) => {
-        // enabled absent or true → visible; false → hidden
         visibleTransformations[t.id] = t.enabled !== false
       })
 
@@ -415,6 +468,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
         const nextVersion = bumpVersion(state.localChangeVersion)
         return {
           transformations: transformationsWithIds,
+          dynamicVariables: variables ?? [],
           visibleTransformations: {
             ...state.visibleTransformations,
             ...visibleTransformations,
@@ -425,7 +479,6 @@ const useEditorStore = create<EditorState & EditorActions>()(
             transformationToEdit: null,
           },
           isPristine: false,
-          // Loading an existing template implies we're in sync with storage.
           syncStatus: "saved",
           localChangeVersion: nextVersion,
           lastSyncedVersion: nextVersion,
@@ -564,6 +617,46 @@ const useEditorStore = create<EditorState & EditorActions>()(
       set({ templateId: id })
     },
 
+    setDynamicVariables: (variables) => {
+      set((state) => ({
+        dynamicVariables: variables,
+        isPristine: false,
+        localChangeVersion: bumpVersion(state.localChangeVersion),
+      }))
+    },
+
+    addDynamicVariable: (variable) => {
+      set((state) => ({
+        dynamicVariables: [...state.dynamicVariables, variable],
+        isPristine: false,
+        localChangeVersion: bumpVersion(state.localChangeVersion),
+      }))
+    },
+
+    updateDynamicVariable: (id, variable) => {
+      set((state) => ({
+        dynamicVariables: state.dynamicVariables.map((item) =>
+          item.id === id ? variable : item,
+        ),
+        isPristine: false,
+        localChangeVersion: bumpVersion(state.localChangeVersion),
+      }))
+    },
+
+    removeDynamicVariable: (id) => {
+      set((state) => ({
+        dynamicVariables: state.dynamicVariables.filter(
+          (variable) => variable.id !== id,
+        ),
+        isPristine: false,
+        localChangeVersion: bumpVersion(state.localChangeVersion),
+      }))
+    },
+
+    setIsVariablesModalOpen: (open) => {
+      set({ isVariablesModalOpen: open })
+    },
+
     setTemplateIsPrivate: (isPrivate) => {
       set((state) => ({
         templateIsPrivate: isPrivate,
@@ -617,6 +710,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
     resetToNewTemplate: () => {
       set({
         transformations: [],
+        dynamicVariables: [],
         visibleTransformations: {},
         templateName: "Untitled Template",
         templateId: null,
@@ -648,6 +742,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
     denyTemplateStorageAccessAndReset: (message) => {
       set({
         transformations: [],
+        dynamicVariables: [],
         visibleTransformations: {},
         templateName: "Untitled Template",
         templateId: null,
@@ -753,6 +848,7 @@ const replaceImagePathPlaceholders = (
 const calculateImageList = (
   imageList: FileElement[],
   transformations: Transformation[],
+  dynamicVariables: DynamicVariableDefinition[],
   visibleTransformations: Record<string, boolean>,
   showOriginal: boolean,
   signer: Signer | undefined,
@@ -765,6 +861,11 @@ const calculateImageList = (
       const t = transformationSchema
         .find((schema) => schema.key === transformation.key.split("-")[0])
         ?.items.find((item) => item.key === transformation.key)
+
+      const resolvedValue = resolveTransformationValues(
+        transformation.value,
+        dynamicVariables,
+      ) as Record<string, unknown>
 
       const groupedTransforms: Record<
         string,
@@ -782,13 +883,9 @@ const calculateImageList = (
         t.transformations.forEach((transform) => {
           if (
             transform.transformationGroup &&
-            transform.isVisible?.(
-              transformation.value as Record<string, unknown>,
-            ) !== false
+            transform.isVisible?.(resolvedValue) !== false
           ) {
-            const value = (transformation.value as Record<string, unknown>)[
-              transform.name
-            ]
+            const value = resolvedValue[transform.name]
             if (value !== undefined && value !== "") {
               if (!groupedTransforms[transform.transformationGroup]) {
                 groupedTransforms[transform.transformationGroup] = {
@@ -808,7 +905,7 @@ const calculateImageList = (
       }
 
       const transforms: Record<string, unknown> = Object.fromEntries(
-        Object.entries(transformation.value)
+        Object.entries(resolvedValue)
           .map(([key, value]) => {
             const transform = t?.transformations.find(
               (field) => field.name === key,
@@ -820,10 +917,7 @@ const calculateImageList = (
 
             if (
               transform?.isTransformation &&
-              (transform.isVisible?.(
-                transformation.value as Record<string, unknown>,
-              ) ??
-                true) &&
+              (transform.isVisible?.(resolvedValue) ?? true) &&
               value !== ""
             ) {
               return [transform.transformationKey ?? key, value]
@@ -850,7 +944,7 @@ const calculateImageList = (
       // Special handling for resize_and_crop transformation
       let defaultTransformation = t?.defaultTransformation || {}
       if (transformation.key === "resize_and_crop-resize_and_crop") {
-        const value = transformation.value as Record<string, unknown>
+        const value = resolvedValue
         // Only add crop/cropMode when both width and height and mode are set
         if (value.width && value.height && value.mode) {
           defaultTransformation = getDefaultTransformationFromMode(
@@ -948,6 +1042,7 @@ function recomputeImages() {
   const { imgs, activeImageIndex, toSign, transformKey } = calculateImageList(
     state.originalImageList,
     state.transformations,
+    state.dynamicVariables,
     state.visibleTransformations,
     state.showOriginal,
     state.signer,
@@ -1035,6 +1130,13 @@ useEditorStore.subscribe(
 
 useEditorStore.subscribe(
   (state) => state.visibleTransformations,
+  () => {
+    recomputeImages()
+  },
+)
+
+useEditorStore.subscribe(
+  (state) => state.dynamicVariables,
   () => {
     recomputeImages()
   },

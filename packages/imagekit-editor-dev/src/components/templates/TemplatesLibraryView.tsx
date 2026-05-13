@@ -19,6 +19,7 @@ import {
 } from "@chakra-ui/react"
 import { PiArrowLeft } from "@react-icons/all-files/pi/PiArrowLeft"
 import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
+import { PiFileCsv } from "@react-icons/all-files/pi/PiFileCsv"
 import { PiGear } from "@react-icons/all-files/pi/PiGear"
 import { PiGlobe } from "@react-icons/all-files/pi/PiGlobe"
 import { PiLock } from "@react-icons/all-files/pi/PiLock"
@@ -95,11 +96,12 @@ export function TemplatesLibraryView({ onClose }: Props) {
   // (e.g. rapid key presses or tight loops in tests).
   const activeVirtualIndexRef = useRef<number | null>(null)
 
-  const { loadTemplate, resetToNewTemplate, hydrateTemplateMetadata } =
+  const { loadTemplatePayload, resetToNewTemplate, hydrateTemplateMetadata } =
     useEditorStore()
   const templateId = useEditorStore((s) => s.templateId)
   const templateName = useEditorStore((s) => s.templateName)
   const isPristine = useEditorStore((s) => s.isPristine)
+  const onBulkGenerate = useEditorStore((s) => s.onBulkGenerate)
   const hasUnsyncedChanges = useEditorStore(
     (s) => s.localChangeVersion !== s.lastSyncedVersion,
   )
@@ -183,7 +185,10 @@ export function TemplatesLibraryView({ onClose }: Props) {
 
   const handleSelect = (record: TemplateRecord) => {
     if (!hasUnsyncedChanges) {
-      loadTemplate(record.transformations)
+      loadTemplatePayload({
+        transformations: record.transformations,
+        variables: record.variables,
+      })
       hydrateTemplateMetadata({
         templateId: record.id,
         templateName: record.name,
@@ -623,6 +628,12 @@ export function TemplatesLibraryView({ onClose }: Props) {
                           isPinning={pinningId === record.id}
                           onDelete={deleteTemplateAndCleanup}
                           onSettings={handleOpenSettings}
+                          onBulkGenerate={
+                            onBulkGenerate
+                              ? (r) =>
+                                  onBulkGenerate({ id: r.id, name: r.name })
+                              : undefined
+                          }
                           isCurrent={isCurrent}
                           isActive={isActive}
                         />
@@ -664,6 +675,7 @@ interface TemplateRowProps {
   onTogglePin(record: TemplateRecord): void
   onDelete(record: TemplateRecord): void
   onSettings(record: TemplateRecord): void
+  onBulkGenerate?: (record: TemplateRecord) => void
   isPinning: boolean
   isCurrent?: boolean
   isActive?: boolean
@@ -675,6 +687,7 @@ function TemplateRow({
   onTogglePin,
   onDelete,
   onSettings,
+  onBulkGenerate,
   isPinning,
   isCurrent = false,
   isActive = false,
@@ -813,93 +826,122 @@ function TemplateRow({
         </TextAny>
       </Box>
 
-      {/* Row actions: Settings button + delete confirmation popup */}
-      <Popover
-        isOpen={showDeleteConfirm}
-        onClose={() => setShowDeleteConfirm(false)}
-        placement="bottom-end"
-        closeOnBlur
+      {/* Row actions */}
+      <Flex
+        flexShrink={0}
+        gap="1"
+        alignItems="center"
+        onClick={(e) => e.stopPropagation()}
       >
-        <PopoverTrigger>
-          <Box
-            as="span"
-            flexShrink={0}
-            w="8"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <TooltipAny label="Template Settings" placement="top">
-              <ButtonAny
-                as={Button}
-                size="md"
-                variant="ghost"
-                px="2"
-                py="1"
-                minW="auto"
-                bg="transparent"
-                borderWidth={0}
-                borderColor="transparent"
-                _hover={{ bg: "editorGray.200" }}
-                _focus={{ boxShadow: "none" }}
-                onClick={(e: React.MouseEvent<HTMLElement>) => {
-                  e.stopPropagation()
-                  onSettings(record)
-                }}
-                aria-label="Template Settings"
-              >
-                <IconAny
-                  as={PiGear}
-                  boxSize={5}
-                  color="editorBattleshipGrey.700"
-                />
-              </ButtonAny>
-            </TooltipAny>
-          </Box>
-        </PopoverTrigger>
-        {permissions.delete && (
-          <PopoverContentAny
-            p="4"
-            fontSize="sm"
-            maxW="md"
-            w="md"
-            borderWidth={0}
-            borderColor="transparent"
-            _focus={{ boxShadow: "lg", outline: "none" }}
-            onClick={(e: React.MouseEvent<HTMLElement>) => e.stopPropagation()}
-          >
-            <FlexAny direction="column" gap="3">
-              <TextAny color="gray.600" fontSize="md">
-                Are you sure you want to delete this template? This action is
-                irreversible.
-              </TextAny>
-              <FlexAny justifyContent="flex-end" gap="2">
+        {onBulkGenerate && (
+          <TooltipAny label="Bulk Generate with CSV" placement="top">
+            <ButtonAny
+              as={Button}
+              size="md"
+              variant="ghost"
+              px="2"
+              py="1"
+              minW="auto"
+              bg="transparent"
+              borderWidth={0}
+              borderColor="transparent"
+              _hover={{ bg: "editorGray.200" }}
+              _focus={{ boxShadow: "none" }}
+              onClick={() => onBulkGenerate(record)}
+              aria-label="Bulk Generate with CSV"
+            >
+              <IconAny
+                as={PiFileCsv}
+                boxSize={5}
+                color="editorBattleshipGrey.700"
+              />
+            </ButtonAny>
+          </TooltipAny>
+        )}
+        <Popover
+          isOpen={showDeleteConfirm}
+          onClose={() => setShowDeleteConfirm(false)}
+          placement="bottom-end"
+          closeOnBlur
+        >
+          <PopoverTrigger>
+            <Box as="span" flexShrink={0} w="8">
+              <TooltipAny label="Template Settings" placement="top">
                 <ButtonAny
+                  as={Button}
                   size="md"
                   variant="ghost"
-                  onClick={() => setShowDeleteConfirm(false)}
-                  color="editorBattleshipGrey.500"
-                  _hover={{
-                    color: "editorBattleshipGrey.800",
-                    bg: "editorGray.50",
+                  px="2"
+                  py="1"
+                  minW="auto"
+                  bg="transparent"
+                  borderWidth={0}
+                  borderColor="transparent"
+                  _hover={{ bg: "editorGray.200" }}
+                  _focus={{ boxShadow: "none" }}
+                  onClick={(e: React.MouseEvent<HTMLElement>) => {
+                    e.stopPropagation()
+                    onSettings(record)
                   }}
+                  aria-label="Template Settings"
                 >
-                  Cancel
+                  <IconAny
+                    as={PiGear}
+                    boxSize={5}
+                    color="editorBattleshipGrey.700"
+                  />
                 </ButtonAny>
-                <ButtonAny
-                  size="md"
-                  colorScheme="red"
-                  leftIcon={<Icon as={PiTrash} boxSize={4} />}
-                  onClick={() => {
-                    setShowDeleteConfirm(false)
-                    onDelete(record)
-                  }}
-                >
-                  Delete
-                </ButtonAny>
+              </TooltipAny>
+            </Box>
+          </PopoverTrigger>
+          {permissions.delete && (
+            <PopoverContentAny
+              p="4"
+              fontSize="sm"
+              maxW="md"
+              w="md"
+              borderWidth={0}
+              borderColor="transparent"
+              _focus={{ boxShadow: "lg", outline: "none" }}
+              onClick={(e: React.MouseEvent<HTMLElement>) =>
+                e.stopPropagation()
+              }
+            >
+              <FlexAny direction="column" gap="3">
+                <TextAny color="gray.600" fontSize="md">
+                  Are you sure you want to delete this template? This action is
+                  irreversible.
+                </TextAny>
+                <FlexAny justifyContent="flex-end" gap="2">
+                  <ButtonAny
+                    size="md"
+                    variant="ghost"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    color="editorBattleshipGrey.500"
+                    _hover={{
+                      color: "editorBattleshipGrey.800",
+                      bg: "editorGray.50",
+                    }}
+                  >
+                    Cancel
+                  </ButtonAny>
+                  <ButtonAny
+                    size="md"
+                    colorScheme="red"
+                    leftIcon={<Icon as={PiTrash} boxSize={4} />}
+                    onClick={() => {
+                      setShowDeleteConfirm(false)
+                      onDelete(record)
+                    }}
+                  >
+                    Delete
+                  </ButtonAny>
+                </FlexAny>
               </FlexAny>
-            </FlexAny>
-          </PopoverContentAny>
-        )}
-      </Popover>
+            </PopoverContentAny>
+          )}
+        </Popover>
+      </Flex>
     </FlexAny>
   )
 }

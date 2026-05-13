@@ -8,6 +8,7 @@ import {
   MenuList,
   Spacer,
 } from "@chakra-ui/react"
+import { PiBracketsCurly } from "@react-icons/all-files/pi/PiBracketsCurly"
 import { PiGear } from "@react-icons/all-files/pi/PiGear"
 import { PiGlobe } from "@react-icons/all-files/pi/PiGlobe"
 import { PiLock } from "@react-icons/all-files/pi/PiLock"
@@ -22,6 +23,7 @@ import {
   useEditorStore,
 } from "../../store"
 import { chakraAny } from "../../utils"
+import { VariablesModal } from "../variables/VariablesModal"
 import { NavbarItem } from "./NavbarItem"
 import { SettingsModal } from "./SettingsModal"
 import { TemplateNameInput } from "./TemplateNameInput"
@@ -80,6 +82,8 @@ export const Header = ({
 
   const [activeRecord, setActiveRecord] = useState<TemplateRecord | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const isVariablesOpen = useEditorStore((s) => s.isVariablesModalOpen)
+  const setIsVariablesOpen = useEditorStore((s) => s.setIsVariablesModalOpen)
 
   // Fetch the active template record whenever templateId changes or after a save.
   // biome-ignore lint/correctness/useExhaustiveDependencies: syncStatus intentionally triggers a refetch after saves
@@ -176,6 +180,16 @@ export const Header = ({
             borderColor="editorBattleshipGrey.200"
             height="40%"
           />
+          <NavbarItem
+            label="Variables"
+            icon={<PiBracketsCurly />}
+            onClick={() => setIsVariablesOpen(true)}
+          />
+          <DividerAny
+            orientation="vertical"
+            borderColor="editorBattleshipGrey.200"
+            height="40%"
+          />
           <FlexAny alignItems="center">
             <TemplatesDropdown onViewAllTemplates={onViewAllTemplates} />
           </FlexAny>
@@ -190,6 +204,9 @@ export const Header = ({
         <TemplateStatus />
       </FlexAny>
       <Spacer />
+      {isVariablesOpen ? (
+        <VariablesModal onClose={() => setIsVariablesOpen(false)} />
+      ) : null}
       {visibleExportOptions.map((exportOption, exportOptionIndex) => (
         <React.Fragment key={`export-option-${exportOption.label}`}>
           {exportOption.type === "button" ? (

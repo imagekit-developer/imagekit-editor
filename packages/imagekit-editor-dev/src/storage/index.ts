@@ -1,3 +1,13 @@
+export type {
+  CustomMetadataFieldDefinition,
+  CustomMetadataFieldSchema,
+  DynamicVariableAssetSearchQuery,
+  DynamicVariableDefinition,
+  DynamicVariableSortOption,
+  DynamicVariableValueType,
+  VariableAssetResolver,
+  VariableAssetResolverResult,
+} from "../variables/types"
 export { normalizeTransformationStepsForPersistence } from "./serializeTransformations"
 export {
   applyTemplateStorageAccessFailure,

@@ -4,6 +4,7 @@ import type { SaveTemplateInput, TemplateRecord } from "../storage"
 import { isTemplateAccessDeniedError } from "../storage/templateAccessError"
 import { useEditorStore } from "../store"
 import { shouldMarkSyncedAfterSave } from "../sync/templateSyncVersioning"
+import { buildUrlTemplate } from "../utils/buildUrlTemplate"
 
 export type SaveReason =
   | "manual"
@@ -35,11 +36,18 @@ export function useTemplateSync() {
       state.setSyncStatus("saving")
 
       try {
+        const transformationsWithoutId = state.transformations.map(
+          ({ id: _id, ...rest }) => rest,
+        )
         const record = await provider.saveTemplate({
           id: state.templateId ?? undefined,
           name: args.overrides?.name ?? state.templateName,
-          transformations: state.transformations.map(
-            ({ id: _id, ...rest }) => rest,
+          transformations: transformationsWithoutId,
+          variables: state.dynamicVariables,
+          urlTemplate: buildUrlTemplate(
+            state.transformations,
+            state.visibleTransformations,
+            state.dynamicVariables,
           ),
           ...(args.overrides?.isPrivate !== undefined
             ? { isPrivate: args.overrides.isPrivate }

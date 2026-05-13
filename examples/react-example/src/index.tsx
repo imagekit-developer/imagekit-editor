@@ -1,10 +1,13 @@
 import {
+  type CustomMetadataFieldDefinition,
+  type DynamicVariableDefinition,
   ImageKitEditor,
   type ImageKitEditorProps,
   type ImageKitEditorRef,
   type TemplateStorageProvider,
   TRANSFORMATION_STATE_VERSION,
   type Transformation,
+  type VariableAssetResolver,
 } from "@imagekit/editor"
 import React, { useCallback, useEffect } from "react"
 import ReactDOM from "react-dom"
@@ -18,6 +21,8 @@ type StoredTemplateRecord = {
   isPinned: boolean
   name: string
   transformations: Omit<Transformation, "id">[]
+  variables?: DynamicVariableDefinition[]
+  urlTemplate?: string
   createdBy: { userId: string; name: string; email: string }
   updatedBy: { userId: string; name: string; email: string }
   createdAt: number
@@ -70,6 +75,8 @@ function createLocalTemplateStorage(): TemplateStorageProvider {
         isPinned: input.isPinned ?? existing?.isPinned ?? false,
         name: input.name,
         transformations: input.transformations,
+        variables: input.variables ?? existing?.variables,
+        urlTemplate: input.urlTemplate,
         createdBy: input.createdBy ??
           existing?.createdBy ?? {
             userId: session.userId,
@@ -110,6 +117,65 @@ function createLocalTemplateStorage(): TemplateStorageProvider {
       return session
     },
   }
+}
+
+const SAMPLE_CUSTOM_METADATA_FIELDS: CustomMetadataFieldDefinition[] = [
+  {
+    id: "1",
+    name: "brand",
+    label: "Brand",
+    schema: { type: "Text", maxLength: 100 },
+  },
+  {
+    id: "2",
+    name: "category",
+    label: "Category",
+    schema: {
+      type: "SingleSelect",
+      selectOptions: ["shirts", "pants", "shoes", "accessories"],
+    },
+  },
+  {
+    id: "3",
+    name: "price",
+    label: "Price",
+    schema: { type: "Number", minValue: 0 },
+  },
+  {
+    id: "4",
+    name: "isActive",
+    label: "Active",
+    schema: { type: "Boolean" },
+  },
+  {
+    id: "5",
+    name: "publishDate",
+    label: "Publish Date",
+    schema: { type: "Date" },
+  },
+  {
+    id: "6",
+    name: "colors",
+    label: "Colors",
+    schema: {
+      type: "MultiSelect",
+      selectOptions: ["red", "blue", "green", "black", "white"],
+    },
+  },
+]
+
+const sampleVariableAssetResolver: VariableAssetResolver = async (request) => {
+  console.log(
+    "[variableAssetResolver] variable:",
+    request.variable.name,
+    "query:",
+    request.query,
+  )
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  const mockPath = request.query.path
+    ? `${request.query.path.replace(/\/$/, "")}/sample.jpg`
+    : "/sample.jpg"
+  return { value: mockPath }
 }
 
 function App() {
@@ -254,6 +320,14 @@ function App() {
         return Promise.resolve(request.url)
       },
       templateStorage: createLocalTemplateStorage(),
+      customMetadataFields: SAMPLE_CUSTOM_METADATA_FIELDS,
+      variableAssetResolver: sampleVariableAssetResolver,
+      onBulkGenerate: (template) => {
+        console.log("Bulk generate requested for template:", template)
+        alert(
+          `Bulk Generate with CSV for "${template.name}" (id: ${template.id})`,
+        )
+      },
     })
   }, [handleAddImage])
 

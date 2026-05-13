@@ -54,6 +54,12 @@ import {
 } from "../../schema"
 import { type SyncStatus, useEditorStore } from "../../store"
 import { isStepAligned } from "../../utils"
+import {
+  getDynamicVariableByName,
+  isVariableReference,
+  parseVariableReference,
+  resolveVariableValue,
+} from "../../variables/resolveVariables"
 import AnchorField from "../common/AnchorField"
 import CheckboxCardField from "../common/CheckboxCardField"
 import ColorPickerField from "../common/ColorPickerField"
@@ -73,6 +79,7 @@ import PaddingInputField, {
   type PaddingState,
 } from "../common/PaddingInput"
 import RadioCardField from "../common/RadioCardField"
+import { VariableInput } from "../common/VariableInput"
 import ZoomInput from "../common/ZoomInput"
 import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
@@ -155,6 +162,7 @@ export const TransformationConfigSidebar: React.FC = () => {
     _setTransformationToEdit,
     _setSelectedTransformationKey,
     setTransformationConfigFormDirty,
+    dynamicVariables,
   } = useEditorStore()
   const syncStatus = useEditorStore((s) => s.syncStatus)
   const templateStorageWriteBlocked = useEditorStore(
@@ -246,7 +254,49 @@ export const TransformationConfigSidebar: React.FC = () => {
     control,
     trigger,
   } = useForm<Record<string, unknown>>({
-    resolver: zodResolver(selectedTransformation?.schema ?? z.object({})),
+    resolver: async (values, context, options) => {
+      // Collect which fields hold variable references so we can exclude them
+      // from validation — variable refs are always valid by definition.
+      const variableKeys = new Set(
+        Object.entries(values)
+          .filter(
+            ([, val]) => typeof val === "string" && isVariableReference(val),
+          )
+          .map(([key]) => key),
+      )
+
+      // If no variable refs, run standard validation
+      if (variableKeys.size === 0) {
+        return zodResolver(selectedTransformation?.schema ?? z.object({}))(
+          values,
+          context,
+          options,
+        )
+      }
+
+      // Strip variable-reference fields before validation so they don't trip
+      // field-level validators (number, color, etc.).  Keep a truthy sentinel
+      // for cross-field refinements (e.g. "at least width or height").
+      const cleaned: Record<string, unknown> = {}
+      for (const [key, val] of Object.entries(values)) {
+        cleaned[key] = variableKeys.has(key) ? "__var__" : val
+      }
+
+      const result = await zodResolver(
+        selectedTransformation?.schema ?? z.object({}),
+      )(cleaned, context, options)
+
+      // Drop any errors that originate from variable-reference fields
+      if (result.errors) {
+        for (const key of variableKeys) {
+          delete result.errors[key]
+        }
+      }
+
+      // Always return the original form values — the resolver is only used
+      // for error gating, not value transformation.
+      return { ...result, values }
+    },
     defaultValues: defaultValues,
   })
 
@@ -565,502 +615,580 @@ export const TransformationConfigSidebar: React.FC = () => {
                 )
               }
             >
-              <FormLabel htmlFor={field.name} fontSize="sm">
-                {field.label}
-              </FormLabel>
-              {field.fieldType === "select" ? (
-                <Controller
+              {/* Fields that support the Fixed / Variable toggle */}
+              {[
+                "select",
+                "select-creatable",
+                "input",
+                "textarea",
+                "slider",
+                "color-picker",
+              ].includes(field.fieldType ?? "") ? (
+                <VariableInput
+                  label={field.label}
                   name={field.name}
-                  control={control}
-                  render={({ field: controllerField }) => {
-                    // For focusObject field, use focusObjects from store or default list
-                    const selectOptions =
-                      field.name === "focusObject"
-                        ? (focusObjects || DEFAULT_FOCUS_OBJECTS).map(
-                            (obj) => ({
-                              value: obj,
-                              label: startCase(obj),
-                            }),
-                          )
-                        : field.fieldProps?.options?.map((option) => ({
-                            value: option.value,
-                            label: option.label,
-                          }))
-
-                    const isCreatable = field.fieldProps?.isCreatable === true
-                    const isClearable: boolean =
-                      field.fieldProps?.isClearable ?? false
-
-                    // For creatable selects, find the value in options or create a custom one
-                    const selectedValue = isCreatable
-                      ? selectOptions?.find(
-                          (option) => option.value === controllerField.value,
-                        ) ||
-                        (controllerField.value
-                          ? {
-                              value: controllerField.value as string,
-                              label: startCase(controllerField.value as string),
-                            }
-                          : null)
-                      : selectOptions?.find(
-                          (option) => option.value === controllerField.value,
-                        )
-
-                    return isCreatable ? (
-                      <CreateableSelect
-                        id={field.name}
-                        formatCreateLabel={(inputValue: string) =>
-                          `Use "${inputValue}"`
-                        }
-                        isClearable={isClearable}
-                        placeholder="Select"
-                        menuPlacement="auto"
-                        options={selectOptions}
-                        value={selectedValue}
-                        onChange={(selectedOption) =>
-                          controllerField.onChange(selectedOption?.value)
-                        }
-                        onBlur={controllerField.onBlur}
-                        styles={{
-                          control: (base) => ({
-                            ...base,
-                            fontSize: "12px",
-                            minHeight: "32px",
-                            borderColor: "#E2E8F0",
-                          }),
-                          menu: (base) => ({
-                            ...base,
-                            zIndex: 10,
-                          }),
-                          option: (base) => ({
-                            ...base,
-                            fontSize: "12px",
-                          }),
-                        }}
-                      />
-                    ) : (
-                      <Select
-                        id={field.name}
-                        isClearable={isClearable}
-                        placeholder="Select"
-                        menuPlacement="auto"
-                        options={selectOptions}
-                        value={selectedValue}
-                        onChange={(selectedOption) =>
-                          controllerField.onChange(selectedOption?.value)
-                        }
-                        onBlur={controllerField.onBlur}
-                        styles={{
-                          control: (base) => ({
-                            ...base,
-                            fontSize: "12px",
-                            minHeight: "32px",
-                            borderColor: "#E2E8F0",
-                          }),
-                          menu: (base) => ({
-                            ...base,
-                            zIndex: 10,
-                          }),
-                          option: (base) => ({
-                            ...base,
-                            fontSize: "12px",
-                          }),
-                        }}
-                      />
-                    )
-                  }}
-                />
-              ) : null}
-              {field.fieldType === "select-creatable" ? (
-                <Controller
-                  name={field.name}
-                  control={control}
-                  render={({ field: controllerField }) => (
-                    <CreateableSelect
-                      id={field.name}
-                      placeholder="Select"
-                      menuPlacement="auto"
-                      options={field.fieldProps?.options?.map((option) => ({
-                        value: option.value,
-                        label: option.label,
-                      }))}
-                      value={field.fieldProps?.options?.find(
-                        (option) => option.value === controllerField.value,
-                      )}
-                      onChange={(selectedOption) =>
-                        controllerField.onChange(selectedOption?.value)
-                      }
-                      onBlur={controllerField.onBlur}
-                      styles={{
-                        control: (base) => ({
-                          ...base,
-                          fontSize: "12px",
-                          minHeight: "32px",
-                          borderColor: "#E2E8F0",
-                        }),
-                        menu: (base) => ({
-                          ...base,
-                          zIndex: 10,
-                        }),
-                        option: (base) => ({
-                          ...base,
-                          fontSize: "12px",
-                        }),
-                      }}
-                    />
-                  )}
-                />
-              ) : null}
-              {field.fieldType === "input" ? (
-                <Input
-                  id={field.name}
-                  fontSize="sm"
-                  {...register(field.name)}
-                  {...(field.fieldProps ?? {})}
-                  defaultValue={
-                    field.fieldProps?.defaultValue as
-                      | string
-                      | number
-                      | readonly string[]
-                      | undefined
+                  value={String(watch(field.name) ?? "")}
+                  onChange={(v) =>
+                    setValue(field.name, v, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                    })
+                  }
+                  placeholder={
+                    typeof field.fieldProps?.placeholder === "string"
+                      ? field.fieldProps.placeholder
+                      : undefined
                   }
                   disabled={
-                    // Disable aspect ratio when both width and height are set
+                    field.fieldType === "input" &&
                     selectedTransformation.key ===
                       "resize_and_crop-resize_and_crop" &&
                     field.name === "aspectRatio" &&
                     !!values.width &&
                     !!values.height
                   }
-                />
-              ) : null}
-              {field.fieldType === "textarea" ? (
-                <Textarea
-                  id={field.name}
-                  fontSize="sm"
-                  {...register(field.name)}
-                />
-              ) : null}
-              {field.fieldType === "switch" ? (
-                <Switch
-                  id={field.name}
-                  fontSize="sm"
-                  isChecked={watch(field.name) === true}
-                  {...register(field.name)}
-                />
-              ) : null}
-              {field.fieldType === "slider" ? (
-                <Box pt={2} pb={2}>
-                  <Flex justify="space-between" mb={1}>
-                    <Input
-                      id={`${field.name}-input`}
-                      type={
-                        field.fieldProps?.inputType ||
-                        field.fieldProps?.autoOption
-                          ? "text"
-                          : "number"
-                      }
-                      fontSize="sm"
-                      width="80px"
-                      value={(watch(field.name) as string) ?? ""}
-                      defaultValue={field.fieldProps?.defaultValue as number}
-                      onBlur={() => {
-                        const raw = watch(field.name)
-                        const n = Number(
-                          String(raw).toUpperCase().replace(/^N/, "-"),
+                >
+                  {field.fieldType === "select" ? (
+                    <Controller
+                      name={field.name}
+                      control={control}
+                      render={({ field: controllerField }) => {
+                        // For focusObject field, use focusObjects from store or default list
+                        const selectOptions =
+                          field.name === "focusObject"
+                            ? (focusObjects || DEFAULT_FOCUS_OBJECTS).map(
+                                (obj) => ({
+                                  value: obj,
+                                  label: startCase(obj),
+                                }),
+                              )
+                            : field.fieldProps?.options?.map((option) => ({
+                                value: option.value,
+                                label: option.label,
+                              }))
+
+                        const isCreatable =
+                          field.fieldProps?.isCreatable === true
+                        const isClearable: boolean =
+                          field.fieldProps?.isClearable ?? false
+
+                        // For creatable selects, find the value in options or create a custom one
+                        const selectedValue = isCreatable
+                          ? selectOptions?.find(
+                              (option) =>
+                                option.value === controllerField.value,
+                            ) ||
+                            (controllerField.value
+                              ? {
+                                  value: controllerField.value as string,
+                                  label: startCase(
+                                    controllerField.value as string,
+                                  ),
+                                }
+                              : null)
+                          : selectOptions?.find(
+                              (option) =>
+                                option.value === controllerField.value,
+                            )
+
+                        return isCreatable ? (
+                          <CreateableSelect
+                            id={field.name}
+                            formatCreateLabel={(inputValue: string) =>
+                              `Use "${inputValue}"`
+                            }
+                            isClearable={isClearable}
+                            placeholder="Select"
+                            menuPlacement="auto"
+                            options={selectOptions}
+                            value={selectedValue}
+                            onChange={(selectedOption) =>
+                              controllerField.onChange(selectedOption?.value)
+                            }
+                            onBlur={controllerField.onBlur}
+                            styles={{
+                              control: (base) => ({
+                                ...base,
+                                fontSize: "12px",
+                                minHeight: "32px",
+                                borderColor: "#E2E8F0",
+                              }),
+                              menu: (base) => ({
+                                ...base,
+                                zIndex: 10,
+                              }),
+                              option: (base) => ({
+                                ...base,
+                                fontSize: "12px",
+                              }),
+                            }}
+                          />
+                        ) : (
+                          <Select
+                            id={field.name}
+                            isClearable={isClearable}
+                            placeholder="Select"
+                            menuPlacement="auto"
+                            options={selectOptions}
+                            value={selectedValue}
+                            onChange={(selectedOption) =>
+                              controllerField.onChange(selectedOption?.value)
+                            }
+                            onBlur={controllerField.onBlur}
+                            styles={{
+                              control: (base) => ({
+                                ...base,
+                                fontSize: "12px",
+                                minHeight: "32px",
+                                borderColor: "#E2E8F0",
+                              }),
+                              menu: (base) => ({
+                                ...base,
+                                zIndex: 10,
+                              }),
+                              option: (base) => ({
+                                ...base,
+                                fontSize: "12px",
+                              }),
+                            }}
+                          />
                         )
-                        const isNumberWithN =
-                          typeof raw === "string" &&
-                          !Number.isNaN(n) &&
-                          raw.toUpperCase().startsWith("N")
-                        if (!Number.isFinite(n)) return
+                      }}
+                    />
+                  ) : null}
+                  {field.fieldType === "select-creatable" ? (
+                    <Controller
+                      name={field.name}
+                      control={control}
+                      render={({ field: controllerField }) => (
+                        <CreateableSelect
+                          id={field.name}
+                          placeholder="Select"
+                          menuPlacement="auto"
+                          options={field.fieldProps?.options?.map((option) => ({
+                            value: option.value,
+                            label: option.label,
+                          }))}
+                          value={field.fieldProps?.options?.find(
+                            (option) => option.value === controllerField.value,
+                          )}
+                          onChange={(selectedOption) =>
+                            controllerField.onChange(selectedOption?.value)
+                          }
+                          onBlur={controllerField.onBlur}
+                          styles={{
+                            control: (base) => ({
+                              ...base,
+                              fontSize: "12px",
+                              minHeight: "32px",
+                              borderColor: "#E2E8F0",
+                            }),
+                            menu: (base) => ({
+                              ...base,
+                              zIndex: 10,
+                            }),
+                            option: (base) => ({
+                              ...base,
+                              fontSize: "12px",
+                            }),
+                          }}
+                        />
+                      )}
+                    />
+                  ) : null}
+                  {field.fieldType === "input" ? (
+                    <Input
+                      id={field.name}
+                      fontSize="sm"
+                      {...register(field.name)}
+                      {...(field.fieldProps ?? {})}
+                      placeholder={
+                        typeof field.fieldProps?.placeholder === "string"
+                          ? field.fieldProps.placeholder
+                          : undefined
+                      }
+                      defaultValue={
+                        field.fieldProps?.defaultValue as
+                          | string
+                          | number
+                          | readonly string[]
+                          | undefined
+                      }
+                      disabled={
+                        // Disable aspect ratio when both width and height are set
+                        selectedTransformation.key ===
+                          "resize_and_crop-resize_and_crop" &&
+                        field.name === "aspectRatio" &&
+                        !!values.width &&
+                        !!values.height
+                      }
+                    />
+                  ) : null}
+                  {field.fieldType === "textarea" ? (
+                    <Textarea
+                      id={field.name}
+                      fontSize="sm"
+                      placeholder={field.fieldProps?.placeholder as string}
+                      {...register(field.name)}
+                    />
+                  ) : null}
+                  {field.fieldType === "slider" ? (
+                    <Box pt={2} pb={2}>
+                      <Flex justify="space-between" mb={1}>
+                        <Input
+                          id={`${field.name}-input`}
+                          type={
+                            field.fieldProps?.inputType ||
+                            field.fieldProps?.autoOption
+                              ? "text"
+                              : "number"
+                          }
+                          fontSize="sm"
+                          width="80px"
+                          value={(watch(field.name) as string) ?? ""}
+                          defaultValue={
+                            field.fieldProps?.defaultValue as number
+                          }
+                          onBlur={() => {
+                            const raw = watch(field.name)
+                            const rawStr = String(raw).toUpperCase()
+                            // Only treat as N-prefix if it matches N followed by digits (e.g. "N50", not "N-50")
+                            const isNumberWithN =
+                              typeof raw === "string" &&
+                              /^N\d+(\.\d+)?$/i.test(raw.trim())
+                            const n = Number(
+                              isNumberWithN
+                                ? rawStr.replace(/^N/, "-")
+                                : rawStr,
+                            )
+                            if (!Number.isFinite(n)) return
 
-                        const { step, min, max, skipStepCheck } =
-                          field.fieldProps ?? {}
-                        let v = n
+                            const { step, min, max, skipStepCheck } =
+                              field.fieldProps ?? {}
+                            let v = n
 
-                        if (min !== undefined) v = Math.max(v, min)
-                        if (max !== undefined) v = Math.min(v, max)
-                        if (!skipStepCheck && step) {
-                          v = Math.round(v / step) * step
-                          const dp = (String(step).split(".")[1] || "").length
-                          v = Number(v.toFixed(dp))
+                            if (min !== undefined) v = Math.max(v, min)
+                            if (max !== undefined) v = Math.min(v, max)
+                            if (!skipStepCheck && step) {
+                              v = Math.round(v / step) * step
+                              const dp = (String(step).split(".")[1] || "")
+                                .length
+                              v = Number(v.toFixed(dp))
+                            }
+                            const finalValue =
+                              v < 0 && isNumberWithN
+                                ? `N${Math.abs(v)}`
+                                : String(v)
+                            setValue(field.name, finalValue, {
+                              shouldDirty: true,
+                              shouldTouch: true,
+                            })
+                          }}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            const numSafeVal = String(val)
+                              .toUpperCase()
+                              .replace(/^N/, "-")
+                            const isNumberWithN =
+                              typeof val === "string" &&
+                              !Number.isNaN(Number(numSafeVal)) &&
+                              val.toUpperCase().startsWith("N")
+
+                            if (val === "") {
+                              setValue(field.name, "", {
+                                shouldDirty: true,
+                                shouldTouch: true,
+                              })
+                              return
+                            }
+
+                            if (val === "-") {
+                              setValue(field.name, "-", {
+                                shouldDirty: true,
+                                shouldTouch: true,
+                              })
+                              return
+                            }
+
+                            if (
+                              field.fieldProps?.autoOption &&
+                              val.match(/au?t?o?/i)
+                            ) {
+                              setValue(field.name, "auto", {
+                                shouldDirty: true,
+                                shouldTouch: true,
+                              })
+                            } else if (
+                              !field.fieldProps?.skipStepCheck &&
+                              field.fieldProps?.step &&
+                              !isStepAligned(val, field.fieldProps?.step)
+                            ) {
+                              return
+                            } else if (
+                              field.fieldProps?.min !== undefined &&
+                              Number(numSafeVal) < field.fieldProps.min
+                            ) {
+                              const finalVal =
+                                field.fieldProps.min < 0 && isNumberWithN
+                                  ? `N${Math.abs(field.fieldProps.min)}`
+                                  : String(field.fieldProps.min)
+                              setValue(field.name, finalVal, {
+                                shouldDirty: true,
+                                shouldTouch: true,
+                              })
+                            } else if (
+                              field.fieldProps?.max !== undefined &&
+                              Number(numSafeVal) > field.fieldProps.max
+                            ) {
+                              setValue(field.name, field.fieldProps.max, {
+                                shouldDirty: true,
+                                shouldTouch: true,
+                              })
+                            } else {
+                              setValue(field.name, val, {
+                                shouldDirty: true,
+                                shouldTouch: true,
+                              })
+                            }
+                          }}
+                        />
+                        {field.fieldProps?.autoOption && (
+                          <Button
+                            size="sm"
+                            colorScheme={
+                              watch(field.name) === "auto" ? "blue" : "gray"
+                            }
+                            onClick={() =>
+                              setValue(field.name, "auto", {
+                                shouldDirty: true,
+                                shouldTouch: true,
+                              })
+                            }
+                          >
+                            Auto
+                          </Button>
+                        )}
+                      </Flex>
+                      <Slider
+                        id={field.name}
+                        min={field.fieldProps?.min || 0}
+                        max={field.fieldProps?.max || 100}
+                        step={field.fieldProps?.step || 1}
+                        value={
+                          Number.isNaN(
+                            Number(
+                              String(watch(field.name))
+                                .toUpperCase()
+                                .replace(/^N/, "-"),
+                            ),
+                          )
+                            ? 0
+                            : Number(
+                                String(watch(field.name))
+                                  .toUpperCase()
+                                  .replace(/^N/, "-"),
+                              )
                         }
-                        const finalValue =
-                          v < 0 && isNumberWithN ? `N${Math.abs(v)}` : String(v)
-                        setValue(field.name, finalValue, {
+                        defaultValue={field.fieldProps?.defaultValue as number}
+                        onChange={(val) =>
+                          setValue(field.name, val.toString(), {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          })
+                        }
+                        focusThumbOnChange={false}
+                      >
+                        <SliderTrack>
+                          <SliderFilledTrack />
+                        </SliderTrack>
+                        <SliderThumb borderColor="blue.500" border="1px" />
+                      </Slider>
+                    </Box>
+                  ) : null}
+                  {field.fieldType === "color-picker" ? (
+                    <ColorPickerField
+                      fieldName={field.name}
+                      value={watch(field.name) as string}
+                      setValue={
+                        setDirtyValue as unknown as (
+                          name: string,
+                          value: string,
+                        ) => void
+                      }
+                      fieldProps={field.fieldProps as ColorPickerProps}
+                      isClearable={field.fieldProps?.isClearable ?? false}
+                    />
+                  ) : null}
+                </VariableInput>
+              ) : (
+                <>
+                  <FormLabel htmlFor={field.name} fontSize="sm">
+                    {field.label}
+                  </FormLabel>
+                  {field.fieldType === "switch" ? (
+                    <Switch
+                      id={field.name}
+                      fontSize="sm"
+                      isChecked={watch(field.name) === true}
+                      {...register(field.name)}
+                    />
+                  ) : null}
+                  {field.fieldType === "gradient-picker" ? (
+                    <GradientPicker
+                      fieldName={field.name}
+                      value={watch(field.name) as GradientPickerState}
+                      setValue={
+                        setDirtyValue as unknown as (
+                          name: string,
+                          value: GradientPickerState | string,
+                        ) => void
+                      }
+                      errors={errors}
+                    />
+                  ) : null}
+                  {field.fieldType === "anchor" ? (
+                    <AnchorField
+                      value={watch(field.name) as string}
+                      positions={field.fieldProps?.positions as string[]}
+                      onChange={(value) =>
+                        setValue(field.name, value, {
                           shouldDirty: true,
                           shouldTouch: true,
                         })
-                      }}
-                      onChange={(e) => {
-                        const val = e.target.value
-                        const numSafeVal = String(val)
-                          .toUpperCase()
-                          .replace(/^N/, "-")
-                        const isNumberWithN =
-                          typeof val === "string" &&
-                          !Number.isNaN(Number(numSafeVal)) &&
-                          val.toUpperCase().startsWith("N")
-
-                        if (val === "") {
-                          setValue(field.name, "", {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                          return
-                        }
-
-                        if (val === "-") {
-                          setValue(field.name, "-", {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                          return
-                        }
-
-                        if (
-                          field.fieldProps?.autoOption &&
-                          val.match(/au?t?o?/i)
-                        ) {
-                          setValue(field.name, "auto", {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                        } else if (
-                          !field.fieldProps?.skipStepCheck &&
-                          field.fieldProps?.step &&
-                          !isStepAligned(val, field.fieldProps?.step)
-                        ) {
-                          return
-                        } else if (
-                          field.fieldProps?.min !== undefined &&
-                          Number(numSafeVal) < field.fieldProps.min
-                        ) {
-                          const finalVal =
-                            field.fieldProps.min < 0 && isNumberWithN
-                              ? `N${Math.abs(field.fieldProps.min)}`
-                              : String(field.fieldProps.min)
-                          setValue(field.name, finalVal, {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                        } else if (
-                          field.fieldProps?.max !== undefined &&
-                          Number(numSafeVal) > field.fieldProps.max
-                        ) {
-                          setValue(field.name, field.fieldProps.max, {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                        } else {
-                          setValue(field.name, val, {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                        }
-                      }}
+                      }
                     />
-                    {field.fieldProps?.autoOption && (
-                      <Button
-                        size="sm"
-                        colorScheme={
-                          watch(field.name) === "auto" ? "blue" : "gray"
-                        }
-                        onClick={() =>
-                          setValue(field.name, "auto", {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                        }
-                      >
-                        Auto
-                      </Button>
-                    )}
-                  </Flex>
-                  <Slider
-                    id={field.name}
-                    min={field.fieldProps?.min || 0}
-                    max={field.fieldProps?.max || 100}
-                    step={field.fieldProps?.step || 1}
-                    value={
-                      Number.isNaN(
-                        Number(
-                          String(watch(field.name))
-                            .toUpperCase()
-                            .replace(/^N/, "-"),
-                        ),
-                      )
-                        ? 0
-                        : Number(
-                            String(watch(field.name))
-                              .toUpperCase()
-                              .replace(/^N/, "-"),
-                          )
-                    }
-                    defaultValue={field.fieldProps?.defaultValue as number}
-                    onChange={(val) =>
-                      setValue(field.name, val.toString(), {
-                        shouldDirty: true,
-                        shouldTouch: true,
-                      })
-                    }
-                    focusThumbOnChange={false}
-                  >
-                    <SliderTrack>
-                      <SliderFilledTrack />
-                    </SliderTrack>
-                    <SliderThumb borderColor="blue.500" border="1px" />
-                  </Slider>
-                </Box>
-              ) : null}
-              {field.fieldType === "color-picker" ? (
-                <ColorPickerField
-                  fieldName={field.name}
-                  value={watch(field.name) as string}
-                  setValue={
-                    setDirtyValue as unknown as (
-                      name: string,
-                      value: string,
-                    ) => void
-                  }
-                  fieldProps={field.fieldProps as ColorPickerProps}
-                  isClearable={field.fieldProps?.isClearable ?? false}
-                />
-              ) : null}
-              {field.fieldType === "gradient-picker" ? (
-                <GradientPicker
-                  fieldName={field.name}
-                  value={watch(field.name) as GradientPickerState}
-                  setValue={
-                    setDirtyValue as unknown as (
-                      name: string,
-                      value: GradientPickerState | string,
-                    ) => void
-                  }
-                  errors={errors}
-                />
-              ) : null}
-              {field.fieldType === "anchor" ? (
-                <AnchorField
-                  value={watch(field.name) as string}
-                  positions={field.fieldProps?.positions as string[]}
-                  onChange={(value) =>
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                  }
-                />
-              ) : null}
-              {field.fieldType === "radio-card" ? (
-                <RadioCardField
-                  value={watch(field.name) as string}
-                  options={field.fieldProps?.options ?? []}
-                  onChange={(value) =>
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                  }
-                  {...field.fieldProps}
-                />
-              ) : null}
-              {field.fieldType === "checkbox-card" ? (
-                <CheckboxCardField
-                  value={watch(field.name) as string[]}
-                  options={field.fieldProps?.options ?? []}
-                  onChange={(value) =>
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                  }
-                  {...field.fieldProps}
-                />
-              ) : null}
-              {field.fieldType === "padding-input" ? (
-                <PaddingInputField
-                  onChange={(value) => {
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                    trigger(field.name)
-                  }}
-                  errors={errors as PaddingErrors}
-                  name={field.name}
-                  {...field.fieldProps}
-                  value={watch(field.name) as Partial<PaddingState>}
-                />
-              ) : null}
-              {field.fieldType === "zoom" ? (
-                <ZoomInput
-                  value={watch(field.name) as number}
-                  onChange={(value) =>
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                  }
-                  defaultValue={
-                    typeof field.fieldProps?.defaultValue === "number"
-                      ? (field.fieldProps.defaultValue as number)
-                      : undefined
-                  }
-                />
-              ) : null}
-              {field.fieldType === "distort-perspective-input" ? (
-                <DistortPerspectiveInput
-                  onChange={(value) => {
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                    trigger(field.name)
-                  }}
-                  errors={errors as PerspectiveErrors}
-                  name={field.name}
-                  value={watch(field.name) as PerspectiveObject}
-                  {...field.fieldProps}
-                />
-              ) : null}
-              {field.fieldType === "radius-input" ? (
-                <RadiusInputField
-                  onChange={(value) => {
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                    trigger(field.name)
-                  }}
-                  errors={errors as RadiusErrors}
-                  name={field.name}
-                  value={watch(field.name) as Partial<RadiusState>}
-                  {...field.fieldProps}
-                />
-              ) : null}
+                  ) : null}
+                  {field.fieldType === "radio-card" ? (
+                    <RadioCardField
+                      value={watch(field.name) as string}
+                      options={field.fieldProps?.options ?? []}
+                      onChange={(value) =>
+                        setValue(field.name, value, {
+                          shouldDirty: true,
+                          shouldTouch: true,
+                        })
+                      }
+                      {...field.fieldProps}
+                    />
+                  ) : null}
+                  {field.fieldType === "checkbox-card" ? (
+                    <CheckboxCardField
+                      value={watch(field.name) as string[]}
+                      options={field.fieldProps?.options ?? []}
+                      onChange={(value) =>
+                        setValue(field.name, value, {
+                          shouldDirty: true,
+                          shouldTouch: true,
+                        })
+                      }
+                      {...field.fieldProps}
+                    />
+                  ) : null}
+                  {field.fieldType === "padding-input" ? (
+                    <PaddingInputField
+                      onChange={(value) => {
+                        setValue(field.name, value, {
+                          shouldDirty: true,
+                          shouldTouch: true,
+                        })
+                        trigger(field.name)
+                      }}
+                      errors={errors as PaddingErrors}
+                      name={field.name}
+                      {...field.fieldProps}
+                      value={watch(field.name) as Partial<PaddingState>}
+                    />
+                  ) : null}
+                  {field.fieldType === "zoom" ? (
+                    <ZoomInput
+                      value={watch(field.name) as number}
+                      onChange={(value) =>
+                        setValue(field.name, value, {
+                          shouldDirty: true,
+                          shouldTouch: true,
+                        })
+                      }
+                      defaultValue={
+                        typeof field.fieldProps?.defaultValue === "number"
+                          ? (field.fieldProps.defaultValue as number)
+                          : undefined
+                      }
+                    />
+                  ) : null}
+                  {field.fieldType === "distort-perspective-input" ? (
+                    <DistortPerspectiveInput
+                      onChange={(value) => {
+                        setValue(field.name, value, {
+                          shouldDirty: true,
+                          shouldTouch: true,
+                        })
+                        trigger(field.name)
+                      }}
+                      errors={errors as PerspectiveErrors}
+                      name={field.name}
+                      value={watch(field.name) as PerspectiveObject}
+                      {...field.fieldProps}
+                    />
+                  ) : null}
+                  {field.fieldType === "radius-input" ? (
+                    <RadiusInputField
+                      onChange={(value) => {
+                        setValue(field.name, value, {
+                          shouldDirty: true,
+                          shouldTouch: true,
+                        })
+                        trigger(field.name)
+                      }}
+                      errors={errors as RadiusErrors}
+                      name={field.name}
+                      value={watch(field.name) as Partial<RadiusState>}
+                      {...field.fieldProps}
+                    />
+                  ) : null}
+                </>
+              )}
               <FormErrorMessage fontSize="sm">
                 {String(
                   errors[field.name as keyof typeof errors]?.message ?? "",
                 )}
               </FormErrorMessage>
-              {field.helpText && (
-                <FormHelperText fontSize="sm">
-                  {field.helpText}
-                  {/* Additional help text for aspect ratio when both dimensions are set */}
-                  {selectedTransformation.key ===
-                    "resize_and_crop-resize_and_crop" &&
-                    field.name === "aspectRatio" &&
-                    values.width &&
-                    values.height && (
-                      <Text as="span" color="orange.500" display="block" mt={1}>
-                        Note: Aspect ratio is ignored when both width and height
-                        are specified.
-                      </Text>
-                    )}
-                </FormHelperText>
-              )}
+              {(() => {
+                const reference = parseVariableReference(watch(field.name))
+                if (reference) {
+                  const variable = getDynamicVariableByName(
+                    dynamicVariables,
+                    reference,
+                  )
+                  return (
+                    <FormHelperText fontSize="sm">
+                      {variable
+                        ? `Preview uses sample value: ${String(resolveVariableValue(watch(field.name), dynamicVariables))}`
+                        : "Variable not found."}
+                    </FormHelperText>
+                  )
+                }
+                if (!field.helpText) return null
+                return (
+                  <FormHelperText fontSize="sm">
+                    {field.helpText}
+                    {selectedTransformation.key ===
+                      "resize_and_crop-resize_and_crop" &&
+                      field.name === "aspectRatio" &&
+                      values.width &&
+                      values.height && (
+                        <Text
+                          as="span"
+                          color="orange.500"
+                          display="block"
+                          mt={1}
+                        >
+                          Note: Aspect ratio is ignored when both width and
+                          height are specified.
+                        </Text>
+                      )}
+                  </FormHelperText>
+                )
+              })()}
               {field.examples && (
                 <FormHelperText fontSize="sm">
                   <b>Example{field.examples.length > 1 ? "s" : ""}</b>:{" "}

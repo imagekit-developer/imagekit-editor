@@ -1,4 +1,5 @@
 import type { Transformation } from "../store"
+import type { DynamicVariableDefinition } from "../variables/types"
 
 export interface TemplateCreator {
   userId: string
@@ -12,6 +13,13 @@ export interface TemplateRecord {
   isPrivate: boolean
   name: string
   transformations: Omit<Transformation, "id">[]
+  variables?: DynamicVariableDefinition[]
+  /**
+   * URL transformation string with `{{variableName}}` placeholders preserved.
+   * Consumers can do simple string replacement to generate final URLs.
+   * Example: `w-{{width}},h-300,f-auto`
+   */
+  urlTemplate?: string
   /** Whether the active user has this template pinned. */
   isPinned: boolean
   createdBy: TemplateCreator
@@ -25,6 +33,12 @@ export type SaveTemplateInput = {
   id?: string
   name: string
   transformations: Omit<Transformation, "id">[]
+  variables?: DynamicVariableDefinition[]
+  /**
+   * URL transformation string with `{{variableName}}` placeholders preserved.
+   * Computed by the editor from the current transformations and variables.
+   */
+  urlTemplate?: string
   clientNumber?: string
   isPrivate?: boolean
   isPinned?: boolean

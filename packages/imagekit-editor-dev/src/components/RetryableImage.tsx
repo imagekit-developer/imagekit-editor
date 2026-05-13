@@ -42,7 +42,7 @@ export default function RetryableImage(props: RetryableImageProps) {
   const {
     src,
     maxRetries = 10,
-    retryDelay = 10000,
+    retryDelay = 1000,
     onRetryExhausted,
     onRetry,
     showRetryButton = true,

@@ -151,6 +151,7 @@ export const truncateTemplateName = (name: string) => {
   return `${normalized.slice(0, TEMPLATE_NAME_UI_MAX_LENGTH)}...`
 }
 
+export { buildUrlTemplate } from "./buildUrlTemplate"
 export { chakraAny } from "./chakraAny"
 export {
   getDisplayTemplates,

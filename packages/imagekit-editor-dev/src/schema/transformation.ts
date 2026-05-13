@@ -81,7 +81,9 @@ const layerXNumber = z.coerce.string().regex(/^[N-]?\d+(\.\d{1,2})?$/)
 
 const layerXExpr = z
   .string()
-  .regex(/^(?:bw|cw)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/)
+  .regex(
+    /^(?:bw|cw)_(?:add|sub|mul|div|mod|pow)_(?:\d+(?:\.\d{1,2})?)(?:_(?:add|sub|mul|div|mod|pow)_(?:(?:(?:bw|cw)_(?:add|sub|mul|div|mod|pow)_)?\d+(?:\.\d{1,2})?))*$/,
+  )
 
 export const layerXValidator = z.any().superRefine((val, ctx) => {
   if (val === undefined || val === "") return
@@ -101,7 +103,9 @@ const layerYNumber = z.coerce.string().regex(/^[N-]?\d+(\.\d{1,2})?$/)
 
 const layerYExpr = z
   .string()
-  .regex(/^(?:bh|ch)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/)
+  .regex(
+    /^(?:bh|ch)_(?:add|sub|mul|div|mod|pow)_(?:\d+(?:\.\d{1,2})?)(?:_(?:add|sub|mul|div|mod|pow)_(?:(?:(?:bh|ch)_(?:add|sub|mul|div|mod|pow)_)?\d+(?:\.\d{1,2})?))*$/,
+  )
 
 export const layerYValidator = z.any().superRefine((val, ctx) => {
   if (val === undefined || val === "") return
@@ -125,7 +129,7 @@ const commonNumber = z.coerce
 const commonExpr = z
   .string()
   .regex(
-    /^(?:ih|bh|ch|iw|bw|cw)_(?:add|sub|mul|div|mod|pow)_(?:\d+(\.\d{1,2})?)$/,
+    /^(?:ih|bh|ch|iw|bw|cw)_(?:add|sub|mul|div|mod|pow)_(?:\d+(?:\.\d{1,2})?)(?:_(?:add|sub|mul|div|mod|pow)_(?:(?:(?:ih|bh|ch|iw|bw|cw)_(?:add|sub|mul|div|mod|pow)_)?\d+(?:\.\d{1,2})?))*$/,
     {
       message: "String must be a valid expression string.",
     },

@@ -1916,6 +1916,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationGroup: "textLayer",
             helpText: "Choose a font family for the text.",
             fieldProps: {
+              isCreatable: true,
               options: [
                 { label: "AbrilFatFace", value: "AbrilFatFace" },
                 { label: "Amaranth", value: "Amaranth" },
@@ -2167,6 +2168,13 @@ const baseTransformationSchema: TransformationSchema[] = [
             xc: z.string().optional(),
             yc: z.string().optional(),
             zoom: z.coerce.number().optional(),
+
+            // Layer positioning properties
+            layerFocusArea: z.string().optional(),
+            layerAnchorPoint: z.string().optional(),
+            layerPositionMethod: z.string().optional(),
+            layerXC: layerXValidator.optional(),
+            layerYC: layerYValidator.optional(),
 
             // Gradient properties
             gradientSwitch: z.coerce
@@ -2495,7 +2503,7 @@ const baseTransformationSchema: TransformationSchema[] = [
             },
             helpText:
               "Choose how to position the extracted region in overlay image. Custom uses a saved focus area from Media Library.",
-            isVisible: ({ crop }) => crop === "cm-extract",
+            isVisible: ({ crop }) => !crop || crop === "cm-extract",
           },
           // Only for extract crop mode
           {
@@ -2518,7 +2526,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               ],
             },
             isVisible: ({ focus, crop }) =>
-              focus === "anchor" && crop === "cm-extract",
+              focus === "anchor" && (!crop || crop === "cm-extract"),
           },
           // Only for pad_resize crop mode
           {
@@ -2624,14 +2632,79 @@ const baseTransformationSchema: TransformationSchema[] = [
             isVisible: ({ focus }) => focus === "object" || focus === "face",
           },
           {
+            label: "Layer Focus Area",
+            name: "layerFocusArea",
+            fieldType: "select",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Position of the layer in relative terms on the base image.",
+            fieldProps: {
+              options: [
+                { label: "Center", value: "center" },
+                { label: "Top", value: "top" },
+                { label: "Left", value: "left" },
+                { label: "Bottom", value: "bottom" },
+                { label: "Right", value: "right" },
+                { label: "Top Left", value: "top_left" },
+                { label: "Top Right", value: "top_right" },
+                { label: "Bottom Left", value: "bottom_left" },
+                { label: "Bottom Right", value: "bottom_right" },
+              ],
+              isClearable: true,
+            },
+          },
+          {
+            label: "Layer Anchor Point",
+            name: "layerAnchorPoint",
+            fieldType: "select",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "Sets the anchor point on the base asset from which the layer offset is calculated. Default is top_left.",
+            fieldProps: {
+              options: [
+                { label: "Top Left", value: "top_left" },
+                { label: "Top", value: "top" },
+                { label: "Top Right", value: "top_right" },
+                { label: "Left", value: "left" },
+                { label: "Center", value: "center" },
+                { label: "Right", value: "right" },
+                { label: "Bottom Left", value: "bottom_left" },
+                { label: "Bottom", value: "bottom" },
+                { label: "Bottom Right", value: "bottom_right" },
+              ],
+              isClearable: true,
+            },
+          },
+          {
+            label: "Layer Position Method",
+            name: "layerPositionMethod",
+            fieldType: "radio-card",
+            isTransformation: false,
+            transformationGroup: "imageLayer",
+            fieldProps: {
+              options: [
+                { label: "Top-left (lx, ly)", value: "topleft" },
+                { label: "Center (lxc, lyc)", value: "center" },
+              ],
+              defaultValue: "topleft",
+            },
+            helpText:
+              "Choose whether the layer position is from the top-left corner or the center of the base asset.",
+          },
+          {
             label: "Position X",
             name: "positionX",
             fieldType: "input",
             isTransformation: true,
             transformationKey: "x",
             transformationGroup: "imageLayer",
-            helpText: "Specify the horizontal offset for the overlay image.",
+            helpText:
+              "x of the top-left corner in the base asset where the layer's top-left corner would be placed.",
             examples: ["10", "-20", "N30", "bw_div_2"],
+            isVisible: ({ layerPositionMethod }) =>
+              !layerPositionMethod || layerPositionMethod === "topleft",
           },
           {
             label: "Position Y",
@@ -2640,8 +2713,35 @@ const baseTransformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "y",
             transformationGroup: "imageLayer",
-            helpText: "Specify the vertical offset for the overlay image.",
+            helpText:
+              "y of the top-left corner in the base asset where the layer's top-left corner would be placed.",
             examples: ["10", "-20", "N30", "bh_div_2"],
+            isVisible: ({ layerPositionMethod }) =>
+              !layerPositionMethod || layerPositionMethod === "topleft",
+          },
+          {
+            label: "Position XC",
+            name: "layerXC",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "x of the point in the base asset where the layer's center would be placed.",
+            examples: ["200", "bw_mul_0.4", "bw_sub_cw"],
+            isVisible: ({ layerPositionMethod }) =>
+              layerPositionMethod === "center",
+          },
+          {
+            label: "Position YC",
+            name: "layerYC",
+            fieldType: "input",
+            isTransformation: true,
+            transformationGroup: "imageLayer",
+            helpText:
+              "y of the point in the base asset where the layer's center would be placed.",
+            examples: ["200", "bh_mul_0.4", "bh_sub_ch"],
+            isVisible: ({ layerPositionMethod }) =>
+              layerPositionMethod === "center",
           },
           {
             label: "Opacity",
@@ -3603,7 +3703,10 @@ export const transformationFormatters: Record<
     }
     const { crop, focusAnchor } = values
 
-    transformationFormatters.focus(values, overlayTransform)
+    // Apply focus for cm-extract or when no crop is selected
+    if (!crop || crop === "cm-extract") {
+      transformationFormatters.focus(values, overlayTransform)
+    }
     if (crop === "cm-pad_resize") {
       overlayTransform.focus = focusAnchor
     }
@@ -3617,6 +3720,21 @@ export const transformationFormatters: Record<
       overlayTransform.grayscale = true
     }
 
+    // Layer positioning params not supported by SDK (lxc, lyc, lap) go via raw
+    const rawParts: string[] = []
+    if (values.layerXC) {
+      rawParts.push(`lxc-${values.layerXC}`)
+    }
+    if (values.layerYC) {
+      rawParts.push(`lyc-${values.layerYC}`)
+    }
+    if (values.layerAnchorPoint) {
+      rawParts.push(`lap-${values.layerAnchorPoint}`)
+    }
+    if (rawParts.length > 0) {
+      overlayTransform.raw = rawParts.join(",")
+    }
+
     if (Object.keys(overlayTransform).length > 0) {
       overlay.transformation = [overlayTransform]
     }
@@ -3628,6 +3746,9 @@ export const transformationFormatters: Record<
     }
     if (values.positionY) {
       position.y = values.positionY.toString().replace(/^-/, "N")
+    }
+    if (values.layerFocusArea) {
+      position.focus = values.layerFocusArea
     }
 
     if (Object.keys(position).length > 0) {
