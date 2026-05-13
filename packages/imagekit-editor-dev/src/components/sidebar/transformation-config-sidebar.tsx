@@ -54,11 +54,13 @@ import {
 } from "../../schema"
 import { type SyncStatus, useEditorStore } from "../../store"
 import { isStepAligned } from "../../utils"
-import { walkVariableRefs } from "../../variables"
+import { isVariableRef, walkVariableRefs, type VariableRef } from "../../variables"
+import { makeVariableAwareResolver } from "../../variables/resolver"
 import AnchorField from "../common/AnchorField"
 import CheckboxCardField from "../common/CheckboxCardField"
 import ColorPickerField from "../common/ColorPickerField"
 import { canBeVariable, VariableMarkerButton } from "./VariableMarkerButton"
+import { VariableChip } from "./VariableChip"
 import RadiusInputField, {
   type RadiusErrors,
   type RadiusState,
@@ -248,7 +250,9 @@ export const TransformationConfigSidebar: React.FC = () => {
     control,
     trigger,
   } = useForm<Record<string, unknown>>({
-    resolver: zodResolver(selectedTransformation?.schema ?? z.object({})),
+    resolver: makeVariableAwareResolver(
+      zodResolver(selectedTransformation?.schema ?? z.object({})),
+    ),
     defaultValues: defaultValues,
   })
 
@@ -579,17 +583,55 @@ export const TransformationConfigSidebar: React.FC = () => {
                 <FormLabel htmlFor={field.name} fontSize="sm" mb={0}>
                   {field.label}
                 </FormLabel>
-                {canBeVariable(field.fieldType) && (
+                {canBeVariable(field.fieldType) && !isVariableRef(values[field.name]) && (
                   <VariableMarkerButton
                     fieldLabel={field.label}
                     takenNames={takenVariableNames}
+                    currentValue={values[field.name]}
                     onCreate={(variable) => {
-                      setValue(field.name, { $var: variable.name, label: variable.label } as any, { shouldDirty: true })
+                      setValue(
+                        field.name,
+                        {
+                          $var: variable.name,
+                          label: variable.label,
+                          ...(variable.defaultValue
+                            ? { defaultValue: variable.defaultValue }
+                            : {}),
+                        } as any,
+                        { shouldDirty: true },
+                      )
                     }}
                   />
                 )}
               </HStack>
-              {field.fieldType === "select" ? (
+              {isVariableRef(values[field.name]) ? (
+                <VariableChip
+                  label={(values[field.name] as VariableRef).label}
+                  name={(values[field.name] as VariableRef).$var}
+                  defaultValue={(values[field.name] as VariableRef).defaultValue}
+                  onDefaultValueChange={(next) => {
+                    const ref = values[field.name] as VariableRef
+                    setValue(
+                      field.name,
+                      {
+                        $var: ref.$var,
+                        label: ref.label,
+                        ...(next ? { defaultValue: next } : {}),
+                      } as any,
+                      { shouldDirty: true },
+                    )
+                  }}
+                  onRemove={() => {
+                    const ref = values[field.name] as VariableRef
+                    const restored =
+                      ref.defaultValue != null && typeof ref.defaultValue !== "object"
+                        ? ref.defaultValue
+                        : (field.fieldProps?.defaultValue ?? "")
+                    setValue(field.name, restored as any, { shouldDirty: true })
+                  }}
+                />
+              ) : null}
+              {!isVariableRef(values[field.name]) && field.fieldType === "select" ? (
                 <Controller
                   name={field.name}
                   control={control}
@@ -692,7 +734,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                   }}
                 />
               ) : null}
-              {field.fieldType === "select-creatable" ? (
+              {!isVariableRef(values[field.name]) && field.fieldType === "select-creatable" ? (
                 <Controller
                   name={field.name}
                   control={control}
@@ -732,7 +774,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                   )}
                 />
               ) : null}
-              {field.fieldType === "input" ? (
+              {!isVariableRef(values[field.name]) && field.fieldType === "input" ? (
                 <Input
                   id={field.name}
                   fontSize="sm"
@@ -755,14 +797,14 @@ export const TransformationConfigSidebar: React.FC = () => {
                   }
                 />
               ) : null}
-              {field.fieldType === "textarea" ? (
+              {!isVariableRef(values[field.name]) && field.fieldType === "textarea" ? (
                 <Textarea
                   id={field.name}
                   fontSize="sm"
                   {...register(field.name)}
                 />
               ) : null}
-              {field.fieldType === "switch" ? (
+              {!isVariableRef(values[field.name]) && field.fieldType === "switch" ? (
                 <Switch
                   id={field.name}
                   fontSize="sm"
@@ -770,7 +812,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                   {...register(field.name)}
                 />
               ) : null}
-              {field.fieldType === "slider" ? (
+              {!isVariableRef(values[field.name]) && field.fieldType === "slider" ? (
                 <Box pt={2} pb={2}>
                   <Flex justify="space-between" mb={1}>
                     <Input
@@ -935,7 +977,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                   </Slider>
                 </Box>
               ) : null}
-              {field.fieldType === "color-picker" ? (
+              {!isVariableRef(values[field.name]) && field.fieldType === "color-picker" ? (
                 <ColorPickerField
                   fieldName={field.name}
                   value={watch(field.name) as string}
@@ -974,7 +1016,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                   }
                 />
               ) : null}
-              {field.fieldType === "radio-card" ? (
+              {!isVariableRef(values[field.name]) && field.fieldType === "radio-card" ? (
                 <RadioCardField
                   value={watch(field.name) as string}
                   options={field.fieldProps?.options ?? []}
@@ -987,7 +1029,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                   {...field.fieldProps}
                 />
               ) : null}
-              {field.fieldType === "checkbox-card" ? (
+              {!isVariableRef(values[field.name]) && field.fieldType === "checkbox-card" ? (
                 <CheckboxCardField
                   value={watch(field.name) as string[]}
                   options={field.fieldProps?.options ?? []}

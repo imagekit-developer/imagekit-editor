@@ -12,10 +12,15 @@
 /**
  * Inline marker placed in a transformation field value to indicate
  * that field is a template variable.
+ *
+ * `defaultValue` is the value rendered when no row-level override is supplied
+ * (e.g. while editing the template, or for rows in a CSV that don't define
+ * the variable). It is optional.
  */
 export interface VariableRef {
   $var: string
   label: string
+  defaultValue?: unknown
 }
 
 /** Type guard for VariableRef markers. */
@@ -95,16 +100,18 @@ export function walkVariableRefs(
 
 /**
  * Replace all VariableRef markers in a value tree with their override values.
- * If no override exists for a variable, returns undefined for that position.
+ * If no override exists for a variable, the marker's `defaultValue` is used.
+ * If neither is available, returns undefined for that position.
  */
 export function resolveVariableRefs(
   value: unknown,
   overrides: Readonly<Record<string, unknown>> = {},
 ): unknown {
   if (isVariableRef(value)) {
-    return Object.prototype.hasOwnProperty.call(overrides, value.$var)
-      ? overrides[value.$var]
-      : undefined
+    if (Object.prototype.hasOwnProperty.call(overrides, value.$var)) {
+      return overrides[value.$var]
+    }
+    return value.defaultValue
   }
   if (Array.isArray(value)) {
     return value.map((item) => resolveVariableRefs(item, overrides))

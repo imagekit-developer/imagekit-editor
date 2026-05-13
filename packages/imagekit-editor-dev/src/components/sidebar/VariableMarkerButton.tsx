@@ -41,31 +41,44 @@ export function canBeVariable(fieldType: string | undefined): boolean {
 interface Props {
   fieldLabel: string
   takenNames: Iterable<string>
-  onCreate: (variable: { name: string; label: string }) => void
+  /** Current value of the field, used to seed the default-value input. */
+  currentValue?: unknown
+  onCreate: (variable: {
+    name: string
+    label: string
+    defaultValue: string
+  }) => void
 }
 
 /**
  * A small button shown next to field labels in the sidebar. Clicking opens
- * a popover to name the variable. On save, it generates a collision-free
- * name and calls onCreate.
+ * a popover to name the variable and (optionally) supply a default value
+ * rendered when no row override exists.
  */
 export const VariableMarkerButton: FC<Props> = ({
   fieldLabel,
   takenNames,
+  currentValue,
   onCreate,
 }) => {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [label, setLabel] = useState(fieldLabel)
+  const [defaultValue, setDefaultValue] = useState("")
 
   const handleOpen = useCallback(() => {
     setLabel(fieldLabel)
+    setDefaultValue(
+      currentValue == null || typeof currentValue === "object"
+        ? ""
+        : String(currentValue),
+    )
     onOpen()
-  }, [fieldLabel, onOpen])
+  }, [fieldLabel, currentValue, onOpen])
 
   const handleSave = () => {
     const trimmed = label.trim() || fieldLabel
     const name = generateVariableName(trimmed, takenNames)
-    onCreate({ name, label: trimmed })
+    onCreate({ name, label: trimmed, defaultValue: defaultValue.trim() })
     onClose()
   }
 
@@ -82,7 +95,7 @@ export const VariableMarkerButton: FC<Props> = ({
           onClick={handleOpen}
         />
       </PopoverTrigger>
-      <PopoverContent w="260px">
+      <PopoverContent w="280px">
         <PopoverBody p={3}>
           <Flex justify="space-between" align="center" mb={2}>
             <Text fontSize="sm" fontWeight="600">
@@ -96,13 +109,25 @@ export const VariableMarkerButton: FC<Props> = ({
               onClick={onClose}
             />
           </Flex>
-          <FormControl>
+          <FormControl mb={2}>
             <FormLabel fontSize="xs">Label</FormLabel>
             <Input
               size="sm"
               value={label}
               onChange={(e) => setLabel(e.target.value.slice(0, MAX_LABEL_LENGTH))}
               placeholder="e.g. Headline text"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSave()
+              }}
+            />
+          </FormControl>
+          <FormControl>
+            <FormLabel fontSize="xs">Default value</FormLabel>
+            <Input
+              size="sm"
+              value={defaultValue}
+              onChange={(e) => setDefaultValue(e.target.value)}
+              placeholder="Optional — used when no row override is supplied"
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSave()
               }}

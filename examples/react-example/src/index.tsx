@@ -254,6 +254,9 @@ function App() {
         return Promise.resolve(request.url)
       },
       templateStorage: createLocalTemplateStorage(),
+      initialTemplateId:
+        new URLSearchParams(window.location.search).get("templateId") ??
+        undefined,
     })
   }, [handleAddImage])
 

@@ -222,6 +222,36 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     })
   }, [initialImages, signer, focusObjects, initialize])
 
+  // Load template by ID when initialTemplateId is provided or changes
+  const lastLoadedTemplateIdRef = React.useRef<string | null>(null)
+  React.useEffect(() => {
+    if (!props.initialTemplateId || !resolvedProvider) return
+    // Skip if we already loaded this exact template
+    if (lastLoadedTemplateIdRef.current === props.initialTemplateId) return
+    lastLoadedTemplateIdRef.current = props.initialTemplateId
+
+    let cancelled = false
+    resolvedProvider
+      .getTemplate(props.initialTemplateId)
+      .then((record) => {
+        if (cancelled || !record) return
+        loadTemplate(record.transformations)
+        useEditorStore.getState().hydrateTemplateMetadata({
+          templateId: record.id,
+          templateName: record.name,
+          templateIsPrivate:
+            typeof record.isPrivate === "boolean" ? record.isPrivate : null,
+        })
+      })
+      .catch((err) => {
+        if (cancelled) return
+        console.error("Failed to load initial template:", err)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [props.initialTemplateId, resolvedProvider, loadTemplate])
+
   useImperativeHandle(
     ref,
     () => ({
