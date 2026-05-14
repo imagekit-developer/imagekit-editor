@@ -30,13 +30,14 @@ import { PiTrash } from "@react-icons/all-files/pi/PiTrash"
 import { RiCheckFill } from "@react-icons/all-files/ri/RiCheckFill"
 import { RiCloseFill } from "@react-icons/all-files/ri/RiCloseFill"
 import { RxTransform } from "@react-icons/all-files/rx/RxTransform"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   isLayerKey,
   MAX_LAYER_NEST_DEPTH,
   type Transformation,
   useEditorStore,
 } from "../../store"
+import { walkVariableRefs } from "../../variables"
 import Hover from "../common/Hover"
 
 export type TransformationPosition = "inplace" | number
@@ -111,6 +112,18 @@ export const SortableTransformationItem = ({
   const renamingBoxRef = useRef<HTMLDivElement>(null)
 
   const baseIconColor = useColorModeValue("gray.600", "gray.300")
+
+  // Variables on this step only (children carry their own counts on their
+  // own rows). Walks `t.value` directly so deeply nested marker positions
+  // — e.g. inside padding-input or distort-perspective composites — are
+  // counted just like top-level field markers.
+  const variableCount = useMemo(() => {
+    let n = 0
+    walkVariableRefs(transformation.value, () => {
+      n++
+    })
+    return n
+  }, [transformation.value])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent): void => {
@@ -255,6 +268,34 @@ export const SortableTransformationItem = ({
             </Text>
           )}
           <Box flex={1} />
+          {/*
+           * Variable indicator floats over the right edge of the row so it
+           * doesn't participate in the flex flow — that way swapping it for
+           * the hover-action icons (which reserve their own width via
+           * visibility:hidden) causes zero layout shift, and long step
+           * names aren't squeezed by an extra inline child.
+           */}
+          {!isRenaming && !isHover && variableCount > 0 && (
+            <Tooltip
+              label={`${variableCount} variable${variableCount === 1 ? "" : "s"} on this step`}
+              placement="top"
+            >
+              <Text
+                as="span"
+                position="absolute"
+                right={4}
+                top="50%"
+                transform="translateY(-50%)"
+                fontSize="xs"
+                fontFamily="mono"
+                color="purple.500"
+                lineHeight="1"
+                pointerEvents="none"
+              >
+                {`{${variableCount}}`}
+              </Text>
+            </Tooltip>
+          )}
           {!isRenaming && (
             <HStack
               spacing={3}

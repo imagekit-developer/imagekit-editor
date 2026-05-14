@@ -1,6 +1,5 @@
 import { ExternalLinkIcon } from "@chakra-ui/icons"
 import {
-  Badge,
   Box,
   Button,
   Divider,
@@ -15,14 +14,17 @@ import {
   Text,
   Tooltip,
 } from "@chakra-ui/react"
-import { PiBracketsCurly } from "@react-icons/all-files/pi/PiBracketsCurly"
 import { PiGridFour } from "@react-icons/all-files/pi/PiGridFour"
 import { PiImageSquare } from "@react-icons/all-files/pi/PiImageSquare"
 import { PiListBullets } from "@react-icons/all-files/pi/PiListBullets"
 import { type FC, useMemo } from "react"
-import { useEditorStore } from "../../store"
+import { findTransformationDeep, useEditorStore } from "../../store"
 import { listVariables } from "../../variables/listVariables"
 import { CanvasSettingsPopover } from "./CanvasSettingsPopover"
+import {
+  VariablesListPopover,
+  type VariableListEntry,
+} from "./VariablesListPopover"
 
 interface ActionBarProps {
   viewMode: "list" | "grid"
@@ -51,9 +53,27 @@ export const ActionBar: FC<ActionBarProps> = ({
   // Variables are a canvas-mode-only feature; the count badge is the only
   // affordance in the action bar (per-field hover affordances live in the
   // sidebar). Skip the work entirely outside canvas mode.
-  const variableCount = useMemo(
-    () => (isCanvas ? listVariables(transformations).length : 0),
+  const variables = useMemo(
+    () => (isCanvas ? listVariables(transformations) : []),
     [isCanvas, transformations],
+  )
+  // Resolve each variable's owning step name once so the popover doesn't
+  // re-walk the (potentially nested) transformation tree on every render.
+  // Explicit return type keeps the Chakra style-prop unions inside
+  // ActionBar's JSX from blowing past TypeScript's inference budget.
+  const variableEntries = useMemo<VariableListEntry[]>(
+    () =>
+      variables.map((v) => ({
+        name: v.name,
+        label: v.label,
+        defaultValue: v.defaultValue,
+        description: v.description,
+        fieldLabel: v.field.label,
+        stepName:
+          findTransformationDeep(transformations, v.transformationId)?.name ??
+          "Unknown step",
+      })),
+    [variables, transformations],
   )
 
   const imageDimensions = useMemo(() => {
@@ -128,28 +148,7 @@ export const ActionBar: FC<ActionBarProps> = ({
               h="6"
               borderColor="editorBattleshipGrey.200"
             />
-            <Tooltip
-              label={
-                variableCount === 0
-                  ? "Hover any field label in the sidebar and click {} to make it a variable"
-                  : `${variableCount} template variable${variableCount === 1 ? "" : "s"} defined`
-              }
-              placement="bottom"
-            >
-              <HStack spacing="1" px="2" color="gray.700">
-                <Icon as={PiBracketsCurly} boxSize={4} />
-                <Text fontSize="sm" fontWeight="medium">
-                  Variables
-                </Text>
-                <Badge
-                  colorScheme={variableCount > 0 ? "purple" : "gray"}
-                  borderRadius="full"
-                  px="2"
-                >
-                  {variableCount}
-                </Badge>
-              </HStack>
-            </Tooltip>
+            <VariablesListPopover entries={variableEntries} />
           </>
         )}
 

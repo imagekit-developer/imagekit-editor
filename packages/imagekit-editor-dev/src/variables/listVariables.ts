@@ -38,6 +38,10 @@ import { z } from "zod"
 export interface VariableDescriptor {
   name: string
   label: string
+  /** Inline default carried by the marker; may be undefined for legacy refs. */
+  defaultValue?: unknown
+  /** Optional human note about what the variable controls. */
+  description?: string
   transformationId: string
   fieldName: string
   field: TransformationField
@@ -102,6 +106,8 @@ export function listVariables(
         out.push({
           name: ref.$var,
           label: ref.label,
+          defaultValue: ref.defaultValue,
+          description: ref.description,
           transformationId: t.id,
           fieldName,
           field,
