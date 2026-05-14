@@ -1468,6 +1468,196 @@ describe("Backward Compatibility - V1 Templates", () => {
       expect(findTransformationDeep(tree, "deep")?.name).toBe("Deep")
       expect(findTransformationDeep(tree, "missing")).toBeUndefined()
     })
+
+    it("non-layer child (ai-removedotbg) is appended as a chained step inside the parent layer", async () => {
+      const { buildSrc } = await import("@imagekit/javascript")
+      const { convertTransformationToIK } = await import(
+        "./transformationConverter"
+      )
+      // Parent has multiple own-params (image url + width + trim) so the SDK
+      // serializes the child with an explicit `:` chain separator. With a
+      // single-param parent the SDK collapses to a `,` joiner — equivalent
+      // ImageKit syntax, but less obvious that the child is a chained step.
+      const parent: Transformation = {
+        id: "p",
+        key: "layers-image",
+        name: "Image Layer",
+        type: "transformation",
+        value: {
+          imageUrl: "photo.jpg",
+          width: "13",
+          trimEnabled: true,
+          trimThreshold: 10,
+        },
+        children: [
+          {
+            id: "c",
+            key: "ai-removedotbg",
+            name: "Remove Background",
+            type: "transformation",
+            value: { removedotbg: true },
+          },
+        ],
+      }
+      const url = buildSrc({
+        urlEndpoint: "https://ik.imagekit.io/demo",
+        src: "/base.jpg",
+        transformation: [convertTransformationToIK(parent)],
+      })
+      expect(url).toBe(
+        "https://ik.imagekit.io/demo/base.jpg?tr=l-image,i-photo.jpg,w-13,t-10:e-removedotbg,l-end",
+      )
+    })
+
+    it("mixes non-layer and nested-layer children in declaration order", async () => {
+      const { buildSrc } = await import("@imagekit/javascript")
+      const { convertTransformationToIK } = await import(
+        "./transformationConverter"
+      )
+      const parent: Transformation = {
+        id: "p",
+        key: "layers-image",
+        name: "Image Layer",
+        type: "transformation",
+        value: { imageUrl: "photo.jpg" },
+        children: [
+          {
+            id: "c1",
+            key: "adjust-blur",
+            name: "Blur",
+            type: "transformation",
+            value: { blur: 5 },
+          },
+          {
+            id: "c2",
+            key: "layers-text",
+            name: "Caption",
+            type: "transformation",
+            value: { text: "Sale", radius: 0 },
+          },
+        ],
+      }
+      const url = buildSrc({
+        urlEndpoint: "https://ik.imagekit.io/demo",
+        src: "/base.jpg",
+        transformation: [convertTransformationToIK(parent)],
+      })
+      expect(url).toBe(
+        "https://ik.imagekit.io/demo/base.jpg?tr=l-image,i-photo.jpg,bl-5:l-text,i-Sale,r-0,l-end,l-end",
+      )
+    })
+
+    it("hidden non-layer child is skipped from the URL", async () => {
+      const { buildSrc } = await import("@imagekit/javascript")
+      const { convertTransformationToIK } = await import(
+        "./transformationConverter"
+      )
+      const parent: Transformation = {
+        id: "p",
+        key: "layers-image",
+        name: "Image Layer",
+        type: "transformation",
+        value: { imageUrl: "photo.jpg" },
+        children: [
+          {
+            id: "c1",
+            key: "adjust-blur",
+            name: "Blur",
+            type: "transformation",
+            value: { blur: 5 },
+            enabled: false,
+          },
+        ],
+      }
+      const url = buildSrc({
+        urlEndpoint: "https://ik.imagekit.io/demo",
+        src: "/base.jpg",
+        transformation: [convertTransformationToIK(parent)],
+      })
+      expect(url).toBe(
+        "https://ik.imagekit.io/demo/base.jpg?tr=l-image,i-photo.jpg,l-end",
+      )
+    })
+
+    it("isAllowedChildKey enforces per-parent allow lists", async () => {
+      const { isAllowedChildKey } = await import("./store")
+
+      // Image layer: liberal allow list including AI + adjust + nested layers.
+      expect(isAllowedChildKey("layers-image", "ai-removedotbg")).toBe(true)
+      expect(isAllowedChildKey("layers-image", "adjust-blur")).toBe(true)
+      expect(isAllowedChildKey("layers-image", "layers-text")).toBe(true)
+      // Delivery transforms are output-only; never valid inside a layer block.
+      expect(isAllowedChildKey("layers-image", "delivery-format")).toBe(false)
+
+      // Canvas layer: tighter list (no blur/AI), but layers still allowed.
+      expect(isAllowedChildKey("layers-canvas", "adjust-radius")).toBe(true)
+      expect(isAllowedChildKey("layers-canvas", "adjust-blur")).toBe(false)
+      expect(isAllowedChildKey("layers-canvas", "ai-removedotbg")).toBe(false)
+      expect(isAllowedChildKey("layers-canvas", "layers-image")).toBe(true)
+
+      // Text layers are leaves: nothing is allowed, including other layers.
+      expect(isAllowedChildKey("layers-text", "adjust-blur")).toBe(false)
+      expect(isAllowedChildKey("layers-text", "adjust-shadow")).toBe(false)
+      expect(isAllowedChildKey("layers-text", "layers-image")).toBe(true)
+      // ^ Note: the layer-keys short-circuit returns true here. The picker
+      // additionally gates on canHostLayerChildren, which excludes text.
+    })
+
+    it("canHostLayerChildren only lets image/canvas host children", async () => {
+      const { canHostLayerChildren } = await import("./store")
+      expect(canHostLayerChildren("layers-image")).toBe(true)
+      expect(canHostLayerChildren("layers-canvas")).toBe(true)
+      expect(canHostLayerChildren("layers-text")).toBe(false)
+      expect(canHostLayerChildren("adjust-blur")).toBe(false)
+    })
+
+    it("getLayerDepth counts only layer ancestors, not non-layer ones", async () => {
+      const { getLayerDepth } = await import("./store")
+      const tree: Transformation[] = [
+        {
+          id: "root",
+          key: "layers-image",
+          name: "Root",
+          type: "transformation",
+          value: { imageUrl: "a.png" },
+          children: [
+            {
+              // Non-layer child of root layer — itself at depth 0 (it has
+              // zero *layer* ancestors above its parent slot).
+              id: "blur",
+              key: "adjust-blur",
+              name: "Blur",
+              type: "transformation",
+              value: { blur: 4 },
+            },
+            {
+              // Nested layer — depth 1.
+              id: "child",
+              key: "layers-image",
+              name: "Child",
+              type: "transformation",
+              value: { imageUrl: "b.png" },
+              children: [
+                {
+                  id: "grand",
+                  key: "layers-text",
+                  name: "Grand",
+                  type: "transformation",
+                  value: { text: "hi", radius: 0 },
+                },
+              ],
+            },
+          ],
+        },
+      ]
+      expect(getLayerDepth(tree, "root")).toBe(0)
+      // Non-layer children inherit the parent's depth (they don't open a
+      // new l-...,l-end scope).
+      expect(getLayerDepth(tree, "blur")).toBe(1)
+      expect(getLayerDepth(tree, "child")).toBe(1)
+      expect(getLayerDepth(tree, "grand")).toBe(2)
+      expect(getLayerDepth(tree, "missing")).toBeUndefined()
+    })
   })
 
   describe("Resize & Crop Complex Validations", () => {

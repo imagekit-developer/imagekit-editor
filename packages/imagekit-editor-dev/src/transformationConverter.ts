@@ -147,12 +147,17 @@ export function convertTransformationToIK(
     ...transforms,
   } as IKTransformation
 
-  // ── Nested layer children ────────────────────────────────────────────────
-  // For layer transformations (image / text), each child is serialized
-  // recursively and appended into the parent's `overlay.transformation`
-  // chain. The SDK's `processOverlay` then walks the `overlay` key found
-  // inside any inner step and emits a nested `l-...,l-end` segment, which is
-  // exactly the syntax ImageKit expects for nested layers.
+  // ── Layer children ───────────────────────────────────────────────────────
+  // For layer transformations (image / text / canvas), each child is
+  // serialized recursively and appended to the parent's
+  // `overlay.transformation` chain. The SDK's `processOverlay` walks that
+  // array and emits each entry as either:
+  //   • a nested `l-...,l-end` segment when the entry has an `overlay` key
+  //     (i.e. the child is itself a layer), or
+  //   • a regular inner transformation (e.g. `e-grayscale`, `bg-FF0000`)
+  //     applied to the parent layer when the entry has no `overlay` key.
+  // Mixing both forms in one chain is exactly what ImageKit URLs like
+  // `l-image,i-img.jpg,e-grayscale,l-text,...,l-end,l-end` require.
   //
   // Hidden children (visibility toggled off) are skipped entirely so they
   // never reach the URL — same convention as top-level steps.
@@ -169,11 +174,14 @@ export function convertTransformationToIK(
       : []
     for (const child of transformation.children) {
       if (child.enabled === false) continue
-      const childIK = convertTransformationToIK(child, ctx) as {
-        overlay?: unknown
-      }
-      if (childIK?.overlay) {
+      const childIK = convertTransformationToIK(child, ctx) as
+        | (Record<string, unknown> & { overlay?: unknown })
+        | undefined
+      if (!childIK) continue
+      if (childIK.overlay) {
         innerTransformation.push({ overlay: childIK.overlay })
+      } else {
+        innerTransformation.push(childIK)
       }
     }
     if (innerTransformation.length > 0) {

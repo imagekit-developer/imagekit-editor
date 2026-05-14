@@ -66,18 +66,22 @@ export interface Transformation {
 }
 
 /**
- * Maximum nesting depth allowed for layers (root layer = depth 0). ImageKit
- * supports up to 3 levels total, so children are allowed only when the parent
- * is at depth < {@link MAX_LAYER_NEST_DEPTH}.
+ * Maximum nesting depth allowed for *layer* children (root layer = depth 0).
+ * ImageKit supports up to 3 levels of nested layers, so a layer may host
+ * another layer only when its own depth is `< MAX_LAYER_NEST_DEPTH`.
+ *
+ * Non-layer children (e.g. `adjust-*`, `ai-bgremove`) are transformations
+ * applied to the layer itself and don't increase the layer-nesting count,
+ * so this cap doesn't apply to them.
  */
 export const MAX_LAYER_NEST_DEPTH = 2
 
 /**
  * Layer-key prefix that opts a transformation into nesting. Image, text and
- * canvas (solid color) layers may host children. Per ImageKit docs the
- * children of any layer must themselves be image or text layers — canvases
- * cannot be nested. The type-picker enforces that filter; this helper only
- * gates whether the row exposes a "+" button at all.
+ * canvas (solid color) layers all share this key shape, but only image and
+ * canvas can actually host children — text layers are leaves per ImageKit's
+ * docs (their styling is encoded entirely in the layer's own params). Use
+ * {@link canHostLayerChildren} when gating the row's "+" button.
  */
 export function isLayerKey(key: string): boolean {
   return (
@@ -85,6 +89,76 @@ export function isLayerKey(key: string): boolean {
     key === "layers-text" ||
     key === "layers-canvas"
   )
+}
+
+/**
+ * Whether a layer of this key can host any children (nested layers or
+ * non-layer transformations). Text layers cannot — they are leaf nodes per
+ * ImageKit docs.
+ */
+export function canHostLayerChildren(key: string): boolean {
+  return key === "layers-image" || key === "layers-canvas"
+}
+
+/**
+ * Per-layer allow list of non-layer transformation keys that may legally
+ * appear as a child inside that layer's URL block. Mirrors the ImageKit
+ * docs' "supported transformations" tables for image / text / solid-color
+ * (canvas) overlays — anything not listed here is hidden by the picker so
+ * users can't accidentally produce URLs the renderer will reject.
+ *
+ * Layer keys (`layers-image` / `-canvas`) aren't included here because
+ * nested-layer eligibility is governed by depth, not the allow list. Text
+ * layers are leaves and have no entry at all — see {@link canHostLayerChildren}.
+ */
+const NON_LAYER_CHILDREN_ALLOWLIST: Readonly<Record<string, ReadonlySet<string>>> = {
+  "layers-image": new Set([
+    "resize_and_crop-resize_and_crop",
+    "adjust-background",
+    "adjust-contrast",
+    "adjust-shadow",
+    "adjust-grayscale",
+    "adjust-gradient",
+    "adjust-distort",
+    "adjust-blur",
+    "adjust-rotate",
+    "adjust-flip",
+    "adjust-radius",
+    "adjust-opacity",
+    "adjust-border",
+    "adjust-trim",
+    "adjust-sharpen",
+    "ai-removedotbg",
+    "ai-bgremove",
+    "ai-changebg",
+    "ai-edit",
+    "ai-dropshadow",
+    "ai-retouch",
+    "ai-upscale",
+    "ai-genvar",
+    "advanced-raw",
+  ]),
+  "layers-canvas": new Set([
+    "adjust-gradient",
+    "adjust-radius",
+    "adjust-opacity",
+    "adjust-border",
+    "advanced-raw",
+  ]),
+}
+
+/**
+ * Whether `childKey` is allowed as a child of a layer with `parentKey`.
+ * Layer-typed children always pass this check (depth gating is handled
+ * separately by the picker); other keys must appear in the parent's
+ * {@link NON_LAYER_CHILDREN_ALLOWLIST} entry.
+ */
+export function isAllowedChildKey(
+  parentKey: string,
+  childKey: string,
+): boolean {
+  if (isLayerKey(childKey)) return true
+  return NON_LAYER_CHILDREN_ALLOWLIST[parentKey]?.has(childKey) ?? false
 }
 
 /**
@@ -102,6 +176,29 @@ export function findTransformationDeep(
     if (t.children && t.children.length > 0) {
       const hit = findTransformationDeep(t.children, id)
       if (hit) return hit
+    }
+  }
+  return undefined
+}
+
+/**
+ * Returns the *layer* depth of the node with `id` (root layer = 0). Only
+ * layer-typed ancestors increase the count, since non-layer transformations
+ * sit inside the same URL block as their parent layer and don't open a new
+ * `l-...,l-end` scope. Returns `undefined` if `id` is not in the tree.
+ */
+export function getLayerDepth(
+  list: Transformation[] | undefined,
+  id: string,
+  depth = 0,
+): number | undefined {
+  if (!list) return undefined
+  for (const t of list) {
+    if (t.id === id) return depth
+    if (t.children && t.children.length > 0) {
+      const nextDepth = isLayerKey(t.key) ? depth + 1 : depth
+      const hit = getLayerDepth(t.children, id, nextDepth)
+      if (hit !== undefined) return hit
     }
   }
   return undefined

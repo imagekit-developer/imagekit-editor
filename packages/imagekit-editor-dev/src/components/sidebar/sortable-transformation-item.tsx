@@ -32,8 +32,7 @@ import { RiCloseFill } from "@react-icons/all-files/ri/RiCloseFill"
 import { RxTransform } from "@react-icons/all-files/rx/RxTransform"
 import { useEffect, useMemo, useRef, useState } from "react"
 import {
-  isLayerKey,
-  MAX_LAYER_NEST_DEPTH,
+  canHostLayerChildren,
   type Transformation,
   useEditorStore,
 } from "../../store"
@@ -86,12 +85,10 @@ export const SortableTransformationItem = ({
   } = useEditorStore()
 
   const isRoot = depth === 0
-  // Text layers cannot nest anything (per docs). Image and canvas layers can
-  // host nested image/text/canvas children up to MAX_LAYER_NEST_DEPTH.
-  const canHostChildren =
-    isLayerKey(transformation.key) &&
-    transformation.key !== "layers-text" &&
-    depth < MAX_LAYER_NEST_DEPTH
+  // Image and canvas layers can host children (nested layers gated by
+  // MAX_LAYER_NEST_DEPTH inside the type picker, plus per-parent allow-listed
+  // non-layer transforms). Text layers are leaves per ImageKit docs.
+  const canHostChildren = canHostLayerChildren(transformation.key)
 
   const style = transform
     ? {
@@ -283,7 +280,11 @@ export const SortableTransformationItem = ({
               <Text
                 as="span"
                 position="absolute"
-                right={4}
+                // Compensate for the HStack's `ml` indent on nested rows: it
+                // shifts the HStack's right edge past the parent panel by the
+                // same amount, so the badge would otherwise clip. `right` is
+                // relative to the HStack, so add the indent back here.
+                right={depth > 0 ? 8 : 4}
                 top="50%"
                 transform="translateY(-50%)"
                 fontSize="xs"
