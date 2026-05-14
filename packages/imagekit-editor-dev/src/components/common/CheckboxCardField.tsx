@@ -110,7 +110,7 @@ export const CheckboxCardField: React.FC<CheckboxCardFieldProps> = ({
             p="2"
             transition="all 0.12s ease-in-out"
             borderColor={isChecked ? selectedBorder : "gray.200"}
-            bg={isChecked ? selectedBg : "transparent"}
+            bg={isChecked ? selectedBg : "white"}
             _hover={{
               bg: disabled ? undefined : isChecked ? selectedBg : hoverBg,
             }}

@@ -311,6 +311,7 @@ export const resizeAndCropTransformations: TransformationField[] = [
   {
     label: "Crop Mode",
     name: "mode",
+    nonVariablizable: true,
     fieldType: "select",
     isTransformation: false,
     transformationGroup: "resize_crop_mode",
@@ -360,6 +361,7 @@ export const resizeAndCropTransformations: TransformationField[] = [
   {
     label: "Focus",
     name: "focus",
+    nonVariablizable: true,
     fieldType: "anchor",
     isTransformation: true,
     transformationKey: "focus",
@@ -375,6 +377,7 @@ export const resizeAndCropTransformations: TransformationField[] = [
   {
     label: "Focus",
     name: "focus",
+    nonVariablizable: true,
     fieldType: "select",
     isTransformation: true,
     transformationGroup: "focus",
@@ -396,6 +399,7 @@ export const resizeAndCropTransformations: TransformationField[] = [
   {
     label: "Focus",
     name: "focus",
+    nonVariablizable: true,
     fieldType: "select",
     isTransformation: true,
     transformationGroup: "focus",
@@ -419,6 +423,7 @@ export const resizeAndCropTransformations: TransformationField[] = [
   {
     label: "Focus",
     name: "focus",
+    nonVariablizable: true,
     fieldType: "select",
     isTransformation: true,
     transformationGroup: "focus",
@@ -505,6 +510,7 @@ export const resizeAndCropTransformations: TransformationField[] = [
   {
     label: "Coordinate Method",
     name: "coordinateMethod",
+    nonVariablizable: true,
     fieldType: "radio-card",
     isTransformation: false,
     transformationGroup: "focus",

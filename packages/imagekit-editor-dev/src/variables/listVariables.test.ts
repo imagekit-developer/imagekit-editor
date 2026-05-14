@@ -178,4 +178,63 @@ describe("buildVariablesSchema (host usage)", () => {
       schema.safeParse({ nestedFontStyle: ["galat bat"] }).success,
     ).toBe(false)
   })
+
+  // Backward compatibility: templates persisted before the `defaultValue`
+  // field was introduced only carry `$var` + `label`. They must continue to
+  // be recognized as variables by listVariables / buildVariablesSchema.
+  it("recognizes legacy variables that lack defaultValue", () => {
+    const template = {
+      transformations: asTemplate([
+        {
+          key: "layers-text",
+          name: "Text Layer",
+          type: "transformation",
+          value: {
+            text: { $var: "headline", label: "Headline" }, // no defaultValue
+          },
+        },
+      ]),
+    }
+
+    const variables = listVariables(template.transformations)
+    expect(variables).toHaveLength(1)
+    expect(variables[0].name).toBe("headline")
+    expect(variables[0].label).toBe("Headline")
+
+    const schema = buildVariablesSchema(template.transformations)
+    expect(
+      schema.safeParse({ headline: "Sale ends today" }).success,
+    ).toBe(true)
+  })
+
+  // New variables carry an inline `defaultValue` (and an optional
+  // `description`). Both must be ignored by the schema (they don't affect
+  // override validation) but listVariables must still surface the descriptor.
+  it("recognizes new variables with defaultValue and description", () => {
+    const template = {
+      transformations: asTemplate([
+        {
+          key: "layers-text",
+          name: "Text Layer",
+          type: "transformation",
+          value: {
+            text: {
+              $var: "headline",
+              label: "Headline",
+              defaultValue: "Hello World",
+              description: "Main heading text",
+            },
+          },
+        },
+      ]),
+    }
+
+    const variables = listVariables(template.transformations)
+    expect(variables).toHaveLength(1)
+    expect(variables[0].name).toBe("headline")
+    expect(variables[0].label).toBe("Headline")
+
+    const schema = buildVariablesSchema(template.transformations)
+    expect(schema.safeParse({ headline: "Override" }).success).toBe(true)
+  })
 })

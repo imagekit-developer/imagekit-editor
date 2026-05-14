@@ -18,7 +18,7 @@ import startCase from "lodash/startCase"
 import { type FC, type ReactNode, useCallback } from "react"
 import type { ColorPickerProps } from "react-best-gradient-color-picker"
 import type { FieldErrors } from "react-hook-form"
-import Select from "react-select"
+import Select, { components as selectComponents } from "react-select"
 import CreateableSelect from "react-select/creatable"
 import type { TransformationField } from "../../schema"
 import { isStepAligned } from "../../utils"
@@ -51,6 +51,58 @@ export interface FieldOption {
   value: string
   label: string
   icon?: ReactNode
+}
+
+/**
+ * Module-level custom IndicatorsContainer that renders a folder-icon picker
+ * button before react-select's stock indicators. Hoisted out of the renderer
+ * so its identity is stable across every render — react-select reconciles
+ * `components.*` by reference and would remount the indicators subtree on
+ * every keystroke if we redefined this inline.
+ *
+ * The picker callback is read from `props.selectProps.onPickFile`, which is
+ * react-select's documented passthrough for arbitrary host data.
+ */
+const FilePickerIndicatorsContainer: typeof selectComponents.IndicatorsContainer =
+  (props) => {
+    const { onPickFile } = props.selectProps as unknown as {
+      onPickFile?: () => void
+    }
+    return (
+      <selectComponents.IndicatorsContainer {...props}>
+        <button
+          type="button"
+          aria-label="Pick font file"
+          onMouseDown={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+          }}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            onPickFile?.()
+          }}
+          tabIndex={-1}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0 6px",
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            color: "#718096",
+          }}
+        >
+          <PiFolderOpen size={16} />
+        </button>
+        {props.children}
+      </selectComponents.IndicatorsContainer>
+    )
+  }
+
+const FILE_PICKER_COMPONENTS = {
+  IndicatorsContainer: FilePickerIndicatorsContainer,
 }
 
 export interface TransformationFieldRendererProps {
@@ -101,6 +153,30 @@ export interface TransformationFieldRendererProps {
    * resolution contract.
    */
   onPickImage?: () => Promise<string | null | undefined>
+  /**
+   * Map of nested variable bindings for composite fields (e.g., gradient-picker).
+   * Key is the nested property path (e.g., "from", "to"), value is the VariableRef.
+   * When a nested property is variablized, the composite field should render
+   * variable UI (chip + default value input) instead of the normal control.
+   */
+  nestedVariables?: Record<string, unknown>
+  /**
+   * Called when the user wants to bind a nested property to a variable.
+   * Path is relative to the field (e.g., ["from"] for gradient from color).
+   */
+  onCreateNestedVariable?: (path: string[], variable: { name: string; label: string; description?: string }) => void
+  /**
+   * Called when the user wants to rename/update a nested variable.
+   */
+  onUpdateNestedVariable?: (path: string[], updates: { label?: string; description?: string }) => void
+  /**
+   * Called when the user wants to unbind a nested variable.
+   */
+  onUnbindNestedVariable?: (path: string[]) => void
+  /**
+   * Called when the user changes the default value of a nested variable.
+   */
+  onChangeNestedVariableDefault?: (path: string[], value: unknown) => void
 }
 
 /**
@@ -132,6 +208,11 @@ export const TransformationFieldRenderer: FC<
   onTrigger,
   inputId,
   onPickImage,
+  nestedVariables,
+  onCreateNestedVariable,
+  onUpdateNestedVariable,
+  onUnbindNestedVariable,
+  onChangeNestedVariableDefault,
 }) => {
   const resolvedId = inputId ?? field.name
   // ColorPickerField / GradientPicker call `setValue(name, value)` inside
@@ -167,6 +248,7 @@ export const TransformationFieldRenderer: FC<
           fontSize: "12px",
           minHeight: "32px",
           borderColor: "#E2E8F0",
+          backgroundColor: "white",
         }),
         menu: (base: Record<string, unknown>) => ({
           ...base,
@@ -206,25 +288,57 @@ export const TransformationFieldRenderer: FC<
       )
     }
 
-    case "select-creatable":
+    case "select-creatable": {
+      const options = field.fieldProps?.options?.map((option) => ({
+        value: option.value,
+        label: option.label,
+      }))
+      const selectedValue =
+        options?.find((o) => o.value === value) ||
+        (value
+          ? { value: value as string, label: value as string }
+          : null)
+      const showFilePicker =
+        field.name === "fontFamily" && typeof onPickImage === "function"
+      const handlePickFile = async () => {
+        try {
+          const picked = await onPickImage?.()
+          if (picked) onChange(picked)
+        } catch {
+          // Host picker errors are theirs to surface; the editor
+          // intentionally swallows them so a rejected promise can
+          // never break the sidebar form.
+        }
+      }
       return (
         <CreateableSelect
           id={resolvedId}
+          formatCreateLabel={(inputValue: string) => `Use "${inputValue}"`}
+          isClearable={field.fieldProps?.isClearable ?? false}
           placeholder="Select"
           menuPlacement="auto"
-          options={field.fieldProps?.options?.map((option) => ({
-            value: option.value,
-            label: option.label,
-          }))}
-          value={field.fieldProps?.options?.find((o) => o.value === value)}
-          onChange={(o) => onChange(o?.value)}
+          options={options}
+          value={selectedValue}
+          onChange={(o) => {
+            const single = o as { value?: string } | null
+            onChange(single?.value)
+          }}
           onBlur={onBlur}
+          components={showFilePicker ? FILE_PICKER_COMPONENTS : undefined}
+          // Custom prop forwarded to FilePickerIndicatorsContainer via
+          // react-select's `selectProps` passthrough. Keeps the components
+          // map referentially stable while still letting each instance
+          // route the click to its own RHF onChange.
+          {...(showFilePicker
+            ? ({ onPickFile: handlePickFile } as Record<string, unknown>)
+            : {})}
           styles={{
             control: (base) => ({
               ...base,
               fontSize: "12px",
               minHeight: "32px",
               borderColor: "#E2E8F0",
+              backgroundColor: "white",
             }),
             menu: (base) => ({
               ...base,
@@ -237,6 +351,7 @@ export const TransformationFieldRenderer: FC<
           }}
         />
       )
+    }
 
     case "input": {
       // chakra Input + react-hook-form's spread props create a too-complex
@@ -249,6 +364,7 @@ export const TransformationFieldRenderer: FC<
         <Input
           id={resolvedId}
           fontSize="sm"
+          bg="white"
           {...(field.fieldProps ?? {})}
           value={(value as string | number | readonly string[]) ?? ""}
           onChange={(e) => onChange(e.target.value)}
@@ -289,6 +405,7 @@ export const TransformationFieldRenderer: FC<
         <Textarea
           id={resolvedId}
           fontSize="sm"
+          bg="white"
           value={(value as string) ?? ""}
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
@@ -334,6 +451,11 @@ export const TransformationFieldRenderer: FC<
           value={value as GradientPickerState}
           setValue={setValueAdapter}
           errors={errors ?? {}}
+          nestedVariables={nestedVariables}
+          onCreateNestedVariable={onCreateNestedVariable}
+          onUpdateNestedVariable={onUpdateNestedVariable}
+          onUnbindNestedVariable={onUnbindNestedVariable}
+          onChangeNestedVariableDefault={onChangeNestedVariableDefault}
         />
       )
 
@@ -453,6 +575,7 @@ const SliderControl: FC<{
               : "number"
           }
           fontSize="sm"
+          bg="white"
           width="80px"
           value={valueString}
           onBlur={() => {

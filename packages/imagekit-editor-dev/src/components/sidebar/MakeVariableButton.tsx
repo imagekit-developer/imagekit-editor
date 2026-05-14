@@ -57,13 +57,26 @@ export function isVariablizableFieldType(fieldType: string | undefined) {
   return !!fieldType && VARIABLIZABLE_FIELD_TYPES.has(fieldType)
 }
 
+/**
+ * Whether a field can be made into a variable. Checks:
+ * 1. Field type (must be in VARIABLIZABLE_FIELD_TYPES)
+ * 2. Field is not flagged as `nonVariablizable` in the schema (typically
+ *    control fields whose value gates the visibility of other fields).
+ */
+export function isVariablizableField(field: {
+  fieldType?: string
+  nonVariablizable?: boolean
+}) {
+  return isVariablizableFieldType(field.fieldType) && !field.nonVariablizable
+}
+
 interface MakeVariableButtonProps {
   /** The field this button might variabilize (used for the suggested label). */
   fieldLabel: string
   /** Names already taken inside this template (for collision-proof generation). */
   takenNames: Iterable<string>
   /** Called with the freshly generated variable when the user confirms. */
-  onCreate: (variable: { name: string; label: string }) => void
+  onCreate: (variable: { name: string; label: string; description?: string }) => void
 }
 
 /**
@@ -86,16 +99,23 @@ export const MakeVariableButton: FC<MakeVariableButtonProps> = ({
 }) => {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [label, setLabel] = useState(fieldLabel)
+  const [description, setDescription] = useState("")
 
   const handleOpen = useCallback(() => {
     setLabel(fieldLabel)
+    setDescription("")
     onOpen()
   }, [fieldLabel, onOpen])
 
   const handleSave = () => {
     const trimmed = label.trim() || fieldLabel
     const name = generateVariableName(trimmed, takenNames)
-    onCreate({ name, label: trimmed })
+    const trimmedDescription = description.trim()
+    onCreate({
+      name,
+      label: trimmed,
+      ...(trimmedDescription && { description: trimmedDescription }),
+    })
     onClose()
   }
 
@@ -123,18 +143,9 @@ export const MakeVariableButton: FC<MakeVariableButtonProps> = ({
       <PopoverContent width="280px" zIndex={1500}>
         <PopoverBody p="3">
           <VStack align="stretch" spacing="3">
-            <Text fontSize="xs" color="gray.600">
-              Make this field a template variable. Hosts override its value
-              at URL build time. In the editor preview the URL will contain
-              the literal token{" "}
-              <Text as="span" fontFamily="mono">
-                $name
-              </Text>
-              .
-            </Text>
             <FormControl>
               <FormLabel fontSize="xs" mb="1">
-                Variable label
+                Label
               </FormLabel>
               <Input
                 size="sm"
@@ -149,8 +160,26 @@ export const MakeVariableButton: FC<MakeVariableButtonProps> = ({
                 maxLength={MAX_LABEL_LENGTH}
                 autoFocus
               />
+            </FormControl>
+            <FormControl>
+              <FormLabel fontSize="xs" mb="1">
+                Description (optional)
+              </FormLabel>
+              <Input
+                size="sm"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault()
+                    handleSave()
+                  }
+                }}
+                placeholder="What does this variable control?"
+                maxLength={MAX_LABEL_LENGTH}
+              />
               <FormHelperText fontSize="xs" color="gray.500">
-                A unique name will be auto-generated from this label.
+                Put a helpful description for your team members and AI assist
               </FormHelperText>
             </FormControl>
             <HStack justify="flex-end" spacing="2">
@@ -158,7 +187,7 @@ export const MakeVariableButton: FC<MakeVariableButtonProps> = ({
                 Cancel
               </Button>
               <Button size="sm" colorScheme="purple" onClick={handleSave}>
-                Save variable
+                Save
               </Button>
             </HStack>
           </VStack>
@@ -170,9 +199,9 @@ export const MakeVariableButton: FC<MakeVariableButtonProps> = ({
 
 interface BoundVariableChipProps {
   /** The marker stored in the field — drives chip text + edit popover state. */
-  variable: { $var: string; label: string }
-  /** Called when the user edits the label via the chip's edit popover. */
-  onRename: (newLabel: string) => void
+  variable: { $var: string; label: string; description?: string }
+  /** Called when the user edits the label or description via the chip's edit popover. */
+  onRename: (updates: { label?: string; description?: string }) => void
   /** Called when the user clicks the unbind X. */
   onUnbind: () => void
 }
@@ -194,10 +223,23 @@ export const BoundVariableChip: FC<BoundVariableChipProps> = ({
 }) => {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [label, setLabel] = useState(variable.label)
+  const [description, setDescription] = useState(variable.description || "")
 
   const handleSave = () => {
-    const trimmed = label.trim()
-    if (trimmed && trimmed !== variable.label) onRename(trimmed)
+    const trimmedLabel = label.trim()
+    const trimmedDescription = description.trim()
+    const updates: { label?: string; description?: string } = {}
+
+    if (trimmedLabel && trimmedLabel !== variable.label) {
+      updates.label = trimmedLabel
+    }
+    if (trimmedDescription !== (variable.description || "")) {
+      updates.description = trimmedDescription
+    }
+
+    if (Object.keys(updates).length > 0) {
+      onRename(updates)
+    }
     onClose()
   }
 
@@ -206,8 +248,8 @@ export const BoundVariableChip: FC<BoundVariableChipProps> = ({
       align="center"
       gap="2"
       borderWidth="1px"
-      borderColor="purple.200"
-      bg="purple.50"
+      borderColor="purple.300"
+      bg="white"
       borderRadius="md"
       px="3"
       py="2"
@@ -230,6 +272,7 @@ export const BoundVariableChip: FC<BoundVariableChipProps> = ({
         isOpen={isOpen}
         onOpen={() => {
           setLabel(variable.label)
+          setDescription(variable.description || "")
           onOpen()
         }}
         onClose={onClose}
@@ -263,8 +306,26 @@ export const BoundVariableChip: FC<BoundVariableChipProps> = ({
                   maxLength={MAX_LABEL_LENGTH}
                   autoFocus
                 />
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="xs" mb="1">
+                  Description (optional)
+                </FormLabel>
+                <Input
+                  size="sm"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      handleSave()
+                    }
+                  }}
+                  placeholder="What does this variable control?"
+                  maxLength={MAX_LABEL_LENGTH}
+                />
                 <FormHelperText fontSize="xs" color="gray.500">
-                  Variable name <code>${variable.$var}</code> stays the same.
+                  Put a helpful description for your team members and AI assist
                 </FormHelperText>
               </FormControl>
               <HStack justify="flex-end">

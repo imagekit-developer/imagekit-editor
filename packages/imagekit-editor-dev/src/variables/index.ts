@@ -5,18 +5,16 @@
  * transformation step. It is represented inline in the transformation tree
  * as a {@link VariableRef} marker, e.g.:
  *
- *   { text: { $var: "h_xyz", label: "Headline" }, fontSize: 32 }
+ *   { text: { $var: "h_xyz", label: "Headline", defaultValue: "Hello World", description: "Main heading text" }, fontSize: 32 }
  *
  * The marker is the source of truth — there is no separate `template.variables`
  * array. Helpers walk the tree to discover variables ({@link listVariables}),
  * substitute overrides at URL-build time ({@link resolveVariableRefs}), or
  * generate collision-proof names ({@link generateVariableName}).
  *
- * No default value is stored alongside the marker. When the host does not
- * provide an override for a variable, the URL builder substitutes the literal
- * token `$<name>` so the resulting URL clearly signals an unbound variable
- * (and the editor preview renders that token verbatim, making it obvious
- * which fields still need a runtime value).
+ * The defaultValue is used when the host does not provide an override for a
+ * variable. The description is an optional field to document what the variable
+ * controls.
  */
 
 /**
@@ -26,14 +24,25 @@
  * `name` is a stable, collision-proof identifier (never re-used inside a
  * single template). `label` is the human-readable string the user typed in the
  * sidebar popover; it can change without breaking host code that references
- * the variable by `name`.
+ * the variable by `name`. `defaultValue` is the fallback value used when the
+ * host does not provide an override; for backward compatibility with older
+ * templates created before the defaultValue feature, it may be omitted (in
+ * which case `resolveVariableRefs` falls back to `undefined`). `description`
+ * is an optional explanatory note about what the variable controls.
  */
 export interface VariableRef {
   $var: string
   label: string
+  defaultValue?: unknown
+  description?: string
 }
 
-/** Type guard for {@link VariableRef} markers found inside a value tree. */
+/**
+ * Type guard for {@link VariableRef} markers found inside a value tree.
+ *
+ * Only requires `$var` and `label` so that templates persisted before the
+ * `defaultValue` field was introduced continue to be recognized as variables.
+ */
 export function isVariableRef(value: unknown): value is VariableRef {
   if (value === null || typeof value !== "object") return false
   const v = value as Record<string, unknown>
@@ -98,12 +107,9 @@ export function generateVariableName(
  * concrete value the editor / SDK expects. Resolution per marker:
  *
  *   1. `overrides[ref.$var]` if present (host-supplied runtime value);
- *   2. otherwise `undefined` — which the converter treats as "field unset",
- *      so the field is dropped from the resulting URL exactly as if the
- *      variable had never been bound. This preserves the editor's pre-
- *      variables preview behaviour: an unbound `imageUrl`, for example,
- *      surfaces the empty/checker state rather than attempting to fetch a
- *      placeholder string as a real path.
+ *   2. otherwise `ref.defaultValue` — the fallback value specified when the
+ *      variable was created. This ensures that the editor preview always
+ *      displays a meaningful value even when no override is provided.
  *
  * The walk preserves arrays and plain objects, so marker-free trees are
  * structurally cloned with byte-equivalent output. This keeps legacy
@@ -116,7 +122,7 @@ export function resolveVariableRefs(
   if (isVariableRef(value)) {
     return Object.prototype.hasOwnProperty.call(overrides, value.$var)
       ? overrides[value.$var]
-      : undefined
+      : value.defaultValue
   }
   if (Array.isArray(value)) {
     return value.map((item) => resolveVariableRefs(item, overrides))

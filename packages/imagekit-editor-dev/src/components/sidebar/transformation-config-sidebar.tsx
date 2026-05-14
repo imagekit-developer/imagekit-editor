@@ -31,7 +31,7 @@ import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
 import { PiInfo } from "@react-icons/all-files/pi/PiInfo"
 import { PiX } from "@react-icons/all-files/pi/PiX"
 import startCase from "lodash/startCase"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Controller, type SubmitHandler, useForm } from "react-hook-form"
 import { z } from "zod/v3"
 import { useTemplateSync } from "../../hooks/useTemplateSync"
@@ -46,6 +46,7 @@ import { type SyncStatus, findTransformationDeep, useEditorStore } from "../../s
 import {
   generateVariableName,
   isVariableRef,
+  walkVariableRefs,
   type VariableRef,
 } from "../../variables"
 import { listVariables } from "../../variables/listVariables"
@@ -54,7 +55,68 @@ import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
 import { SidebarRoot } from "./sidebar-root"
 import { TransformationFieldRenderer } from "./TransformationFieldRenderer"
-import { MakeVariableButton, BoundVariableChip, isVariablizableFieldType } from "./MakeVariableButton"
+import { MakeVariableButton, BoundVariableChip, isVariablizableField } from "./MakeVariableButton"
+
+// Stable references to prevent unnecessary re-renders
+const EMPTY_ERRORS = {}
+const NOOP = () => {}
+
+// Convert a path array (e.g., ["backgroundGradient", "from"]) into the
+// dot-notation key used to index `boundFields`.
+const pathToKey = (path: string[]): string => path.join(".")
+
+// Read a nested value from an object by walking `path`. Returns `undefined`
+// at the first missing/non-object segment.
+const getNestedValue = (
+  obj: Record<string, unknown>,
+  path: string[],
+): unknown => {
+  let current: unknown = obj
+  for (const key of path) {
+    if (current === null || typeof current !== "object") return undefined
+    current = (current as Record<string, unknown>)[key]
+  }
+  return current
+}
+
+// Write a nested value into `obj`, creating intermediate plain-object
+// segments as needed. Mutates `obj` in place.
+const setNestedValue = (
+  obj: Record<string, unknown>,
+  path: string[],
+  value: unknown,
+): void => {
+  if (path.length === 0) return
+  if (path.length === 1) {
+    obj[path[0]] = value
+    return
+  }
+  const key = path[0]
+  if (!(key in obj) || typeof obj[key] !== "object" || obj[key] === null) {
+    obj[key] = {}
+  }
+  setNestedValue(obj[key] as Record<string, unknown>, path.slice(1), value)
+}
+
+// Recursively replace every VariableRef in a value tree with its
+// `defaultValue`, so the form / Zod validator can operate on plain values
+// while the original markers stay in `boundFields`.
+const replaceVariableRefsWithDefaults = (value: unknown): unknown => {
+  if (isVariableRef(value)) {
+    return value.defaultValue
+  }
+  if (Array.isArray(value)) {
+    return value.map(replaceVariableRefsWithDefaults)
+  }
+  if (value !== null && typeof value === "object") {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = replaceVariableRefsWithDefaults(v)
+    }
+    return out
+  }
+  return value
+}
 
 export type TransformationFooterActionMode =
   | "fullySynced"
@@ -68,6 +130,7 @@ export function getTransformationFooterActionsConfig(input: {
   hasAppliedInSession: boolean
   templateStorageWriteBlocked: boolean
   hasUnsyncedChanges: boolean
+  hasInvalidDefaultValues?: boolean
 }): {
   mode: TransformationFooterActionMode
   primary: { label: string; disabled: boolean }
@@ -80,6 +143,7 @@ export function getTransformationFooterActionsConfig(input: {
     hasAppliedInSession,
     templateStorageWriteBlocked,
     hasUnsyncedChanges,
+    hasInvalidDefaultValues = false,
   } = input
 
   const fullySynced = !isDirty && !hasUnsyncedChanges && syncStatus === "saved"
@@ -97,7 +161,7 @@ export function getTransformationFooterActionsConfig(input: {
 
   const showApplyFlow = !hasAppliedInSession || isDirty
   if (showApplyFlow) {
-    const canApply = isDirty
+    const canApply = isDirty && !hasInvalidDefaultValues
     const primaryDisabled = !canApply
     return {
       mode: "applyFlow",
@@ -206,9 +270,13 @@ export const TransformationConfigSidebar: React.FC = () => {
   const initialBoundFields = useMemo(() => {
     const out: Record<string, VariableRef> = {}
     if (!editedTransformationValue) return out
-    for (const [k, v] of Object.entries(editedTransformationValue)) {
-      if (isVariableRef(v)) out[k] = v
-    }
+    
+    // Walk the entire value tree to find all VariableRefs at any depth
+    walkVariableRefs(editedTransformationValue, (ref, path) => {
+      const key = pathToKey(path)
+      out[key] = ref
+    })
+    
     return out
   }, [editedTransformationValue])
 
@@ -247,12 +315,9 @@ export const TransformationConfigSidebar: React.FC = () => {
       // currently be hidden — we don't want to silently drop user data.
       if (isInplace && editedTransformationValue && field.name in editedTransformationValue) {
         const stored = editedTransformationValue[field.name]
-        // Variabilized field: seed RHF with the field's schema default so
-        // the (hidden) input + Zod validator have something sane to work
-        // with. The marker is the source of truth and is restored on Apply.
-        acc[field.name] = isVariableRef(stored)
-          ? (field.fieldProps?.defaultValue ?? "")
-          : stored
+        // Replace all VariableRefs (including nested ones) with their defaultValue
+        // so the form and Zod validator have something to work with.
+        acc[field.name] = replaceVariableRefsWithDefaults(stored)
         continue
       }
 
@@ -326,6 +391,192 @@ export const TransformationConfigSidebar: React.FC = () => {
 
   const values = watch()
 
+  const focusObjectOptions = useMemo(
+    () =>
+      (focusObjects || DEFAULT_FOCUS_OBJECTS).map((obj) => ({
+        value: obj,
+        label: startCase(obj),
+      })),
+    [focusObjects],
+  )
+
+  // Cache stable onChange handlers per field to prevent infinite loops
+  // in TransformationFieldRenderer (ColorPicker/GradientPicker are sensitive to identity)
+  const onChangeHandlers = useRef<Map<string, (value: unknown) => void>>(new Map())
+  const nestedVariableHandlers = useRef<{
+    onCreate: Map<string, (path: string[], variable: { name: string; label: string; description?: string }) => void>
+    onUpdate: Map<string, (path: string[], updates: { label?: string; description?: string }) => void>
+    onUnbind: Map<string, (path: string[]) => void>
+    onChange: Map<string, (path: string[], value: unknown) => void>
+  }>({
+    onCreate: new Map(),
+    onUpdate: new Map(),
+    onUnbind: new Map(),
+    onChange: new Map(),
+  })
+
+  const getOnChangeHandler = useCallback((fieldName: string) => {
+    if (!onChangeHandlers.current.has(fieldName)) {
+      onChangeHandlers.current.set(fieldName, (value: unknown) => {
+        setBoundFields((prev) => ({
+          ...prev,
+          [fieldName]: {
+            ...prev[fieldName],
+            defaultValue: value,
+          },
+        }))
+        setBindingDirty(true)
+      })
+    }
+    return onChangeHandlers.current.get(fieldName)!
+  }, [])
+
+  const handleVariableRename = useCallback(
+    (fieldName: string, updates: { label?: string; description?: string }) => {
+      setBoundFields((prev) => ({
+        ...prev,
+        [fieldName]: { ...prev[fieldName], ...updates },
+      }))
+      setBindingDirty(true)
+    },
+    [],
+  )
+
+  const handleVariableUnbind = useCallback(
+    (fieldName: string) => {
+      setBoundFields((prev) => {
+        const next = { ...prev }
+        delete next[fieldName]
+        return next
+      })
+      setBindingDirty(true)
+    },
+    [],
+  )
+
+  // Stable handlers for nested variables (e.g., gradient from/to colors)
+  const handleCreateNestedVariable = useCallback(
+    (fieldName: string, path: string[], variable: { name: string; label: string; description?: string }) => {
+      const currentValue = getNestedValue(values[fieldName] as Record<string, unknown>, path)
+      const fullPath = [fieldName, ...path].join(".")
+      setBoundFields((prev) => ({
+        ...prev,
+        [fullPath]: {
+          $var: variable.name,
+          label: variable.label,
+          defaultValue: currentValue ?? "",
+          ...(variable.description && { description: variable.description }),
+        },
+      }))
+      setBindingDirty(true)
+    },
+    [values],
+  )
+
+  const handleUpdateNestedVariable = useCallback(
+    (fieldName: string, path: string[], updates: { label?: string; description?: string }) => {
+      const fullPath = [fieldName, ...path].join(".")
+      setBoundFields((prev) => ({
+        ...prev,
+        [fullPath]: { ...prev[fullPath], ...updates },
+      }))
+      setBindingDirty(true)
+    },
+    [],
+  )
+
+  const handleUnbindNestedVariable = useCallback(
+    (fieldName: string, path: string[]) => {
+      const fullPath = [fieldName, ...path].join(".")
+      setBoundFields((prev) => {
+        const next = { ...prev }
+        delete next[fullPath]
+        return next
+      })
+      setBindingDirty(true)
+    },
+    [],
+  )
+
+  const handleChangeNestedVariableDefault = useCallback(
+    (fieldName: string, path: string[], value: unknown) => {
+      const fullPath = [fieldName, ...path].join(".")
+      setBoundFields((prev) => ({
+        ...prev,
+        [fullPath]: {
+          ...prev[fullPath],
+          defaultValue: value,
+        },
+      }))
+      setBindingDirty(true)
+    },
+    [],
+  )
+
+  // Pre-compute nested variable bindings per top-level field. Returning a
+  // memoized record (rather than recomputing on each call) keeps the
+  // `nestedVariables` prop reference stable across renders, which is
+  // critical for child components like ColorPicker / GradientPicker whose
+  // internal effects react to prop identity.
+  const nestedVariablesByField = useMemo(() => {
+    const out: Record<string, Record<string, VariableRef>> = {}
+    for (const [key, ref] of Object.entries(boundFields)) {
+      const dotIndex = key.indexOf(".")
+      if (dotIndex === -1) continue
+      const fieldName = key.slice(0, dotIndex)
+      const nestedPath = key.slice(dotIndex + 1)
+      if (!out[fieldName]) out[fieldName] = {}
+      out[fieldName][nestedPath] = ref
+    }
+    return out
+  }, [boundFields])
+
+  const EMPTY_NESTED: Record<string, VariableRef> = useMemo(() => ({}), [])
+
+  const getNestedVariables = useCallback(
+    (fieldName: string): Record<string, VariableRef> =>
+      nestedVariablesByField[fieldName] ?? EMPTY_NESTED,
+    [nestedVariablesByField, EMPTY_NESTED],
+  )
+
+  // Get cached nested variable handlers per field
+  const getNestedVariableHandlers = useCallback((fieldName: string) => {
+    // onCreate handler
+    if (!nestedVariableHandlers.current.onCreate.has(fieldName)) {
+      nestedVariableHandlers.current.onCreate.set(fieldName, (path, variable) => {
+        handleCreateNestedVariable(fieldName, path, variable)
+      })
+    }
+    
+    // onUpdate handler
+    if (!nestedVariableHandlers.current.onUpdate.has(fieldName)) {
+      nestedVariableHandlers.current.onUpdate.set(fieldName, (path, updates) => {
+        handleUpdateNestedVariable(fieldName, path, updates)
+      })
+    }
+    
+    // onUnbind handler
+    if (!nestedVariableHandlers.current.onUnbind.has(fieldName)) {
+      nestedVariableHandlers.current.onUnbind.set(fieldName, (path) => {
+        handleUnbindNestedVariable(fieldName, path)
+      })
+    }
+    
+    // onChange handler
+    if (!nestedVariableHandlers.current.onChange.has(fieldName)) {
+      nestedVariableHandlers.current.onChange.set(fieldName, (path, value) => {
+        handleChangeNestedVariableDefault(fieldName, path, value)
+      })
+    }
+
+    return {
+      onCreate: nestedVariableHandlers.current.onCreate.get(fieldName)!,
+      onUpdate: nestedVariableHandlers.current.onUpdate.get(fieldName)!,
+      onUnbind: nestedVariableHandlers.current.onUnbind.get(fieldName)!,
+      onChange: nestedVariableHandlers.current.onChange.get(fieldName)!,
+    }
+  }, [handleCreateNestedVariable, handleUpdateNestedVariable, handleUnbindNestedVariable, handleChangeNestedVariableDefault])
+
   const onClose = useCallback(() => {
     if (transformations.length === 0) {
       _setSidebarState("type")
@@ -395,8 +646,9 @@ export const TransformationConfigSidebar: React.FC = () => {
         // value carries the marker rather than the placeholder seeded into
         // RHF for the (hidden) input.
         const persistedData: Record<string, unknown> = { ...data }
-        for (const [fieldName, ref] of Object.entries(boundFields)) {
-          persistedData[fieldName] = ref
+        for (const [pathKey, ref] of Object.entries(boundFields)) {
+          const path = pathKey.split(".")
+          setNestedValue(persistedData, path, ref)
         }
 
         updateTransformation(transformationToEdit.transformationId, {
@@ -416,8 +668,9 @@ export const TransformationConfigSidebar: React.FC = () => {
         )
 
         const persistedData: Record<string, unknown> = { ...data }
-        for (const [fieldName, ref] of Object.entries(boundFields)) {
-          persistedData[fieldName] = ref
+        for (const [pathKey, ref] of Object.entries(boundFields)) {
+          const path = pathKey.split(".")
+          setNestedValue(persistedData, path, ref)
         }
 
         const transformationId = addTransformation(
@@ -433,8 +686,9 @@ export const TransformationConfigSidebar: React.FC = () => {
         _setTransformationToEdit(transformationId, "inplace")
       } else {
         const persistedData: Record<string, unknown> = { ...data }
-        for (const [fieldName, ref] of Object.entries(boundFields)) {
-          persistedData[fieldName] = ref
+        for (const [pathKey, ref] of Object.entries(boundFields)) {
+          const path = pathKey.split(".")
+          setNestedValue(persistedData, path, ref)
         }
         // If a parent layer is in scope (the user clicked the "+" on a layer
         // row), append the new step as a nested child rather than as a new
@@ -492,24 +746,37 @@ export const TransformationConfigSidebar: React.FC = () => {
     [onApply, onClose],
   )
 
-  const footerActionsConfig = useMemo(
-    () =>
-      getTransformationFooterActionsConfig({
-        isDirty: isDirty || bindingDirty,
-        syncStatus,
-        hasAppliedInSession,
-        templateStorageWriteBlocked,
-        hasUnsyncedChanges,
-      }),
-    [
-      isDirty,
-      bindingDirty,
+  // Helper to check if a variable's default value is invalid
+  const isDefaultValueInvalid = useCallback((ref: VariableRef) => {
+    const defaultVal = ref.defaultValue
+    return (
+      defaultVal === undefined ||
+      defaultVal === null ||
+      (typeof defaultVal === "string" && defaultVal.trim() === "")
+    )
+  }, [])
+
+  const footerActionsConfig = useMemo(() => {
+    // Validate that all bound fields have non-empty defaultValues
+    const hasInvalidDefaultValues = Object.values(boundFields).some(isDefaultValueInvalid)
+
+    return getTransformationFooterActionsConfig({
+      isDirty: isDirty || bindingDirty,
       syncStatus,
       hasAppliedInSession,
       templateStorageWriteBlocked,
       hasUnsyncedChanges,
-    ],
-  )
+      hasInvalidDefaultValues,
+    })
+  }, [
+    isDirty,
+    bindingDirty,
+    syncStatus,
+    hasAppliedInSession,
+    templateStorageWriteBlocked,
+    hasUnsyncedChanges,
+    boundFields,
+  ])
 
   const footerActions = useMemo(() => {
     const noop = () => {}
@@ -661,15 +928,17 @@ export const TransformationConfigSidebar: React.FC = () => {
             const showMakeVariable =
               isCanvasMode &&
               !boundVariable &&
-              isVariablizableFieldType(field.fieldType)
+              isVariablizableField(field)
+            const hasInvalidDefaultValue = Boolean(boundVariable && isDefaultValueInvalid(boundVariable))
             return (
               <FormControl
                 key={field.name}
                 isInvalid={
-                  !!errors[field.name] &&
-                  !["gradient-picker", "padding-input"].some(
-                    (type) => field.fieldType === type,
-                  )
+                  (!!errors[field.name] &&
+                    !["gradient-picker", "padding-input"].some(
+                      (type) => field.fieldType === type,
+                    )) ||
+                  hasInvalidDefaultValue
                 }
               >
                 <Flex
@@ -686,11 +955,15 @@ export const TransformationConfigSidebar: React.FC = () => {
                       fieldLabel={field.label}
                       takenNames={allTakenVariableNames}
                       onCreate={(variable) => {
+                        // Capture the current field value as the default
+                        const currentValue = values[field.name]
                         setBoundFields((prev) => ({
                           ...prev,
                           [field.name]: {
                             $var: variable.name,
                             label: variable.label,
+                            defaultValue: currentValue ?? field.fieldProps?.defaultValue ?? "",
+                            ...(variable.description && { description: variable.description }),
                           },
                         }))
                         setBindingDirty(true)
@@ -702,56 +975,91 @@ export const TransformationConfigSidebar: React.FC = () => {
                   )}
                 </Flex>
                 {boundVariable ? (
-                  <BoundVariableChip
-                    variable={boundVariable}
-                    onRename={(newLabel) => {
-                      setBoundFields((prev) => ({
-                        ...prev,
-                        [field.name]: { ...prev[field.name], label: newLabel },
-                      }))
-                      setBindingDirty(true)
-                    }}
-                    onUnbind={() => {
-                      setBoundFields((prev) => {
-                        const next = { ...prev }
-                        delete next[field.name]
-                        return next
-                      })
-                      setBindingDirty(true)
-                    }}
-                  />
+                  <Box
+                    borderWidth="1px"
+                    borderColor={hasInvalidDefaultValue ? "red.300" : "purple.200"}
+                    bg={hasInvalidDefaultValue ? "red.50" : "purple.50"}
+                    borderRadius="md"
+                    p="3"
+                    mb="2"
+                  >
+                    <BoundVariableChip
+                      variable={boundVariable}
+                      onRename={(updates) => handleVariableRename(field.name, updates)}
+                      onUnbind={() => handleVariableUnbind(field.name)}
+                    />
+                    <Box mt="3">
+                      <FormLabel htmlFor={`${field.name}-default`} fontSize="sm" mb="1">
+                        Default value
+                      </FormLabel>
+                      <TransformationFieldRenderer
+                        field={field}
+                        value={boundVariable.defaultValue}
+                        onChange={getOnChangeHandler(field.name)}
+                        onBlur={NOOP}
+                        errors={EMPTY_ERRORS}
+                        disabled={false}
+                        selectOptionsOverride={
+                          field.name === "focusObject"
+                            ? focusObjectOptions
+                            : undefined
+                        }
+                        onTrigger={NOOP}
+                        onPickImage={onPickImage}
+                        nestedVariables={getNestedVariables(field.name)}
+                      />
+                      {hasInvalidDefaultValue && (
+                        <FormErrorMessage fontSize="xs" mt="1">
+                          Default value is required
+                        </FormErrorMessage>
+                      )}
+                      {field.helpText && (
+                        <FormHelperText fontSize="xs" color="gray.600" mt="1">
+                          {field.helpText}
+                        </FormHelperText>
+                      )}
+                      {field.examples && (
+                        <FormHelperText fontSize="xs" color="gray.600">
+                          <b>Example</b>: {field.examples[0]}
+                        </FormHelperText>
+                      )}
+                    </Box>
+                  </Box>
                 ) : (
                   <Controller
                     name={field.name}
                     control={control}
-                    render={({ field: controllerField }) => (
-                      <TransformationFieldRenderer
-                        field={field}
-                        value={controllerField.value}
-                        onChange={controllerField.onChange}
-                        onBlur={controllerField.onBlur}
-                        errors={errors}
-                        disabled={
-                          selectedTransformation.key ===
-                            "resize_and_crop-resize_and_crop" &&
-                          field.name === "aspectRatio" &&
-                          !!values.width &&
-                          !!values.height
-                        }
-                        selectOptionsOverride={
-                          field.name === "focusObject"
-                            ? (focusObjects || DEFAULT_FOCUS_OBJECTS).map(
-                                (obj) => ({
-                                  value: obj,
-                                  label: startCase(obj),
-                                }),
-                              )
-                            : undefined
-                        }
-                        onTrigger={() => trigger(field.name)}
-                        onPickImage={onPickImage}
-                      />
-                    )}
+                    render={({ field: controllerField }) => {
+                      const nestedHandlers = getNestedVariableHandlers(field.name)
+                      return (
+                        <TransformationFieldRenderer
+                          field={field}
+                          value={controllerField.value}
+                          onChange={controllerField.onChange}
+                          onBlur={controllerField.onBlur}
+                          errors={errors}
+                          disabled={
+                            selectedTransformation.key ===
+                              "resize_and_crop-resize_and_crop" &&
+                            field.name === "aspectRatio" &&
+                            !!values.width &&
+                            !!values.height
+                          }
+                          selectOptionsOverride={
+                            field.name === "focusObject"
+                              ? focusObjectOptions
+                              : undefined
+                          }
+                          onTrigger={() => trigger(field.name)}
+                          onPickImage={onPickImage}
+                          nestedVariables={getNestedVariables(field.name)}
+                          onCreateNestedVariable={nestedHandlers.onCreate}
+                          onUpdateNestedVariable={nestedHandlers.onUpdate}
+                          onUnbindNestedVariable={nestedHandlers.onUnbind}
+                          onChangeNestedVariableDefault={nestedHandlers.onChange}
+                        />
+                      )
+                    }}
                   />
                 )}
                 <FormErrorMessage fontSize="sm">

@@ -1,6 +1,8 @@
 import {
   Box,
   Flex,
+  FormControl,
+  FormErrorMessage,
   FormLabel,
   Input,
   Popover,
@@ -12,11 +14,16 @@ import {
 } from "@chakra-ui/react"
 import { BsArrowsMove } from "@react-icons/all-files/bs/BsArrowsMove"
 import { TbAngle } from "@react-icons/all-files/tb/TbAngle"
-import { memo, useEffect, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import ColorPicker, { useColorPicker } from "react-best-gradient-color-picker"
 import type { FieldErrors } from "react-hook-form"
 import { useDebounce } from "../../hooks/useDebounce"
+import { useEditorStore } from "../../store"
+import { isVariableRef, type VariableRef } from "../../variables"
+import { listVariables } from "../../variables/listVariables"
+import { MakeVariableButton, BoundVariableChip } from "../sidebar/MakeVariableButton"
 import AnchorField from "./AnchorField"
+import ColorPickerField from "./ColorPickerField"
 import RadioCardField from "./RadioCardField"
 
 export type GradientPickerState = {
@@ -58,12 +65,55 @@ const GradientPickerField = ({
   setValue,
   value,
   errors,
+  nestedVariables,
+  onCreateNestedVariable,
+  onUpdateNestedVariable,
+  onUnbindNestedVariable,
+  onChangeNestedVariableDefault,
 }: {
   fieldName: string
   setValue: (name: string, value: GradientPickerState | string) => void
   value?: GradientPickerState | null
   errors?: FieldErrors<Record<string, unknown>>
+  nestedVariables?: Record<string, unknown>
+  onCreateNestedVariable?: (path: string[], variable: { name: string; label: string; description?: string }) => void
+  onUpdateNestedVariable?: (path: string[], updates: { label?: string; description?: string }) => void
+  onUnbindNestedVariable?: (path: string[]) => void
+  onChangeNestedVariableDefault?: (path: string[], value: unknown) => void
 }) => {
+  const editorMode = useEditorStore((s) => s.mode)
+  const isCanvasMode = editorMode === "canvas"
+  const allTransformations = useEditorStore((s) => s.transformations)
+  const allTakenVariableNames = useMemo(
+    () => listVariables(allTransformations).map((v) => v.name),
+    [allTransformations],
+  )
+
+  // Check if from/to are variablized
+  const fromVariable = nestedVariables?.from as VariableRef | undefined
+  const toVariable = nestedVariables?.to as VariableRef | undefined
+  const isFromVariablized = fromVariable && isVariableRef(fromVariable)
+  const isToVariablized = toVariable && isVariableRef(toVariable)
+
+  // Validation for variable default values
+  const isFromDefaultInvalid = isFromVariablized && (!fromVariable?.defaultValue || (typeof fromVariable.defaultValue === "string" && fromVariable.defaultValue.trim() === ""))
+  const isToDefaultInvalid = isToVariablized && (!toVariable?.defaultValue || (typeof toVariable.defaultValue === "string" && toVariable.defaultValue.trim() === ""))
+  
+  // Stable callbacks for nested variable default value changes to prevent infinite loops
+  const handleFromDefaultChange = useCallback(
+    (_: string, newValue: string) => {
+      onChangeNestedVariableDefault?.(["from"], newValue)
+    },
+    [onChangeNestedVariableDefault],
+  )
+
+  const handleToDefaultChange = useCallback(
+    (_: string, newValue: string) => {
+      onChangeNestedVariableDefault?.(["to"], newValue)
+    },
+    [onChangeNestedVariableDefault],
+  )
+
   function getLinearGradientString(value: GradientPickerState): string {
     let direction = ""
     const dirInt = Number(value.direction as string)
@@ -76,7 +126,12 @@ const GradientPickerField = ({
       typeof value.stopPoint === "number"
         ? value.stopPoint
         : Number(value.stopPoint)
-    return `linear-gradient(${direction}, ${value.from} 0%, ${value.to} ${stopPoint}%)`
+    // Guard against empty from/to so the CSS / underlying gradient parser
+    // doesn't throw "Expected color definition". An empty value can occur
+    // briefly while the user is editing a color input.
+    const from = value.from || "#00000000"
+    const to = value.to || "#00000000"
+    return `linear-gradient(${direction}, ${from} 0%, ${to} ${stopPoint}%)`
   }
 
   const [localValue, setLocalValue] = useState<GradientPickerState>(
@@ -176,6 +231,31 @@ const GradientPickerField = ({
     setLocalValue(newValue)
   }
 
+  // Stable callbacks for color changes to prevent infinite loops
+  const handleFromColorChange = useCallback(
+    (_: string, newValue: string) => {
+      setLocalValue((prev) => {
+        const updated = { ...prev, from: newValue }
+        const gradientString = getLinearGradientString(updated)
+        setGradient(gradientString)
+        return updated
+      })
+    },
+    [],
+  )
+
+  const handleToColorChange = useCallback(
+    (_: string, newValue: string) => {
+      setLocalValue((prev) => {
+        const updated = { ...prev, to: newValue }
+        const gradientString = getLinearGradientString(updated)
+        setGradient(gradientString)
+        return updated
+      })
+    },
+    [],
+  )
+
   useEffect(() => {
     setValue(fieldName, debouncedValue)
   }, [debouncedValue, fieldName, setValue])
@@ -222,53 +302,135 @@ const GradientPickerField = ({
       </Popover>
 
       <Box>
-        <FormLabel htmlFor="from_color" fontSize="sm">
-          From Color
-        </FormLabel>
-        <Input
-          size="md"
-          value={localValue.from}
-          onChange={(e) => {
-            const newValue = e.target.value
-            if (newValue.match(/^#[0-9A-Fa-f]{0,8}$/)) {
-              applyGradientInputChanges({ ...localValue, from: newValue })
-            } else if (newValue === "") {
-              applyGradientInputChanges({ ...localValue, from: "" })
-            }
-          }}
-          borderColor="gray.200"
-          placeholder="#FFFFFF"
-          fontFamily="mono"
-          borderRadius="4px"
-        />
-        <Text fontSize="xs" color={errorRed}>
-          {errors?.[fieldName]?.from?.message}
-        </Text>
+        <Flex align="center" justify="space-between" role="group" mb="1">
+          <FormLabel htmlFor="from_color" fontSize="sm" mb="0">
+            From Color
+          </FormLabel>
+          {isCanvasMode && !isFromVariablized && onCreateNestedVariable && (
+            <MakeVariableButton
+              fieldLabel="From Color"
+              takenNames={allTakenVariableNames}
+              onCreate={(variable) => {
+                onCreateNestedVariable(["from"], variable)
+              }}
+            />
+          )}
+        </Flex>
+        {isFromVariablized ? (
+          <Box
+            borderWidth="1px"
+            borderColor={isFromDefaultInvalid ? "red.300" : "purple.200"}
+            bg={isFromDefaultInvalid ? "red.50" : "purple.50"}
+            borderRadius="md"
+            p="3"
+          >
+            <BoundVariableChip
+              variable={fromVariable}
+              onRename={(updates) => {
+                onUpdateNestedVariable?.(["from"], updates)
+              }}
+              onUnbind={() => {
+                onUnbindNestedVariable?.(["from"])
+              }}
+            />
+            <Box mt="3">
+              <FormControl isInvalid={!!isFromDefaultInvalid}>
+                <FormLabel fontSize="xs" mb="1">
+                  Default value
+                </FormLabel>
+                <ColorPickerField
+                  fieldName="from_default"
+                  value={String(fromVariable.defaultValue || "")}
+                  setValue={handleFromDefaultChange}
+                  isClearable={true}
+                />
+                {isFromDefaultInvalid && (
+                  <FormErrorMessage fontSize="xs" mt="1">
+                    Default value is required
+                  </FormErrorMessage>
+                )}
+              </FormControl>
+            </Box>
+          </Box>
+        ) : (
+          <ColorPickerField
+            fieldName="from"
+            value={localValue.from}
+            setValue={handleFromColorChange}
+            isClearable={true}
+          />
+        )}
+        {!isFromVariablized && (
+          <Text fontSize="xs" color={errorRed}>
+            {errors?.[fieldName]?.from?.message}
+          </Text>
+        )}
       </Box>
 
       <Box>
-        <FormLabel htmlFor="to_color" fontSize="sm">
-          To Color
-        </FormLabel>
-        <Input
-          size="md"
-          value={localValue.to}
-          onChange={(e) => {
-            const newValue = e.target.value
-            if (newValue.match(/^#[0-9A-Fa-f]{0,8}$/)) {
-              applyGradientInputChanges({ ...localValue, to: newValue })
-            } else if (newValue === "") {
-              applyGradientInputChanges({ ...localValue, to: "" })
-            }
-          }}
-          borderColor="gray.200"
-          placeholder="#FFFFFF"
-          fontFamily="mono"
-          borderRadius="4px"
-        />
-        <Text fontSize="xs" color={errorRed}>
-          {errors?.[fieldName]?.to?.message}
-        </Text>
+        <Flex align="center" justify="space-between" role="group" mb="1">
+          <FormLabel htmlFor="to_color" fontSize="sm" mb="0">
+            To Color
+          </FormLabel>
+          {isCanvasMode && !isToVariablized && onCreateNestedVariable && (
+            <MakeVariableButton
+              fieldLabel="To Color"
+              takenNames={allTakenVariableNames}
+              onCreate={(variable) => {
+                onCreateNestedVariable(["to"], variable)
+              }}
+            />
+          )}
+        </Flex>
+        {isToVariablized ? (
+          <Box
+            borderWidth="1px"
+            borderColor={isToDefaultInvalid ? "red.300" : "purple.200"}
+            bg={isToDefaultInvalid ? "red.50" : "purple.50"}
+            borderRadius="md"
+            p="3"
+          >
+            <BoundVariableChip
+              variable={toVariable}
+              onRename={(updates) => {
+                onUpdateNestedVariable?.(["to"], updates)
+              }}
+              onUnbind={() => {
+                onUnbindNestedVariable?.(["to"])
+              }}
+            />
+            <Box mt="3">
+              <FormControl isInvalid={!!isToDefaultInvalid}>
+                <FormLabel fontSize="xs" mb="1">
+                  Default value
+                </FormLabel>
+                <ColorPickerField
+                  fieldName="to_default"
+                  value={String(toVariable.defaultValue || "")}
+                  setValue={handleToDefaultChange}
+                  isClearable={true}
+                />
+                {isToDefaultInvalid && (
+                  <FormErrorMessage fontSize="xs" mt="1">
+                    Default value is required
+                  </FormErrorMessage>
+                )}
+              </FormControl>
+            </Box>
+          </Box>
+        ) : (
+          <ColorPickerField
+            fieldName="to"
+            value={localValue.to}
+            setValue={handleToColorChange}
+            isClearable={true}
+          />
+        )}
+        {!isToVariablized && (
+          <Text fontSize="xs" color={errorRed}>
+            {errors?.[fieldName]?.to?.message}
+          </Text>
+        )}
       </Box>
 
       <Box>

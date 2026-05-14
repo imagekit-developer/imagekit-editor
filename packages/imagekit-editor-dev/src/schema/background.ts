@@ -63,6 +63,7 @@ export const backgroundTransformations: Record<
     const transformation: TransformationField = {
       label: "Background Type",
       name: "backgroundType",
+      nonVariablizable: true,
       fieldType: "select",
       isTransformation: false,
       transformationGroup: transformationGroup,

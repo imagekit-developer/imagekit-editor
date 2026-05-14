@@ -163,6 +163,15 @@ export interface TransformationField {
   transformationKey?: string
   isVisible?: (value: Record<string, unknown>) => boolean
   transformationGroup?: string
+  /**
+   * When true, this field is excluded from the "Make variable" affordance
+   * even if its `fieldType` would otherwise qualify. Use for true mode
+   * selectors whose value swaps which *set* of dependent fields applies
+   * (e.g. `backgroundType`, `crop`, `focus`, `coordinateMethod`,
+   * `distortType`, resize `mode`). Simple on/off enable-switches whose
+   * dependent fields stay configured regardless should remain variablizable.
+   */
+  nonVariablizable?: boolean
 }
 
 export interface TransformationSchema {
@@ -392,6 +401,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Shadow",
             name: "shadow",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: true,
             transformationGroup: "shadow",
@@ -559,6 +569,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Gradient",
             name: "gradientSwitch",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: false,
             transformationGroup: "gradient",
@@ -632,6 +643,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Distort",
             name: "distort",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: false,
             transformationGroup: "distort",
@@ -640,6 +652,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Distortion Type",
             name: "distortType",
+            nonVariablizable: true,
             fieldType: "radio-card",
             isTransformation: false,
             transformationGroup: "distort",
@@ -1108,6 +1121,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Enable Trim",
             name: "trimEnabled",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: false,
             transformationGroup: "trim",
@@ -1252,6 +1266,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Sharpen Image",
             name: "sharpenEnabled",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: false,
             transformationGroup: "sharpen",
@@ -2058,11 +2073,12 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Font Family",
             name: "fontFamily",
-            fieldType: "select",
+            fieldType: "select-creatable",
             isTransformation: true,
             transformationKey: "fontFamily",
             transformationGroup: "textLayer",
-            helpText: "Choose a font family for the text.",
+            helpText:
+              "Choose a built-in font, type a custom name, or use the picker on the right to select a font file from Media Library.",
             fieldProps: {
               options: [
                 { label: "AbrilFatFace", value: "AbrilFatFace" },
@@ -2089,6 +2105,7 @@ const baseTransformationSchema: TransformationSchema[] = [
                 { label: "Vollkorn", value: "Vollkorn" },
               ],
               defaultValue: "Open Sans",
+              isClearable: true,
             },
           },
           {
@@ -2630,6 +2647,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Crop Mode",
             name: "crop",
+            nonVariablizable: true,
             fieldType: "select",
             isTransformation: true,
             transformationKey: "crop",
@@ -2649,6 +2667,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Focus",
             name: "focus",
+            nonVariablizable: true,
             fieldType: "select",
             isTransformation: true,
             transformationGroup: "imageLayer",
@@ -2718,6 +2737,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Coordinate Method",
             name: "coordinateMethod",
+            nonVariablizable: true,
             fieldType: "radio-card",
             isTransformation: false,
             transformationGroup: "imageLayer",
@@ -2948,6 +2968,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Trim",
             name: "trimEnabled",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: false,
             transformationKey: "trimEnabled",
@@ -3051,6 +3072,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Sharpen Overlay",
             name: "sharpenEnabled",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: false,
             transformationKey: "sharpenEnabled",
@@ -3148,6 +3170,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Gradient",
             name: "gradientSwitch",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: false,
             transformationGroup: "imageLayer",
@@ -3174,6 +3197,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Shadow",
             name: "shadow",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: true,
             transformationGroup: "imageLayer",
@@ -3256,6 +3280,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Distort",
             name: "distort",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: false,
             transformationGroup: "imageLayer",
@@ -3264,6 +3289,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Distortion Type",
             name: "distortType",
+            nonVariablizable: true,
             fieldType: "radio-card",
             isTransformation: false,
             transformationGroup: "imageLayer",
@@ -3826,7 +3852,15 @@ export const transformationFormatters: Record<
       overlayTransform.fontSize = values.fontSize
     }
     if (typeof values.fontFamily === "string") {
+      // Custom-font paths picked from the Media Library come in with `/`
+      // separators (e.g. `fonts/MyFont.ttf`), but ImageKit's `ff-` parameter
+      // is positional within a transformation chain — a literal `/` would be
+      // parsed as a new transformation segment and break the URL. Mirror the
+      // image-layer convention: strip any leading `/` first, then substitute
+      // remaining `/` with `@@` so the SDK round-trips the value untouched.
       overlayTransform.fontFamily = values.fontFamily
+        .replace(/^\//, "")
+        .replace(/\//g, "@@")
     }
     if (typeof values.backgroundColor === "string") {
       const bg = (values.backgroundColor as string).replace(/^#/, "")

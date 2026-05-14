@@ -46,11 +46,10 @@ export const RadioCardField: React.FC<RadioCardFieldProps> = ({
       role="radiogroup"
       align="stretch"
       spacing="2"
-      wrap="wrap"
-      // simple responsive columns
+      wrap="nowrap"
       sx={{
         "& > [data-radio-card]": {
-          flexBasis: `calc(${100 / columns}% - 8px)`,
+          flex: "1 1 0",
           minWidth: 0,
         },
       }}
@@ -72,7 +71,7 @@ export const RadioCardField: React.FC<RadioCardFieldProps> = ({
             p="2"
             transition="all 0.12s ease-in-out"
             borderColor={isSelected ? selectedBorder : "gray.200"}
-            bg={isSelected ? selectedBg : "transparent"}
+            bg={isSelected ? selectedBg : "white"}
             _hover={{ bg: isSelected ? selectedBg : hoverBg }}
             _focusVisible={{
               boxShadow: "0 0 0 2px var(--chakra-colors-blue-400)",
