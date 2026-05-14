@@ -12,8 +12,10 @@ import {
   SliderTrack,
   Switch,
   Textarea,
+  Tooltip,
 } from "@chakra-ui/react"
 import { PiFolderOpen } from "@react-icons/all-files/pi/PiFolderOpen"
+import { PiX } from "@react-icons/all-files/pi/PiX"
 import startCase from "lodash/startCase"
 import { type FC, type ReactNode, useCallback } from "react"
 import type { ColorPickerProps } from "react-best-gradient-color-picker"
@@ -70,38 +72,77 @@ const FilePickerIndicatorsContainer: typeof selectComponents.IndicatorsContainer
     }
     return (
       <selectComponents.IndicatorsContainer {...props}>
-        <button
-          type="button"
-          aria-label="Pick font file"
-          onMouseDown={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-          }}
-          onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            onPickFile?.()
-          }}
-          tabIndex={-1}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "0 6px",
-            background: "transparent",
-            border: "none",
-            cursor: "pointer",
-            color: "#718096",
-          }}
-        >
-          <PiFolderOpen size={16} />
-        </button>
+        <Tooltip label="Select custom font" openDelay={300} hasArrow>
+          <button
+            type="button"
+            aria-label="Select custom font"
+            onMouseDown={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+            }}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onPickFile?.()
+            }}
+            tabIndex={-1}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0 6px",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              color: "#718096",
+            }}
+          >
+            <PiFolderOpen size={16} />
+          </button>
+        </Tooltip>
         {props.children}
       </selectComponents.IndicatorsContainer>
     )
   }
 
+/**
+ * Compact, ghost-styled ClearIndicator that visually matches the
+ * `ColorPickerField` clear button (small `PiX`, no vertical separator,
+ * blue on hover). Keeps a single design language for "clearable" fields
+ * across the sidebar instead of the stock react-select gray X + `|`.
+ */
+const CompactClearIndicator: typeof selectComponents.ClearIndicator = (
+  props,
+) => {
+  const { innerProps } = props
+  return (
+    <selectComponents.ClearIndicator
+      {...props}
+      innerProps={{
+        ...innerProps,
+        style: { ...(innerProps?.style ?? {}), cursor: "pointer" },
+      }}
+    >
+      <PiX
+        size={10.5}
+        style={{ color: "#718096", display: "block" }}
+        aria-hidden
+      />
+    </selectComponents.ClearIndicator>
+  )
+}
+
+/** Hides react-select's default `|` divider before the indicators. */
+const NullIndicatorSeparator = (() =>
+  null) as unknown as typeof selectComponents.IndicatorSeparator
+
+const COMPACT_SELECT_COMPONENTS = {
+  ClearIndicator: CompactClearIndicator,
+  IndicatorSeparator: NullIndicatorSeparator,
+}
+
 const FILE_PICKER_COMPONENTS = {
+  ...COMPACT_SELECT_COMPONENTS,
   IndicatorsContainer: FilePickerIndicatorsContainer,
 }
 
@@ -269,8 +310,12 @@ export const TransformationFieldRenderer: FC<
           menuPlacement="auto"
           options={options}
           value={selectedValue}
-          onChange={(o) => onChange(o?.value)}
+          onChange={(o) => {
+            const single = o as { value?: string } | null
+            onChange(single?.value)
+          }}
           onBlur={onBlur}
+          components={COMPACT_SELECT_COMPONENTS}
           styles={selectStyles}
         />
       ) : (
@@ -281,8 +326,12 @@ export const TransformationFieldRenderer: FC<
           menuPlacement="auto"
           options={options}
           value={selectedValue}
-          onChange={(o) => onChange(o?.value)}
+          onChange={(o) => {
+            const single = o as { value?: string } | null
+            onChange(single?.value)
+          }}
           onBlur={onBlur}
+          components={COMPACT_SELECT_COMPONENTS}
           styles={selectStyles}
         />
       )
@@ -324,7 +373,9 @@ export const TransformationFieldRenderer: FC<
             onChange(single?.value)
           }}
           onBlur={onBlur}
-          components={showFilePicker ? FILE_PICKER_COMPONENTS : undefined}
+          components={
+            showFilePicker ? FILE_PICKER_COMPONENTS : COMPACT_SELECT_COMPONENTS
+          }
           // Custom prop forwarded to FilePickerIndicatorsContainer via
           // react-select's `selectProps` passthrough. Keeps the components
           // map referentially stable while still letting each instance
