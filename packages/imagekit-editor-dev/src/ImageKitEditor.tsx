@@ -179,6 +179,10 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     useState<PersistedEditorSession | null>(null)
 
   React.useEffect(() => {
+    // Canvas-mode templates author a fixed-size blank canvas (often paired
+    // with a specific sourceUrl/dimensions) and aren't compatible with a
+    // generic resumed editing session — skip the prompt entirely.
+    if (mode === "canvas") return
     const resumableSession = readEditorSessionFromLocalStorage(
       EDITOR_SESSION_STORAGE_KEY,
     )
@@ -189,7 +193,7 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
       : !persisted.isPristine
     if (!hasUnsavedChanges) return
     setResumeSession(resumableSession)
-  }, [resolvedProvider])
+  }, [resolvedProvider, mode])
 
   const saveTemplateImperative = useCallback(async () => {
     // Avoid importing hooks here; implement via store+provider with version gating.
@@ -368,7 +372,9 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
                 onAddImage={props.onAddImage}
                 onClose={handleOnClose}
                 exportOptions={props.exportOptions}
-                pauseLocalSessionPersistence={Boolean(resumeSession)}
+                pauseLocalSessionPersistence={
+                  Boolean(resumeSession) || mode === "canvas"
+                }
               />
               {resumeSession ? (
                 <ResumeSessionModal
@@ -384,9 +390,6 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
                     )
                     useEditorStore.getState().resetToNewTemplate()
                     setResumeSession(null)
-                  }}
-                  onCloseEditor={() => {
-                    handleOnClose()
                   }}
                 />
               ) : null}
