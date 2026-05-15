@@ -393,6 +393,27 @@ export type EditorActions<
   setTransformationConfigFormDirty: (dirty: boolean) => void
   resetToNewTemplate: () => void
   /**
+   * Restores editor state from a previously persisted session snapshot
+   * (e.g. localStorage draft). Applies the snapshot literally — including
+   * version counters — and clears transient flags
+   * (`templateStorageWriteBlocked`, `transformationConfigFormDirty`).
+   */
+  restoreSession: (
+    state: Pick<
+      EditorState,
+      | "transformations"
+      | "visibleTransformations"
+      | "templateName"
+      | "templateId"
+      | "templateIsPrivate"
+      | "syncStatus"
+      | "isPristine"
+      | "localChangeVersion"
+      | "lastSyncedVersion"
+      | "lastSavedAt"
+    >,
+  ) => void
+  /**
    * Switches editor mode and updates the source image list accordingly.
    * - canvas: replaces source list with the hardcoded transparent pixel.
    * - editing: clears the source list (host should provide images via
@@ -1021,6 +1042,24 @@ const useEditorStore = create<EditorState & EditorActions>()(
           transformationToEdit: null,
         parentForChild: null,
         },
+      })
+    },
+
+    restoreSession: (snapshot) => {
+      set({
+        transformations: snapshot.transformations,
+        visibleTransformations: snapshot.visibleTransformations,
+        templateName: snapshot.templateName,
+        templateId: snapshot.templateId,
+        templateIsPrivate: snapshot.templateIsPrivate,
+        syncStatus: snapshot.syncStatus,
+        storageError: undefined,
+        isPristine: snapshot.isPristine,
+        templateStorageWriteBlocked: false,
+        localChangeVersion: snapshot.localChangeVersion,
+        lastSyncedVersion: snapshot.lastSyncedVersion,
+        lastSavedAt: snapshot.lastSavedAt,
+        transformationConfigFormDirty: false,
       })
     },
 

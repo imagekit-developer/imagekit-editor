@@ -1,6 +1,6 @@
 import { z } from "zod/v3"
 import type { TransformationField } from "."
-import { colorValidator } from "./transformation"
+import { colorValidator, gradientPickerColorValidator } from "./transformation"
 
 export const SUPPORTED_BACKGROUND_TYPES: Record<
   string,
@@ -306,8 +306,8 @@ export const background = {
     backgroundGradientPaletteSize: z.string().optional(),
     backgroundGradient: z
       .object({
-        from: z.string().optional(),
-        to: z.string().optional(),
+        from: gradientPickerColorValidator.optional(),
+        to: gradientPickerColorValidator.optional(),
         direction: z
           .union([
             z.coerce

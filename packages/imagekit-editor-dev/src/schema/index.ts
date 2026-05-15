@@ -25,6 +25,7 @@ import {
 import {
   colorValidator,
   commonNumberAndExpressionValidator,
+  gradientPickerColorValidator,
   heightValidator,
   layerXValidator,
   layerYValidator,
@@ -525,8 +526,8 @@ const baseTransformationSchema: TransformationSchema[] = [
           .object({
             gradient: z
               .object({
-                from: z.string().optional(),
-                to: z.string().optional(),
+                from: gradientPickerColorValidator.optional(),
+                to: gradientPickerColorValidator.optional(),
                 direction: z
                   .union([
                     z.coerce
@@ -2362,8 +2363,8 @@ const baseTransformationSchema: TransformationSchema[] = [
               .optional(),
             gradient: z
               .object({
-                from: z.string().optional(),
-                to: z.string().optional(),
+                from: gradientPickerColorValidator.optional(),
+                to: gradientPickerColorValidator.optional(),
                 direction: z
                   .union([
                     z.coerce

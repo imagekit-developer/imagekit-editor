@@ -1,14 +1,118 @@
-import { Icon } from "@chakra-ui/react"
+import { Box, ChakraProvider, Portal } from "@chakra-ui/react"
 import {
-  createLocalStorageProvider,
   ImageKitEditor,
   type ImageKitEditorProps,
   type ImageKitEditorRef,
+  type TemplateStorageProvider,
   TRANSFORMATION_STATE_VERSION,
+  type Transformation,
 } from "@imagekit/editor"
-import { PiDownload } from "@react-icons/all-files/pi/PiDownload"
 import React, { useCallback, useEffect } from "react"
 import ReactDOM from "react-dom"
+import { hostTheme } from "./theme/hostTheme"
+
+const TEMPLATE_STORAGE_KEY = "ik-editor:templates:v1"
+
+type StoredTemplateRecord = {
+  id: string
+  clientNumber: string
+  isPrivate: boolean
+  isPinned: boolean
+  name: string
+  transformations: Omit<Transformation, "id">[]
+  createdBy: { userId: string; name: string; email: string }
+  updatedBy: { userId: string; name: string; email: string }
+  createdAt: number
+  updatedAt: number
+  lastUsedAt?: number
+}
+
+function readAllTemplates(): StoredTemplateRecord[] {
+  const raw = localStorage.getItem(TEMPLATE_STORAGE_KEY)
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? (parsed as StoredTemplateRecord[]) : []
+  } catch {
+    return []
+  }
+}
+
+function writeAllTemplates(records: StoredTemplateRecord[]) {
+  localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(records))
+}
+
+function createLocalTemplateStorage(): TemplateStorageProvider {
+  const session = {
+    userId: "demo-user",
+    name: "Demo User",
+    email: "demo@example.com",
+    clientNumber: "demo-client",
+  }
+
+  return {
+    async listTemplates() {
+      return readAllTemplates().sort((a, b) => b.updatedAt - a.updatedAt)
+    },
+    async getTemplate(id: string) {
+      return readAllTemplates().find((t) => t.id === id) ?? null
+    },
+    async saveTemplate(input) {
+      const now = Date.now()
+      const all = readAllTemplates()
+      const existing = input.id
+        ? (all.find((t) => t.id === input.id) ?? null)
+        : null
+
+      const id = existing?.id ?? crypto.randomUUID?.() ?? String(now)
+      const record: StoredTemplateRecord = {
+        id,
+        clientNumber: input.clientNumber ?? existing?.clientNumber ?? "demo",
+        isPrivate: input.isPrivate ?? existing?.isPrivate ?? false,
+        isPinned: input.isPinned ?? existing?.isPinned ?? false,
+        name: input.name,
+        transformations: input.transformations,
+        createdBy: input.createdBy ??
+          existing?.createdBy ?? {
+            userId: session.userId,
+            name: session.name,
+            email: session.email,
+          },
+        updatedBy: input.updatedBy ?? {
+          userId: session.userId,
+          name: session.name,
+          email: session.email,
+        },
+        createdAt: input.createdAt ?? existing?.createdAt ?? now,
+        updatedAt: input.updatedAt ?? now,
+        lastUsedAt: existing?.lastUsedAt,
+      }
+
+      const next = [record, ...all.filter((t) => t.id !== id)]
+      writeAllTemplates(next)
+      return record
+    },
+    async deleteTemplate(id: string) {
+      writeAllTemplates(readAllTemplates().filter((t) => t.id !== id))
+    },
+    async setTemplatePinned(id: string, isPinned: boolean) {
+      const all = readAllTemplates()
+      const existing = all.find((t) => t.id === id)
+      if (!existing) {
+        throw new Error("Template not found")
+      }
+      const updated = { ...existing, isPinned, updatedAt: Date.now() }
+      writeAllTemplates([updated, ...all.filter((t) => t.id !== id)])
+      return updated
+    },
+    getProviderName() {
+      return "localStorage"
+    },
+    getCurrentUserSession() {
+      return session
+    },
+  }
+}
 
 function App() {
   const [open, setOpen] = React.useState(true)
@@ -115,12 +219,14 @@ function App() {
         // })),
       ],
       onAddImage: handleAddImage,
-      onClose: () => setOpen(false),
+      onClose: ({ destroy }) => {
+        destroy()
+        setOpen(false)
+      },
       exportOptions: [
         {
           type: "button",
           label: "Export",
-          icon: <Icon boxSize={"5"} as={PiDownload} />,
           isVisible: true,
           onClick: (images, currentImage) => {
             console.log("Export images:", images, currentImage)
@@ -149,7 +255,7 @@ function App() {
         console.log("Signed URL", request.url)
         return Promise.resolve(request.url)
       },
-      templateStorage: createLocalStorageProvider(),
+      templateStorage: createLocalTemplateStorage(),
     })
   }, [handleAddImage])
 
@@ -318,7 +424,13 @@ function App() {
         </div>
       </div>
 
-      {open && editorProps && <ImageKitEditor {...editorProps} ref={ref} />}
+      {open && editorProps && (
+        <Portal>
+          <Box zIndex="modal" position="relative">
+            <ImageKitEditor {...editorProps} ref={ref} />
+          </Box>
+        </Portal>
+      )}
     </>
   )
 }
@@ -326,7 +438,9 @@ function App() {
 const root = document.getElementById("root")
 ReactDOM.render(
   <React.StrictMode>
-    <App />
+    <ChakraProvider theme={hostTheme}>
+      <App />
+    </ChakraProvider>
   </React.StrictMode>,
   root,
 )

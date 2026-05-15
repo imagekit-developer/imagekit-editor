@@ -13,6 +13,9 @@ import {
   PopoverBody,
   PopoverContent,
   PopoverTrigger,
+  Skeleton,
+  SkeletonCircle,
+  SkeletonText,
   Spinner,
   Text,
   Tooltip,
@@ -64,6 +67,86 @@ const IconAny = chakraAny(Icon)
 const PopoverContentAny = chakraAny(PopoverContent)
 const PopoverBodyAny = chakraAny(PopoverBody)
 const DividerAny = chakraAny(Divider)
+
+function TemplatesLibrarySkeleton() {
+  const rows = Array.from({ length: 8 })
+  return (
+    <Box>
+      {/* Header skeleton */}
+      <Flex px="5" py="2" alignItems="center" gap="4">
+        <Box flexShrink={0} w="8" />
+        <Box flex="3" minW={0} ml="2">
+          <Skeleton height="10px" width="64px" borderRadius="md" />
+        </Box>
+        <Box flex="2" minW={0}>
+          <Skeleton height="10px" width="84px" borderRadius="md" />
+        </Box>
+        <Box flex="1.5" minW={0}>
+          <Skeleton height="10px" width="72px" borderRadius="md" />
+        </Box>
+        <Box flex="1.5" minW={0}>
+          <Skeleton height="10px" width="92px" borderRadius="md" />
+        </Box>
+        <Box flexShrink={0} w="8" />
+      </Flex>
+      <DividerAny borderColor="editorGray.300" />
+
+      {/* Rows skeleton */}
+      <Box>
+        {rows.map((_, i) => (
+          <Flex
+            // biome-ignore lint/suspicious/noArrayIndexKey: stable fixed skeleton list
+            key={i}
+            px="5"
+            py="4"
+            alignItems="center"
+            borderBottomWidth="1px"
+            borderColor="editorGray.200"
+            gap="4"
+          >
+            <Box
+              flexShrink={0}
+              w="8"
+              display="flex"
+              justifyContent="flex-start"
+            >
+              <Skeleton height="18px" width="18px" borderRadius="md" />
+            </Box>
+
+            <Box flex="3" minW={0} ml="2">
+              <SkeletonText noOfLines={1} spacing="2" />
+              <Box mt="2">
+                <Skeleton height="10px" width="120px" borderRadius="md" />
+              </Box>
+            </Box>
+
+            <Flex flex="2" alignItems="center" gap="2" minW={0}>
+              <SkeletonCircle size="8" flexShrink={0} />
+              <Box minW={0} flex="1">
+                <SkeletonText noOfLines={2} spacing="2" />
+              </Box>
+            </Flex>
+
+            <Box flex="1.5" minW={0}>
+              <Flex alignItems="center" gap="2">
+                <Skeleton height="18px" width="18px" borderRadius="md" />
+                <Skeleton height="12px" width="120px" borderRadius="md" />
+              </Flex>
+            </Box>
+
+            <Box flex="1.5" minW={0}>
+              <Skeleton height="12px" width="120px" borderRadius="md" />
+            </Box>
+
+            <Box flexShrink={0} w="8">
+              <Skeleton height="28px" width="28px" borderRadius="md" />
+            </Box>
+          </Flex>
+        ))}
+      </Box>
+    </Box>
+  )
+}
 
 function formatRelativeTime(ts: number): string {
   const now = Date.now()
@@ -523,9 +606,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
           data-testid="templates-library-scroll"
         >
           {loading ? (
-            <FlexAny justifyContent="center" alignItems="center" py="16">
-              <SpinnerAny size="md" color="editorBattleshipGrey.400" />
-            </FlexAny>
+            <TemplatesLibrarySkeleton />
           ) : (
             <>
               {/* Table header */}

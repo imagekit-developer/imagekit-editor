@@ -16,7 +16,8 @@ import { MdSync } from "@react-icons/all-files/md/MdSync"
 import { MdSyncProblem } from "@react-icons/all-files/md/MdSyncProblem"
 import { useEffect, useRef, useState } from "react"
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
-import { useSaveTemplate } from "../../hooks/useSaveTemplate"
+import { APPLY_CHANGES_BEFORE_SAVE_MESSAGE } from "../../hooks/useSaveTemplate"
+import { useTemplateSync } from "../../hooks/useTemplateSync"
 import { useEditorStore } from "../../store"
 import { chakraAny } from "../../utils"
 
@@ -37,13 +38,16 @@ export function TemplateStatus() {
   const templateStorageWriteBlocked = useEditorStore(
     (s) => s.templateStorageWriteBlocked,
   )
+  const transformationConfigFormDirty = useEditorStore(
+    (s) => s.transformationConfigFormDirty,
+  )
   const hasPendingLocalWork = useEditorStore(
     (s) =>
       s.localChangeVersion !== s.lastSyncedVersion ||
       s.transformationConfigFormDirty,
   )
   const provider = useTemplateStorage()
-  const { save } = useSaveTemplate()
+  const { saveNow } = useTemplateSync()
 
   const [notificationVisible, setNotificationVisible] = useState(false)
   const [lastSyncResult, setLastSyncResult] = useState<
@@ -242,14 +246,21 @@ export function TemplateStatus() {
             <TextAny2 fontSize="sm" color="editorBattleshipGrey.600">
               {popupBody}
             </TextAny2>
+            {transformationConfigFormDirty && (
+              <TextAny2 fontSize="sm" color="editorBattleshipGrey.600" mt="2">
+                {APPLY_CHANGES_BEFORE_SAVE_MESSAGE}
+              </TextAny2>
+            )}
             {isUnsavedState && (
               <Box mt="3">
                 <ButtonAny
                   size="sm"
                   colorScheme="blue"
-                  onClick={() => void save()}
+                  onClick={() => void saveNow({ reason: "manual" })}
                   isLoading={syncStatus === "saving"}
-                  isDisabled={templateStorageWriteBlocked}
+                  isDisabled={
+                    templateStorageWriteBlocked || transformationConfigFormDirty
+                  }
                 >
                   Save
                 </ButtonAny>

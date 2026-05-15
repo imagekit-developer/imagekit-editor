@@ -260,9 +260,11 @@ export const SortableTransformationItem = ({
               </Text>
             </Box>
           ) : (
-            <Text fontSize="md" opacity={isVisible ? 1 : 0.5}>
-              {transformation.name}
-            </Text>
+            <Tooltip label={transformation.name} placement="top">
+              <Text fontSize="md" opacity={isVisible ? 1 : 0.5} noOfLines={1}>
+                {transformation.name}
+              </Text>
+            </Tooltip>
           )}
           <Box flex={1} />
           {/*

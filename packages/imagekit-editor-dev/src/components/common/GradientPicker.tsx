@@ -35,6 +35,11 @@ export type GradientPickerState = {
 
 type DirectionMode = "direction" | "degrees"
 
+function isCompleteHexColor(value: string): boolean {
+  // Accept #RRGGBB and #RRGGBBAA. (Inputs may be temporarily incomplete while typing.)
+  return /^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/.test(value)
+}
+
 function rgbaToHex(rgba: string): string {
   const parts = rgba.match(/[\d.]+/g)?.map(Number) ?? []
 
@@ -115,23 +120,26 @@ const GradientPickerField = ({
   )
 
   function getLinearGradientString(value: GradientPickerState): string {
+    // NOTE: The gradient parser used by the picker is strict and crashes on
+    // invalid/incomplete color tokens (e.g. empty string when clearing inputs).
+    // Keep the preview gradient always valid by falling back to defaults.
+    const fromColor = isCompleteHexColor(value.from) ? value.from : "#FFFFFFFF"
+    const toColor = isCompleteHexColor(value.to) ? value.to : "#00000000"
+
     let direction = ""
     const dirInt = Number(value.direction as string)
     if (!Number.isNaN(dirInt)) {
       direction = `${dirInt}deg`
     } else {
-      direction = `to ${String(value.direction).split("_").join(" ")}`
+      const dirString = String(value.direction || "bottom")
+      direction = `to ${dirString.split("_").join(" ")}`
     }
     const stopPoint =
       typeof value.stopPoint === "number"
         ? value.stopPoint
         : Number(value.stopPoint)
-    // Guard against empty from/to so the CSS / underlying gradient parser
-    // doesn't throw "Expected color definition". An empty value can occur
-    // briefly while the user is editing a color input.
-    const from = value.from || "#00000000"
-    const to = value.to || "#00000000"
-    return `linear-gradient(${direction}, ${from} 0%, ${to} ${stopPoint}%)`
+    const safeStopPoint = Number.isFinite(stopPoint) ? stopPoint : 100
+    return `linear-gradient(${direction}, ${fromColor} 0%, ${toColor} ${safeStopPoint}%)`
   }
 
   const [localValue, setLocalValue] = useState<GradientPickerState>(
