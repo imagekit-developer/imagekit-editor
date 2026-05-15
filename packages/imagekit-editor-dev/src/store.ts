@@ -452,7 +452,7 @@ const initialVisibleTransformations: Record<string, boolean> = {}
 
 function initTransformationStates(transformations: Transformation[]) {
   transformations.forEach((transformation) => {
-    initialVisibleTransformations[transformation.name] = true
+    initialVisibleTransformations[transformation.id] = true
   })
 }
 
