@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest"
 import {
   isVariableRef,
   resolveVariableRefs,
-  walkVariableRefs,
   type VariableRef,
+  walkVariableRefs,
 } from "./index"
 
 describe("isVariableRef", () => {

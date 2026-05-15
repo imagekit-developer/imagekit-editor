@@ -42,20 +42,27 @@ import {
   RESIZE_CROP_MODES,
   transformationSchema,
 } from "../../schema"
-import { type SyncStatus, findTransformationDeep, useEditorStore } from "../../store"
 import {
-  generateVariableName,
+  findTransformationDeep,
+  type SyncStatus,
+  useEditorStore,
+} from "../../store"
+import {
   isVariableRef,
-  walkVariableRefs,
   type VariableRef,
+  walkVariableRefs,
 } from "../../variables"
 import { listVariables } from "../../variables/listVariables"
+import {
+  BoundVariableChip,
+  isVariablizableField,
+  MakeVariableButton,
+} from "./MakeVariableButton"
 import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
 import { SidebarRoot } from "./sidebar-root"
 import { TransformationFieldRenderer } from "./TransformationFieldRenderer"
-import { MakeVariableButton, BoundVariableChip, isVariablizableField } from "./MakeVariableButton"
 
 // Stable references to prevent unnecessary re-renders
 const EMPTY_ERRORS = {}
@@ -270,13 +277,13 @@ export const TransformationConfigSidebar: React.FC = () => {
   const initialBoundFields = useMemo(() => {
     const out: Record<string, VariableRef> = {}
     if (!editedTransformationValue) return out
-    
+
     // Walk the entire value tree to find all VariableRefs at any depth
     walkVariableRefs(editedTransformationValue, (ref, path) => {
       const key = pathToKey(path)
       out[key] = ref
     })
-    
+
     return out
   }, [editedTransformationValue])
 
@@ -307,13 +314,18 @@ export const TransformationConfigSidebar: React.FC = () => {
     // fields with truthy defaults (`dpr: 1`) would block Apply even though
     // the user never saw them.
     const isInplace =
-      transformationToEdit?.position === "inplace" && !!editedTransformationValue
+      transformationToEdit?.position === "inplace" &&
+      !!editedTransformationValue
     const acc: Record<string, unknown> = {}
 
     for (const field of selectedTransformation.transformations) {
       // Stored value (inplace edit) always wins, even if the field would
       // currently be hidden — we don't want to silently drop user data.
-      if (isInplace && editedTransformationValue && field.name in editedTransformationValue) {
+      if (
+        isInplace &&
+        editedTransformationValue &&
+        field.name in editedTransformationValue
+      ) {
         const stored = editedTransformationValue[field.name]
         // Replace all VariableRefs (including nested ones) with their defaultValue
         // so the form and Zod validator have something to work with.
@@ -360,7 +372,6 @@ export const TransformationConfigSidebar: React.FC = () => {
   }, [selectedTransformation, boundFields])
 
   const {
-    register,
     handleSubmit,
     formState: { errors, isDirty },
     reset,
@@ -402,10 +413,24 @@ export const TransformationConfigSidebar: React.FC = () => {
 
   // Cache stable onChange handlers per field to prevent infinite loops
   // in TransformationFieldRenderer (ColorPicker/GradientPicker are sensitive to identity)
-  const onChangeHandlers = useRef<Map<string, (value: unknown) => void>>(new Map())
+  const onChangeHandlers = useRef<Map<string, (value: unknown) => void>>(
+    new Map(),
+  )
   const nestedVariableHandlers = useRef<{
-    onCreate: Map<string, (path: string[], variable: { name: string; label: string; description?: string }) => void>
-    onUpdate: Map<string, (path: string[], updates: { label?: string; description?: string }) => void>
+    onCreate: Map<
+      string,
+      (
+        path: string[],
+        variable: { name: string; label: string; description?: string },
+      ) => void
+    >
+    onUpdate: Map<
+      string,
+      (
+        path: string[],
+        updates: { label?: string; description?: string },
+      ) => void
+    >
     onUnbind: Map<string, (path: string[]) => void>
     onChange: Map<string, (path: string[], value: unknown) => void>
   }>({
@@ -428,7 +453,7 @@ export const TransformationConfigSidebar: React.FC = () => {
         setBindingDirty(true)
       })
     }
-    return onChangeHandlers.current.get(fieldName)!
+    return onChangeHandlers.current.get(fieldName) as (value: unknown) => void
   }, [])
 
   const handleVariableRename = useCallback(
@@ -442,22 +467,26 @@ export const TransformationConfigSidebar: React.FC = () => {
     [],
   )
 
-  const handleVariableUnbind = useCallback(
-    (fieldName: string) => {
-      setBoundFields((prev) => {
-        const next = { ...prev }
-        delete next[fieldName]
-        return next
-      })
-      setBindingDirty(true)
-    },
-    [],
-  )
+  const handleVariableUnbind = useCallback((fieldName: string) => {
+    setBoundFields((prev) => {
+      const next = { ...prev }
+      delete next[fieldName]
+      return next
+    })
+    setBindingDirty(true)
+  }, [])
 
   // Stable handlers for nested variables (e.g., gradient from/to colors)
   const handleCreateNestedVariable = useCallback(
-    (fieldName: string, path: string[], variable: { name: string; label: string; description?: string }) => {
-      const currentValue = getNestedValue(values[fieldName] as Record<string, unknown>, path)
+    (
+      fieldName: string,
+      path: string[],
+      variable: { name: string; label: string; description?: string },
+    ) => {
+      const currentValue = getNestedValue(
+        values[fieldName] as Record<string, unknown>,
+        path,
+      )
       const fullPath = [fieldName, ...path].join(".")
       setBoundFields((prev) => ({
         ...prev,
@@ -474,7 +503,11 @@ export const TransformationConfigSidebar: React.FC = () => {
   )
 
   const handleUpdateNestedVariable = useCallback(
-    (fieldName: string, path: string[], updates: { label?: string; description?: string }) => {
+    (
+      fieldName: string,
+      path: string[],
+      updates: { label?: string; description?: string },
+    ) => {
       const fullPath = [fieldName, ...path].join(".")
       setBoundFields((prev) => ({
         ...prev,
@@ -540,42 +573,75 @@ export const TransformationConfigSidebar: React.FC = () => {
   )
 
   // Get cached nested variable handlers per field
-  const getNestedVariableHandlers = useCallback((fieldName: string) => {
-    // onCreate handler
-    if (!nestedVariableHandlers.current.onCreate.has(fieldName)) {
-      nestedVariableHandlers.current.onCreate.set(fieldName, (path, variable) => {
-        handleCreateNestedVariable(fieldName, path, variable)
-      })
-    }
-    
-    // onUpdate handler
-    if (!nestedVariableHandlers.current.onUpdate.has(fieldName)) {
-      nestedVariableHandlers.current.onUpdate.set(fieldName, (path, updates) => {
-        handleUpdateNestedVariable(fieldName, path, updates)
-      })
-    }
-    
-    // onUnbind handler
-    if (!nestedVariableHandlers.current.onUnbind.has(fieldName)) {
-      nestedVariableHandlers.current.onUnbind.set(fieldName, (path) => {
-        handleUnbindNestedVariable(fieldName, path)
-      })
-    }
-    
-    // onChange handler
-    if (!nestedVariableHandlers.current.onChange.has(fieldName)) {
-      nestedVariableHandlers.current.onChange.set(fieldName, (path, value) => {
-        handleChangeNestedVariableDefault(fieldName, path, value)
-      })
-    }
+  const getNestedVariableHandlers = useCallback(
+    (fieldName: string) => {
+      // onCreate handler
+      if (!nestedVariableHandlers.current.onCreate.has(fieldName)) {
+        nestedVariableHandlers.current.onCreate.set(
+          fieldName,
+          (path, variable) => {
+            handleCreateNestedVariable(fieldName, path, variable)
+          },
+        )
+      }
 
-    return {
-      onCreate: nestedVariableHandlers.current.onCreate.get(fieldName)!,
-      onUpdate: nestedVariableHandlers.current.onUpdate.get(fieldName)!,
-      onUnbind: nestedVariableHandlers.current.onUnbind.get(fieldName)!,
-      onChange: nestedVariableHandlers.current.onChange.get(fieldName)!,
-    }
-  }, [handleCreateNestedVariable, handleUpdateNestedVariable, handleUnbindNestedVariable, handleChangeNestedVariableDefault])
+      // onUpdate handler
+      if (!nestedVariableHandlers.current.onUpdate.has(fieldName)) {
+        nestedVariableHandlers.current.onUpdate.set(
+          fieldName,
+          (path, updates) => {
+            handleUpdateNestedVariable(fieldName, path, updates)
+          },
+        )
+      }
+
+      // onUnbind handler
+      if (!nestedVariableHandlers.current.onUnbind.has(fieldName)) {
+        nestedVariableHandlers.current.onUnbind.set(fieldName, (path) => {
+          handleUnbindNestedVariable(fieldName, path)
+        })
+      }
+
+      // onChange handler
+      if (!nestedVariableHandlers.current.onChange.has(fieldName)) {
+        nestedVariableHandlers.current.onChange.set(
+          fieldName,
+          (path, value) => {
+            handleChangeNestedVariableDefault(fieldName, path, value)
+          },
+        )
+      }
+
+      return {
+        onCreate: nestedVariableHandlers.current.onCreate.get(
+          fieldName,
+        ) as NonNullable<
+          ReturnType<typeof nestedVariableHandlers.current.onCreate.get>
+        >,
+        onUpdate: nestedVariableHandlers.current.onUpdate.get(
+          fieldName,
+        ) as NonNullable<
+          ReturnType<typeof nestedVariableHandlers.current.onUpdate.get>
+        >,
+        onUnbind: nestedVariableHandlers.current.onUnbind.get(
+          fieldName,
+        ) as NonNullable<
+          ReturnType<typeof nestedVariableHandlers.current.onUnbind.get>
+        >,
+        onChange: nestedVariableHandlers.current.onChange.get(
+          fieldName,
+        ) as NonNullable<
+          ReturnType<typeof nestedVariableHandlers.current.onChange.get>
+        >,
+      }
+    },
+    [
+      handleCreateNestedVariable,
+      handleUpdateNestedVariable,
+      handleUnbindNestedVariable,
+      handleChangeNestedVariableDefault,
+    ],
+  )
 
   const onClose = useCallback(() => {
     if (transformations.length === 0) {
@@ -758,7 +824,9 @@ export const TransformationConfigSidebar: React.FC = () => {
 
   const footerActionsConfig = useMemo(() => {
     // Validate that all bound fields have non-empty defaultValues
-    const hasInvalidDefaultValues = Object.values(boundFields).some(isDefaultValueInvalid)
+    const hasInvalidDefaultValues = Object.values(boundFields).some(
+      isDefaultValueInvalid,
+    )
 
     return getTransformationFooterActionsConfig({
       isDirty: isDirty || bindingDirty,
@@ -776,6 +844,7 @@ export const TransformationConfigSidebar: React.FC = () => {
     templateStorageWriteBlocked,
     hasUnsyncedChanges,
     boundFields,
+    isDefaultValueInvalid,
   ])
 
   const footerActions = useMemo(() => {
@@ -926,10 +995,10 @@ export const TransformationConfigSidebar: React.FC = () => {
           .map((field: TransformationField) => {
             const boundVariable = boundFields[field.name]
             const showMakeVariable =
-              isCanvasMode &&
-              !boundVariable &&
-              isVariablizableField(field)
-            const hasInvalidDefaultValue = Boolean(boundVariable && isDefaultValueInvalid(boundVariable))
+              isCanvasMode && !boundVariable && isVariablizableField(field)
+            const hasInvalidDefaultValue = Boolean(
+              boundVariable && isDefaultValueInvalid(boundVariable),
+            )
             return (
               <FormControl
                 key={field.name}
@@ -941,12 +1010,7 @@ export const TransformationConfigSidebar: React.FC = () => {
                   hasInvalidDefaultValue
                 }
               >
-                <Flex
-                  align="center"
-                  justify="space-between"
-                  role="group"
-                  mb="1"
-                >
+                <Flex align="center" justify="space-between" mb="1">
                   <FormLabel htmlFor={field.name} fontSize="sm" mb="0">
                     {field.label}
                   </FormLabel>
@@ -962,8 +1026,13 @@ export const TransformationConfigSidebar: React.FC = () => {
                           [field.name]: {
                             $var: variable.name,
                             label: variable.label,
-                            defaultValue: currentValue ?? field.fieldProps?.defaultValue ?? "",
-                            ...(variable.description && { description: variable.description }),
+                            defaultValue:
+                              currentValue ??
+                              field.fieldProps?.defaultValue ??
+                              "",
+                            ...(variable.description && {
+                              description: variable.description,
+                            }),
                           },
                         }))
                         setBindingDirty(true)
@@ -977,7 +1046,9 @@ export const TransformationConfigSidebar: React.FC = () => {
                 {boundVariable ? (
                   <Box
                     borderWidth="1px"
-                    borderColor={hasInvalidDefaultValue ? "red.300" : "purple.200"}
+                    borderColor={
+                      hasInvalidDefaultValue ? "red.300" : "purple.200"
+                    }
                     bg={hasInvalidDefaultValue ? "red.50" : "purple.50"}
                     borderRadius="md"
                     p="3"
@@ -985,11 +1056,17 @@ export const TransformationConfigSidebar: React.FC = () => {
                   >
                     <BoundVariableChip
                       variable={boundVariable}
-                      onRename={(updates) => handleVariableRename(field.name, updates)}
+                      onRename={(updates) =>
+                        handleVariableRename(field.name, updates)
+                      }
                       onUnbind={() => handleVariableUnbind(field.name)}
                     />
                     <Box mt="3">
-                      <FormLabel htmlFor={`${field.name}-default`} fontSize="sm" mb="1">
+                      <FormLabel
+                        htmlFor={`${field.name}-default`}
+                        fontSize="sm"
+                        mb="1"
+                      >
                         Default value
                       </FormLabel>
                       <TransformationFieldRenderer
@@ -1030,7 +1107,9 @@ export const TransformationConfigSidebar: React.FC = () => {
                     name={field.name}
                     control={control}
                     render={({ field: controllerField }) => {
-                      const nestedHandlers = getNestedVariableHandlers(field.name)
+                      const nestedHandlers = getNestedVariableHandlers(
+                        field.name,
+                      )
                       return (
                         <TransformationFieldRenderer
                           field={field}
@@ -1056,7 +1135,9 @@ export const TransformationConfigSidebar: React.FC = () => {
                           onCreateNestedVariable={nestedHandlers.onCreate}
                           onUpdateNestedVariable={nestedHandlers.onUpdate}
                           onUnbindNestedVariable={nestedHandlers.onUnbind}
-                          onChangeNestedVariableDefault={nestedHandlers.onChange}
+                          onChangeNestedVariableDefault={
+                            nestedHandlers.onChange
+                          }
                         />
                       )
                     }}

@@ -174,9 +174,9 @@ describe("buildVariablesSchema (host usage)", () => {
         nestedFontStyle: ["bold"],
       }).success,
     ).toBe(true)
-    expect(
-      schema.safeParse({ nestedFontStyle: ["galat bat"] }).success,
-    ).toBe(false)
+    expect(schema.safeParse({ nestedFontStyle: ["galat bat"] }).success).toBe(
+      false,
+    )
   })
 
   // Backward compatibility: templates persisted before the `defaultValue`
@@ -202,9 +202,7 @@ describe("buildVariablesSchema (host usage)", () => {
     expect(variables[0].label).toBe("Headline")
 
     const schema = buildVariablesSchema(template.transformations)
-    expect(
-      schema.safeParse({ headline: "Sale ends today" }).success,
-    ).toBe(true)
+    expect(schema.safeParse({ headline: "Sale ends today" }).success).toBe(true)
   })
 
   // New variables carry an inline `defaultValue` (and an optional

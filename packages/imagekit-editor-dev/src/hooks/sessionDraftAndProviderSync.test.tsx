@@ -1,6 +1,5 @@
 import "@testing-library/jest-dom/vitest"
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
-import React from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { TemplateStorageContextProvider } from "../context/TemplateStorageContext"
 import {
@@ -147,8 +146,8 @@ describe("localStorage session drafts vs provider sync", () => {
 
       const draft = readDraftSyncVersions()
       expect(draft).not.toBeNull()
-      expect(draft!.localChangeVersion).toBe(memory.localChangeVersion)
-      expect(draft!.lastSyncedVersion).toBe(memory.lastSyncedVersion)
+      expect(draft?.localChangeVersion).toBe(memory.localChangeVersion)
+      expect(draft?.lastSyncedVersion).toBe(memory.lastSyncedVersion)
     },
   )
 
@@ -227,8 +226,8 @@ describe("localStorage session drafts vs provider sync", () => {
 
       const draft = readDraftSyncVersions()
       expect(draft).not.toBeNull()
-      expect(draft!.localChangeVersion).toBe(memory.localChangeVersion)
-      expect(draft!.lastSyncedVersion).toBe(memory.lastSyncedVersion)
+      expect(draft?.localChangeVersion).toBe(memory.localChangeVersion)
+      expect(draft?.lastSyncedVersion).toBe(memory.lastSyncedVersion)
     },
   )
 
@@ -268,7 +267,7 @@ describe("localStorage session drafts vs provider sync", () => {
       useEditorStore.getState().destroy()
       expect(useEditorStore.getState().localChangeVersion).toBe(0)
 
-      useEditorStore.getState().restoreSession(session!.state)
+      useEditorStore.getState().restoreSession(session?.state)
 
       expect(useEditorStore.getState().localChangeVersion).toBe(1)
       expect(useEditorStore.getState().lastSyncedVersion).toBe(1)
@@ -300,9 +299,9 @@ describe("localStorage session drafts vs provider sync", () => {
 
     const draft = readDraftSyncVersions()
     expect(draft).not.toBeNull()
-    expect(draft!.syncStatus).toBe("error")
-    expect(draft!.localChangeVersion).toBe(3)
-    expect(draft!.lastSyncedVersion).toBe(2)
+    expect(draft?.syncStatus).toBe("error")
+    expect(draft?.localChangeVersion).toBe(3)
+    expect(draft?.lastSyncedVersion).toBe(2)
   })
 })
 
@@ -349,8 +348,8 @@ describe("localStorage session drafts — debounce vs immediate persist", () => 
       persistEditorSessionNow()
 
       const draft = readDraftSyncVersions()
-      expect(draft!.lastSyncedVersion).toBe(3)
-      expect(draft!.localChangeVersion).toBe(3)
+      expect(draft?.lastSyncedVersion).toBe(3)
+      expect(draft?.localChangeVersion).toBe(3)
     },
   )
 
@@ -407,8 +406,8 @@ describe("localStorage session drafts — debounce vs immediate persist", () => 
       })
 
       const draft = readDraftSyncVersions()
-      expect(draft!.localChangeVersion).toBe(4)
-      expect(draft!.lastSyncedVersion).toBe(4)
+      expect(draft?.localChangeVersion).toBe(4)
+      expect(draft?.lastSyncedVersion).toBe(4)
     },
   )
 })

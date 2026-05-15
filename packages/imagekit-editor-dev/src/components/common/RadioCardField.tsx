@@ -19,7 +19,6 @@ type RadioCardFieldProps = {
   value?: string | null
   options: RadioCardOption[]
   onChange: (value: string) => void
-  columns?: number
 }
 
 export const RadioCardField: React.FC<RadioCardFieldProps> = ({
@@ -27,7 +26,6 @@ export const RadioCardField: React.FC<RadioCardFieldProps> = ({
   value,
   options,
   onChange,
-  columns = 3,
 }) => {
   const selectedBg = useColorModeValue("blue.50", "blue.900")
   const selectedBorder = useColorModeValue("blue.400", "blue.300")

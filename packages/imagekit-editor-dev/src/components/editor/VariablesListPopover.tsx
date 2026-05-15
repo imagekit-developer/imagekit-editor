@@ -90,8 +90,7 @@ export const VariablesListPopover: FC<VariablesListPopoverProps> = ({
           {count === 0 ? (
             <Box p="4">
               <Text fontSize="sm" color="gray.600">
-                No variables yet. Hover any field label in the sidebar and
-                click{" "}
+                No variables yet. Hover any field label in the sidebar and click{" "}
                 <Text as="span" fontFamily="mono">
                   {"{}"}
                 </Text>{" "}
@@ -116,11 +115,7 @@ export const VariablesListPopover: FC<VariablesListPopoverProps> = ({
                 return (
                   <Box key={v.name} px="3" py="2">
                     <Flex align="baseline" justify="space-between" gap="2">
-                      <Text
-                        fontSize="sm"
-                        fontWeight="medium"
-                        noOfLines={1}
-                      >
+                      <Text fontSize="sm" fontWeight="medium" noOfLines={1}>
                         {v.label}
                       </Text>
                       <Text
@@ -136,12 +131,7 @@ export const VariablesListPopover: FC<VariablesListPopoverProps> = ({
                       {v.stepName} · {v.fieldLabel}
                     </Text>
                     {defaultPreview !== null && (
-                      <Text
-                        fontSize="xs"
-                        color="gray.700"
-                        mt="1"
-                        noOfLines={1}
-                      >
+                      <Text fontSize="xs" color="gray.700" mt="1" noOfLines={1}>
                         <Text as="span" color="gray.500">
                           Default:{" "}
                         </Text>
@@ -151,12 +141,7 @@ export const VariablesListPopover: FC<VariablesListPopoverProps> = ({
                       </Text>
                     )}
                     {v.description && (
-                      <Text
-                        fontSize="xs"
-                        color="gray.600"
-                        mt="1"
-                        noOfLines={2}
-                      >
+                      <Text fontSize="xs" color="gray.600" mt="1" noOfLines={2}>
                         {v.description}
                       </Text>
                     )}

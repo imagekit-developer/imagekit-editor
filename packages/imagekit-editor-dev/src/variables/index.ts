@@ -120,7 +120,7 @@ export function resolveVariableRefs(
   overrides: Readonly<Record<string, unknown>> = {},
 ): unknown {
   if (isVariableRef(value)) {
-    return Object.prototype.hasOwnProperty.call(overrides, value.$var)
+    return Object.hasOwn(overrides, value.$var)
       ? overrides[value.$var]
       : value.defaultValue
   }

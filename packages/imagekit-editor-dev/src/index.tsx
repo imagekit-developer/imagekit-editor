@@ -1,3 +1,7 @@
+export {
+  VariableField,
+  type VariableFieldProps,
+} from "./components/variables/VariableField"
 export type {
   GetTemplatePermissions,
   TemplatePermissionBuckets,
@@ -39,7 +43,3 @@ export {
   listVariables,
   type VariableDescriptor,
 } from "./variables/listVariables"
-export {
-  VariableField,
-  type VariableFieldProps,
-} from "./components/variables/VariableField"

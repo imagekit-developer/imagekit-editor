@@ -14,14 +14,17 @@ import {
 } from "@chakra-ui/react"
 import { BsArrowsMove } from "@react-icons/all-files/bs/BsArrowsMove"
 import { TbAngle } from "@react-icons/all-files/tb/TbAngle"
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import ColorPicker, { useColorPicker } from "react-best-gradient-color-picker"
 import type { FieldErrors } from "react-hook-form"
 import { useDebounce } from "../../hooks/useDebounce"
 import { useEditorStore } from "../../store"
 import { isVariableRef, type VariableRef } from "../../variables"
 import { listVariables } from "../../variables/listVariables"
-import { MakeVariableButton, BoundVariableChip } from "../sidebar/MakeVariableButton"
+import {
+  BoundVariableChip,
+  MakeVariableButton,
+} from "../sidebar/MakeVariableButton"
 import AnchorField from "./AnchorField"
 import ColorPickerField from "./ColorPickerField"
 import RadioCardField from "./RadioCardField"
@@ -81,8 +84,14 @@ const GradientPickerField = ({
   value?: GradientPickerState | null
   errors?: FieldErrors<Record<string, unknown>>
   nestedVariables?: Record<string, unknown>
-  onCreateNestedVariable?: (path: string[], variable: { name: string; label: string; description?: string }) => void
-  onUpdateNestedVariable?: (path: string[], updates: { label?: string; description?: string }) => void
+  onCreateNestedVariable?: (
+    path: string[],
+    variable: { name: string; label: string; description?: string },
+  ) => void
+  onUpdateNestedVariable?: (
+    path: string[],
+    updates: { label?: string; description?: string },
+  ) => void
   onUnbindNestedVariable?: (path: string[]) => void
   onChangeNestedVariableDefault?: (path: string[], value: unknown) => void
 }) => {
@@ -101,9 +110,17 @@ const GradientPickerField = ({
   const isToVariablized = toVariable && isVariableRef(toVariable)
 
   // Validation for variable default values
-  const isFromDefaultInvalid = isFromVariablized && (!fromVariable?.defaultValue || (typeof fromVariable.defaultValue === "string" && fromVariable.defaultValue.trim() === ""))
-  const isToDefaultInvalid = isToVariablized && (!toVariable?.defaultValue || (typeof toVariable.defaultValue === "string" && toVariable.defaultValue.trim() === ""))
-  
+  const isFromDefaultInvalid =
+    isFromVariablized &&
+    (!fromVariable?.defaultValue ||
+      (typeof fromVariable.defaultValue === "string" &&
+        fromVariable.defaultValue.trim() === ""))
+  const isToDefaultInvalid =
+    isToVariablized &&
+    (!toVariable?.defaultValue ||
+      (typeof toVariable.defaultValue === "string" &&
+        toVariable.defaultValue.trim() === ""))
+
   // Stable callbacks for nested variable default value changes to prevent infinite loops
   const handleFromDefaultChange = useCallback(
     (_: string, newValue: string) => {
@@ -119,28 +136,33 @@ const GradientPickerField = ({
     [onChangeNestedVariableDefault],
   )
 
-  function getLinearGradientString(value: GradientPickerState): string {
-    // NOTE: The gradient parser used by the picker is strict and crashes on
-    // invalid/incomplete color tokens (e.g. empty string when clearing inputs).
-    // Keep the preview gradient always valid by falling back to defaults.
-    const fromColor = isCompleteHexColor(value.from) ? value.from : "#FFFFFFFF"
-    const toColor = isCompleteHexColor(value.to) ? value.to : "#00000000"
+  const getLinearGradientString = useCallback(
+    (value: GradientPickerState): string => {
+      // NOTE: The gradient parser used by the picker is strict and crashes on
+      // invalid/incomplete color tokens (e.g. empty string when clearing inputs).
+      // Keep the preview gradient always valid by falling back to defaults.
+      const fromColor = isCompleteHexColor(value.from)
+        ? value.from
+        : "#FFFFFFFF"
+      const toColor = isCompleteHexColor(value.to) ? value.to : "#00000000"
 
-    let direction = ""
-    const dirInt = Number(value.direction as string)
-    if (!Number.isNaN(dirInt)) {
-      direction = `${dirInt}deg`
-    } else {
-      const dirString = String(value.direction || "bottom")
-      direction = `to ${dirString.split("_").join(" ")}`
-    }
-    const stopPoint =
-      typeof value.stopPoint === "number"
-        ? value.stopPoint
-        : Number(value.stopPoint)
-    const safeStopPoint = Number.isFinite(stopPoint) ? stopPoint : 100
-    return `linear-gradient(${direction}, ${fromColor} 0%, ${toColor} ${safeStopPoint}%)`
-  }
+      let direction = ""
+      const dirInt = Number(value.direction as string)
+      if (!Number.isNaN(dirInt)) {
+        direction = `${dirInt}deg`
+      } else {
+        const dirString = String(value.direction || "bottom")
+        direction = `to ${dirString.split("_").join(" ")}`
+      }
+      const stopPoint =
+        typeof value.stopPoint === "number"
+          ? value.stopPoint
+          : Number(value.stopPoint)
+      const safeStopPoint = Number.isFinite(stopPoint) ? stopPoint : 100
+      return `linear-gradient(${direction}, ${fromColor} 0%, ${toColor} ${safeStopPoint}%)`
+    },
+    [],
+  )
 
   const [localValue, setLocalValue] = useState<GradientPickerState>(
     value ?? {
@@ -249,7 +271,7 @@ const GradientPickerField = ({
         return updated
       })
     },
-    [],
+    [getLinearGradientString],
   )
 
   const handleToColorChange = useCallback(
@@ -261,7 +283,7 @@ const GradientPickerField = ({
         return updated
       })
     },
-    [],
+    [getLinearGradientString],
   )
 
   useEffect(() => {
@@ -310,7 +332,7 @@ const GradientPickerField = ({
       </Popover>
 
       <Box>
-        <Flex align="center" justify="space-between" role="group" mb="1">
+        <Flex align="center" justify="space-between" mb="1">
           <FormLabel htmlFor="from_color" fontSize="sm" mb="0">
             From Color
           </FormLabel>
@@ -376,7 +398,7 @@ const GradientPickerField = ({
       </Box>
 
       <Box>
-        <Flex align="center" justify="space-between" role="group" mb="1">
+        <Flex align="center" justify="space-between" mb="1">
           <FormLabel htmlFor="to_color" fontSize="sm" mb="0">
             To Color
           </FormLabel>

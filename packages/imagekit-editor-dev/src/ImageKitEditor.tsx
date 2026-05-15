@@ -276,7 +276,15 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
       mode,
       canvas,
     })
-  }, [initialImages, signer, onPickImage, focusObjects, initialize, mode, canvas])
+  }, [
+    initialImages,
+    signer,
+    onPickImage,
+    focusObjects,
+    initialize,
+    mode,
+    canvas,
+  ])
 
   // Load template by id from the configured storage provider when
   // `initialTemplateId` is supplied. This runs after `initialize` so it can

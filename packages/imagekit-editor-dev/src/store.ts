@@ -85,9 +85,7 @@ export const MAX_LAYER_NEST_DEPTH = 2
  */
 export function isLayerKey(key: string): boolean {
   return (
-    key === "layers-image" ||
-    key === "layers-text" ||
-    key === "layers-canvas"
+    key === "layers-image" || key === "layers-text" || key === "layers-canvas"
   )
 }
 
@@ -111,7 +109,9 @@ export function canHostLayerChildren(key: string): boolean {
  * nested-layer eligibility is governed by depth, not the allow list. Text
  * layers are leaves and have no entry at all — see {@link canHostLayerChildren}.
  */
-const NON_LAYER_CHILDREN_ALLOWLIST: Readonly<Record<string, ReadonlySet<string>>> = {
+const NON_LAYER_CHILDREN_ALLOWLIST: Readonly<
+  Record<string, ReadonlySet<string>>
+> = {
   "layers-image": new Set([
     "resize_and_crop-resize_and_crop",
     "adjust-background",
@@ -1040,7 +1040,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
           sidebarState: "none",
           selectedTransformationKey: null,
           transformationToEdit: null,
-        parentForChild: null,
+          parentForChild: null,
         },
       })
     },
@@ -1090,7 +1090,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
           sidebarState: "none",
           selectedTransformationKey: null,
           transformationToEdit: null,
-        parentForChild: null,
+          parentForChild: null,
         },
       })
     },
@@ -1119,7 +1119,7 @@ const useEditorStore = create<EditorState & EditorActions>()(
           _internalState: {
             ...state._internalState,
             transformationToEdit: null,
-        parentForChild: null,
+            parentForChild: null,
           },
         }))
       } else if (position === "inplace") {

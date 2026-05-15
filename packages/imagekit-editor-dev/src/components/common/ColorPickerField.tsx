@@ -99,7 +99,7 @@ const ColorPickerField = ({
   // `#FFFFFF` placeholder shown in the input.
   const getPickerValue = (color: string): string => {
     const standard = convertDownstreamToStandard(color)
-    return standard && standard.startsWith("#") ? standard : "#FFFFFF00"
+    return standard?.startsWith("#") ? standard : "#FFFFFF00"
   }
 
   const handleColorChange = (color: string) => {

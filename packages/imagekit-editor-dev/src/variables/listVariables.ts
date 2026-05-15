@@ -15,13 +15,10 @@
  * the editor previews.
  */
 
-import {
-  type TransformationField,
-  transformationSchema,
-} from "../schema"
+import { z } from "zod"
+import { type TransformationField, transformationSchema } from "../schema"
 import type { Transformation } from "../store"
 import { type VariableRef, walkVariableRefs } from "../variables"
-import { z } from "zod"
 
 /**
  * One entry per `{$var}` marker found in the template. Returned in document

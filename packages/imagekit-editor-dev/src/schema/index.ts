@@ -3419,10 +3419,7 @@ const baseTransformationSchema: TransformationSchema[] = [
                 from: z.string().optional(),
                 to: z.string().optional(),
                 direction: z
-                  .union([
-                    z.coerce.number().min(0).max(359),
-                    z.string(),
-                  ])
+                  .union([z.coerce.number().min(0).max(359), z.string()])
                   .optional(),
                 stopPoint: z.coerce.number().min(1).max(100).optional(),
               })

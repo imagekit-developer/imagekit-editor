@@ -22,8 +22,8 @@ import { findTransformationDeep, useEditorStore } from "../../store"
 import { listVariables } from "../../variables/listVariables"
 import { CanvasSettingsPopover } from "./CanvasSettingsPopover"
 import {
-  VariablesListPopover,
   type VariableListEntry,
+  VariablesListPopover,
 } from "./VariablesListPopover"
 
 interface ActionBarProps {

@@ -17,9 +17,7 @@ import type { SaveTemplateInput } from "./types"
 export function normalizeTransformationStepsForPersistence(
   transformations: SaveTemplateInput["transformations"],
 ): SaveTemplateInput["transformations"] {
-  const stamp = <
-    T extends { id?: string; version?: string; children?: T[] },
-  >(
+  const stamp = <T extends { id?: string; version?: string; children?: T[] }>(
     step: T,
   ): T => {
     const { id: _id, children, ...rest } = step as T & { id?: string }

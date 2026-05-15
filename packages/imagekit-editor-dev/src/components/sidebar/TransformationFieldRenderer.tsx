@@ -205,11 +205,17 @@ export interface TransformationFieldRendererProps {
    * Called when the user wants to bind a nested property to a variable.
    * Path is relative to the field (e.g., ["from"] for gradient from color).
    */
-  onCreateNestedVariable?: (path: string[], variable: { name: string; label: string; description?: string }) => void
+  onCreateNestedVariable?: (
+    path: string[],
+    variable: { name: string; label: string; description?: string },
+  ) => void
   /**
    * Called when the user wants to rename/update a nested variable.
    */
-  onUpdateNestedVariable?: (path: string[], updates: { label?: string; description?: string }) => void
+  onUpdateNestedVariable?: (
+    path: string[],
+    updates: { label?: string; description?: string },
+  ) => void
   /**
    * Called when the user wants to unbind a nested variable.
    */
@@ -344,9 +350,7 @@ export const TransformationFieldRenderer: FC<
       }))
       const selectedValue =
         options?.find((o) => o.value === value) ||
-        (value
-          ? { value: value as string, label: value as string }
-          : null)
+        (value ? { value: value as string, label: value as string } : null)
       const showFilePicker =
         field.name === "fontFamily" && typeof onPickImage === "function"
       const handlePickFile = async () => {

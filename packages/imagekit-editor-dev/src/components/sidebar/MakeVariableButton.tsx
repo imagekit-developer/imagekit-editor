@@ -76,7 +76,11 @@ interface MakeVariableButtonProps {
   /** Names already taken inside this template (for collision-proof generation). */
   takenNames: Iterable<string>
   /** Called with the freshly generated variable when the user confirms. */
-  onCreate: (variable: { name: string; label: string; description?: string }) => void
+  onCreate: (variable: {
+    name: string
+    label: string
+    description?: string
+  }) => void
 }
 
 /**
@@ -350,5 +354,3 @@ export const BoundVariableChip: FC<BoundVariableChipProps> = ({
     </Flex>
   )
 }
-
-

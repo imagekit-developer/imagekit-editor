@@ -1,12 +1,8 @@
-import {
-  FormControl,
-  FormErrorMessage,
-  FormLabel,
-} from "@chakra-ui/react"
+import { FormControl, FormErrorMessage, FormLabel } from "@chakra-ui/react"
 import { type FC, useCallback, useMemo, useRef } from "react"
-import { TransformationFieldRenderer } from "../sidebar/TransformationFieldRenderer"
 import type { Transformation } from "../../store"
 import { listVariables } from "../../variables/listVariables"
+import { TransformationFieldRenderer } from "../sidebar/TransformationFieldRenderer"
 
 export interface VariableFieldProps {
   /**
