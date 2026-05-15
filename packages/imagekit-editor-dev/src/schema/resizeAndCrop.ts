@@ -11,7 +11,8 @@ import {
 export const RESIZE_CROP_HELP_TEXT =
   "If you specify only one dimension (width or height), the other will be adjusted automatically to preserve the aspect ratio and no cropping is applied. When you specify both dimensions, you'd need to choose a cropping strategy to control how the image is resized or cropped."
 
-// The 8 crop/resize modes available (c-maintain_ratio is default and first)
+// The crop/resize modes available (c-maintain_ratio is default and first).
+// `_no_enlarge` and `_no_shrink` variants are image-only.
 export const RESIZE_CROP_MODES = [
   {
     value: "c-maintain_ratio",
@@ -19,9 +20,19 @@ export const RESIZE_CROP_MODES = [
     paramLabel: "c-maintain_ratio",
   },
   {
+    value: "c-maintain_ratio_no_enlarge",
+    label: "Resize, crop if needed, don't enlarge",
+    paramLabel: "c-maintain_ratio_no_enlarge",
+  },
+  {
     value: "cm-pad_resize",
     label: "Resize, don't crop, add padding if needed",
     paramLabel: "cm-pad_resize",
+  },
+  {
+    value: "cm-pad_resize_no_enlarge",
+    label: "Resize, don't crop, add padding if needed, don't enlarge",
+    paramLabel: "cm-pad_resize_no_enlarge",
   },
   {
     value: "cm-extract",
@@ -32,6 +43,11 @@ export const RESIZE_CROP_MODES = [
     value: "cm-pad_extract",
     label: "Extract a region and pad to match dimensions",
     paramLabel: "cm-pad_extract",
+  },
+  {
+    value: "cm-pad_extract_no_shrink",
+    label: "Extract a region and pad to match dimensions, don't shrink",
+    paramLabel: "cm-pad_extract_no_shrink",
   },
   {
     value: "c-force",
@@ -63,12 +79,18 @@ export function getDefaultTransformationFromMode(
   switch (mode) {
     case "cm-pad_resize":
       return { cropMode: "pad_resize" as const }
+    case "cm-pad_resize_no_enlarge":
+      return { cropMode: "pad_resize_no_enlarge" as const }
     case "cm-extract":
       return { cropMode: "extract" as const }
     case "cm-pad_extract":
       return { cropMode: "pad_extract" as const }
+    case "cm-pad_extract_no_shrink":
+      return { cropMode: "pad_extract_no_shrink" as const }
     case "c-maintain_ratio":
       return { crop: "maintain_ratio" as const }
+    case "c-maintain_ratio_no_enlarge":
+      return { crop: "maintain_ratio_no_enlarge" as const }
     case "c-force":
       return { crop: "force" as const }
     case "c-at_max":
@@ -160,8 +182,11 @@ export const resizeAndCropSchema = z
     // Mode-specific validations (only when mode is set)
     if (!val.mode) return
 
-    // cm-pad_resize specific validations
-    if (val.mode === "cm-pad_resize") {
+    // cm-pad_resize specific validations (also applies to the no-enlarge variant)
+    if (
+      val.mode === "cm-pad_resize" ||
+      val.mode === "cm-pad_resize_no_enlarge"
+    ) {
       // If backgroundType is blurred or generative_fill, both dimensions required
       const backgroundType = (val as Record<string, unknown>)
         .backgroundType as string
@@ -245,8 +270,11 @@ export const resizeAndCropSchema = z
       })
     }
 
-    // c-maintain_ratio specific validations
-    if (val.mode === "c-maintain_ratio") {
+    // c-maintain_ratio specific validations (also applies to the no-enlarge variant)
+    if (
+      val.mode === "c-maintain_ratio" ||
+      val.mode === "c-maintain_ratio_no_enlarge"
+    ) {
       // Focus validations
       if (val.focus === "object" && !val.focusObject) {
         ctx.addIssue({
@@ -370,7 +398,11 @@ export const resizeAndCropTransformations: TransformationField[] = [
     },
     helpText: "Position the image within the padded area.",
     isVisible: ({ width, height, mode }) =>
-      !!(width && height && mode === "cm-pad_resize"),
+      !!(
+        width &&
+        height &&
+        (mode === "cm-pad_resize" || mode === "cm-pad_resize_no_enlarge")
+      ),
   },
 
   // 6. Focus select (for maintain_ratio - 4 options)
@@ -392,7 +424,11 @@ export const resizeAndCropTransformations: TransformationField[] = [
     helpText:
       "Choose how to position the crop. Auto detects the most important part, anchor uses fixed positions, face/object focuses on detected subjects.",
     isVisible: ({ width, height, mode }) =>
-      !!(width && height && mode === "c-maintain_ratio"),
+      !!(
+        width &&
+        height &&
+        (mode === "c-maintain_ratio" || mode === "c-maintain_ratio_no_enlarge")
+      ),
   },
 
   // 7. Focus select (for extract - 6 options including Custom and Coordinates)
@@ -459,7 +495,9 @@ export const resizeAndCropTransformations: TransformationField[] = [
       !!(
         width &&
         height &&
-        (mode === "cm-extract" || mode === "c-maintain_ratio") &&
+        (mode === "cm-extract" ||
+          mode === "c-maintain_ratio" ||
+          mode === "c-maintain_ratio_no_enlarge") &&
         focus === "anchor"
       ),
   },
@@ -480,7 +518,9 @@ export const resizeAndCropTransformations: TransformationField[] = [
       !!(
         width &&
         height &&
-        (mode === "cm-extract" || mode === "c-maintain_ratio") &&
+        (mode === "cm-extract" ||
+          mode === "c-maintain_ratio" ||
+          mode === "c-maintain_ratio_no_enlarge") &&
         focus === "object"
       ),
   },
@@ -501,7 +541,9 @@ export const resizeAndCropTransformations: TransformationField[] = [
       !!(
         width &&
         height &&
-        (mode === "cm-extract" || mode === "c-maintain_ratio") &&
+        (mode === "cm-extract" ||
+          mode === "c-maintain_ratio" ||
+          mode === "c-maintain_ratio_no_enlarge") &&
         (focus === "object" || focus === "face")
       ),
   },
@@ -614,7 +656,12 @@ padResizeBackgroundFields.forEach((field) => {
     ...field,
     isVisible: (values: Record<string, unknown>) => {
       const { width, height, mode } = values
-      if (!width || !height || mode !== "cm-pad_resize") return false
+      if (
+        !width ||
+        !height ||
+        (mode !== "cm-pad_resize" && mode !== "cm-pad_resize_no_enlarge")
+      )
+        return false
       if (originalIsVisible) {
         return originalIsVisible(values)
       }
@@ -633,7 +680,12 @@ padExtractBackgroundFields.forEach((field) => {
     ...field,
     isVisible: (values: Record<string, unknown>) => {
       const { width, height, mode } = values
-      if (!width || !height || mode !== "cm-pad_extract") return false
+      if (
+        !width ||
+        !height ||
+        (mode !== "cm-pad_extract" && mode !== "cm-pad_extract_no_shrink")
+      )
+        return false
       if (originalIsVisible) {
         return originalIsVisible(values)
       }

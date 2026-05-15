@@ -356,6 +356,27 @@ describe("Field Configuration Tests", () => {
       expect(result).toEqual({ crop: "at_least" })
     })
 
+    it("should return cropMode pad_resize_no_enlarge for cm-pad_resize_no_enlarge", () => {
+      const result = getDefaultTransformationFromMode(
+        "cm-pad_resize_no_enlarge",
+      )
+      expect(result).toEqual({ cropMode: "pad_resize_no_enlarge" })
+    })
+
+    it("should return crop maintain_ratio_no_enlarge for c-maintain_ratio_no_enlarge", () => {
+      const result = getDefaultTransformationFromMode(
+        "c-maintain_ratio_no_enlarge",
+      )
+      expect(result).toEqual({ crop: "maintain_ratio_no_enlarge" })
+    })
+
+    it("should return cropMode pad_extract_no_shrink for cm-pad_extract_no_shrink", () => {
+      const result = getDefaultTransformationFromMode(
+        "cm-pad_extract_no_shrink",
+      )
+      expect(result).toEqual({ cropMode: "pad_extract_no_shrink" })
+    })
+
     it("should return empty object for unknown mode", () => {
       const result = getDefaultTransformationFromMode("unknown-mode")
       expect(result).toEqual({})
