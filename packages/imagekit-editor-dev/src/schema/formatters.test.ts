@@ -317,4 +317,75 @@ describe("Transformation Formatters", () => {
       expect(transforms.shadow).toBe("bl-15")
     })
   })
+
+  describe("colorize formatter", () => {
+    it("should format colorize with color and intensity", () => {
+      const transforms: Record<string, unknown> = {}
+      transformationFormatters.colorize(
+        {
+          colorize: true,
+          colorizeColor: "#FF0000",
+          colorizeIntensity: 15,
+        },
+        transforms,
+      )
+      expect(transforms.colorize).toBe("co-FF0000_in-15")
+    })
+
+    it("should accept named colors without a leading hash", () => {
+      const transforms: Record<string, unknown> = {}
+      transformationFormatters.colorize(
+        {
+          colorize: true,
+          colorizeColor: "blue",
+        },
+        transforms,
+      )
+      expect(transforms.colorize).toBe("co-blue")
+    })
+
+    it("should emit only intensity when no color is set", () => {
+      const transforms: Record<string, unknown> = {}
+      transformationFormatters.colorize(
+        {
+          colorize: true,
+          colorizeIntensity: 30,
+        },
+        transforms,
+      )
+      expect(transforms.colorize).toBe("in-30")
+    })
+
+    it("should emit an empty string when no sub-params are provided", () => {
+      const transforms: Record<string, unknown> = {}
+      transformationFormatters.colorize({ colorize: true }, transforms)
+      expect(transforms.colorize).toBe("")
+    })
+
+    it("should skip colorize when the toggle is disabled", () => {
+      const transforms: Record<string, unknown> = {}
+      transformationFormatters.colorize(
+        {
+          colorize: false,
+          colorizeColor: "#FF0000",
+          colorizeIntensity: 15,
+        },
+        transforms,
+      )
+      expect(transforms.colorize).toBeUndefined()
+    })
+
+    it("should ignore empty color string and non-numeric intensity", () => {
+      const transforms: Record<string, unknown> = {}
+      transformationFormatters.colorize(
+        {
+          colorize: true,
+          colorizeColor: "",
+          colorizeIntensity: "not-a-number",
+        },
+        transforms,
+      )
+      expect(transforms.colorize).toBe("")
+    })
+  })
 })

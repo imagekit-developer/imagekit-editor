@@ -516,6 +516,88 @@ const baseTransformationSchema: TransformationSchema[] = [
         ],
       },
       {
+        key: "adjust-colorize",
+        name: "Colorize",
+        description:
+          "Apply a color tint to the image. Optionally pick a tint color and intensity.",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#colorize---e-colorize",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            colorize: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+            colorizeColor: z.string().optional(),
+            colorizeIntensity: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .min(0)
+              .max(100)
+              .optional(),
+          })
+          .refine(
+            (val) => {
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
+          {
+            label: "Colorize",
+            name: "colorize",
+            nonVariablizable: true,
+            fieldType: "switch",
+            isTransformation: true,
+            transformationGroup: "colorize",
+            helpText: "Toggle to apply a color tint to the image.",
+          },
+          {
+            label: "Color",
+            name: "colorizeColor",
+            fieldType: "color-picker",
+            isTransformation: true,
+            transformationGroup: "colorize",
+            helpText:
+              "Tint color. Defaults to gray when left empty. Accepts standard color names or hex codes.",
+            fieldProps: {
+              hideOpacity: true,
+              showHexAlpha: false,
+              defaultValue: "#808080",
+              isClearable: true,
+            },
+            isVisible: ({ colorize }) => colorize === true,
+          },
+          {
+            label: "Intensity",
+            name: "colorizeIntensity",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationGroup: "colorize",
+            helpText:
+              "Intensity of the tint. Defaults to 35 when left empty. Range 0–100.",
+            fieldProps: {
+              min: 0,
+              max: 100,
+              step: 1,
+              defaultValue: 35,
+            },
+            isVisible: ({ colorize }) => colorize === true,
+          },
+        ],
+      },
+      {
         key: "adjust-gradient",
         name: "Gradient",
         description: "Add gradient overlay over the image.",
@@ -4309,6 +4391,31 @@ export const transformationFormatters: Record<
     if (!borderWidth || !borderColor) return
     const cleanBorderColor = borderColor.replace(/^#/, "")
     transforms.b = `${borderWidth}_${cleanBorderColor}`
+  },
+  colorize: (values, transforms) => {
+    // Mirrors the SDK's `colorize?: string` field, which is appended after
+    // `e-colorize-` in the URL. Both sub-fields are optional; the SDK falls
+    // back to `co-gray` and `in-35` when omitted, so we emit only the params
+    // the user actually set.
+    const { colorize, colorizeColor, colorizeIntensity } = values as {
+      colorize?: boolean
+      colorizeColor?: string
+      colorizeIntensity?: number | string
+    }
+    if (!colorize) return
+    const params: string[] = []
+    if (typeof colorizeColor === "string" && colorizeColor !== "") {
+      params.push(`co-${colorizeColor.replace(/^#/, "")}`)
+    }
+    if (
+      colorizeIntensity !== undefined &&
+      colorizeIntensity !== null &&
+      colorizeIntensity !== "" &&
+      !Number.isNaN(Number(colorizeIntensity))
+    ) {
+      params.push(`in-${colorizeIntensity}`)
+    }
+    transforms.colorize = params.join("_")
   },
   sharpen: (values, transforms) => {
     const { sharpenEnabled, sharpen } = values as {
