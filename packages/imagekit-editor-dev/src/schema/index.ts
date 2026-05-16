@@ -3449,9 +3449,12 @@ const baseTransformationSchema: TransformationSchema[] = [
         // Canvas (solid color) layers support a deliberately small subset of
         // transformations per the docs: `w`, `h`, `bg`, `r`, `e-gradient`
         // plus the standard layer position/mode params. Anything else is
-        // available via `rawTransformation`. Transparency is controlled by
-        // an 8-char RGBA in `backgroundColor`, so a separate `al` field is
-        // intentionally not exposed.
+        // available via `rawTransformation`. The `backgroundColor` picker is
+        // restricted to 6-digit RGB (no alpha): ImageKit's `bg` parameter
+        // accepts a 6-digit hex (see @imagekit/javascript types,
+        // `Transformation.background`) and an 8-char value would be misread
+        // (its trailing 2 chars are a decimal opacity 00–99, not hex), so we
+        // hide the opacity slider in the picker for this field.
         schema: z
           .object({
             backgroundColor: colorValidator.optional(),
@@ -3530,10 +3533,11 @@ const baseTransformationSchema: TransformationSchema[] = [
             transformationGroup: "canvasLayer",
             transformationKey: "backgroundColor",
             helpText:
-              "Solid fill colour for the canvas. Hex (e.g. `FF0000`), RGBA (e.g. `FFAABB50`) or a colour name (e.g. `red`). 8-character values use the last 2 digits as opacity (00–99).",
-            examples: ["FF0000", "red", "FFAABB50"],
+              "Solid fill colour for the canvas. Hex (e.g. `FF0000`) or a colour name (e.g. `red`).",
+            examples: ["FF0000", "red"],
             fieldProps: {
               isClearable: true,
+              hideOpacity: true,
             },
           },
           {
