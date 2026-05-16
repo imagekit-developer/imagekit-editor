@@ -1,10 +1,19 @@
 import { describe, expect, it } from "vitest"
 import {
+  dedupeVariableMarkersInList,
   isVariableRef,
   resolveVariableRefs,
   type VariableRef,
   walkVariableRefs,
 } from "./index"
+
+type TestNode = { value: unknown; children?: TestNode[] }
+
+const v = (
+  $var: string,
+  label: string,
+  defaultValue: unknown = "",
+): VariableRef => ({ $var, label, defaultValue })
 
 describe("isVariableRef", () => {
   it("recognizes new variables with defaultValue", () => {
@@ -152,5 +161,70 @@ describe("walkVariableRefs", () => {
       { name: "bgFrom", path: ["bg", "from"] },
       { name: "item0", path: ["arr", "0"] },
     ])
+  })
+})
+
+describe("dedupeVariableMarkersInList", () => {
+  it("keeps unique names unchanged", () => {
+    const list: TestNode[] = [{ value: { fg: v("headline", "Headline") } }]
+    const out = dedupeVariableMarkersInList(list)
+    expect((out[0].value as { fg: VariableRef }).fg.$var).toBe("headline")
+  })
+
+  it("first occurrence keeps its name; later collision is suffixed", () => {
+    // Mirrors the duplicate-step scenario: two top-level text layers both
+    // bound to the same `$var` end up with unique names after dedupe.
+    const list: TestNode[] = [
+      { value: { text: v("center_text", "Center text") } },
+      { value: { text: v("center_text", "Center text") } },
+    ]
+    const out = dedupeVariableMarkersInList(list)
+    expect((out[0].value as { text: VariableRef }).text.$var).toBe(
+      "center_text",
+    )
+    expect((out[1].value as { text: VariableRef }).text.$var).toBe(
+      "center_text_2",
+    )
+  })
+
+  it("preserves intra-step sharing across multiple fields", () => {
+    // Two fields in the same step bound to the same variable should
+    // remain bound to the same (renamed) name after dedupe.
+    const shared = v("brand", "Brand")
+    const list: TestNode[] = [{ value: { fg: shared, stroke: shared } }]
+    const out = dedupeVariableMarkersInList(list, ["brand"])
+    const value = out[0].value as { fg: VariableRef; stroke: VariableRef }
+    expect(value.fg.$var).toBe("brand_2")
+    expect(value.stroke.$var).toBe("brand_2")
+  })
+
+  it("dedupes across nested children", () => {
+    const list: TestNode[] = [
+      {
+        value: { fg: v("brand", "Brand") },
+        children: [{ value: { stroke: v("brand", "Brand") } }],
+      },
+      { value: { text: v("brand", "Brand") } },
+    ]
+    const out = dedupeVariableMarkersInList(list)
+    // Within node 0, intra-subtree sharing is preserved.
+    expect((out[0].value as { fg: VariableRef }).fg.$var).toBe("brand")
+    expect(
+      (out[0].children?.[0].value as { stroke: VariableRef }).stroke.$var,
+    ).toBe("brand")
+    // Node 1 collides with node 0's `brand` and gets suffixed.
+    expect((out[1].value as { text: VariableRef }).text.$var).toBe("brand_2")
+  })
+
+  it("respects pre-existing taken names", () => {
+    const list: TestNode[] = [{ value: { text: v("foo", "Foo") } }]
+    const out = dedupeVariableMarkersInList(list, ["foo"])
+    expect((out[0].value as { text: VariableRef }).text.$var).toBe("foo_2")
+  })
+
+  it("does not mutate the input list", () => {
+    const list: TestNode[] = [{ value: { fg: v("headline", "Headline") } }]
+    dedupeVariableMarkersInList(list, ["headline"])
+    expect((list[0].value as { fg: VariableRef }).fg.$var).toBe("headline")
   })
 })

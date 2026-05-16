@@ -4,6 +4,7 @@ import type { SaveTemplateInput, TemplateRecord } from "../storage"
 import { isTemplateAccessDeniedError } from "../storage/templateAccessError"
 import { useEditorStore } from "../store"
 import { shouldMarkSyncedAfterSave } from "../sync/templateSyncVersioning"
+import { dedupeVariableMarkersInList } from "../variables"
 import { persistEditorSessionNow } from "./useEditorSessionLocalStorage"
 
 export type SaveReason =
@@ -44,10 +45,18 @@ export function useTemplateSync() {
       state.setSyncStatus("saving")
 
       try {
+        // Dedupe variable markers at the save boundary so the persisted JSON
+        // never contains two `$var` markers with the same name (e.g. after
+        // a step is duplicated, both copies start out bound to the same
+        // variable). First occurrence keeps its name; later collisions get
+        // a fresh suffixed name via `generateVariableName`.
+        const safeTransformations = dedupeVariableMarkersInList(
+          state.transformations,
+        )
         const record = await provider.saveTemplate({
           id: state.templateId ?? undefined,
           name: args.overrides?.name ?? state.templateName,
-          transformations: state.transformations.map(
+          transformations: safeTransformations.map(
             ({ id: _id, ...rest }) => rest,
           ),
           ...(args.overrides?.isPrivate !== undefined

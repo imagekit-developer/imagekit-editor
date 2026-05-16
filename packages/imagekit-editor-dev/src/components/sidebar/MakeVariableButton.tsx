@@ -12,7 +12,6 @@ import {
   PopoverBody,
   PopoverContent,
   PopoverTrigger,
-  Text,
   useDisclosure,
   VStack,
 } from "@chakra-ui/react"
@@ -212,8 +211,10 @@ interface BoundVariableChipProps {
 
 /**
  * Read-only stand-in for a field's normal input when the field is bound to a
- * template variable. Shows `${label}` plus the resolved default that the
- * editor preview is using, and exposes inline edit/unbind actions.
+ * template variable. Shows the variable's `label` plus inline edit/unbind
+ * actions; the internal `$var` name is intentionally hidden because the user
+ * cannot control it (it's auto-generated and uniqueness-managed by the
+ * editor).
  *
  * The actual input control is hidden while a field is bound: editing the
  * literal value would silently overwrite the marker, which is exactly the
@@ -270,16 +271,21 @@ export const BoundVariableChip: FC<BoundVariableChipProps> = ({
     >
       <Badge
         colorScheme="purple"
-        fontSize="11px"
-        maxW="50%"
-        isTruncated
-        title={`$${variable.$var}`}
+        variant="subtle"
+        textTransform="none"
+        fontSize="xs"
+        fontWeight="medium"
+        px="2"
+        py="0.5"
+        borderRadius="md"
+        maxW="100%"
+        overflow="hidden"
+        whiteSpace="nowrap"
+        textOverflow="ellipsis"
+        title={variable.label}
       >
-        ${variable.$var}
-      </Badge>
-      <Text fontSize="xs" color="gray.700" isTruncated flex="1">
         {variable.label}
-      </Text>
+      </Badge>
       <Popover
         isOpen={isOpen}
         onOpen={() => {
@@ -296,6 +302,7 @@ export const BoundVariableChip: FC<BoundVariableChipProps> = ({
             aria-label="Edit variable"
             size="xs"
             variant="ghost"
+            ml="auto"
           />
         </PopoverTrigger>
         <PopoverContent width="240px" zIndex={1500}>

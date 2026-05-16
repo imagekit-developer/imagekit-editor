@@ -19,6 +19,7 @@ import { PiImageSquare } from "@react-icons/all-files/pi/PiImageSquare"
 import { PiListBullets } from "@react-icons/all-files/pi/PiListBullets"
 import { type FC, useMemo } from "react"
 import { findTransformationDeep, useEditorStore } from "../../store"
+import { dedupeVariableMarkersInList } from "../../variables"
 import { listVariables } from "../../variables/listVariables"
 import { CanvasSettingsPopover } from "./CanvasSettingsPopover"
 import {
@@ -53,8 +54,17 @@ export const ActionBar: FC<ActionBarProps> = ({
   // Variables are a canvas-mode-only feature; the count badge is the only
   // affordance in the action bar (per-field hover affordances live in the
   // sidebar). Skip the work entirely outside canvas mode.
+  //
+  // Run the same dedupe the save boundary applies (see
+  // `useTemplateSync.saveNow` and `ImageKitEditor.saveTemplateImperative`)
+  // so the live preview matches the saved payload: when a step is
+  // duplicated, both copies surface here under collision-suffixed names
+  // instead of `listVariables` silently dropping the second one.
   const variables = useMemo(
-    () => (isCanvas ? listVariables(transformations) : []),
+    () =>
+      isCanvas
+        ? listVariables(dedupeVariableMarkersInList(transformations))
+        : [],
     [isCanvas, transformations],
   )
   // Resolve each variable's owning step name once so the popover doesn't

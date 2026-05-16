@@ -41,6 +41,7 @@ import {
   useEditorStore,
 } from "./store"
 import { themeOverrides } from "./theme"
+import { dedupeVariableMarkersInList } from "./variables"
 
 export interface ImageKitEditorRef {
   /**
@@ -204,10 +205,16 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     const saveStartedAtVersion = state.localChangeVersion
     state.setSyncStatus("saving")
     try {
+      // Dedupe variable markers at the save boundary so the persisted JSON
+      // never contains two `$var` markers with the same name (see
+      // useTemplateSync for the matching call on the hook-driven path).
+      const safeTransformations = dedupeVariableMarkersInList(
+        state.transformations,
+      )
       const saved = await resolvedProvider.saveTemplate({
         id: state.templateId ?? undefined,
         name: state.templateName,
-        transformations: state.transformations.map(
+        transformations: safeTransformations.map(
           ({ id: _id, ...rest }) => rest,
         ),
         ...(state.templateIsPrivate !== null
