@@ -1,5 +1,4 @@
 import { act, render } from "@testing-library/react"
-import React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { EDITOR_SESSION_STORAGE_KEY } from "../persistence/editorSessionStorage"
 import { useEditorStore } from "../store"

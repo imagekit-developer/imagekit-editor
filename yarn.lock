@@ -1996,10 +1996,10 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@imagekit/javascript@npm:^5.1.0":
-  version: 5.1.0
-  resolution: "@imagekit/javascript@npm:5.1.0"
-  checksum: 10c0/9a3eeeaf2fe0538b979c4713fdf8f4becad784f081da90794a9bcd3300894d6be1d6f40f367ac131c242aac7532c5633216936385b51f43a93e433254f3862f9
+"@imagekit/javascript@npm:^5.4.0":
+  version: 5.4.0
+  resolution: "@imagekit/javascript@npm:5.4.0"
+  checksum: 10c0/782db38fe2350659b46493ae423ac1cc2d3d02ed3e993c4235b339deaf635dc292665535516d6893d30fe9642bfca9c7734d1b19e7cecfaafa2403d44d63c2fe
   languageName: node
   linkType: hard
 
@@ -4911,7 +4911,7 @@ __metadata:
     "@emotion/react": "npm:^11.14.0"
     "@emotion/styled": "npm:^11.14.1"
     "@hookform/resolvers": "npm:^5.1.1"
-    "@imagekit/javascript": "npm:^5.1.0"
+    "@imagekit/javascript": "npm:^5.4.0"
     "@microsoft/api-extractor": "npm:7.34.9"
     "@react-icons/all-files": "https://github.com/react-icons/react-icons/releases/download/v5.4.0/react-icons-all-files-5.4.0.tgz"
     "@tanstack/react-virtual": "npm:^3.13.12"

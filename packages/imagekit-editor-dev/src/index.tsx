@@ -1,3 +1,7 @@
+export {
+  VariableField,
+  type VariableFieldProps,
+} from "./components/variables/VariableField"
 export type {
   GetTemplatePermissions,
   TemplatePermissionBuckets,
@@ -18,5 +22,24 @@ export {
   normalizeTransformationStepsForPersistence,
   TemplateAccessDeniedError,
 } from "./storage"
-export type { FileElement, Signer, Transformation } from "./store"
+export type {
+  CanvasConfig,
+  EditorMode,
+  FileElement,
+  OnPickImage,
+  Signer,
+  Transformation,
+} from "./store"
 export { TRANSFORMATION_STATE_VERSION } from "./store"
+export {
+  buildEditorTransformationString,
+  buildImageKitUrl,
+  convertTransformationsToIK,
+  convertTransformationToIK,
+} from "./transformationConverter"
+export {
+  buildVariablesSchema,
+  findTransformationField,
+  listVariables,
+  type VariableDescriptor,
+} from "./variables/listVariables"

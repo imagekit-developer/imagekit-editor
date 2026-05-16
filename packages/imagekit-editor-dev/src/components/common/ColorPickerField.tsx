@@ -73,9 +73,15 @@ const ColorPickerField = ({
     return `#${rgb}${standardAlphaHex}`
   }
 
-  // Get the preview color that shows what downstream will actually render
+  // Get the preview color that shows what downstream will actually render.
+  // When the value is empty we render `transparent` so the swatch shows the
+  // checkered pattern instead of an inherited background.
   const getPreviewColor = (color: string): string => {
-    if (!color || !color?.startsWith("#")) {
+    if (!color) {
+      return "transparent"
+    }
+
+    if (!color?.startsWith("#")) {
       return color
     }
 
@@ -85,6 +91,15 @@ const ColorPickerField = ({
     }
 
     return color
+  }
+
+  // The underlying color picker library throws "Expected color definition"
+  // when handed an empty string. Fall back to fully transparent white so the
+  // picker stays usable when the field has been cleared, and matches the
+  // `#FFFFFF` placeholder shown in the input.
+  const getPickerValue = (color: string): string => {
+    const standard = convertDownstreamToStandard(color)
+    return standard?.startsWith("#") ? standard : "#FFFFFF00"
   }
 
   const handleColorChange = (color: string) => {
@@ -184,7 +199,7 @@ const ColorPickerField = ({
           <PopoverContent p="2" width="auto" zIndex={1400}>
             <PopoverBody p="0">
               <ColorPicker
-                value={convertDownstreamToStandard(localValue)}
+                value={getPickerValue(localValue)}
                 onChange={handleColorChange}
                 disableDarkMode
                 hideGradientType

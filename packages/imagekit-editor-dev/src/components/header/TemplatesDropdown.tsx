@@ -36,7 +36,7 @@ import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import { useTemplateSync } from "../../hooks/useTemplateSync"
 import type { TemplateRecord } from "../../storage"
 import { isTemplateAccessDeniedError } from "../../storage/templateAccessError"
-import { useEditorStore } from "../../store"
+import { applyTemplateRecord, useEditorStore } from "../../store"
 import {
   chakraAny,
   formatTemplateNameForUI,
@@ -224,10 +224,7 @@ export function TemplatesDropdown({
     null,
   )
 
-  const { loadTemplate, resetToNewTemplate } = useEditorStore()
-  const hydrateTemplateMetadata = useEditorStore(
-    (s) => s.hydrateTemplateMetadata,
-  )
+  const { resetToNewTemplate } = useEditorStore()
   const templateId = useEditorStore((s) => s.templateId)
   const templateName = useEditorStore((s) => s.templateName)
   const transformations = useEditorStore((s) => s.transformations)
@@ -345,12 +342,7 @@ export function TemplatesDropdown({
   }
 
   const doLoadTemplate = (record: TemplateRecord) => {
-    loadTemplate(record.transformations)
-    hydrateTemplateMetadata({
-      templateId: record.id,
-      templateName: record.name,
-      templateIsPrivate: record.isPrivate,
-    })
+    applyTemplateRecord(record)
     onClose()
     setPendingTemplate(null)
   }

@@ -30,18 +30,30 @@ import { PiTrash } from "@react-icons/all-files/pi/PiTrash"
 import { RiCheckFill } from "@react-icons/all-files/ri/RiCheckFill"
 import { RiCloseFill } from "@react-icons/all-files/ri/RiCloseFill"
 import { RxTransform } from "@react-icons/all-files/rx/RxTransform"
-import { useEffect, useRef, useState } from "react"
-import { type Transformation, useEditorStore } from "../../store"
+import { useEffect, useMemo, useRef, useState } from "react"
+import {
+  canHostLayerChildren,
+  type Transformation,
+  useEditorStore,
+} from "../../store"
+import { walkVariableRefs } from "../../variables"
 import Hover from "../common/Hover"
 
 export type TransformationPosition = "inplace" | number
 
 interface SortableTransformationItemProps {
   transformation: Transformation
+  /**
+   * Nesting level. 0 = root list (drag-and-drop sortable). >0 = nested
+   * child of a layer; rendered indented and excluded from the root
+   * SortableContext (children reorder via menu actions in v1).
+   */
+  depth?: number
 }
 
 export const SortableTransformationItem = ({
   transformation,
+  depth = 0,
 }: SortableTransformationItemProps) => {
   const {
     attributes,
@@ -52,6 +64,9 @@ export const SortableTransformationItem = ({
     isDragging,
   } = useSortable({
     id: transformation.id,
+    // Children aren't part of the root sortable context; suppress dnd-kit's
+    // attempts to register them as draggable participants.
+    disabled: depth > 0,
   })
 
   const {
@@ -63,10 +78,17 @@ export const SortableTransformationItem = ({
     _setSidebarState,
     _setSelectedTransformationKey,
     _setTransformationToEdit,
+    _setParentForChild,
     _internalState,
     addTransformation,
     updateTransformation,
   } = useEditorStore()
+
+  const isRoot = depth === 0
+  // Image and canvas layers can host children (nested layers gated by
+  // MAX_LAYER_NEST_DEPTH inside the type picker, plus per-parent allow-listed
+  // non-layer transforms). Text layers are leaves per ImageKit docs.
+  const canHostChildren = canHostLayerChildren(transformation.key)
 
   const style = transform
     ? {
@@ -88,6 +110,18 @@ export const SortableTransformationItem = ({
 
   const baseIconColor = useColorModeValue("gray.600", "gray.300")
 
+  // Variables on this step only (children carry their own counts on their
+  // own rows). Walks `t.value` directly so deeply nested marker positions
+  // — e.g. inside padding-input or distort-perspective composites — are
+  // counted just like top-level field markers.
+  const variableCount = useMemo(() => {
+    let n = 0
+    walkVariableRefs(transformation.value, () => {
+      n++
+    })
+    return n
+  }, [transformation.value])
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent): void => {
       const renamingBox = renamingBoxRef.current
@@ -105,61 +139,75 @@ export const SortableTransformationItem = ({
   return (
     <Hover display="flex">
       {(isHover) => (
-        <HStack
-          ref={setNodeRef}
-          px={4}
-          py={2}
-          cursor={isDragging ? "grabbing" : "pointer"}
-          bg={isHover ? "gray.50" : isEditting ? "gray.50" : undefined}
-          color={isEditting ? "editorBlue.500" : undefined}
-          transition="background-color 0.2s, opacity 0.2s"
-          spacing={3}
-          position="relative"
-          width="full"
-          minH="8"
-          alignItems="center"
-          style={style}
-          onClick={(_e) => {
-            _setSidebarState("config")
-            _setSelectedTransformationKey(transformation.key)
-            _setTransformationToEdit(transformation.id, "inplace")
-          }}
-          onDoubleClick={(e) => {
-            e.stopPropagation()
-            setIsRenaming(true)
-          }}
-          {...attributes}
-          {...listeners}
-        >
-          {isHover && !isRenaming ? (
-            <Box
-              cursor="grab"
-              mr={-1}
-              transition="opacity 0.2s"
-              opacity={isHover ? 1 : 0}
-              _hover={{ opacity: 1 }}
-              onClick={(e) => e.stopPropagation()}
-              height="24px"
-              display="flex"
-              alignItems="center"
-              w="5"
-            >
-              <Icon as={PiDotsSixVerticalBold} boxSize={4} color="gray.600" />
-            </Box>
-          ) : (
-            <Box mr={-1} height="24px" display="flex" alignItems="center" w="5">
-              <Icon as={RxTransform} boxSize={4} />
-            </Box>
-          )}
+        <Box width="full">
+          <HStack
+            ref={isRoot ? setNodeRef : undefined}
+            px={4}
+            py={2}
+            // Visual indent for nested children. Uses a left border so the
+            // hierarchy reads at a glance even before hover.
+            pl={depth > 0 ? 4 + depth * 4 : 4}
+            borderLeft={depth > 0 ? "2px solid" : undefined}
+            borderLeftColor={depth > 0 ? "editorBattleshipGrey.100" : undefined}
+            ml={depth > 0 ? 4 : 0}
+            cursor={isDragging ? "grabbing" : "pointer"}
+            bg={isHover ? "gray.50" : isEditting ? "gray.50" : undefined}
+            color={isEditting ? "editorBlue.500" : undefined}
+            transition="background-color 0.2s, opacity 0.2s"
+            spacing={3}
+            position="relative"
+            width="full"
+            minH="8"
+            alignItems="center"
+            style={isRoot ? style : undefined}
+            onClick={(_e) => {
+              _setSidebarState("config")
+              _setSelectedTransformationKey(transformation.key)
+              _setTransformationToEdit(transformation.id, "inplace")
+            }}
+            onDoubleClick={(e) => {
+              e.stopPropagation()
+              setIsRenaming(true)
+            }}
+            {...(isRoot ? attributes : {})}
+            {...(isRoot ? listeners : {})}
+          >
+            {isHover && !isRenaming ? (
+              <Box
+                cursor={isRoot ? "grab" : "default"}
+                mr={-1}
+                transition="opacity 0.2s"
+                opacity={isHover ? 1 : 0}
+                _hover={{ opacity: 1 }}
+                onClick={(e) => e.stopPropagation()}
+                height="24px"
+                display="flex"
+                alignItems="center"
+                w="5"
+              >
+                <Icon
+                  as={isRoot ? PiDotsSixVerticalBold : RxTransform}
+                  boxSize={4}
+                  color="gray.600"
+                />
+              </Box>
+            ) : (
+              <Box
+                mr={-1}
+                height="24px"
+                display="flex"
+                alignItems="center"
+                w="5"
+              >
+                <Icon as={RxTransform} boxSize={4} />
+              </Box>
+            )}
 
-          <Box flex={1} minW={0}>
             {isRenaming ? (
-              <Box ref={renamingBoxRef} w="100%" minW={0}>
-                <Flex alignItems="center" gap={2} w="100%" minW={0}>
+              <Box ref={renamingBoxRef}>
+                <Flex alignItems="center" justifyContent="space-between">
                   <Input
                     autoFocus
-                    flex={1}
-                    minW={0}
                     type="text"
                     defaultValue={transformation.name}
                     ref={renameInputRef}
@@ -179,7 +227,7 @@ export const SortableTransformationItem = ({
                     }}
                     variant="flushed"
                   />
-                  <Flex flexShrink={0}>
+                  <Flex>
                     <IconButton
                       aria-label="Save"
                       icon={<Icon as={RiCheckFill} />}
@@ -224,184 +272,292 @@ export const SortableTransformationItem = ({
                 </Text>
               </Tooltip>
             )}
-          </Box>
-
-          {/* Reserve space for right-side actions to avoid layout shift; hide while renaming so the input spans the full row */}
-          <HStack
-            spacing={2}
-            color="initial"
-            minW="14"
-            justifyContent="flex-end"
-            display={isRenaming ? "none" : "flex"}
-            opacity={isHover && !isRenaming ? 1 : 0}
-            pointerEvents={isHover && !isRenaming ? "auto" : "none"}
-            transition="opacity 0.15s"
-          >
-            <Tooltip
-              label={isVisible ? "Hide transformation" : "Show transformation"}
-              placement="top"
-            >
-              <Box
-                onClick={(e) => {
-                  e.stopPropagation()
-                  toggleTransformationVisibility(transformation.id)
-                }}
+            <Box flex={1} />
+            {/*
+             * Variable indicator floats over the right edge of the row so it
+             * doesn't participate in the flex flow — that way swapping it for
+             * the hover-action icons (which reserve their own width via
+             * visibility:hidden) causes zero layout shift, and long step
+             * names aren't squeezed by an extra inline child.
+             */}
+            {!isRenaming && !isHover && variableCount > 0 && (
+              <Tooltip
+                label={`${variableCount} variable${variableCount === 1 ? "" : "s"} on this step`}
+                placement="top"
               >
-                <Icon
-                  as={isVisible ? PiEye : PiEyeSlash}
-                  color="gray.600"
-                  boxSize={4}
-                  _hover={{ opacity: 1, color: "gray.800" }}
-                />
-              </Box>
-            </Tooltip>
-            <Menu closeOnSelect isLazy placement="bottom-end">
-              <Tooltip label="Options" placement="top">
-                <MenuButton
-                  as="button"
-                  aria-label="Options"
-                  onClick={(e) => e.stopPropagation()}
-                  p={0}
-                  bg="transparent"
-                  _hover={{ bg: "transparent" }}
+                <Text
+                  as="span"
+                  position="absolute"
+                  // Compensate for the HStack's `ml` indent on nested rows: it
+                  // shifts the HStack's right edge past the parent panel by the
+                  // same amount, so the badge would otherwise clip. `right` is
+                  // relative to the HStack, so add the indent back here.
+                  right={depth > 0 ? 8 : 4}
+                  top="50%"
+                  transform="translateY(-50%)"
+                  fontSize="xs"
+                  fontFamily="mono"
+                  color="purple.500"
+                  lineHeight="1"
+                  pointerEvents="none"
                 >
-                  <Icon
-                    as={PiDotsThreeVertical}
-                    color="gray.600"
-                    boxSize={4}
-                    _hover={{ opacity: 1, color: "gray.800" }}
-                  />
-                </MenuButton>
+                  {`{${variableCount}}`}
+                </Text>
               </Tooltip>
-              <MenuList fontSize="md" minW="200px" zIndex={10}>
-                <MenuItem
-                  icon={<Icon as={PiPlus} />}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    _setSidebarState("type")
-                    _setTransformationToEdit(transformation.id, "above")
-                  }}
-                >
-                  Add transformation before
-                </MenuItem>
-                <MenuItem
-                  icon={<Icon as={PiPlus} />}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    _setSidebarState("type")
-                    _setTransformationToEdit(transformation.id, "below")
-                  }}
-                >
-                  Add transformation after
-                </MenuItem>
-                <MenuItem
-                  icon={<Icon as={PiCopy} />}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    const currentIndex = transformations.findIndex(
-                      (t) => t.id === transformation.id,
-                    )
-                    const transformationId = addTransformation(
-                      {
-                        ...transformation,
-                        name: transformation.name
-                          ? `${transformation.name} (Copy)`
-                          : transformation.name,
-                      },
-                      currentIndex + 1,
-                    )
-                    _setSidebarState("config")
-                    _setTransformationToEdit(transformationId, "inplace")
-                  }}
-                >
-                  Duplicate
-                </MenuItem>
-                <MenuItem
-                  icon={<Icon as={PiPencilSimple} />}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    _setSidebarState("config")
-                    _setSelectedTransformationKey(transformation.key)
-                    _setTransformationToEdit(transformation.id, "inplace")
-                  }}
-                >
-                  Edit transformation
-                </MenuItem>
-                <MenuItem
-                  icon={<Icon as={PiCursorText} />}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setIsRenaming(true)
-                    _setSidebarState("config")
-                    _setSelectedTransformationKey(transformation.key)
-                    _setTransformationToEdit(transformation.id, "inplace")
-                  }}
-                >
-                  Rename
-                </MenuItem>
-                <MenuItem
-                  icon={<Icon as={PiArrowUp} />}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    const currentIndex = transformations.findIndex(
-                      (t) => t.id === transformation.id,
-                    )
-                    if (currentIndex > 0) {
-                      const targetId = transformations[currentIndex - 1].id
-                      moveTransformation(transformation.id, targetId)
-                    }
-                  }}
-                  isDisabled={
-                    transformations.findIndex(
-                      (t) => t.id === transformation.id,
-                    ) <= 0
+            )}
+            {!isRenaming && (
+              <HStack
+                spacing={3}
+                color={"initial"}
+                // Always rendered so the row width never reflows on hover.
+                visibility={isHover ? "visible" : "hidden"}
+                aria-hidden={!isHover}
+              >
+                {canHostChildren && (
+                  <Tooltip label="Add nested layer" placement="top">
+                    <Box
+                      as="button"
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        // Clear any prior in-place edit target so the config
+                        // sidebar doesn't seed the new child's form fields
+                        // from the parent's value (e.g. the parent image
+                        // layer's opacity=100 leaking into a new text child).
+                        _setTransformationToEdit(null)
+                        _setParentForChild(transformation.id)
+                        _setSidebarState("type")
+                      }}
+                      aria-label="Add nested layer"
+                      display="inline-flex"
+                      alignItems="center"
+                      justifyContent="center"
+                      boxSize="18px"
+                      bg="transparent"
+                      p={0}
+                      sx={{
+                        "&:hover svg": {
+                          color: "var(--chakra-colors-gray-800)",
+                        },
+                      }}
+                    >
+                      <Icon as={PiPlus} color="gray.600" boxSize={4} />
+                    </Box>
+                  </Tooltip>
+                )}
+                <Tooltip
+                  label={
+                    isVisible ? "Hide transformation" : "Show transformation"
                   }
+                  placement="top"
                 >
-                  Move up
-                </MenuItem>
-                <MenuItem
-                  icon={<Icon as={PiArrowDown} />}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    const currentIndex = transformations.findIndex(
-                      (t) => t.id === transformation.id,
-                    )
-                    if (currentIndex < transformations.length - 1) {
-                      const targetId = transformations[currentIndex + 1].id
-                      moveTransformation(transformation.id, targetId)
+                  <Box
+                    as="button"
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleTransformationVisibility(transformation.id)
+                    }}
+                    aria-label={
+                      isVisible ? "Hide transformation" : "Show transformation"
                     }
-                  }}
-                  isDisabled={
-                    transformations.findIndex(
-                      (t) => t.id === transformation.id,
-                    ) >=
-                    transformations.length - 1
-                  }
-                >
-                  Move down
-                </MenuItem>
-                <MenuItem
-                  icon={<Icon as={PiTrash} color="red.500" />}
-                  color="red.500"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    removeTransformation(transformation.id)
-                    if (
-                      _internalState.selectedTransformationKey ===
-                      transformation.key
-                    ) {
-                      _setSidebarState("none")
-                      _setSelectedTransformationKey(null)
-                      _setTransformationToEdit(null)
-                    }
-                  }}
-                >
-                  Delete
-                </MenuItem>
-              </MenuList>
-            </Menu>
+                    display="inline-flex"
+                    alignItems="center"
+                    justifyContent="center"
+                    boxSize="18px"
+                    bg="transparent"
+                    p={0}
+                    sx={{
+                      "&:hover svg": { color: "var(--chakra-colors-gray-800)" },
+                    }}
+                  >
+                    <Icon
+                      as={isVisible ? PiEye : PiEyeSlash}
+                      color="gray.600"
+                      boxSize={4}
+                    />
+                  </Box>
+                </Tooltip>
+                <Menu closeOnSelect isLazy placement="bottom-end">
+                  <Tooltip label="Options" placement="top">
+                    <MenuButton
+                      as="button"
+                      aria-label="Options"
+                      onClick={(e) => e.stopPropagation()}
+                      display="inline-flex"
+                      alignItems="center"
+                      justifyContent="center"
+                      boxSize="18px"
+                      p={0}
+                      bg="transparent"
+                      _hover={{ bg: "transparent" }}
+                      sx={{
+                        "&:hover svg": {
+                          color: "var(--chakra-colors-gray-800)",
+                        },
+                      }}
+                    >
+                      <Icon
+                        as={PiDotsThreeVertical}
+                        color="gray.600"
+                        boxSize={4}
+                      />
+                    </MenuButton>
+                  </Tooltip>
+                  <MenuList fontSize="md" minW="200px" zIndex={10}>
+                    {isRoot && (
+                      <MenuItem
+                        icon={<Icon as={PiPlus} />}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          _setSidebarState("type")
+                          _setTransformationToEdit(transformation.id, "above")
+                        }}
+                      >
+                        Add transformation before
+                      </MenuItem>
+                    )}
+                    {isRoot && (
+                      <MenuItem
+                        icon={<Icon as={PiPlus} />}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          _setSidebarState("type")
+                          _setTransformationToEdit(transformation.id, "below")
+                        }}
+                      >
+                        Add transformation after
+                      </MenuItem>
+                    )}
+                    {isRoot && (
+                      <MenuItem
+                        icon={<Icon as={PiCopy} />}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const currentIndex = transformations.findIndex(
+                            (t) => t.id === transformation.id,
+                          )
+                          const transformationId = addTransformation(
+                            {
+                              ...transformation,
+                              name: transformation.name
+                                ? `${transformation.name} (Copy)`
+                                : transformation.name,
+                            },
+                            currentIndex + 1,
+                          )
+                          _setSidebarState("config")
+                          _setTransformationToEdit(transformationId, "inplace")
+                        }}
+                      >
+                        Duplicate
+                      </MenuItem>
+                    )}
+                    <MenuItem
+                      icon={<Icon as={PiPencilSimple} />}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        _setSidebarState("config")
+                        _setSelectedTransformationKey(transformation.key)
+                        _setTransformationToEdit(transformation.id, "inplace")
+                      }}
+                    >
+                      Edit transformation
+                    </MenuItem>
+                    <MenuItem
+                      icon={<Icon as={PiCursorText} />}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsRenaming(true)
+                        _setSidebarState("config")
+                        _setSelectedTransformationKey(transformation.key)
+                        _setTransformationToEdit(transformation.id, "inplace")
+                      }}
+                    >
+                      Rename
+                    </MenuItem>
+                    {isRoot && (
+                      <MenuItem
+                        icon={<Icon as={PiArrowUp} />}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const currentIndex = transformations.findIndex(
+                            (t) => t.id === transformation.id,
+                          )
+                          if (currentIndex > 0) {
+                            const targetId =
+                              transformations[currentIndex - 1].id
+                            moveTransformation(transformation.id, targetId)
+                          }
+                        }}
+                        isDisabled={
+                          transformations.findIndex(
+                            (t) => t.id === transformation.id,
+                          ) <= 0
+                        }
+                      >
+                        Move up
+                      </MenuItem>
+                    )}
+                    {isRoot && (
+                      <MenuItem
+                        icon={<Icon as={PiArrowDown} />}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const currentIndex = transformations.findIndex(
+                            (t) => t.id === transformation.id,
+                          )
+                          if (currentIndex < transformations.length - 1) {
+                            const targetId =
+                              transformations[currentIndex + 1].id
+                            moveTransformation(transformation.id, targetId)
+                          }
+                        }}
+                        isDisabled={
+                          transformations.findIndex(
+                            (t) => t.id === transformation.id,
+                          ) >=
+                          transformations.length - 1
+                        }
+                      >
+                        Move down
+                      </MenuItem>
+                    )}
+                    <MenuItem
+                      icon={<Icon as={PiTrash} color="red.500" />}
+                      color="red.500"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removeTransformation(transformation.id)
+                        if (
+                          _internalState.selectedTransformationKey ===
+                          transformation.key
+                        ) {
+                          _setSidebarState("none")
+                          _setSelectedTransformationKey(null)
+                          _setTransformationToEdit(null)
+                        }
+                      }}
+                    >
+                      Delete
+                    </MenuItem>
+                  </MenuList>
+                </Menu>
+              </HStack>
+            )}
           </HStack>
-        </HStack>
+          {transformation.children && transformation.children.length > 0 && (
+            <Box width="full">
+              {transformation.children.map((child) => (
+                <SortableTransformationItem
+                  key={child.id}
+                  transformation={child}
+                  depth={depth + 1}
+                />
+              ))}
+            </Box>
+          )}
+        </Box>
       )}
     </Hover>
   )

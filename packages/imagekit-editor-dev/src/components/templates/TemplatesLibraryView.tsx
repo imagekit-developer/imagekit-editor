@@ -38,7 +38,7 @@ import { useTemplatePermissions } from "../../context/TemplatePermissionsContext
 import { useTemplateStorage } from "../../context/TemplateStorageContext"
 import { useDebounce } from "../../hooks/useDebounce"
 import type { TemplateRecord } from "../../storage"
-import { useEditorStore } from "../../store"
+import { applyTemplateRecord, useEditorStore } from "../../store"
 import {
   chakraAny,
   formatTemplateNameForUI,
@@ -178,8 +178,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
   // (e.g. rapid key presses or tight loops in tests).
   const activeVirtualIndexRef = useRef<number | null>(null)
 
-  const { loadTemplate, resetToNewTemplate, hydrateTemplateMetadata } =
-    useEditorStore()
+  const { resetToNewTemplate } = useEditorStore()
   const templateId = useEditorStore((s) => s.templateId)
   const templateName = useEditorStore((s) => s.templateName)
   const isPristine = useEditorStore((s) => s.isPristine)
@@ -266,12 +265,7 @@ export function TemplatesLibraryView({ onClose }: Props) {
 
   const handleSelect = (record: TemplateRecord) => {
     if (!hasUnsyncedChanges) {
-      loadTemplate(record.transformations)
-      hydrateTemplateMetadata({
-        templateId: record.id,
-        templateName: record.name,
-        templateIsPrivate: record.isPrivate,
-      })
+      applyTemplateRecord(record)
       onClose()
     }
   }

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 import { useAutoSaveTemplate } from "../../hooks/useAutoSaveTemplate"
 import { useEditorSessionLocalStorage } from "../../hooks/useEditorSessionLocalStorage"
 import { useSaveTemplate } from "../../hooks/useSaveTemplate"
+import { useEditorStore } from "../../store"
 import { Header, type HeaderProps } from "../header"
 import { Sidebar } from "../sidebar"
 import { TemplatesLibraryView } from "../templates/TemplatesLibraryView"
@@ -27,6 +28,10 @@ export function EditorLayout({
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
   const [gridImageSize, setGridImageSize] = useState<number>(300)
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false)
+  const isCanvas = useEditorStore((s) => s.mode === "canvas")
+  // Canvas mode has only the synthetic source pixel; force list view so we
+  // never render the (empty) grid.
+  const effectiveViewMode = isCanvas ? "list" : viewMode
 
   // Close templates modal on Escape while it's open
   useEffect(() => {
@@ -65,13 +70,13 @@ export function EditorLayout({
           position="relative"
         >
           <ActionBar
-            viewMode={viewMode}
+            viewMode={effectiveViewMode}
             setViewMode={setViewMode}
             gridImageSize={gridImageSize}
             setGridImageSize={setGridImageSize}
           />
-          {viewMode === "list" && <ListView onAddImage={onAddImage} />}
-          {viewMode === "grid" && (
+          {effectiveViewMode === "list" && <ListView onAddImage={onAddImage} />}
+          {effectiveViewMode === "grid" && (
             <GridView imageSize={gridImageSize} onAddImage={onAddImage} />
           )}
         </Flex>

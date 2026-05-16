@@ -78,6 +78,16 @@ export const DistortPerspectiveInput: React.FC<DistorPerspectiveFieldProps> = ({
     }
   }
 
+  // Sync internal state when value prop changes externally
+  // (e.g. switching between transformations of the same type)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <deep-compare via JSON.stringify>
+  useEffect(() => {
+    if (!value) return
+    setPerspective((prev) =>
+      JSON.stringify(prev) === JSON.stringify(value) ? prev : value,
+    )
+  }, [JSON.stringify(value)])
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: <causes re-render loop if added>
   useEffect(() => {
     onChange(perspective)

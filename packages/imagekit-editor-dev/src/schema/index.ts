@@ -164,12 +164,118 @@ export interface TransformationField {
   transformationKey?: string
   isVisible?: (value: Record<string, unknown>) => boolean
   transformationGroup?: string
+  /**
+   * When true, this field is excluded from the "Make variable" affordance
+   * even if its `fieldType` would otherwise qualify. Use for true mode
+   * selectors whose value swaps which *set* of dependent fields applies
+   * (e.g. `backgroundType`, `crop`, `focus`, `coordinateMethod`,
+   * `distortType`, resize `mode`). Simple on/off enable-switches whose
+   * dependent fields stay configured regardless should remain variablizable.
+   */
+  nonVariablizable?: boolean
 }
 
 export interface TransformationSchema {
   key: string
   name: string
   items: TransformationItem[]
+}
+
+/**
+ * Anchor points (`lap`) supported by the URL builder for layer positioning.
+ * Mirrors the SDK's `OverlayPosition.anchorPoint` union and the docs at
+ * https://imagekit.io/docs/add-overlays-on-images#control-position-of-image-overlay.
+ */
+const LAYER_ANCHOR_VALUES = [
+  "top_left",
+  "top",
+  "top_right",
+  "left",
+  "center",
+  "right",
+  "bottom_left",
+  "bottom",
+  "bottom_right",
+] as const
+
+type LayerAnchor = (typeof LAYER_ANCHOR_VALUES)[number]
+
+/**
+ * Reusable validator for the `layerAnchor` (lap) field. The clearable select
+ * emits `""` when the user clears the option, so we coerce empty strings to
+ * `undefined` before applying the enum check. Using a bare
+ * `z.enum(LAYER_ANCHOR_VALUES).optional()` would surface a confusing
+ * "Invalid enum value … received ''" error the moment the form mounts.
+ */
+const layerAnchorValidator = z.preprocess(
+  (val) => (val === "" ? undefined : val),
+  z.enum(LAYER_ANCHOR_VALUES).optional(),
+)
+
+const LAYER_ANCHOR_OPTIONS: Array<{ label: string; value: LayerAnchor }> = [
+  { label: "Top Left", value: "top_left" },
+  { label: "Top", value: "top" },
+  { label: "Top Right", value: "top_right" },
+  { label: "Left", value: "left" },
+  { label: "Center", value: "center" },
+  { label: "Right", value: "right" },
+  { label: "Bottom Left", value: "bottom_left" },
+  { label: "Bottom", value: "bottom" },
+  { label: "Bottom Right", value: "bottom_right" },
+]
+
+/**
+ * Cross-axis position validator shared by every layer type.
+ *
+ * Encodes the SDK rule that the top-left reference (`x` / `lx`) and the centre
+ * reference (`xCenter` / `lxc`) cannot both be set on the same axis — the URL
+ * builder rejects the combination. We surface the error against the centre
+ * field so the user keeps the more discoverable "Position X" untouched.
+ */
+function refineLayerPosition(
+  val: {
+    positionX?: unknown
+    positionY?: unknown
+    positionXCenter?: unknown
+    positionYCenter?: unknown
+    layerAnchor?: unknown
+  },
+  ctx: RefinementCtx,
+) {
+  const isSet = (v: unknown) => v !== undefined && v !== null && v !== ""
+  if (isSet(val.positionX) && isSet(val.positionXCenter)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        "Use either Position X (top-left) or Position X (center), not both.",
+      path: ["positionXCenter"],
+    })
+  }
+  if (isSet(val.positionY) && isSet(val.positionYCenter)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        "Use either Position Y (top-left) or Position Y (center), not both.",
+      path: ["positionYCenter"],
+    })
+  }
+  // `lap` cannot be used alone — the URL parser rejects an anchor without an
+  // accompanying offset. Require at least one of lx/ly/lxc/lyc when an anchor
+  // is set, and surface the error against the anchor field itself.
+  if (
+    isSet(val.layerAnchor) &&
+    !isSet(val.positionX) &&
+    !isSet(val.positionY) &&
+    !isSet(val.positionXCenter) &&
+    !isSet(val.positionYCenter)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        "Anchor Point requires at least one of Position X, Position Y, Position X (center), or Position Y (center).",
+      path: ["layerAnchor"],
+    })
+  }
 }
 
 const baseTransformationSchema: TransformationSchema[] = [
@@ -296,6 +402,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Shadow",
             name: "shadow",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: true,
             transformationGroup: "shadow",
@@ -409,6 +516,88 @@ const baseTransformationSchema: TransformationSchema[] = [
         ],
       },
       {
+        key: "adjust-colorize",
+        name: "Colorize",
+        description:
+          "Apply a color tint to the image. Optionally pick a tint color and intensity.",
+        docsLink:
+          "https://imagekit.io/docs/effects-and-enhancements#colorize---e-colorize",
+        defaultTransformation: {},
+        schema: z
+          .object({
+            colorize: z.coerce
+              .boolean({
+                invalid_type_error: "Should be a boolean.",
+              })
+              .optional(),
+            colorizeColor: z.string().optional(),
+            colorizeIntensity: z.coerce
+              .number({
+                invalid_type_error: "Should be a number.",
+              })
+              .min(0)
+              .max(100)
+              .optional(),
+          })
+          .refine(
+            (val) => {
+              if (
+                Object.values(val).some((v) => v !== undefined && v !== null)
+              ) {
+                return true
+              }
+              return false
+            },
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          ),
+        transformations: [
+          {
+            label: "Colorize",
+            name: "colorize",
+            nonVariablizable: true,
+            fieldType: "switch",
+            isTransformation: true,
+            transformationGroup: "colorize",
+            helpText: "Toggle to apply a color tint to the image.",
+          },
+          {
+            label: "Color",
+            name: "colorizeColor",
+            fieldType: "color-picker",
+            isTransformation: true,
+            transformationGroup: "colorize",
+            helpText:
+              "Tint color. Defaults to gray when left empty. Accepts standard color names or hex codes.",
+            fieldProps: {
+              hideOpacity: true,
+              showHexAlpha: false,
+              defaultValue: "#808080",
+              isClearable: true,
+            },
+            isVisible: ({ colorize }) => colorize === true,
+          },
+          {
+            label: "Intensity",
+            name: "colorizeIntensity",
+            fieldType: "slider",
+            isTransformation: true,
+            transformationGroup: "colorize",
+            helpText:
+              "Intensity of the tint. Defaults to 35 when left empty. Range 0–100.",
+            fieldProps: {
+              min: 0,
+              max: 100,
+              step: 1,
+              defaultValue: 35,
+            },
+            isVisible: ({ colorize }) => colorize === true,
+          },
+        ],
+      },
+      {
         key: "adjust-gradient",
         name: "Gradient",
         description: "Add gradient overlay over the image.",
@@ -463,6 +652,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Gradient",
             name: "gradientSwitch",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: false,
             transformationGroup: "gradient",
@@ -536,6 +726,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Distort",
             name: "distort",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: false,
             transformationGroup: "distort",
@@ -544,6 +735,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Distortion Type",
             name: "distortType",
+            nonVariablizable: true,
             fieldType: "radio-card",
             isTransformation: false,
             transformationGroup: "distort",
@@ -1012,6 +1204,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Enable Trim",
             name: "trimEnabled",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: false,
             transformationGroup: "trim",
@@ -1156,6 +1349,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Sharpen Image",
             name: "sharpenEnabled",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: false,
             transformationGroup: "sharpen",
@@ -1751,6 +1945,18 @@ const baseTransformationSchema: TransformationSchema[] = [
             width: widthValidator.optional(),
             positionX: layerXValidator.optional(),
             positionY: layerYValidator.optional(),
+            // Centre-reference position (lxc / lyc) and base-image anchor
+            // point (lap). Optional and unused by older saved templates, so
+            // adding them here is backwards-compatible: any template that
+            // never set them keeps producing the exact same URL.
+            positionXCenter: layerXValidator.optional(),
+            positionYCenter: layerYValidator.optional(),
+            layerAnchor: layerAnchorValidator,
+            // Free-form passthrough. Whatever the user types is appended
+            // verbatim into the layer's inner transformation chain via the
+            // SDK's `raw` field. Lets advanced users reach parameters the
+            // editor UI doesn't yet model (e.g. `lm-multiply`).
+            rawTransformation: z.string().optional(),
             fontSize: z.coerce
               .number({
                 invalid_type_error: "Should be a number.",
@@ -1843,6 +2049,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               })
               .optional(),
           })
+          .superRefine((val, ctx) => refineLayerPosition(val, ctx))
           .refine(
             (val) => {
               return Object.values(val).some(
@@ -1882,7 +2089,8 @@ const baseTransformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "x",
             transformationGroup: "textLayer",
-            helpText: "Specify horizontal offset for the text.",
+            helpText:
+              "Horizontal offset measured from the layer's top-left corner.",
             examples: ["10", "-20", "N30", "bw_div_2"],
           },
           {
@@ -1892,8 +2100,45 @@ const baseTransformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "y",
             transformationGroup: "textLayer",
-            helpText: "Specify vertical offset for the text.",
+            helpText:
+              "Vertical offset measured from the layer's top-left corner.",
             examples: ["10", "-20", "N30", "bh_div_2"],
+          },
+          {
+            label: "Position X (center)",
+            name: "positionXCenter",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "xCenter",
+            transformationGroup: "textLayer",
+            helpText:
+              "Horizontal offset measured from the layer's center. Use instead of Position X for centre-anchored placement.",
+            examples: ["50", "N100", "bw_div_2"],
+          },
+          {
+            label: "Position Y (center)",
+            name: "positionYCenter",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "yCenter",
+            transformationGroup: "textLayer",
+            helpText:
+              "Vertical offset measured from the layer's center. Use instead of Position Y for centre-anchored placement.",
+            examples: ["50", "N100", "bh_div_2"],
+          },
+          {
+            label: "Anchor Point",
+            name: "layerAnchor",
+            fieldType: "select",
+            isTransformation: true,
+            transformationKey: "anchorPoint",
+            transformationGroup: "textLayer",
+            helpText:
+              "Anchor on the base image from which the position offsets are measured. Leave unset to use ImageKit's default. Requires at least one of Position X / Y / X (center) / Y (center).",
+            fieldProps: {
+              options: LAYER_ANCHOR_OPTIONS,
+              isClearable: true,
+            },
           },
           {
             label: "Font Size",
@@ -1911,11 +2156,12 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Font Family",
             name: "fontFamily",
-            fieldType: "select",
+            fieldType: "select-creatable",
             isTransformation: true,
             transformationKey: "fontFamily",
             transformationGroup: "textLayer",
-            helpText: "Choose a font family for the text.",
+            helpText:
+              "Choose a built-in font, type a custom name, or use the picker on the right to select a font file from Media Library.",
             fieldProps: {
               options: [
                 { label: "AbrilFatFace", value: "AbrilFatFace" },
@@ -1942,6 +2188,7 @@ const baseTransformationSchema: TransformationSchema[] = [
                 { label: "Vollkorn", value: "Vollkorn" },
               ],
               defaultValue: "Open Sans",
+              isClearable: true,
             },
           },
           {
@@ -2089,6 +2336,17 @@ const baseTransformationSchema: TransformationSchema[] = [
               defaultValue: "0",
             },
           },
+          {
+            label: "Additional raw transformation",
+            name: "rawTransformation",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "raw",
+            transformationGroup: "textLayer",
+            helpText:
+              "Escape hatch: any transformation string entered here is appended verbatim into this layer's chain (e.g. `lm-multiply`, `e-shadow-st-40_bl-15`). Use only for parameters the form fields above don't cover.",
+            examples: ["lm-multiply", "e-shadow"],
+          },
         ],
       },
       {
@@ -2107,6 +2365,16 @@ const baseTransformationSchema: TransformationSchema[] = [
             crop: z.string().optional(),
             positionX: layerXValidator.optional(),
             positionY: layerYValidator.optional(),
+            // Centre-reference position (lxc / lyc) and base-image anchor
+            // point (lap). Optional + ignored when not set, so legacy
+            // templates serialize to byte-identical URLs.
+            positionXCenter: layerXValidator.optional(),
+            positionYCenter: layerYValidator.optional(),
+            layerAnchor: layerAnchorValidator,
+            // Free-form passthrough appended verbatim to the layer's inner
+            // transformation chain (SDK `raw`). Escape hatch for parameters
+            // the editor UI doesn't yet model (e.g. `lm-multiply`).
+            rawTransformation: z.string().optional(),
             anchor: z.string().optional(),
             opacityEnabled: z.boolean().optional(),
             opacity: z.coerce
@@ -2393,6 +2661,7 @@ const baseTransformationSchema: TransformationSchema[] = [
               })
             }
 
+            refineLayerPosition(val, ctx)
             validatePerspectiveDistort(val, ctx)
           }),
         transformations: [
@@ -2461,6 +2730,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Crop Mode",
             name: "crop",
+            nonVariablizable: true,
             fieldType: "select",
             isTransformation: true,
             transformationKey: "crop",
@@ -2480,6 +2750,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Focus",
             name: "focus",
+            nonVariablizable: true,
             fieldType: "select",
             isTransformation: true,
             transformationGroup: "imageLayer",
@@ -2549,6 +2820,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Coordinate Method",
             name: "coordinateMethod",
+            nonVariablizable: true,
             fieldType: "radio-card",
             isTransformation: false,
             transformationGroup: "imageLayer",
@@ -2631,7 +2903,8 @@ const baseTransformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "x",
             transformationGroup: "imageLayer",
-            helpText: "Specify the horizontal offset for the overlay image.",
+            helpText:
+              "Horizontal offset measured from the layer's top-left corner.",
             examples: ["10", "-20", "N30", "bw_div_2"],
           },
           {
@@ -2641,8 +2914,45 @@ const baseTransformationSchema: TransformationSchema[] = [
             isTransformation: true,
             transformationKey: "y",
             transformationGroup: "imageLayer",
-            helpText: "Specify the vertical offset for the overlay image.",
+            helpText:
+              "Vertical offset measured from the layer's top-left corner.",
             examples: ["10", "-20", "N30", "bh_div_2"],
+          },
+          {
+            label: "Position X (center)",
+            name: "positionXCenter",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "xCenter",
+            transformationGroup: "imageLayer",
+            helpText:
+              "Horizontal offset measured from the layer's center. Use instead of Position X for centre-anchored placement.",
+            examples: ["50", "N100", "bw_div_2"],
+          },
+          {
+            label: "Position Y (center)",
+            name: "positionYCenter",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "yCenter",
+            transformationGroup: "imageLayer",
+            helpText:
+              "Vertical offset measured from the layer's center. Use instead of Position Y for centre-anchored placement.",
+            examples: ["50", "N100", "bh_div_2"],
+          },
+          {
+            label: "Anchor Point",
+            name: "layerAnchor",
+            fieldType: "select",
+            isTransformation: true,
+            transformationKey: "anchorPoint",
+            transformationGroup: "imageLayer",
+            helpText:
+              "Anchor on the base image from which the position offsets are measured. Leave unset to use ImageKit's default. Requires at least one of Position X / Y / X (center) / Y (center).",
+            fieldProps: {
+              options: LAYER_ANCHOR_OPTIONS,
+              isClearable: true,
+            },
           },
           {
             label: "Opacity",
@@ -2741,6 +3051,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Trim",
             name: "trimEnabled",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: false,
             transformationKey: "trimEnabled",
@@ -2844,6 +3155,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Sharpen Overlay",
             name: "sharpenEnabled",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: false,
             transformationKey: "sharpenEnabled",
@@ -2941,6 +3253,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Gradient",
             name: "gradientSwitch",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: false,
             transformationGroup: "imageLayer",
@@ -2967,6 +3280,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Shadow",
             name: "shadow",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: true,
             transformationGroup: "imageLayer",
@@ -3049,6 +3363,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Distort",
             name: "distort",
+            nonVariablizable: true,
             fieldType: "switch",
             isTransformation: false,
             transformationGroup: "imageLayer",
@@ -3057,6 +3372,7 @@ const baseTransformationSchema: TransformationSchema[] = [
           {
             label: "Distortion Type",
             name: "distortType",
+            nonVariablizable: true,
             fieldType: "radio-card",
             isTransformation: false,
             transformationGroup: "imageLayer",
@@ -3108,6 +3424,246 @@ const baseTransformationSchema: TransformationSchema[] = [
               inputType: "text",
               skipStepCheck: true,
             },
+          },
+          {
+            label: "Additional raw transformation",
+            name: "rawTransformation",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "raw",
+            transformationGroup: "imageLayer",
+            helpText:
+              "Escape hatch: any transformation string entered here is appended verbatim into this layer's chain (e.g. `lm-multiply`, `e-shadow-st-40_bl-15`). Use only for parameters the form fields above don't cover.",
+            examples: ["lm-multiply", "e-shadow"],
+          },
+        ],
+      },
+      {
+        key: "layers-canvas",
+        name: "Canvas Layer",
+        description:
+          "Add a solid color block (canvas) on top of the base image. Useful as a backdrop for nested text or image children, or as a coloured badge.",
+        docsLink:
+          "https://imagekit.io/docs/add-overlays-on-images#add-solid-color-blocks-over-image",
+        defaultTransformation: {},
+        // Canvas (solid color) layers support a deliberately small subset of
+        // transformations per the docs: `w`, `h`, `bg`, `r`, `e-gradient`
+        // plus the standard layer position/mode params. Anything else is
+        // available via `rawTransformation`. The `backgroundColor` picker is
+        // restricted to 6-digit RGB (no alpha): ImageKit's `bg` parameter
+        // accepts a 6-digit hex (see @imagekit/javascript types,
+        // `Transformation.background`) and an 8-char value would be misread
+        // (its trailing 2 chars are a decimal opacity 00–99, not hex), so we
+        // hide the opacity slider in the picker for this field.
+        schema: z
+          .object({
+            backgroundColor: colorValidator.optional(),
+            width: widthValidator.optional(),
+            height: heightValidator.optional(),
+            // Position parameters (lx/ly/lxc/lyc/lap)
+            positionX: layerXValidator.optional(),
+            positionY: layerYValidator.optional(),
+            positionXCenter: layerXValidator.optional(),
+            positionYCenter: layerYValidator.optional(),
+            layerAnchor: layerAnchorValidator,
+            // Corner radius (uniform or per-corner). Reuses the same shape as
+            // image / text layers so the existing `radius-input` field works.
+            radius: z
+              .object({
+                mode: z.enum(["uniform", "individual"]).optional(),
+                radius: z
+                  .union([
+                    z.literal("max"),
+                    z.coerce.number().min(0),
+                    z.object({
+                      topLeft: z.union([
+                        z.literal("max"),
+                        z.coerce.number().min(0),
+                      ]),
+                      topRight: z.union([
+                        z.literal("max"),
+                        z.coerce.number().min(0),
+                      ]),
+                      bottomRight: z.union([
+                        z.literal("max"),
+                        z.coerce.number().min(0),
+                      ]),
+                      bottomLeft: z.union([
+                        z.literal("max"),
+                        z.coerce.number().min(0),
+                      ]),
+                    }),
+                  ])
+                  .optional(),
+              })
+              .optional(),
+            // Gradient overlay (e-gradient). Reuses the gradient picker UI.
+            gradientSwitch: z.coerce.boolean().optional(),
+            gradient: z
+              .object({
+                from: z.string().optional(),
+                to: z.string().optional(),
+                direction: z
+                  .union([z.coerce.number().min(0).max(359), z.string()])
+                  .optional(),
+                stopPoint: z.coerce.number().min(1).max(100).optional(),
+              })
+              .optional(),
+            // Free-form passthrough for layer-mode (`lm-`) or anything else
+            // not covered by the form above.
+            rawTransformation: z.string().optional(),
+          })
+          .refine(
+            (val) =>
+              Object.values(val).some(
+                (v) => v !== undefined && v !== null && v !== "",
+              ),
+            {
+              message: "At least one value is required",
+              path: [],
+            },
+          )
+          .superRefine((val, ctx) => refineLayerPosition(val, ctx)),
+        transformations: [
+          {
+            label: "Background Color",
+            name: "backgroundColor",
+            fieldType: "color-picker",
+            isTransformation: true,
+            transformationGroup: "canvasLayer",
+            transformationKey: "backgroundColor",
+            helpText:
+              "Solid fill colour for the canvas. Hex (e.g. `FF0000`) or a colour name (e.g. `red`).",
+            examples: ["FF0000", "red"],
+            fieldProps: {
+              isClearable: true,
+              hideOpacity: true,
+            },
+          },
+          {
+            label: "Width",
+            name: "width",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "width",
+            transformationGroup: "canvasLayer",
+            helpText: "Width of the solid colour block.",
+            examples: ["300", "bw_div_2"],
+          },
+          {
+            label: "Height",
+            name: "height",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "height",
+            transformationGroup: "canvasLayer",
+            helpText: "Height of the solid colour block.",
+            examples: ["100", "bh_div_2"],
+          },
+          {
+            label: "Position X",
+            name: "positionX",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "x",
+            transformationGroup: "canvasLayer",
+            helpText:
+              "Horizontal offset measured from the canvas's top-left corner.",
+            examples: ["10", "N20", "bw_div_2"],
+          },
+          {
+            label: "Position Y",
+            name: "positionY",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "y",
+            transformationGroup: "canvasLayer",
+            helpText:
+              "Vertical offset measured from the canvas's top-left corner.",
+            examples: ["10", "N20", "bh_div_2"],
+          },
+          {
+            label: "Position X (center)",
+            name: "positionXCenter",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "xCenter",
+            transformationGroup: "canvasLayer",
+            helpText:
+              "Horizontal offset measured from the canvas's center. Use instead of Position X for centre-anchored placement.",
+            examples: ["50", "N100", "bw_div_2"],
+          },
+          {
+            label: "Position Y (center)",
+            name: "positionYCenter",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "yCenter",
+            transformationGroup: "canvasLayer",
+            helpText:
+              "Vertical offset measured from the canvas's center. Use instead of Position Y for centre-anchored placement.",
+            examples: ["50", "N100", "bh_div_2"],
+          },
+          {
+            label: "Anchor Point",
+            name: "layerAnchor",
+            fieldType: "select",
+            isTransformation: true,
+            transformationKey: "anchorPoint",
+            transformationGroup: "canvasLayer",
+            helpText:
+              "Anchor on the base image from which the position offsets are measured. Requires at least one of Position X / Y / X (center) / Y (center).",
+            fieldProps: {
+              options: LAYER_ANCHOR_OPTIONS,
+              isClearable: true,
+            },
+          },
+          {
+            label: "Radius",
+            name: "radius",
+            fieldType: "radius-input",
+            isTransformation: true,
+            transformationGroup: "canvasLayer",
+            helpText:
+              "Corner radius for the canvas. Use 'max' for a circle / oval.",
+            examples: ["10", "max"],
+            fieldProps: { defaultValue: {} },
+          },
+          {
+            label: "Gradient",
+            name: "gradientSwitch",
+            fieldType: "switch",
+            isTransformation: false,
+            transformationGroup: "canvasLayer",
+            helpText: "Toggle to add a linear gradient overlay on the canvas.",
+          },
+          {
+            label: "Apply Gradient",
+            name: "gradient",
+            fieldType: "gradient-picker",
+            isTransformation: true,
+            transformationKey: "gradient",
+            transformationGroup: "canvasLayer",
+            isVisible: ({ gradientSwitch }) => gradientSwitch === true,
+            fieldProps: {
+              defaultValue: {
+                from: "#FFFFFFFF",
+                to: "#00000000",
+                direction: "bottom",
+                stopPoint: 100,
+              },
+            },
+          },
+          {
+            label: "Additional raw transformation",
+            name: "rawTransformation",
+            fieldType: "input",
+            isTransformation: true,
+            transformationKey: "raw",
+            transformationGroup: "canvasLayer",
+            helpText:
+              "Escape hatch: any transformation string appended verbatim into this canvas layer's chain (e.g. `lm-multiply`).",
+            examples: ["lm-multiply"],
           },
         ],
       },
@@ -3380,7 +3936,15 @@ export const transformationFormatters: Record<
       overlayTransform.fontSize = values.fontSize
     }
     if (typeof values.fontFamily === "string") {
+      // Custom-font paths picked from the Media Library come in with `/`
+      // separators (e.g. `fonts/MyFont.ttf`), but ImageKit's `ff-` parameter
+      // is positional within a transformation chain — a literal `/` would be
+      // parsed as a new transformation segment and break the URL. Mirror the
+      // image-layer convention: strip any leading `/` first, then substitute
+      // remaining `/` with `@@` so the SDK round-trips the value untouched.
       overlayTransform.fontFamily = values.fontFamily
+        .replace(/^\//, "")
+        .replace(/\//g, "@@")
     }
     if (typeof values.backgroundColor === "string") {
       const bg = (values.backgroundColor as string).replace(/^#/, "")
@@ -3475,6 +4039,13 @@ export const transformationFormatters: Record<
       overlayTransform.typography = typography.join("_") as "b" | "i" | "b_i"
     }
 
+    if (
+      typeof values.rawTransformation === "string" &&
+      values.rawTransformation.trim() !== ""
+    ) {
+      overlayTransform.raw = values.rawTransformation.trim()
+    }
+
     // Assign the transformation array only if there are styling properties
     if (Object.keys(overlayTransform).length > 0) {
       overlay.transformation = [overlayTransform]
@@ -3493,6 +4064,24 @@ export const transformationFormatters: Record<
       typeof values.positionY === "string"
     ) {
       position.y = values.positionY.toString().replace(/^-/, "N")
+    }
+    if (
+      typeof values.positionXCenter === "number" ||
+      typeof values.positionXCenter === "string"
+    ) {
+      position.xCenter = values.positionXCenter.toString().replace(/^-/, "N")
+    }
+    if (
+      typeof values.positionYCenter === "number" ||
+      typeof values.positionYCenter === "string"
+    ) {
+      position.yCenter = values.positionYCenter.toString().replace(/^-/, "N")
+    }
+    if (typeof values.layerAnchor === "string" && values.layerAnchor) {
+      // SDK union: 'top' | 'left' | ... | 'center'. Schema validates this
+      // with z.enum(LAYER_ANCHOR_VALUES), so the cast is sound.
+      position.anchorPoint =
+        values.layerAnchor as OverlayPosition["anchorPoint"]
     }
     if (Object.keys(position).length > 0) {
       overlay.position = position
@@ -3618,6 +4207,13 @@ export const transformationFormatters: Record<
       overlayTransform.grayscale = true
     }
 
+    if (
+      typeof values.rawTransformation === "string" &&
+      values.rawTransformation.trim() !== ""
+    ) {
+      overlayTransform.raw = values.rawTransformation.trim()
+    }
+
     if (Object.keys(overlayTransform).length > 0) {
       overlay.transformation = [overlayTransform]
     }
@@ -3630,12 +4226,91 @@ export const transformationFormatters: Record<
     if (values.positionY) {
       position.y = values.positionY.toString().replace(/^-/, "N")
     }
+    if (values.positionXCenter) {
+      position.xCenter = values.positionXCenter.toString().replace(/^-/, "N")
+    }
+    if (values.positionYCenter) {
+      position.yCenter = values.positionYCenter.toString().replace(/^-/, "N")
+    }
+    if (typeof values.layerAnchor === "string" && values.layerAnchor) {
+      position.anchorPoint = values.layerAnchor
+    }
 
     if (Object.keys(position).length > 0) {
       overlay.position = position
     }
 
     // Assign overlay to transforms
+    transforms.overlay = overlay
+  },
+  /**
+   * Formatter for canvas (solid color block) overlays. Emits a SolidColorOverlay
+   * which the SDK serializes as `l-image,i-ik_canvas,bg-<color>,...`.
+   *
+   * Per ImageKit docs, only a small subset of inner transformations apply:
+   * width (`w`), height (`h`), alpha (`al`), radius (`r`) and gradient
+   * (`e-gradient`). Layer-mode (`lm`) and the position params (`lx`, `ly`,
+   * `lxc`, `lyc`, `lap`) live on the overlay itself, not its inner
+   * transformation.
+   */
+  canvasLayer: (values, transforms) => {
+    const overlay: Record<string, unknown> = { type: "solidColor" }
+
+    if (typeof values.backgroundColor === "string" && values.backgroundColor) {
+      overlay.color = values.backgroundColor.replace(/^#/, "")
+    }
+
+    const overlayTransform: Record<string, unknown> = {}
+
+    if (
+      values.width !== undefined &&
+      values.width !== null &&
+      values.width !== ""
+    ) {
+      overlayTransform.width = values.width
+    }
+    if (
+      values.height !== undefined &&
+      values.height !== null &&
+      values.height !== ""
+    ) {
+      overlayTransform.height = values.height
+    }
+
+    transformationFormatters.gradient(values, overlayTransform)
+    transformationFormatters.radius(values, overlayTransform)
+
+    if (
+      typeof values.rawTransformation === "string" &&
+      values.rawTransformation.trim() !== ""
+    ) {
+      overlayTransform.raw = values.rawTransformation.trim()
+    }
+
+    if (Object.keys(overlayTransform).length > 0) {
+      overlay.transformation = [overlayTransform]
+    }
+
+    const position: Record<string, unknown> = {}
+    if (values.positionX) {
+      position.x = values.positionX.toString().replace(/^-/, "N")
+    }
+    if (values.positionY) {
+      position.y = values.positionY.toString().replace(/^-/, "N")
+    }
+    if (values.positionXCenter) {
+      position.xCenter = values.positionXCenter.toString().replace(/^-/, "N")
+    }
+    if (values.positionYCenter) {
+      position.yCenter = values.positionYCenter.toString().replace(/^-/, "N")
+    }
+    if (typeof values.layerAnchor === "string" && values.layerAnchor) {
+      position.anchorPoint = values.layerAnchor
+    }
+    if (Object.keys(position).length > 0) {
+      overlay.position = position
+    }
+
     transforms.overlay = overlay
   },
   flip: (values, transforms) => {
@@ -3720,6 +4395,31 @@ export const transformationFormatters: Record<
     if (!borderWidth || !borderColor) return
     const cleanBorderColor = borderColor.replace(/^#/, "")
     transforms.b = `${borderWidth}_${cleanBorderColor}`
+  },
+  colorize: (values, transforms) => {
+    // Mirrors the SDK's `colorize?: string` field, which is appended after
+    // `e-colorize-` in the URL. Both sub-fields are optional; the SDK falls
+    // back to `co-gray` and `in-35` when omitted, so we emit only the params
+    // the user actually set.
+    const { colorize, colorizeColor, colorizeIntensity } = values as {
+      colorize?: boolean
+      colorizeColor?: string
+      colorizeIntensity?: number | string
+    }
+    if (!colorize) return
+    const params: string[] = []
+    if (typeof colorizeColor === "string" && colorizeColor !== "") {
+      params.push(`co-${colorizeColor.replace(/^#/, "")}`)
+    }
+    if (
+      colorizeIntensity !== undefined &&
+      colorizeIntensity !== null &&
+      colorizeIntensity !== "" &&
+      !Number.isNaN(Number(colorizeIntensity))
+    ) {
+      params.push(`in-${colorizeIntensity}`)
+    }
+    transforms.colorize = params.join("_")
   },
   sharpen: (values, transforms) => {
     const { sharpenEnabled, sharpen } = values as {

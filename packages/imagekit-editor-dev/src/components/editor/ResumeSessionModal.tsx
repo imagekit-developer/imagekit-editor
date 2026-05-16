@@ -1,16 +1,13 @@
-import { Box, Flex, Icon, IconButton, Text } from "@chakra-ui/react"
-import { PiX } from "@react-icons/all-files/pi/PiX"
+import { Box, Flex, Text } from "@chakra-ui/react"
 
 export type ResumeSessionModalProps = {
   onRestore: () => void
   onStartNew: () => void
-  onCloseEditor: () => void
 }
 
 export function ResumeSessionModal({
   onRestore,
   onStartNew,
-  onCloseEditor,
 }: ResumeSessionModalProps) {
   return (
     <Box
@@ -35,20 +32,12 @@ export function ResumeSessionModal({
           px="6"
           py="4"
           alignItems="center"
-          justifyContent="space-between"
           borderBottomWidth="1px"
           borderColor="editorGray.300"
         >
           <Text fontSize="lg" fontWeight="semibold" color="editorGray.900">
             Resume previous session?
           </Text>
-          <IconButton
-            variant="ghost"
-            size="sm"
-            icon={<Icon as={PiX} boxSize={5} />}
-            aria-label="Close resume session"
-            onClick={onCloseEditor}
-          />
         </Flex>
 
         {/* Content */}

@@ -20,18 +20,58 @@ import { PiX } from "@react-icons/all-files/pi/PiX"
 import { RiImageEditLine } from "@react-icons/all-files/ri/RiImageEditLine"
 import * as React from "react"
 import { transformationSchema } from "../../schema"
-import { useEditorStore } from "../../store"
+import {
+  findTransformationDeep,
+  getLayerDepth,
+  isAllowedChildKey,
+  isLayerKey,
+  MAX_LAYER_NEST_DEPTH,
+  useEditorStore,
+} from "../../store"
 import { SidebarBody } from "./sidebar-body"
 import { SidebarHeader } from "./sidebar-header"
 import { SidebarRoot } from "./sidebar-root"
 
 export const TransformationTypeSidebar: React.FC = () => {
-  const { transformations, _setSelectedTransformationKey, _setSidebarState } =
-    useEditorStore()
+  const {
+    transformations,
+    _internalState,
+    _setSelectedTransformationKey,
+    _setSidebarState,
+    _setParentForChild,
+  } = useEditorStore()
   const [searchQuery, setSearchQuery] = React.useState("")
+
+  // When the user opened the picker via the "+" on a layer row, the next
+  // pick must be added as a nested child of that layer. In that mode the
+  // picker shows: (a) other layer types, gated by MAX_LAYER_NEST_DEPTH, plus
+  // (b) the parent layer's allow list of non-layer transformations (e.g.
+  // adjust-*, ai-*) that the SDK accepts inside that layer's URL block.
+  const parentForChildId = _internalState.parentForChild
+  const isChildAddMode = parentForChildId !== null
+
+  const parentForChild = React.useMemo(
+    () =>
+      parentForChildId
+        ? findTransformationDeep(transformations, parentForChildId)
+        : undefined,
+    [transformations, parentForChildId],
+  )
+
+  // Layer depth of the *parent* (root layer = 0). A new nested-layer child
+  // would land at parentDepth + 1, so layer items are only offered while
+  // `parentDepth + 1 <= MAX_LAYER_NEST_DEPTH`.
+  const parentLayerDepth = React.useMemo(() => {
+    if (!parentForChildId) return undefined
+    return getLayerDepth(transformations, parentForChildId)
+  }, [transformations, parentForChildId])
 
   const onClose = () => {
     _setSidebarState("none")
+    // Cancel any pending child-add when the user dismisses the picker so the
+    // next root-level "Add" doesn't silently re-route into the previously
+    // targeted parent.
+    _setParentForChild(null)
   }
 
   const hasTransformations = React.useMemo(
@@ -40,11 +80,28 @@ export const TransformationTypeSidebar: React.FC = () => {
   )
 
   const filteredTransformationSchema = React.useMemo(() => {
-    if (!searchQuery.trim()) {
-      return transformationSchema
+    let base = transformationSchema
+    if (isChildAddMode && parentForChild) {
+      const parentKey = parentForChild.key
+      const canHostMoreLayers =
+        parentLayerDepth !== undefined &&
+        parentLayerDepth + 1 <= MAX_LAYER_NEST_DEPTH
+      base = transformationSchema
+        .map((category) => ({
+          ...category,
+          items: category.items.filter((item) => {
+            if (isLayerKey(item.key)) return canHostMoreLayers
+            return isAllowedChildKey(parentKey, item.key)
+          }),
+        }))
+        .filter((category) => category.items.length > 0)
     }
 
-    return transformationSchema
+    if (!searchQuery.trim()) {
+      return base
+    }
+
+    return base
       .map((category) => ({
         ...category,
         items: category.items.filter((item) =>
@@ -52,7 +109,7 @@ export const TransformationTypeSidebar: React.FC = () => {
         ),
       }))
       .filter((category) => category.items.length > 0)
-  }, [searchQuery])
+  }, [searchQuery, isChildAddMode, parentForChild, parentLayerDepth])
 
   const handleSelectTransformation = (key: string) => {
     const transformation = transformationSchema
@@ -71,7 +128,7 @@ export const TransformationTypeSidebar: React.FC = () => {
     <SidebarRoot>
       <SidebarHeader justifyContent="space-between">
         <Text fontSize="md" fontWeight="normal" mt={0}>
-          Add Transformation
+          {isChildAddMode ? "Add Nested Transformation" : "Add Transformation"}
         </Text>
         {hasTransformations && (
           <IconButton

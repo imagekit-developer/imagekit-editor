@@ -18,7 +18,14 @@ import { PiGridFour } from "@react-icons/all-files/pi/PiGridFour"
 import { PiImageSquare } from "@react-icons/all-files/pi/PiImageSquare"
 import { PiListBullets } from "@react-icons/all-files/pi/PiListBullets"
 import { type FC, useMemo } from "react"
-import { useEditorStore } from "../../store"
+import { findTransformationDeep, useEditorStore } from "../../store"
+import { dedupeVariableMarkersInList } from "../../variables"
+import { listVariables } from "../../variables/listVariables"
+import { CanvasSettingsPopover } from "./CanvasSettingsPopover"
+import {
+  type VariableListEntry,
+  VariablesListPopover,
+} from "./VariablesListPopover"
 
 interface ActionBarProps {
   viewMode: "list" | "grid"
@@ -39,7 +46,45 @@ export const ActionBar: FC<ActionBarProps> = ({
     originalImageList,
     showOriginal,
     setShowOriginal,
+    mode,
+    canvas,
+    transformations,
   } = useEditorStore()
+  const isCanvas = mode === "canvas"
+  // Variables are a canvas-mode-only feature; the count badge is the only
+  // affordance in the action bar (per-field hover affordances live in the
+  // sidebar). Skip the work entirely outside canvas mode.
+  //
+  // Run the same dedupe the save boundary applies (see
+  // `useTemplateSync.saveNow` and `ImageKitEditor.saveTemplateImperative`)
+  // so the live preview matches the saved payload: when a step is
+  // duplicated, both copies surface here under collision-suffixed names
+  // instead of `listVariables` silently dropping the second one.
+  const variables = useMemo(
+    () =>
+      isCanvas
+        ? listVariables(dedupeVariableMarkersInList(transformations))
+        : [],
+    [isCanvas, transformations],
+  )
+  // Resolve each variable's owning step name once so the popover doesn't
+  // re-walk the (potentially nested) transformation tree on every render.
+  // Explicit return type keeps the Chakra style-prop unions inside
+  // ActionBar's JSX from blowing past TypeScript's inference budget.
+  const variableEntries = useMemo<VariableListEntry[]>(
+    () =>
+      variables.map((v) => ({
+        name: v.name,
+        label: v.label,
+        defaultValue: v.defaultValue,
+        description: v.description,
+        fieldLabel: v.field.label,
+        stepName:
+          findTransformationDeep(transformations, v.transformationId)?.name ??
+          "Unknown step",
+      })),
+    [variables, transformations],
+  )
 
   const imageDimensions = useMemo(() => {
     const idx = imageList.findIndex((img) => img === currentImage)
@@ -61,18 +106,20 @@ export const ActionBar: FC<ActionBarProps> = ({
       alignItems="center"
     >
       <HStack spacing={2} flex="1" minW={0} mr={8}>
-        <Button
-          variant="ghost"
-          size="md"
-          fontWeight="normal"
-          leftIcon={<Icon boxSize={4} as={PiImageSquare} />}
-          _hover={{ bg: "gray.100" }}
-          onClick={() => setShowOriginal(!showOriginal)}
-        >
-          {showOriginal ? "Show Transformed" : "Show Original"}
-        </Button>
+        {!isCanvas && (
+          <Button
+            variant="ghost"
+            size="md"
+            fontWeight="normal"
+            leftIcon={<Icon boxSize={4} as={PiImageSquare} />}
+            _hover={{ bg: "gray.100" }}
+            onClick={() => setShowOriginal(!showOriginal)}
+          >
+            {showOriginal ? "Show Transformed" : "Show Original"}
+          </Button>
+        )}
 
-        {viewMode === "list" && imageDimensions && (
+        {viewMode === "list" && imageDimensions && !isCanvas && (
           <>
             <Divider
               orientation="vertical"
@@ -90,6 +137,28 @@ export const ActionBar: FC<ActionBarProps> = ({
                 {imageDimensions.width} x {imageDimensions.height}
               </Text>
             </Text>
+          </>
+        )}
+
+        {isCanvas && canvas && (
+          <>
+            <Divider
+              orientation="vertical"
+              h="6"
+              borderColor="editorBattleshipGrey.200"
+            />
+            <CanvasSettingsPopover canvas={canvas} />
+          </>
+        )}
+
+        {isCanvas && (
+          <>
+            <Divider
+              orientation="vertical"
+              h="6"
+              borderColor="editorBattleshipGrey.200"
+            />
+            <VariablesListPopover entries={variableEntries} />
           </>
         )}
 
@@ -150,6 +219,7 @@ export const ActionBar: FC<ActionBarProps> = ({
             size="md"
             variant="ghost"
             aria-label="Toggle view"
+            isDisabled={isCanvas}
             icon={
               <Icon
                 boxSize={6}

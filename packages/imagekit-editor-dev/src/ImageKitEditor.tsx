@@ -24,18 +24,24 @@ import {
   readEditorSessionFromLocalStorage,
 } from "./persistence/editorSessionStorage"
 import {
+  applyTemplateStorageAccessFailure,
   isTemplateAccessDeniedError,
   type TemplateStorageProvider,
 } from "./storage"
 import {
+  applyTemplateRecord,
+  type CanvasConfig,
+  type EditorMode,
   type FocusObjects,
   type InputFileElement,
+  type OnPickImage,
   type RequiredMetadata,
   type Signer,
   type Transformation,
   useEditorStore,
 } from "./store"
 import { themeOverrides } from "./theme"
+import { dedupeVariableMarkersInList } from "./variables"
 
 export interface ImageKitEditorRef {
   /**
@@ -93,6 +99,16 @@ interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
   initialImages?: Array<string | InputFileElement<Metadata>>
   signer?: Signer<Metadata>
   onAddImage?: () => void
+  /**
+   * Optional async image picker. When provided, image-path fields (currently
+   * the image layer's `imageUrl`) render a small folder icon next to the
+   * input; clicking it invokes this callback. Resolve to a URL/path string to
+   * fill the field, or to `null`/`undefined` to leave the field unchanged.
+   *
+   * The host owns the picker UI and any backend calls; the editor never opens
+   * a media library itself.
+   */
+  onPickImage?: OnPickImage
   exportOptions?: HeaderProps<Metadata>["exportOptions"]
   focusObjects?: ReadonlyArray<FocusObjects>
   onClose: (args: { dirty: boolean; destroy: () => void }) => void
@@ -107,6 +123,26 @@ interface EditorProps<Metadata extends RequiredMetadata = RequiredMetadata> {
    * If omitted, the editor defaults to allowing all actions.
    */
   getTemplatePermissions?: GetTemplatePermissions
+  /**
+   * Open the editor with this template pre-loaded. The editor calls
+   * `templateStorage.getTemplate(initialTemplateId)` on mount and applies
+   * the result. Requires `templateStorage` to be configured.
+   *
+   * Failures (template not found, access denied, network error) are surfaced
+   * via the standard sync-status error UI; the editor still opens empty.
+   */
+  initialTemplateId?: string
+  /**
+   * Editor authoring mode. Defaults to `"editing"` (regular media editing).
+   * Pass `"canvas"` to author a layer-only template against a sized blank
+   * canvas; `canvas` prop must also be provided in that case.
+   *
+   * If `initialTemplateId` is supplied and the loaded template has its own
+   * `mode`, that wins (the template carries its authoring context).
+   */
+  mode?: EditorMode
+  /** Canvas dimensions and optional background. Required when `mode === "canvas"`. */
+  canvas?: CanvasConfig
 }
 
 function ImageKitEditorImpl<M extends RequiredMetadata>(
@@ -117,9 +153,13 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     theme,
     initialImages,
     signer,
+    onPickImage,
     focusObjects,
     templateStorage,
     getTemplatePermissions,
+    initialTemplateId,
+    mode,
+    canvas,
   } = props
   const {
     addImage,
@@ -140,6 +180,10 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     useState<PersistedEditorSession | null>(null)
 
   React.useEffect(() => {
+    // Canvas-mode templates author a fixed-size blank canvas (often paired
+    // with a specific sourceUrl/dimensions) and aren't compatible with a
+    // generic resumed editing session — skip the prompt entirely.
+    if (mode === "canvas") return
     const resumableSession = readEditorSessionFromLocalStorage(
       EDITOR_SESSION_STORAGE_KEY,
     )
@@ -150,7 +194,7 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
       : !persisted.isPristine
     if (!hasUnsavedChanges) return
     setResumeSession(resumableSession)
-  }, [resolvedProvider])
+  }, [resolvedProvider, mode])
 
   const saveTemplateImperative = useCallback(async () => {
     // Avoid importing hooks here; implement via store+provider with version gating.
@@ -161,15 +205,23 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     const saveStartedAtVersion = state.localChangeVersion
     state.setSyncStatus("saving")
     try {
+      // Dedupe variable markers at the save boundary so the persisted JSON
+      // never contains two `$var` markers with the same name (see
+      // useTemplateSync for the matching call on the hook-driven path).
+      const safeTransformations = dedupeVariableMarkersInList(
+        state.transformations,
+      )
       const saved = await resolvedProvider.saveTemplate({
         id: state.templateId ?? undefined,
         name: state.templateName,
-        transformations: state.transformations.map(
+        transformations: safeTransformations.map(
           ({ id: _id, ...rest }) => rest,
         ),
         ...(state.templateIsPrivate !== null
           ? { isPrivate: state.templateIsPrivate }
           : {}),
+        mode: state.mode,
+        ...(state.mode === "canvas" ? { canvas: state.canvas } : {}),
       })
       const after = useEditorStore.getState()
       after.hydrateTemplateMetadata({
@@ -230,9 +282,68 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
     initialize({
       imageList: initialImages,
       signer,
+      onPickImage,
       focusObjects,
+      mode,
+      canvas,
     })
-  }, [initialImages, signer, focusObjects, initialize])
+  }, [
+    initialImages,
+    signer,
+    onPickImage,
+    focusObjects,
+    initialize,
+    mode,
+    canvas,
+  ])
+
+  // Load template by id from the configured storage provider when
+  // `initialTemplateId` is supplied. This runs after `initialize` so it can
+  // overwrite any reset metadata. Keyed on (provider, id) so switching either
+  // re-fetches.
+  React.useEffect(() => {
+    if (!initialTemplateId) return
+    if (!resolvedProvider) {
+      console.warn(
+        "ImageKitEditor: `initialTemplateId` was provided but no `templateStorage` is configured.",
+      )
+      return
+    }
+
+    let cancelled = false
+    const store = useEditorStore.getState()
+
+    resolvedProvider
+      .getTemplate(initialTemplateId)
+      .then((record) => {
+        if (cancelled) return
+        if (!record) {
+          useEditorStore
+            .getState()
+            .setSyncStatus("error", "Template not found.")
+          return
+        }
+        applyTemplateRecord(record)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        const handled = applyTemplateStorageAccessFailure(err, {
+          denyTemplateStorageAccessAndReset:
+            store.denyTemplateStorageAccessAndReset,
+        })
+        if (handled) return
+        useEditorStore
+          .getState()
+          .setSyncStatus(
+            "error",
+            err instanceof Error ? err.message : "Failed to load template",
+          )
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [resolvedProvider, initialTemplateId])
 
   useImperativeHandle(
     ref,
@@ -268,7 +379,9 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
                 onAddImage={props.onAddImage}
                 onClose={handleOnClose}
                 exportOptions={props.exportOptions}
-                pauseLocalSessionPersistence={Boolean(resumeSession)}
+                pauseLocalSessionPersistence={
+                  Boolean(resumeSession) || mode === "canvas"
+                }
               />
               {resumeSession ? (
                 <ResumeSessionModal
@@ -284,9 +397,6 @@ function ImageKitEditorImpl<M extends RequiredMetadata>(
                     )
                     useEditorStore.getState().resetToNewTemplate()
                     setResumeSession(null)
-                  }}
-                  onCloseEditor={() => {
-                    handleOnClose()
                   }}
                 />
               ) : null}

@@ -963,6 +963,703 @@ describe("Backward Compatibility - V1 Templates", () => {
     })
   })
 
+  describe("Schema Validators - Layer Anchor & Centre Position (lap/lxc/lyc)", () => {
+    // ----- Backwards-compatibility: legacy templates without the new fields
+    it("legacy text layer (no anchor/centre fields) still validates", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-text",
+        name: "Text",
+        type: "transformation",
+        value: {
+          text: "Hi",
+          positionX: "100",
+          positionY: "50",
+          fontSize: 24,
+          radius: 0,
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("legacy image layer (no anchor/centre fields) still validates", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-image",
+        name: "Image",
+        type: "transformation",
+        value: {
+          imageUrl: "logo.png",
+          positionX: "100",
+          positionY: "50",
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    // ----- Centre-reference (lxc / lyc) accepts numbers + expressions
+    it("text layer accepts positionXCenter / positionYCenter as numbers", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-text",
+        name: "Text",
+        type: "transformation",
+        value: {
+          text: "Hi",
+          positionXCenter: "50",
+          positionYCenter: "N100",
+          fontSize: 24,
+          radius: 0,
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("image layer accepts positionXCenter / positionYCenter as expressions", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-image",
+        name: "Image",
+        type: "transformation",
+        value: {
+          imageUrl: "logo.png",
+          positionXCenter: "bw_div_2",
+          positionYCenter: "bh_mul_0.4",
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    // ----- Mutual exclusion: x + xCenter (and y + yCenter) on the same axis
+    it("rejects positionX + positionXCenter set together (text layer)", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-text",
+        name: "Text",
+        type: "transformation",
+        value: {
+          text: "Hi",
+          positionX: "10",
+          positionXCenter: "20",
+          fontSize: 24,
+          radius: 0,
+        },
+        version: "v1",
+      }
+      const result = validateTransformation(template)
+      expect(result.valid).toBe(false)
+      expect(result.errors.join("\n")).toMatch(/Position X.*center.*not both/i)
+    })
+
+    it("rejects positionY + positionYCenter set together (image layer)", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-image",
+        name: "Image",
+        type: "transformation",
+        value: {
+          imageUrl: "logo.png",
+          positionY: "10",
+          positionYCenter: "20",
+        },
+        version: "v1",
+      }
+      const result = validateTransformation(template)
+      expect(result.valid).toBe(false)
+      expect(result.errors.join("\n")).toMatch(/Position Y.*center.*not both/i)
+    })
+
+    // ----- Anchor (lap)
+    it("text layer accepts a valid layerAnchor when paired with a position", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-text",
+        name: "Text",
+        type: "transformation",
+        value: {
+          text: "Hi",
+          positionX: "N25",
+          positionY: "25",
+          layerAnchor: "top_right",
+          fontSize: 24,
+          radius: 0,
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("rejects layerAnchor set without any position offset (text layer)", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-text",
+        name: "Text",
+        type: "transformation",
+        value: {
+          text: "Hi",
+          layerAnchor: "center",
+          fontSize: 24,
+          radius: 0,
+        },
+        version: "v1",
+      }
+      const result = validateTransformation(template)
+      expect(result.valid).toBe(false)
+      expect(result.errors.join("\n")).toMatch(/Anchor Point requires/i)
+    })
+
+    it("rejects layerAnchor set without any position offset (image layer)", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-image",
+        name: "Image",
+        type: "transformation",
+        value: {
+          imageUrl: "logo.png",
+          layerAnchor: "bottom",
+        },
+      }
+      const result = validateTransformation(template)
+      expect(result.valid).toBe(false)
+      expect(result.errors.join("\n")).toMatch(/Anchor Point requires/i)
+    })
+
+    it("rejects an unknown anchor value", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-image",
+        name: "Image",
+        type: "transformation",
+        value: {
+          imageUrl: "logo.png",
+          positionX: "10",
+          layerAnchor: "middle",
+        },
+      }
+      expect(validateTransformation(template).valid).toBe(false)
+    })
+
+    // ----- Formatter: emits xCenter/yCenter/anchorPoint, normalises `-` to `N`
+    it("textLayer formatter emits xCenter/yCenter/anchorPoint with negative-prefix normalisation", () => {
+      const transforms: Record<string, unknown> = {}
+      transformationFormatters.textLayer(
+        {
+          text: "Hi",
+          positionXCenter: "-50",
+          positionYCenter: "100",
+          layerAnchor: "bottom_right",
+        },
+        transforms,
+      )
+      expect(transforms.overlay).toMatchObject({
+        type: "text",
+        text: "Hi",
+        position: {
+          xCenter: "N50",
+          yCenter: "100",
+          anchorPoint: "bottom_right",
+        },
+      })
+    })
+
+    it("imageLayer formatter emits xCenter/yCenter/anchorPoint", () => {
+      const transforms: Record<string, unknown> = {}
+      transformationFormatters.imageLayer(
+        {
+          imageUrl: "logo.png",
+          positionXCenter: "bw_div_2",
+          positionYCenter: "-30",
+          layerAnchor: "center",
+        },
+        transforms,
+      )
+      expect(transforms.overlay).toMatchObject({
+        type: "image",
+        input: "logo.png",
+        position: {
+          xCenter: "bw_div_2",
+          yCenter: "N30",
+          anchorPoint: "center",
+        },
+      })
+    })
+
+    // ----- Formatter: legacy x/y still flow through unchanged
+    it("textLayer formatter without new fields produces no xCenter/yCenter/anchorPoint", () => {
+      const transforms: Record<string, unknown> = {}
+      transformationFormatters.textLayer(
+        { text: "Hi", positionX: "10", positionY: "20" },
+        transforms,
+      )
+      const overlay = transforms.overlay as {
+        position: Record<string, unknown>
+      }
+      expect(overlay.position).toEqual({ x: "10", y: "20" })
+      expect(overlay.position.xCenter).toBeUndefined()
+      expect(overlay.position.yCenter).toBeUndefined()
+      expect(overlay.position.anchorPoint).toBeUndefined()
+    })
+  })
+
+  describe("Schema Validators - Layer Raw Passthrough (rawTransformation)", () => {
+    it("text layer accepts rawTransformation", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-text",
+        name: "Text",
+        type: "transformation",
+        value: {
+          text: "Hi",
+          fontSize: 24,
+          radius: 0,
+          rawTransformation: "lm-multiply",
+        },
+        version: "v1",
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("image layer accepts rawTransformation", () => {
+      const template: Omit<Transformation, "id"> = {
+        key: "layers-image",
+        name: "Image",
+        type: "transformation",
+        value: {
+          imageUrl: "logo.png",
+          rawTransformation: "e-shadow-st-40_bl-15",
+        },
+      }
+      expect(validateTransformation(template).valid).toBe(true)
+    })
+
+    it("textLayer formatter writes rawTransformation into overlay.transformation[0].raw", () => {
+      const transforms: Record<string, unknown> = {}
+      transformationFormatters.textLayer(
+        { text: "Hi", rawTransformation: "lm-multiply" },
+        transforms,
+      )
+      const overlay = transforms.overlay as {
+        transformation: Array<{ raw?: string }>
+      }
+      expect(overlay.transformation[0]?.raw).toBe("lm-multiply")
+    })
+
+    it("imageLayer formatter writes rawTransformation into overlay.transformation[0].raw", () => {
+      const transforms: Record<string, unknown> = {}
+      transformationFormatters.imageLayer(
+        { imageUrl: "logo.png", rawTransformation: "e-shadow" },
+        transforms,
+      )
+      const overlay = transforms.overlay as {
+        transformation: Array<{ raw?: string }>
+      }
+      expect(overlay.transformation[0]?.raw).toBe("e-shadow")
+    })
+
+    it("formatter trims surrounding whitespace and ignores blank rawTransformation", () => {
+      const a: Record<string, unknown> = {}
+      transformationFormatters.imageLayer(
+        { imageUrl: "logo.png", rawTransformation: "  lm-multiply  " },
+        a,
+      )
+      expect(
+        (a.overlay as { transformation: Array<{ raw?: string }> })
+          .transformation[0]?.raw,
+      ).toBe("lm-multiply")
+
+      const b: Record<string, unknown> = {}
+      transformationFormatters.textLayer(
+        { text: "Hi", rawTransformation: "   " },
+        b,
+      )
+      const overlayB = b.overlay as {
+        transformation?: Array<{ raw?: string }>
+      }
+      // No styling fields set + blank raw means no inner transformation
+      // array is created at all.
+      expect(overlayB.transformation).toBeUndefined()
+    })
+  })
+
+  describe("Nested Layers (children)", () => {
+    it("legacy template without children produces a byte-identical URL", async () => {
+      const { buildSrc } = await import("@imagekit/javascript")
+      const { convertTransformationToIK } = await import(
+        "./transformationConverter"
+      )
+      const layer: Transformation = {
+        id: "t1",
+        key: "layers-image",
+        name: "Image Layer",
+        type: "transformation",
+        value: { imageUrl: "logo.png", width: "100" },
+      }
+      const url = buildSrc({
+        urlEndpoint: "https://ik.imagekit.io/demo",
+        src: "/base.jpg",
+        transformation: [convertTransformationToIK(layer)],
+      })
+      expect(url).toBe(
+        "https://ik.imagekit.io/demo/base.jpg?tr=l-image,i-logo.png,w-100,l-end",
+      )
+    })
+
+    it("image layer with a nested image child appends a nested overlay step", async () => {
+      const { buildSrc } = await import("@imagekit/javascript")
+      const { convertTransformationToIK } = await import(
+        "./transformationConverter"
+      )
+      const parent: Transformation = {
+        id: "p",
+        key: "layers-image",
+        name: "Image Layer",
+        type: "transformation",
+        value: { imageUrl: "outer.png" },
+        children: [
+          {
+            id: "c",
+            key: "layers-image",
+            name: "Inner Logo",
+            type: "transformation",
+            value: { imageUrl: "inner.png" },
+          },
+        ],
+      }
+      const url = buildSrc({
+        urlEndpoint: "https://ik.imagekit.io/demo",
+        src: "/base.jpg",
+        transformation: [convertTransformationToIK(parent)],
+      })
+      expect(url).toBe(
+        "https://ik.imagekit.io/demo/base.jpg?tr=l-image,i-outer.png,l-image,i-inner.png,l-end,l-end",
+      )
+    })
+
+    it("canvas (ik_canvas) layer with text + image children", async () => {
+      const { buildSrc } = await import("@imagekit/javascript")
+      const { convertTransformationToIK } = await import(
+        "./transformationConverter"
+      )
+      const parent: Transformation = {
+        id: "p",
+        key: "layers-image",
+        name: "Canvas",
+        type: "transformation",
+        value: { imageUrl: "ik_canvas", width: "500", height: "120" },
+        children: [
+          {
+            id: "c1",
+            key: "layers-text",
+            name: "Caption",
+            type: "transformation",
+            value: { text: "Hello", radius: 0 },
+          },
+          {
+            id: "c2",
+            key: "layers-image",
+            name: "Logo",
+            type: "transformation",
+            value: { imageUrl: "logo.png" },
+          },
+        ],
+      }
+      const url = buildSrc({
+        urlEndpoint: "https://ik.imagekit.io/demo",
+        src: "/base.jpg",
+        transformation: [convertTransformationToIK(parent)],
+      })
+      expect(url).toBe(
+        "https://ik.imagekit.io/demo/base.jpg?tr=l-image,i-ik_canvas,w-500,h-120:l-text,i-Hello,r-0,l-end:l-image,i-logo.png,l-end,l-end",
+      )
+    })
+
+    it("hidden child (enabled === false) is skipped from the URL", async () => {
+      const { buildSrc } = await import("@imagekit/javascript")
+      const { convertTransformationToIK } = await import(
+        "./transformationConverter"
+      )
+      const parent: Transformation = {
+        id: "p",
+        key: "layers-image",
+        name: "Image Layer",
+        type: "transformation",
+        value: { imageUrl: "outer.png" },
+        children: [
+          {
+            id: "c1",
+            key: "layers-image",
+            name: "Visible",
+            type: "transformation",
+            value: { imageUrl: "shown.png" },
+          },
+          {
+            id: "c2",
+            key: "layers-image",
+            name: "Hidden",
+            type: "transformation",
+            value: { imageUrl: "hidden.png" },
+            enabled: false,
+          },
+        ],
+      }
+      const url = buildSrc({
+        urlEndpoint: "https://ik.imagekit.io/demo",
+        src: "/base.jpg",
+        transformation: [convertTransformationToIK(parent)],
+      })
+      expect(url).toBe(
+        "https://ik.imagekit.io/demo/base.jpg?tr=l-image,i-outer.png,l-image,i-shown.png,l-end,l-end",
+      )
+    })
+
+    it("3-level nesting (root + child + grandchild) emits all three layers", async () => {
+      const { buildSrc } = await import("@imagekit/javascript")
+      const { convertTransformationToIK } = await import(
+        "./transformationConverter"
+      )
+      const root: Transformation = {
+        id: "r",
+        key: "layers-image",
+        name: "Root",
+        type: "transformation",
+        value: { imageUrl: "outer.png" },
+        children: [
+          {
+            id: "c",
+            key: "layers-image",
+            name: "Child",
+            type: "transformation",
+            value: { imageUrl: "middle.png" },
+            children: [
+              {
+                id: "g",
+                key: "layers-text",
+                name: "Grandchild",
+                type: "transformation",
+                value: { text: "deep", radius: 0 },
+              },
+            ],
+          },
+        ],
+      }
+      const url = buildSrc({
+        urlEndpoint: "https://ik.imagekit.io/demo",
+        src: "/base.jpg",
+        transformation: [convertTransformationToIK(root)],
+      })
+      expect(url).toBe(
+        "https://ik.imagekit.io/demo/base.jpg?tr=l-image,i-outer.png,l-image,i-middle.png,l-text,i-deep,r-0,l-end,l-end,l-end",
+      )
+    })
+
+    it("findTransformationDeep locates a nested child by id", async () => {
+      const { findTransformationDeep } = await import("./store")
+      const tree: Transformation[] = [
+        {
+          id: "root",
+          key: "layers-image",
+          name: "Root",
+          type: "transformation",
+          value: { imageUrl: "x.png" },
+          children: [
+            {
+              id: "deep",
+              key: "layers-text",
+              name: "Deep",
+              type: "transformation",
+              value: { text: "hi", radius: 0 },
+            },
+          ],
+        },
+      ]
+      expect(findTransformationDeep(tree, "deep")?.name).toBe("Deep")
+      expect(findTransformationDeep(tree, "missing")).toBeUndefined()
+    })
+
+    it("non-layer child (ai-removedotbg) is appended as a chained step inside the parent layer", async () => {
+      const { buildSrc } = await import("@imagekit/javascript")
+      const { convertTransformationToIK } = await import(
+        "./transformationConverter"
+      )
+      // Parent has multiple own-params (image url + width + trim) so the SDK
+      // serializes the child with an explicit `:` chain separator. With a
+      // single-param parent the SDK collapses to a `,` joiner — equivalent
+      // ImageKit syntax, but less obvious that the child is a chained step.
+      const parent: Transformation = {
+        id: "p",
+        key: "layers-image",
+        name: "Image Layer",
+        type: "transformation",
+        value: {
+          imageUrl: "photo.jpg",
+          width: "13",
+          trimEnabled: true,
+          trimThreshold: 10,
+        },
+        children: [
+          {
+            id: "c",
+            key: "ai-removedotbg",
+            name: "Remove Background",
+            type: "transformation",
+            value: { removedotbg: true },
+          },
+        ],
+      }
+      const url = buildSrc({
+        urlEndpoint: "https://ik.imagekit.io/demo",
+        src: "/base.jpg",
+        transformation: [convertTransformationToIK(parent)],
+      })
+      expect(url).toBe(
+        "https://ik.imagekit.io/demo/base.jpg?tr=l-image,i-photo.jpg,w-13,t-10:e-removedotbg,l-end",
+      )
+    })
+
+    it("mixes non-layer and nested-layer children in declaration order", async () => {
+      const { buildSrc } = await import("@imagekit/javascript")
+      const { convertTransformationToIK } = await import(
+        "./transformationConverter"
+      )
+      const parent: Transformation = {
+        id: "p",
+        key: "layers-image",
+        name: "Image Layer",
+        type: "transformation",
+        value: { imageUrl: "photo.jpg" },
+        children: [
+          {
+            id: "c1",
+            key: "adjust-blur",
+            name: "Blur",
+            type: "transformation",
+            value: { blur: 5 },
+          },
+          {
+            id: "c2",
+            key: "layers-text",
+            name: "Caption",
+            type: "transformation",
+            value: { text: "Sale", radius: 0 },
+          },
+        ],
+      }
+      const url = buildSrc({
+        urlEndpoint: "https://ik.imagekit.io/demo",
+        src: "/base.jpg",
+        transformation: [convertTransformationToIK(parent)],
+      })
+      expect(url).toBe(
+        "https://ik.imagekit.io/demo/base.jpg?tr=l-image,i-photo.jpg,bl-5:l-text,i-Sale,r-0,l-end,l-end",
+      )
+    })
+
+    it("hidden non-layer child is skipped from the URL", async () => {
+      const { buildSrc } = await import("@imagekit/javascript")
+      const { convertTransformationToIK } = await import(
+        "./transformationConverter"
+      )
+      const parent: Transformation = {
+        id: "p",
+        key: "layers-image",
+        name: "Image Layer",
+        type: "transformation",
+        value: { imageUrl: "photo.jpg" },
+        children: [
+          {
+            id: "c1",
+            key: "adjust-blur",
+            name: "Blur",
+            type: "transformation",
+            value: { blur: 5 },
+            enabled: false,
+          },
+        ],
+      }
+      const url = buildSrc({
+        urlEndpoint: "https://ik.imagekit.io/demo",
+        src: "/base.jpg",
+        transformation: [convertTransformationToIK(parent)],
+      })
+      expect(url).toBe(
+        "https://ik.imagekit.io/demo/base.jpg?tr=l-image,i-photo.jpg,l-end",
+      )
+    })
+
+    it("isAllowedChildKey enforces per-parent allow lists", async () => {
+      const { isAllowedChildKey } = await import("./store")
+
+      // Image layer: liberal allow list including AI + adjust + nested layers.
+      expect(isAllowedChildKey("layers-image", "ai-removedotbg")).toBe(true)
+      expect(isAllowedChildKey("layers-image", "adjust-blur")).toBe(true)
+      expect(isAllowedChildKey("layers-image", "layers-text")).toBe(true)
+      // Delivery transforms are output-only; never valid inside a layer block.
+      expect(isAllowedChildKey("layers-image", "delivery-format")).toBe(false)
+
+      // Canvas layer: tighter list (no blur/AI), but layers still allowed.
+      expect(isAllowedChildKey("layers-canvas", "adjust-radius")).toBe(true)
+      expect(isAllowedChildKey("layers-canvas", "adjust-blur")).toBe(false)
+      expect(isAllowedChildKey("layers-canvas", "ai-removedotbg")).toBe(false)
+      expect(isAllowedChildKey("layers-canvas", "layers-image")).toBe(true)
+
+      // Text layers are leaves: nothing is allowed, including other layers.
+      expect(isAllowedChildKey("layers-text", "adjust-blur")).toBe(false)
+      expect(isAllowedChildKey("layers-text", "adjust-shadow")).toBe(false)
+      expect(isAllowedChildKey("layers-text", "layers-image")).toBe(true)
+      // ^ Note: the layer-keys short-circuit returns true here. The picker
+      // additionally gates on canHostLayerChildren, which excludes text.
+    })
+
+    it("canHostLayerChildren only lets image/canvas host children", async () => {
+      const { canHostLayerChildren } = await import("./store")
+      expect(canHostLayerChildren("layers-image")).toBe(true)
+      expect(canHostLayerChildren("layers-canvas")).toBe(true)
+      expect(canHostLayerChildren("layers-text")).toBe(false)
+      expect(canHostLayerChildren("adjust-blur")).toBe(false)
+    })
+
+    it("getLayerDepth counts only layer ancestors, not non-layer ones", async () => {
+      const { getLayerDepth } = await import("./store")
+      const tree: Transformation[] = [
+        {
+          id: "root",
+          key: "layers-image",
+          name: "Root",
+          type: "transformation",
+          value: { imageUrl: "a.png" },
+          children: [
+            {
+              // Non-layer child of root layer — itself at depth 0 (it has
+              // zero *layer* ancestors above its parent slot).
+              id: "blur",
+              key: "adjust-blur",
+              name: "Blur",
+              type: "transformation",
+              value: { blur: 4 },
+            },
+            {
+              // Nested layer — depth 1.
+              id: "child",
+              key: "layers-image",
+              name: "Child",
+              type: "transformation",
+              value: { imageUrl: "b.png" },
+              children: [
+                {
+                  id: "grand",
+                  key: "layers-text",
+                  name: "Grand",
+                  type: "transformation",
+                  value: { text: "hi", radius: 0 },
+                },
+              ],
+            },
+          ],
+        },
+      ]
+      expect(getLayerDepth(tree, "root")).toBe(0)
+      // Non-layer children inherit the parent's depth (they don't open a
+      // new l-...,l-end scope).
+      expect(getLayerDepth(tree, "blur")).toBe(1)
+      expect(getLayerDepth(tree, "child")).toBe(1)
+      expect(getLayerDepth(tree, "grand")).toBe(2)
+      expect(getLayerDepth(tree, "missing")).toBeUndefined()
+    })
+  })
+
   describe("Resize & Crop Complex Validations", () => {
     it("should require mode when both width and height are specified", () => {
       const template: Omit<Transformation, "id"> = {

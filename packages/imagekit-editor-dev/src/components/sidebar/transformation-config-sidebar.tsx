@@ -13,7 +13,6 @@ import {
   HStack,
   Icon,
   IconButton,
-  Input,
   Link,
   Menu,
   MenuButton,
@@ -23,13 +22,7 @@ import {
   PopoverBody,
   PopoverContent,
   PopoverTrigger,
-  Slider,
-  SliderFilledTrack,
-  SliderThumb,
-  SliderTrack,
-  Switch,
   Text,
-  Textarea,
   VStack,
 } from "@chakra-ui/react"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -38,11 +31,8 @@ import { PiCaretDown } from "@react-icons/all-files/pi/PiCaretDown"
 import { PiInfo } from "@react-icons/all-files/pi/PiInfo"
 import { PiX } from "@react-icons/all-files/pi/PiX"
 import startCase from "lodash/startCase"
-import { useCallback, useEffect, useMemo, useState } from "react"
-import type { ColorPickerProps } from "react-best-gradient-color-picker"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Controller, type SubmitHandler, useForm } from "react-hook-form"
-import Select from "react-select"
-import CreateableSelect from "react-select/creatable"
 import { z } from "zod/v3"
 import { useTemplateSync } from "../../hooks/useTemplateSync"
 import type { TransformationField } from "../../schema"
@@ -52,32 +42,88 @@ import {
   RESIZE_CROP_MODES,
   transformationSchema,
 } from "../../schema"
-import { type SyncStatus, useEditorStore } from "../../store"
-import { isStepAligned } from "../../utils"
-import AnchorField from "../common/AnchorField"
-import CheckboxCardField from "../common/CheckboxCardField"
-import ColorPickerField from "../common/ColorPickerField"
-import RadiusInputField, {
-  type RadiusErrors,
-  type RadiusState,
-} from "../common/CornerRadiusInput"
-import DistortPerspectiveInput, {
-  type PerspectiveErrors,
-  type PerspectiveObject,
-} from "../common/DistortPerspectiveInput"
-import GradientPicker, {
-  type GradientPickerState,
-} from "../common/GradientPicker"
-import PaddingInputField, {
-  type PaddingErrors,
-  type PaddingState,
-} from "../common/PaddingInput"
-import RadioCardField from "../common/RadioCardField"
-import ZoomInput from "../common/ZoomInput"
+import {
+  findTransformationDeep,
+  type SyncStatus,
+  useEditorStore,
+} from "../../store"
+import {
+  isVariableRef,
+  type VariableRef,
+  walkVariableRefs,
+} from "../../variables"
+import { listVariables } from "../../variables/listVariables"
+import {
+  BoundVariableChip,
+  isVariablizableField,
+  MakeVariableButton,
+} from "./MakeVariableButton"
 import { SidebarBody } from "./sidebar-body"
 import { SidebarFooter } from "./sidebar-footer"
 import { SidebarHeader } from "./sidebar-header"
 import { SidebarRoot } from "./sidebar-root"
+import { TransformationFieldRenderer } from "./TransformationFieldRenderer"
+
+// Stable references to prevent unnecessary re-renders
+const EMPTY_ERRORS = {}
+const NOOP = () => {}
+
+// Convert a path array (e.g., ["backgroundGradient", "from"]) into the
+// dot-notation key used to index `boundFields`.
+const pathToKey = (path: string[]): string => path.join(".")
+
+// Read a nested value from an object by walking `path`. Returns `undefined`
+// at the first missing/non-object segment.
+const getNestedValue = (
+  obj: Record<string, unknown>,
+  path: string[],
+): unknown => {
+  let current: unknown = obj
+  for (const key of path) {
+    if (current === null || typeof current !== "object") return undefined
+    current = (current as Record<string, unknown>)[key]
+  }
+  return current
+}
+
+// Write a nested value into `obj`, creating intermediate plain-object
+// segments as needed. Mutates `obj` in place.
+const setNestedValue = (
+  obj: Record<string, unknown>,
+  path: string[],
+  value: unknown,
+): void => {
+  if (path.length === 0) return
+  if (path.length === 1) {
+    obj[path[0]] = value
+    return
+  }
+  const key = path[0]
+  if (!(key in obj) || typeof obj[key] !== "object" || obj[key] === null) {
+    obj[key] = {}
+  }
+  setNestedValue(obj[key] as Record<string, unknown>, path.slice(1), value)
+}
+
+// Recursively replace every VariableRef in a value tree with its
+// `defaultValue`, so the form / Zod validator can operate on plain values
+// while the original markers stay in `boundFields`.
+const replaceVariableRefsWithDefaults = (value: unknown): unknown => {
+  if (isVariableRef(value)) {
+    return value.defaultValue
+  }
+  if (Array.isArray(value)) {
+    return value.map(replaceVariableRefsWithDefaults)
+  }
+  if (value !== null && typeof value === "object") {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = replaceVariableRefsWithDefaults(v)
+    }
+    return out
+  }
+  return value
+}
 
 export type TransformationFooterActionMode =
   | "fullySynced"
@@ -91,6 +137,7 @@ export function getTransformationFooterActionsConfig(input: {
   hasAppliedInSession: boolean
   templateStorageWriteBlocked: boolean
   hasUnsyncedChanges: boolean
+  hasInvalidDefaultValues?: boolean
 }): {
   mode: TransformationFooterActionMode
   primary: { label: string; disabled: boolean }
@@ -103,6 +150,7 @@ export function getTransformationFooterActionsConfig(input: {
     hasAppliedInSession,
     templateStorageWriteBlocked,
     hasUnsyncedChanges,
+    hasInvalidDefaultValues = false,
   } = input
 
   const fullySynced = !isDirty && !hasUnsyncedChanges && syncStatus === "saved"
@@ -120,7 +168,7 @@ export function getTransformationFooterActionsConfig(input: {
 
   const showApplyFlow = !hasAppliedInSession || isDirty
   if (showApplyFlow) {
-    const canApply = isDirty
+    const canApply = isDirty && !hasInvalidDefaultValues
     const primaryDisabled = !canApply
     return {
       mode: "applyFlow",
@@ -147,6 +195,7 @@ export const TransformationConfigSidebar: React.FC = () => {
   const {
     transformations,
     addTransformation,
+    addChildTransformation,
     updateTransformation,
     imageList,
     focusObjects,
@@ -154,6 +203,7 @@ export const TransformationConfigSidebar: React.FC = () => {
     _internalState,
     _setTransformationToEdit,
     _setSelectedTransformationKey,
+    _setParentForChild,
     setTransformationConfigFormDirty,
   } = useEditorStore()
   const syncStatus = useEditorStore((s) => s.syncStatus)
@@ -185,9 +235,9 @@ export const TransformationConfigSidebar: React.FC = () => {
 
   const editedTransformation = useMemo(() => {
     if (!transformationToEdit) return undefined
-    return transformations.find(
-      (transformation) =>
-        transformation.id === transformationToEdit.transformationId,
+    return findTransformationDeep(
+      transformations,
+      transformationToEdit.transformationId,
     )
   }, [transformations, transformationToEdit])
 
@@ -204,40 +254,124 @@ export const TransformationConfigSidebar: React.FC = () => {
     | Record<string, unknown>
     | undefined
 
+  // ── Variables (canvas mode only) ─────────────────────────────────────────
+  // The marker `{ $var, label }` is the source of truth and lives
+  // inside the persisted transformation value. While the user is editing in
+  // the sidebar we keep two parallel mirrors:
+  //   - RHF holds the resolved default for each variabilized field, so Zod
+  //     validation passes and the live editor preview keeps rendering with
+  //     real values;
+  //   - `boundFields` holds the marker, indexed by field name, so on Apply
+  //     we can overlay markers back onto `data` before persistence.
+  // This split avoids two earlier failure modes: Zod rejecting non-scalar
+  // values, and the dirty flag not flipping on bind/unbind alone.
+  const editorMode = useEditorStore((s) => s.mode)
+  const isCanvasMode = editorMode === "canvas"
+  const allTransformations = useEditorStore((s) => s.transformations)
+  const onPickImage = useEditorStore((s) => s.onPickImage)
+  const allTakenVariableNames = useMemo(
+    () => listVariables(allTransformations).map((v) => v.name),
+    [allTransformations],
+  )
+
+  const initialBoundFields = useMemo(() => {
+    const out: Record<string, VariableRef> = {}
+    if (!editedTransformationValue) return out
+
+    // Walk the entire value tree to find all VariableRefs at any depth
+    walkVariableRefs(editedTransformationValue, (ref, path) => {
+      const key = pathToKey(path)
+      out[key] = ref
+    })
+
+    return out
+  }, [editedTransformationValue])
+
+  const [boundFields, setBoundFields] =
+    useState<Record<string, VariableRef>>(initialBoundFields)
+  // Flips when the user binds, unbinds, or renames a variable. RHF's own
+  // `isDirty` only reflects field-value diffs; binding can leave the
+  // resolved default identical to RHF's seed value, so we need a separate
+  // signal to enable Apply.
+  const [bindingDirty, setBindingDirty] = useState(false)
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset when switching transformations / edit targets
+  useEffect(() => {
+    setBoundFields(initialBoundFields)
+    setBindingDirty(false)
+  }, [initialBoundFields, footerSessionResetKey])
+
   const defaultValues = useMemo(() => {
-    if (
-      transformationToEdit &&
-      selectedTransformation &&
-      transformationToEdit.position === "inplace"
-    ) {
-      const currentValues: Record<string, unknown> = {}
+    if (!selectedTransformation) return {}
 
-      selectedTransformation.transformations.forEach((field) => {
-        if (
-          editedTransformationValue &&
-          field.name in editedTransformationValue
-        ) {
-          currentValues[field.name] = editedTransformationValue[field.name]
-        } else {
-          currentValues[field.name] = field.fieldProps?.defaultValue ?? ""
-        }
-      })
+    // Seed defaults in field declaration order so cross-field `isVisible`
+    // checks (e.g. `dpr` depends on `width`/`height`/`dprEnabled`) see the
+    // values seeded earlier in the same pass. Fields whose `isVisible`
+    // returns false against the accumulated seed are left `undefined` —
+    // their `.optional()` Zod schemas accept that, and cross-field
+    // `superRefine` rules (e.g. "DPR can only be used when width or height
+    // is specified") don't fire on undefined values. Without this, hidden
+    // fields with truthy defaults (`dpr: 1`) would block Apply even though
+    // the user never saw them.
+    const isInplace =
+      transformationToEdit?.position === "inplace" &&
+      !!editedTransformationValue
+    const acc: Record<string, unknown> = {}
 
-      return currentValues
-    } else if (selectedTransformation) {
-      return selectedTransformation.transformations.reduce(
-        (acc, field) => {
-          acc[field.name] = field.fieldProps?.defaultValue ?? ""
-          return acc
-        },
-        {} as Record<string, unknown>,
-      )
+    for (const field of selectedTransformation.transformations) {
+      // Stored value (inplace edit) always wins, even if the field would
+      // currently be hidden — we don't want to silently drop user data.
+      if (
+        isInplace &&
+        editedTransformationValue &&
+        field.name in editedTransformationValue
+      ) {
+        const stored = editedTransformationValue[field.name]
+        // Replace all VariableRefs (including nested ones) with their defaultValue
+        // so the form and Zod validator have something to work with.
+        acc[field.name] = replaceVariableRefsWithDefaults(stored)
+        continue
+      }
+
+      if (field.isVisible && !field.isVisible(acc)) {
+        // Hidden field: leave undefined so cross-field refines don't fire.
+        continue
+      }
+
+      acc[field.name] = field.fieldProps?.defaultValue ?? ""
     }
-    return {}
+
+    return acc
   }, [transformationToEdit, selectedTransformation, editedTransformationValue])
 
+  // Variable-bound fields are not edited via the normal input — the user
+  // sees a chip and the form holds a placeholder seed (e.g. "" for a hex
+  // color, default for a slider). Per-field Zod errors on those fields
+  // would block Apply for values the user can't directly fix. Strip
+  // errors keyed by a bound field name; cross-field refines on the same
+  // object are unaffected (they ran against the seed, which is the same
+  // as it would be without binding).
+  const resolver = useMemo(() => {
+    const baseResolver = zodResolver(
+      selectedTransformation?.schema ?? z.object({}),
+    )
+    return async (
+      values: Record<string, unknown>,
+      context: unknown,
+      options: Parameters<typeof baseResolver>[2],
+    ) => {
+      const result = await baseResolver(values, context, options)
+      const boundNames = Object.keys(boundFields)
+      if (boundNames.length === 0 || !result.errors) return result
+      const filtered: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(result.errors)) {
+        if (!boundNames.includes(k)) filtered[k] = v
+      }
+      return { ...result, errors: filtered }
+    }
+  }, [selectedTransformation, boundFields])
+
   const {
-    register,
     handleSubmit,
     formState: { errors, isDirty },
     reset,
@@ -246,7 +380,7 @@ export const TransformationConfigSidebar: React.FC = () => {
     control,
     trigger,
   } = useForm<Record<string, unknown>>({
-    resolver: zodResolver(selectedTransformation?.schema ?? z.object({})),
+    resolver,
     defaultValues: defaultValues,
   })
 
@@ -268,6 +402,247 @@ export const TransformationConfigSidebar: React.FC = () => {
 
   const values = watch()
 
+  const focusObjectOptions = useMemo(
+    () =>
+      (focusObjects || DEFAULT_FOCUS_OBJECTS).map((obj) => ({
+        value: obj,
+        label: startCase(obj),
+      })),
+    [focusObjects],
+  )
+
+  // Cache stable onChange handlers per field to prevent infinite loops
+  // in TransformationFieldRenderer (ColorPicker/GradientPicker are sensitive to identity)
+  const onChangeHandlers = useRef<Map<string, (value: unknown) => void>>(
+    new Map(),
+  )
+  const nestedVariableHandlers = useRef<{
+    onCreate: Map<
+      string,
+      (
+        path: string[],
+        variable: { name: string; label: string; description?: string },
+      ) => void
+    >
+    onUpdate: Map<
+      string,
+      (
+        path: string[],
+        updates: { label?: string; description?: string },
+      ) => void
+    >
+    onUnbind: Map<string, (path: string[]) => void>
+    onChange: Map<string, (path: string[], value: unknown) => void>
+  }>({
+    onCreate: new Map(),
+    onUpdate: new Map(),
+    onUnbind: new Map(),
+    onChange: new Map(),
+  })
+
+  const getOnChangeHandler = useCallback((fieldName: string) => {
+    if (!onChangeHandlers.current.has(fieldName)) {
+      onChangeHandlers.current.set(fieldName, (value: unknown) => {
+        setBoundFields((prev) => ({
+          ...prev,
+          [fieldName]: {
+            ...prev[fieldName],
+            defaultValue: value,
+          },
+        }))
+        setBindingDirty(true)
+      })
+    }
+    return onChangeHandlers.current.get(fieldName) as (value: unknown) => void
+  }, [])
+
+  const handleVariableRename = useCallback(
+    (fieldName: string, updates: { label?: string; description?: string }) => {
+      setBoundFields((prev) => ({
+        ...prev,
+        [fieldName]: { ...prev[fieldName], ...updates },
+      }))
+      setBindingDirty(true)
+    },
+    [],
+  )
+
+  const handleVariableUnbind = useCallback((fieldName: string) => {
+    setBoundFields((prev) => {
+      const next = { ...prev }
+      delete next[fieldName]
+      return next
+    })
+    setBindingDirty(true)
+  }, [])
+
+  // Stable handlers for nested variables (e.g., gradient from/to colors)
+  const handleCreateNestedVariable = useCallback(
+    (
+      fieldName: string,
+      path: string[],
+      variable: { name: string; label: string; description?: string },
+    ) => {
+      const currentValue = getNestedValue(
+        values[fieldName] as Record<string, unknown>,
+        path,
+      )
+      const fullPath = [fieldName, ...path].join(".")
+      setBoundFields((prev) => ({
+        ...prev,
+        [fullPath]: {
+          $var: variable.name,
+          label: variable.label,
+          defaultValue: currentValue ?? "",
+          ...(variable.description && { description: variable.description }),
+        },
+      }))
+      setBindingDirty(true)
+    },
+    [values],
+  )
+
+  const handleUpdateNestedVariable = useCallback(
+    (
+      fieldName: string,
+      path: string[],
+      updates: { label?: string; description?: string },
+    ) => {
+      const fullPath = [fieldName, ...path].join(".")
+      setBoundFields((prev) => ({
+        ...prev,
+        [fullPath]: { ...prev[fullPath], ...updates },
+      }))
+      setBindingDirty(true)
+    },
+    [],
+  )
+
+  const handleUnbindNestedVariable = useCallback(
+    (fieldName: string, path: string[]) => {
+      const fullPath = [fieldName, ...path].join(".")
+      setBoundFields((prev) => {
+        const next = { ...prev }
+        delete next[fullPath]
+        return next
+      })
+      setBindingDirty(true)
+    },
+    [],
+  )
+
+  const handleChangeNestedVariableDefault = useCallback(
+    (fieldName: string, path: string[], value: unknown) => {
+      const fullPath = [fieldName, ...path].join(".")
+      setBoundFields((prev) => ({
+        ...prev,
+        [fullPath]: {
+          ...prev[fullPath],
+          defaultValue: value,
+        },
+      }))
+      setBindingDirty(true)
+    },
+    [],
+  )
+
+  // Pre-compute nested variable bindings per top-level field. Returning a
+  // memoized record (rather than recomputing on each call) keeps the
+  // `nestedVariables` prop reference stable across renders, which is
+  // critical for child components like ColorPicker / GradientPicker whose
+  // internal effects react to prop identity.
+  const nestedVariablesByField = useMemo(() => {
+    const out: Record<string, Record<string, VariableRef>> = {}
+    for (const [key, ref] of Object.entries(boundFields)) {
+      const dotIndex = key.indexOf(".")
+      if (dotIndex === -1) continue
+      const fieldName = key.slice(0, dotIndex)
+      const nestedPath = key.slice(dotIndex + 1)
+      if (!out[fieldName]) out[fieldName] = {}
+      out[fieldName][nestedPath] = ref
+    }
+    return out
+  }, [boundFields])
+
+  const EMPTY_NESTED: Record<string, VariableRef> = useMemo(() => ({}), [])
+
+  const getNestedVariables = useCallback(
+    (fieldName: string): Record<string, VariableRef> =>
+      nestedVariablesByField[fieldName] ?? EMPTY_NESTED,
+    [nestedVariablesByField, EMPTY_NESTED],
+  )
+
+  // Get cached nested variable handlers per field
+  const getNestedVariableHandlers = useCallback(
+    (fieldName: string) => {
+      // onCreate handler
+      if (!nestedVariableHandlers.current.onCreate.has(fieldName)) {
+        nestedVariableHandlers.current.onCreate.set(
+          fieldName,
+          (path, variable) => {
+            handleCreateNestedVariable(fieldName, path, variable)
+          },
+        )
+      }
+
+      // onUpdate handler
+      if (!nestedVariableHandlers.current.onUpdate.has(fieldName)) {
+        nestedVariableHandlers.current.onUpdate.set(
+          fieldName,
+          (path, updates) => {
+            handleUpdateNestedVariable(fieldName, path, updates)
+          },
+        )
+      }
+
+      // onUnbind handler
+      if (!nestedVariableHandlers.current.onUnbind.has(fieldName)) {
+        nestedVariableHandlers.current.onUnbind.set(fieldName, (path) => {
+          handleUnbindNestedVariable(fieldName, path)
+        })
+      }
+
+      // onChange handler
+      if (!nestedVariableHandlers.current.onChange.has(fieldName)) {
+        nestedVariableHandlers.current.onChange.set(
+          fieldName,
+          (path, value) => {
+            handleChangeNestedVariableDefault(fieldName, path, value)
+          },
+        )
+      }
+
+      return {
+        onCreate: nestedVariableHandlers.current.onCreate.get(
+          fieldName,
+        ) as NonNullable<
+          ReturnType<typeof nestedVariableHandlers.current.onCreate.get>
+        >,
+        onUpdate: nestedVariableHandlers.current.onUpdate.get(
+          fieldName,
+        ) as NonNullable<
+          ReturnType<typeof nestedVariableHandlers.current.onUpdate.get>
+        >,
+        onUnbind: nestedVariableHandlers.current.onUnbind.get(
+          fieldName,
+        ) as NonNullable<
+          ReturnType<typeof nestedVariableHandlers.current.onUnbind.get>
+        >,
+        onChange: nestedVariableHandlers.current.onChange.get(
+          fieldName,
+        ) as NonNullable<
+          ReturnType<typeof nestedVariableHandlers.current.onChange.get>
+        >,
+      }
+    },
+    [
+      handleCreateNestedVariable,
+      handleUpdateNestedVariable,
+      handleUnbindNestedVariable,
+      handleChangeNestedVariableDefault,
+    ],
+  )
+
   const onClose = useCallback(() => {
     if (transformations.length === 0) {
       _setSidebarState("type")
@@ -276,11 +651,15 @@ export const TransformationConfigSidebar: React.FC = () => {
     }
     _setSelectedTransformationKey(null)
     _setTransformationToEdit(null)
+    // Cancel any in-flight child-add: prevents the next root-level "Add"
+    // from being silently re-routed into the previously-targeted parent.
+    _setParentForChild(null)
   }, [
     transformations.length,
     _setSidebarState,
     _setSelectedTransformationKey,
     _setTransformationToEdit,
+    _setParentForChild,
   ])
 
   const onBack = () => {
@@ -329,11 +708,20 @@ export const TransformationConfigSidebar: React.FC = () => {
           }
         }
 
+        // Overlay variable markers onto the form data so the persisted
+        // value carries the marker rather than the placeholder seeded into
+        // RHF for the (hidden) input.
+        const persistedData: Record<string, unknown> = { ...data }
+        for (const [pathKey, ref] of Object.entries(boundFields)) {
+          const path = pathKey.split(".")
+          setNestedValue(persistedData, path, ref)
+        }
+
         updateTransformation(transformationToEdit.transformationId, {
           type: "transformation",
           name: finalName,
           key: selectedTransformation.key,
-          value: data,
+          value: persistedData,
         })
       } else if (
         transformationToEdit &&
@@ -345,38 +733,70 @@ export const TransformationConfigSidebar: React.FC = () => {
             transformation.id === transformationToEdit.targetId,
         )
 
+        const persistedData: Record<string, unknown> = { ...data }
+        for (const [pathKey, ref] of Object.entries(boundFields)) {
+          const path = pathKey.split(".")
+          setNestedValue(persistedData, path, ref)
+        }
+
         const transformationId = addTransformation(
           {
             type: "transformation",
             name: displayName,
             key: selectedTransformation.key,
-            value: data,
+            value: persistedData,
           },
           index + (transformationToEdit.position === "above" ? 0 : 1),
         )
 
         _setTransformationToEdit(transformationId, "inplace")
       } else {
-        const transformationId = addTransformation({
-          type: "transformation",
-          name: displayName,
-          key: selectedTransformation.key,
-          value: data,
-        })
+        const persistedData: Record<string, unknown> = { ...data }
+        for (const [pathKey, ref] of Object.entries(boundFields)) {
+          const path = pathKey.split(".")
+          setNestedValue(persistedData, path, ref)
+        }
+        // If a parent layer is in scope (the user clicked the "+" on a layer
+        // row), append the new step as a nested child rather than as a new
+        // top-level transformation. The parent context is one-shot — we
+        // clear it after the addition completes so subsequent root-level
+        // additions behave normally.
+        const parentId = _internalState.parentForChild
+        const transformationId = parentId
+          ? addChildTransformation(parentId, {
+              type: "transformation",
+              name: displayName,
+              key: selectedTransformation.key,
+              value: persistedData,
+            })
+          : addTransformation({
+              type: "transformation",
+              name: displayName,
+              key: selectedTransformation.key,
+              value: persistedData,
+            })
+        if (parentId) {
+          _setParentForChild(null)
+        }
 
         _setTransformationToEdit(transformationId, "inplace")
       }
 
       setHasAppliedInSession(true)
+      setBindingDirty(false)
     },
     [
       _internalState.transformationToEdit,
+      _internalState.parentForChild,
       addTransformation,
+      addChildTransformation,
       editedTransformation,
       selectedTransformation,
       transformations,
       updateTransformation,
       _setTransformationToEdit,
+      _setParentForChild,
+      boundFields,
     ],
   )
 
@@ -392,23 +812,40 @@ export const TransformationConfigSidebar: React.FC = () => {
     [onApply, onClose],
   )
 
-  const footerActionsConfig = useMemo(
-    () =>
-      getTransformationFooterActionsConfig({
-        isDirty,
-        syncStatus,
-        hasAppliedInSession,
-        templateStorageWriteBlocked,
-        hasUnsyncedChanges,
-      }),
-    [
-      isDirty,
+  // Helper to check if a variable's default value is invalid
+  const isDefaultValueInvalid = useCallback((ref: VariableRef) => {
+    const defaultVal = ref.defaultValue
+    return (
+      defaultVal === undefined ||
+      defaultVal === null ||
+      (typeof defaultVal === "string" && defaultVal.trim() === "")
+    )
+  }, [])
+
+  const footerActionsConfig = useMemo(() => {
+    // Validate that all bound fields have non-empty defaultValues
+    const hasInvalidDefaultValues = Object.values(boundFields).some(
+      isDefaultValueInvalid,
+    )
+
+    return getTransformationFooterActionsConfig({
+      isDirty: isDirty || bindingDirty,
       syncStatus,
       hasAppliedInSession,
       templateStorageWriteBlocked,
       hasUnsyncedChanges,
-    ],
-  )
+      hasInvalidDefaultValues,
+    })
+  }, [
+    isDirty,
+    bindingDirty,
+    syncStatus,
+    hasAppliedInSession,
+    templateStorageWriteBlocked,
+    hasUnsyncedChanges,
+    boundFields,
+    isDefaultValueInvalid,
+  ])
 
   const footerActions = useMemo(() => {
     const noop = () => {}
@@ -555,520 +992,192 @@ export const TransformationConfigSidebar: React.FC = () => {
             }
             return true
           })
-          .map((field: TransformationField) => (
-            <FormControl
-              key={field.name}
-              isInvalid={
-                !!errors[field.name] &&
-                !["gradient-picker", "padding-input"].some(
-                  (type) => field.fieldType === type,
-                )
-              }
-            >
-              <FormLabel htmlFor={field.name} fontSize="sm">
-                {field.label}
-              </FormLabel>
-              {field.fieldType === "select" ? (
-                <Controller
-                  name={field.name}
-                  control={control}
-                  render={({ field: controllerField }) => {
-                    // For focusObject field, use focusObjects from store or default list
-                    const selectOptions =
-                      field.name === "focusObject"
-                        ? (focusObjects || DEFAULT_FOCUS_OBJECTS).map(
-                            (obj) => ({
-                              value: obj,
-                              label: startCase(obj),
+          .map((field: TransformationField) => {
+            const boundVariable = boundFields[field.name]
+            const showMakeVariable =
+              isCanvasMode && !boundVariable && isVariablizableField(field)
+            const hasInvalidDefaultValue = Boolean(
+              boundVariable && isDefaultValueInvalid(boundVariable),
+            )
+            return (
+              <FormControl
+                key={field.name}
+                isInvalid={
+                  (!!errors[field.name] &&
+                    !["gradient-picker", "padding-input"].some(
+                      (type) => field.fieldType === type,
+                    )) ||
+                  hasInvalidDefaultValue
+                }
+              >
+                <Flex align="center" justify="space-between" mb="1">
+                  <FormLabel htmlFor={field.name} fontSize="sm" mb="0">
+                    {field.label}
+                  </FormLabel>
+                  {showMakeVariable && (
+                    <MakeVariableButton
+                      fieldLabel={field.label}
+                      takenNames={allTakenVariableNames}
+                      onCreate={(variable) => {
+                        // Capture the current field value as the default
+                        const currentValue = values[field.name]
+                        setBoundFields((prev) => ({
+                          ...prev,
+                          [field.name]: {
+                            $var: variable.name,
+                            label: variable.label,
+                            defaultValue:
+                              currentValue ??
+                              field.fieldProps?.defaultValue ??
+                              "",
+                            ...(variable.description && {
+                              description: variable.description,
                             }),
-                          )
-                        : field.fieldProps?.options?.map((option) => ({
-                            value: option.value,
-                            label: option.label,
-                          }))
-
-                    const isCreatable = field.fieldProps?.isCreatable === true
-                    const isClearable: boolean =
-                      field.fieldProps?.isClearable ?? false
-
-                    // For creatable selects, find the value in options or create a custom one
-                    const selectedValue = isCreatable
-                      ? selectOptions?.find(
-                          (option) => option.value === controllerField.value,
-                        ) ||
-                        (controllerField.value
-                          ? {
-                              value: controllerField.value as string,
-                              label: startCase(controllerField.value as string),
-                            }
-                          : null)
-                      : selectOptions?.find(
-                          (option) => option.value === controllerField.value,
-                        )
-
-                    return isCreatable ? (
-                      <CreateableSelect
-                        id={field.name}
-                        formatCreateLabel={(inputValue: string) =>
-                          `Use "${inputValue}"`
-                        }
-                        isClearable={isClearable}
-                        placeholder="Select"
-                        menuPlacement="auto"
-                        options={selectOptions}
-                        value={selectedValue}
-                        onChange={(selectedOption) =>
-                          controllerField.onChange(selectedOption?.value)
-                        }
-                        onBlur={controllerField.onBlur}
-                        styles={{
-                          control: (base) => ({
-                            ...base,
-                            fontSize: "12px",
-                            minHeight: "32px",
-                            borderColor: "#E2E8F0",
-                          }),
-                          menu: (base) => ({
-                            ...base,
-                            zIndex: 10,
-                          }),
-                          option: (base) => ({
-                            ...base,
-                            fontSize: "12px",
-                          }),
-                        }}
-                      />
-                    ) : (
-                      <Select
-                        id={field.name}
-                        isClearable={isClearable}
-                        placeholder="Select"
-                        menuPlacement="auto"
-                        options={selectOptions}
-                        value={selectedValue}
-                        onChange={(selectedOption) =>
-                          controllerField.onChange(selectedOption?.value)
-                        }
-                        onBlur={controllerField.onBlur}
-                        styles={{
-                          control: (base) => ({
-                            ...base,
-                            fontSize: "12px",
-                            minHeight: "32px",
-                            borderColor: "#E2E8F0",
-                          }),
-                          menu: (base) => ({
-                            ...base,
-                            zIndex: 10,
-                          }),
-                          option: (base) => ({
-                            ...base,
-                            fontSize: "12px",
-                          }),
-                        }}
-                      />
-                    )
-                  }}
-                />
-              ) : null}
-              {field.fieldType === "select-creatable" ? (
-                <Controller
-                  name={field.name}
-                  control={control}
-                  render={({ field: controllerField }) => (
-                    <CreateableSelect
-                      id={field.name}
-                      placeholder="Select"
-                      menuPlacement="auto"
-                      options={field.fieldProps?.options?.map((option) => ({
-                        value: option.value,
-                        label: option.label,
-                      }))}
-                      value={field.fieldProps?.options?.find(
-                        (option) => option.value === controllerField.value,
-                      )}
-                      onChange={(selectedOption) =>
-                        controllerField.onChange(selectedOption?.value)
-                      }
-                      onBlur={controllerField.onBlur}
-                      styles={{
-                        control: (base) => ({
-                          ...base,
-                          fontSize: "12px",
-                          minHeight: "32px",
-                          borderColor: "#E2E8F0",
-                        }),
-                        menu: (base) => ({
-                          ...base,
-                          zIndex: 10,
-                        }),
-                        option: (base) => ({
-                          ...base,
-                          fontSize: "12px",
-                        }),
+                          },
+                        }))
+                        setBindingDirty(true)
+                        // Touching the form value forces RHF to refresh its
+                        // dependents (preview, isDirty subscribers).
+                        setDirtyValue(field.name, values[field.name])
                       }}
                     />
                   )}
-                />
-              ) : null}
-              {field.fieldType === "input" ? (
-                <Input
-                  id={field.name}
-                  fontSize="sm"
-                  {...register(field.name)}
-                  {...(field.fieldProps ?? {})}
-                  defaultValue={
-                    field.fieldProps?.defaultValue as
-                      | string
-                      | number
-                      | readonly string[]
-                      | undefined
-                  }
-                  disabled={
-                    // Disable aspect ratio when both width and height are set
-                    selectedTransformation.key ===
-                      "resize_and_crop-resize_and_crop" &&
-                    field.name === "aspectRatio" &&
-                    !!values.width &&
-                    !!values.height
-                  }
-                />
-              ) : null}
-              {field.fieldType === "textarea" ? (
-                <Textarea
-                  id={field.name}
-                  fontSize="sm"
-                  {...register(field.name)}
-                />
-              ) : null}
-              {field.fieldType === "switch" ? (
-                <Switch
-                  id={field.name}
-                  fontSize="sm"
-                  isChecked={watch(field.name) === true}
-                  {...register(field.name)}
-                />
-              ) : null}
-              {field.fieldType === "slider" ? (
-                <Box pt={2} pb={2}>
-                  <Flex justify="space-between" mb={1}>
-                    <Input
-                      id={`${field.name}-input`}
-                      type={
-                        field.fieldProps?.inputType ||
-                        field.fieldProps?.autoOption
-                          ? "text"
-                          : "number"
-                      }
-                      fontSize="sm"
-                      width="80px"
-                      value={(watch(field.name) as string) ?? ""}
-                      defaultValue={field.fieldProps?.defaultValue as number}
-                      onBlur={() => {
-                        const raw = watch(field.name)
-                        const n = Number(
-                          String(raw).toUpperCase().replace(/^N/, "-"),
-                        )
-                        const isNumberWithN =
-                          typeof raw === "string" &&
-                          !Number.isNaN(n) &&
-                          raw.toUpperCase().startsWith("N")
-                        if (!Number.isFinite(n)) return
-
-                        const { step, min, max, skipStepCheck } =
-                          field.fieldProps ?? {}
-                        let v = n
-
-                        if (min !== undefined) v = Math.max(v, min)
-                        if (max !== undefined) v = Math.min(v, max)
-                        if (!skipStepCheck && step) {
-                          v = Math.round(v / step) * step
-                          const dp = (String(step).split(".")[1] || "").length
-                          v = Number(v.toFixed(dp))
-                        }
-                        const finalValue =
-                          v < 0 && isNumberWithN ? `N${Math.abs(v)}` : String(v)
-                        setValue(field.name, finalValue, {
-                          shouldDirty: true,
-                          shouldTouch: true,
-                        })
-                      }}
-                      onChange={(e) => {
-                        const val = e.target.value
-                        const numSafeVal = String(val)
-                          .toUpperCase()
-                          .replace(/^N/, "-")
-                        const isNumberWithN =
-                          typeof val === "string" &&
-                          !Number.isNaN(Number(numSafeVal)) &&
-                          val.toUpperCase().startsWith("N")
-
-                        if (val === "") {
-                          setValue(field.name, "", {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                          return
-                        }
-
-                        if (val === "-") {
-                          setValue(field.name, "-", {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                          return
-                        }
-
-                        if (
-                          field.fieldProps?.autoOption &&
-                          val.match(/au?t?o?/i)
-                        ) {
-                          setValue(field.name, "auto", {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                        } else if (
-                          !field.fieldProps?.skipStepCheck &&
-                          field.fieldProps?.step &&
-                          !isStepAligned(val, field.fieldProps?.step)
-                        ) {
-                          return
-                        } else if (
-                          field.fieldProps?.min !== undefined &&
-                          Number(numSafeVal) < field.fieldProps.min
-                        ) {
-                          const finalVal =
-                            field.fieldProps.min < 0 && isNumberWithN
-                              ? `N${Math.abs(field.fieldProps.min)}`
-                              : String(field.fieldProps.min)
-                          setValue(field.name, finalVal, {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                        } else if (
-                          field.fieldProps?.max !== undefined &&
-                          Number(numSafeVal) > field.fieldProps.max
-                        ) {
-                          setValue(field.name, field.fieldProps.max, {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                        } else {
-                          setValue(field.name, val, {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                        }
-                      }}
-                    />
-                    {field.fieldProps?.autoOption && (
-                      <Button
-                        size="sm"
-                        colorScheme={
-                          watch(field.name) === "auto" ? "blue" : "gray"
-                        }
-                        onClick={() =>
-                          setValue(field.name, "auto", {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          })
-                        }
-                      >
-                        Auto
-                      </Button>
-                    )}
-                  </Flex>
-                  <Slider
-                    id={field.name}
-                    min={field.fieldProps?.min || 0}
-                    max={field.fieldProps?.max || 100}
-                    step={field.fieldProps?.step || 1}
-                    value={
-                      Number.isNaN(
-                        Number(
-                          String(watch(field.name))
-                            .toUpperCase()
-                            .replace(/^N/, "-"),
-                        ),
-                      )
-                        ? 0
-                        : Number(
-                            String(watch(field.name))
-                              .toUpperCase()
-                              .replace(/^N/, "-"),
-                          )
+                </Flex>
+                {boundVariable ? (
+                  <Box
+                    borderWidth="1px"
+                    borderColor={
+                      hasInvalidDefaultValue ? "red.300" : "purple.200"
                     }
-                    defaultValue={field.fieldProps?.defaultValue as number}
-                    onChange={(val) =>
-                      setValue(field.name, val.toString(), {
-                        shouldDirty: true,
-                        shouldTouch: true,
-                      })
-                    }
-                    focusThumbOnChange={false}
+                    bg={hasInvalidDefaultValue ? "red.50" : "purple.50"}
+                    borderRadius="md"
+                    p="3"
+                    mb="2"
                   >
-                    <SliderTrack>
-                      <SliderFilledTrack />
-                    </SliderTrack>
-                    <SliderThumb borderColor="blue.500" border="1px" />
-                  </Slider>
-                </Box>
-              ) : null}
-              {field.fieldType === "color-picker" ? (
-                <ColorPickerField
-                  fieldName={field.name}
-                  value={watch(field.name) as string}
-                  setValue={
-                    setDirtyValue as unknown as (
-                      name: string,
-                      value: string,
-                    ) => void
-                  }
-                  fieldProps={field.fieldProps as ColorPickerProps}
-                  isClearable={field.fieldProps?.isClearable ?? false}
-                />
-              ) : null}
-              {field.fieldType === "gradient-picker" ? (
-                <GradientPicker
-                  fieldName={field.name}
-                  value={watch(field.name) as GradientPickerState}
-                  setValue={
-                    setDirtyValue as unknown as (
-                      name: string,
-                      value: GradientPickerState | string,
-                    ) => void
-                  }
-                  errors={errors}
-                />
-              ) : null}
-              {field.fieldType === "anchor" ? (
-                <AnchorField
-                  value={watch(field.name) as string}
-                  positions={field.fieldProps?.positions as string[]}
-                  onChange={(value) =>
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                  }
-                />
-              ) : null}
-              {field.fieldType === "radio-card" ? (
-                <RadioCardField
-                  value={watch(field.name) as string}
-                  options={field.fieldProps?.options ?? []}
-                  onChange={(value) =>
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                  }
-                  {...field.fieldProps}
-                />
-              ) : null}
-              {field.fieldType === "checkbox-card" ? (
-                <CheckboxCardField
-                  value={watch(field.name) as string[]}
-                  options={field.fieldProps?.options ?? []}
-                  onChange={(value) =>
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                  }
-                  {...field.fieldProps}
-                />
-              ) : null}
-              {field.fieldType === "padding-input" ? (
-                <PaddingInputField
-                  onChange={(value) => {
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                    trigger(field.name)
-                  }}
-                  errors={errors as PaddingErrors}
-                  name={field.name}
-                  {...field.fieldProps}
-                  value={watch(field.name) as Partial<PaddingState>}
-                />
-              ) : null}
-              {field.fieldType === "zoom" ? (
-                <ZoomInput
-                  value={watch(field.name) as number}
-                  onChange={(value) =>
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                  }
-                  defaultValue={
-                    typeof field.fieldProps?.defaultValue === "number"
-                      ? (field.fieldProps.defaultValue as number)
-                      : undefined
-                  }
-                />
-              ) : null}
-              {field.fieldType === "distort-perspective-input" ? (
-                <DistortPerspectiveInput
-                  onChange={(value) => {
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                    trigger(field.name)
-                  }}
-                  errors={errors as PerspectiveErrors}
-                  name={field.name}
-                  value={watch(field.name) as PerspectiveObject}
-                  {...field.fieldProps}
-                />
-              ) : null}
-              {field.fieldType === "radius-input" ? (
-                <RadiusInputField
-                  onChange={(value) => {
-                    setValue(field.name, value, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                    })
-                    trigger(field.name)
-                  }}
-                  errors={errors as RadiusErrors}
-                  name={field.name}
-                  value={watch(field.name) as Partial<RadiusState>}
-                  {...field.fieldProps}
-                />
-              ) : null}
-              <FormErrorMessage fontSize="sm">
-                {String(
-                  errors[field.name as keyof typeof errors]?.message ?? "",
+                    <BoundVariableChip
+                      variable={boundVariable}
+                      onRename={(updates) =>
+                        handleVariableRename(field.name, updates)
+                      }
+                      onUnbind={() => handleVariableUnbind(field.name)}
+                    />
+                    <Box mt="3">
+                      <FormLabel
+                        htmlFor={`${field.name}-default`}
+                        fontSize="sm"
+                        mb="1"
+                      >
+                        Default value
+                      </FormLabel>
+                      <TransformationFieldRenderer
+                        field={field}
+                        value={boundVariable.defaultValue}
+                        onChange={getOnChangeHandler(field.name)}
+                        onBlur={NOOP}
+                        errors={EMPTY_ERRORS}
+                        disabled={false}
+                        selectOptionsOverride={
+                          field.name === "focusObject"
+                            ? focusObjectOptions
+                            : undefined
+                        }
+                        onTrigger={NOOP}
+                        onPickImage={onPickImage}
+                        nestedVariables={getNestedVariables(field.name)}
+                      />
+                      {hasInvalidDefaultValue && (
+                        <FormErrorMessage fontSize="xs" mt="1">
+                          Default value is required
+                        </FormErrorMessage>
+                      )}
+                      {field.helpText && (
+                        <FormHelperText fontSize="xs" color="gray.600" mt="1">
+                          {field.helpText}
+                        </FormHelperText>
+                      )}
+                      {field.examples && (
+                        <FormHelperText fontSize="xs" color="gray.600">
+                          <b>Example</b>: {field.examples[0]}
+                        </FormHelperText>
+                      )}
+                    </Box>
+                  </Box>
+                ) : (
+                  <Controller
+                    name={field.name}
+                    control={control}
+                    render={({ field: controllerField }) => {
+                      const nestedHandlers = getNestedVariableHandlers(
+                        field.name,
+                      )
+                      return (
+                        <TransformationFieldRenderer
+                          field={field}
+                          value={controllerField.value}
+                          onChange={controllerField.onChange}
+                          onBlur={controllerField.onBlur}
+                          errors={errors}
+                          disabled={
+                            selectedTransformation.key ===
+                              "resize_and_crop-resize_and_crop" &&
+                            field.name === "aspectRatio" &&
+                            !!values.width &&
+                            !!values.height
+                          }
+                          selectOptionsOverride={
+                            field.name === "focusObject"
+                              ? focusObjectOptions
+                              : undefined
+                          }
+                          onTrigger={() => trigger(field.name)}
+                          onPickImage={onPickImage}
+                          nestedVariables={getNestedVariables(field.name)}
+                          onCreateNestedVariable={nestedHandlers.onCreate}
+                          onUpdateNestedVariable={nestedHandlers.onUpdate}
+                          onUnbindNestedVariable={nestedHandlers.onUnbind}
+                          onChangeNestedVariableDefault={
+                            nestedHandlers.onChange
+                          }
+                        />
+                      )
+                    }}
+                  />
                 )}
-              </FormErrorMessage>
-              {field.helpText && (
-                <FormHelperText fontSize="sm">
-                  {field.helpText}
-                  {/* Additional help text for aspect ratio when both dimensions are set */}
-                  {selectedTransformation.key ===
-                    "resize_and_crop-resize_and_crop" &&
-                    field.name === "aspectRatio" &&
-                    values.width &&
-                    values.height && (
-                      <Text as="span" color="orange.500" display="block" mt={1}>
-                        Note: Aspect ratio is ignored when both width and height
-                        are specified.
-                      </Text>
-                    )}
-                </FormHelperText>
-              )}
-              {field.examples && (
-                <FormHelperText fontSize="sm">
-                  <b>Example{field.examples.length > 1 ? "s" : ""}</b>:{" "}
-                  {field.examples.join(", ")}
-                </FormHelperText>
-              )}
-            </FormControl>
-          ))}
+                <FormErrorMessage fontSize="sm">
+                  {String(
+                    errors[field.name as keyof typeof errors]?.message ?? "",
+                  )}
+                </FormErrorMessage>
+                {field.helpText && (
+                  <FormHelperText fontSize="sm">
+                    {field.helpText}
+                    {/* Additional help text for aspect ratio when both dimensions are set */}
+                    {selectedTransformation.key ===
+                      "resize_and_crop-resize_and_crop" &&
+                      field.name === "aspectRatio" &&
+                      values.width &&
+                      values.height && (
+                        <Text
+                          as="span"
+                          color="orange.500"
+                          display="block"
+                          mt={1}
+                        >
+                          Note: Aspect ratio is ignored when both width and
+                          height are specified.
+                        </Text>
+                      )}
+                  </FormHelperText>
+                )}
+                {field.examples && (
+                  <FormHelperText fontSize="sm">
+                    <b>Example{field.examples.length > 1 ? "s" : ""}</b>:{" "}
+                    {field.examples.join(", ")}
+                  </FormHelperText>
+                )}
+              </FormControl>
+            )
+          })}
       </SidebarBody>
       {selectedTransformation?.warning && (
         <Alert status="warning" fontSize="sm" px="8" py="2">
