@@ -127,7 +127,11 @@ export function TemplateStatus() {
   let activeIcon: typeof IoMdCloudDone
   let activeColor: string
   let notifText: string | null = null
-  let isInteractive = false
+  // The icon is interactive whenever it's actually rendered. The only
+  // non-rendered state is `syncStatus === "saving"` (handled by the early
+  // return above), so once we reach this point the popover is always
+  // meaningful — don't lock users out during the notification window.
+  const isInteractive = true
   let iconAriaLabel:
     | "template-status-unsaved"
     | "template-status-saved"
@@ -165,13 +169,11 @@ export function TemplateStatus() {
     if (hasPendingLocalWork) {
       activeIcon = MdSync
       activeColor = "editorBattleshipGrey.500"
-      isInteractive = true
       iconAriaLabel = "template-status-unsaved"
     } else {
       if (lastSyncResult === null) return null
       activeIcon = lastSyncResult === "success" ? IoMdCloudDone : MdSyncProblem
       activeColor = lastSyncResult === "success" ? "green.500" : "yellow.600"
-      isInteractive = true
       iconAriaLabel =
         lastSyncResult === "success"
           ? "template-status-saved"
