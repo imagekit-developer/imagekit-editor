@@ -50,6 +50,18 @@ export const ZoomInput: React.FC<ZoomInputFieldProps> = ({
     (value ?? (defaultValue as number)).toString(),
   )
 
+  // Sync internal state when value prop changes externally
+  // (e.g. switching between transformations of the same type)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <only react to incoming value>
+  useEffect(() => {
+    if (value === undefined) return
+    setZoomValue((prev) => (prev === value ? prev : value))
+    setInputValue((prev) => {
+      const next = value.toString()
+      return prev === next ? prev : next
+    })
+  }, [value])
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: <causes re-render loop if added>
   useEffect(() => {
     onChange(zoomValue)

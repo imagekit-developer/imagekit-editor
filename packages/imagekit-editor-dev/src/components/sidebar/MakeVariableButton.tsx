@@ -19,7 +19,7 @@ import {
 import { PiBracketsCurly } from "@react-icons/all-files/pi/PiBracketsCurly"
 import { PiPencilSimple } from "@react-icons/all-files/pi/PiPencilSimple"
 import { PiX } from "@react-icons/all-files/pi/PiX"
-import { type FC, useCallback, useState } from "react"
+import { type FC, useCallback, useEffect, useState } from "react"
 import { generateVariableName } from "../../variables"
 
 /**
@@ -228,6 +228,14 @@ export const BoundVariableChip: FC<BoundVariableChipProps> = ({
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [label, setLabel] = useState(variable.label)
   const [description, setDescription] = useState(variable.description || "")
+
+  // Sync internal state when the bound variable changes externally
+  // (e.g. switching between transformations of the same type that share
+  // a field name and are both bound to a variable).
+  useEffect(() => {
+    setLabel(variable.label)
+    setDescription(variable.description || "")
+  }, [variable.label, variable.description])
 
   const handleSave = () => {
     const trimmedLabel = label.trim()

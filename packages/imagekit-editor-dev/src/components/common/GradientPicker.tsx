@@ -290,6 +290,18 @@ const GradientPickerField = ({
     setValue(fieldName, debouncedValue)
   }, [debouncedValue, fieldName, setValue])
 
+  // Sync internal state when value prop changes externally
+  // (e.g. switching between transformations of the same type)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <deep-compare via JSON.stringify>
+  useEffect(() => {
+    if (!value) return
+    setLocalValue((prev) =>
+      JSON.stringify(prev) === JSON.stringify(value) ? prev : value,
+    )
+    const nextGradient = getLinearGradientString(value)
+    setGradient((prev) => (prev === nextGradient ? prev : nextGradient))
+  }, [JSON.stringify(value), getLinearGradientString])
+
   const errorRed = useColorModeValue("red.500", "red.300")
 
   return (
