@@ -75,14 +75,12 @@ describe("TemplateStatus", () => {
   }
 
   function expectStartsSaved() {
-    // Let any initial notification settle so we're truly in the persistent icon state.
-    act(() => {
-      vi.advanceTimersByTime(3500)
-    })
     expect(screen.getByLabelText("template-status-saved")).toBeTruthy()
   }
 
   function expectStaysUnsavedAfterDelay(ms: number) {
+    // Status labels are persistent in the inline UI — advancing time must not
+    // cause the unsaved label to disappear (no transient toast/auto-fade).
     act(() => {
       vi.advanceTimersByTime(ms)
     })
@@ -90,7 +88,51 @@ describe("TemplateStatus", () => {
     expect(screen.queryByLabelText("template-status-saved")).toBeNull()
   }
 
-  it("shows unsaved local changes when there are unsynced edits even if syncStatus is saved", () => {
+  // ---------------------------------------------------------------------------
+  // UI contract tests
+  //
+  // The inline `TemplateStatus` has 6 user-visible states (see component JSDoc):
+  //   pristine-hidden, clean, unsaved, apply-first, error, saving.
+  // Each test below pins ONE state and asserts the visible affordances for it
+  // (Save button enablement + status label + aria-label). They intentionally
+  // drive the store directly so the assertions stay focused on the component's
+  // rendering contract, not on whatever upstream flow happened to dirty the
+  // store.
+  // ---------------------------------------------------------------------------
+
+  it("renders nothing in the pristine state with no pending work and no error", () => {
+    // Default store: isPristine=true, syncStatus="unsaved", versions equal.
+    // The component should bail out via its early return rather than show a
+    // perpetually-disabled Save button before the user has interacted.
+    const { container } = renderWithProvider()
+    expect(container.querySelector("button")).toBeNull()
+    expect(screen.queryByLabelText(/^template-status-/)).toBeNull()
+  })
+
+  it("clean state: Save is disabled with no status label", () => {
+    useEditorStore.setState({
+      isPristine: false,
+      syncStatus: "saved",
+      localChangeVersion: 1,
+      lastSyncedVersion: 1,
+      lastSavedAt: Date.now(),
+    } as unknown as Parameters<typeof useEditorStore.setState>[0])
+
+    renderWithProvider()
+
+    const saveBtn = screen.getByLabelText(
+      "template-status-saved",
+    ) as HTMLButtonElement
+    expect(saveBtn.tagName).toBe("BUTTON")
+    expect(saveBtn.hasAttribute("disabled")).toBe(true)
+    // No transient confirmation, no leftover labels in the slot.
+    expect(screen.queryByText("Unsaved local changes")).toBeNull()
+    expect(screen.queryByText(APPLY_CHANGES_BEFORE_SAVE_MESSAGE)).toBeNull()
+    expect(screen.queryByText(/save failed/i)).toBeNull()
+    expect(screen.queryByText("Access required")).toBeNull()
+  })
+
+  it("unsaved state (versions diverge): shows the unsaved label and enables Save", () => {
     useEditorStore.setState({
       isPristine: false,
       syncStatus: "saved",
@@ -100,11 +142,15 @@ describe("TemplateStatus", () => {
     } as unknown as Parameters<typeof useEditorStore.setState>[0])
 
     renderWithProvider()
+
     expect(screen.getByText("Unsaved local changes")).toBeTruthy()
-    expect(screen.getByLabelText("template-status-unsaved")).toBeTruthy()
+    const saveBtn = screen.getByLabelText(
+      "template-status-unsaved",
+    ) as HTMLButtonElement
+    expect(saveBtn.hasAttribute("disabled")).toBe(false)
   })
 
-  it("shows unsaved when transformation config form has unapplied edits even if versions are synced", () => {
+  it("apply-first state (RHF form dirty): shows the apply hint, hides the generic unsaved label, disables Save", () => {
     useEditorStore.setState({
       isPristine: true,
       syncStatus: "saved",
@@ -115,33 +161,118 @@ describe("TemplateStatus", () => {
     } as unknown as Parameters<typeof useEditorStore.setState>[0])
 
     renderWithProvider()
-    expect(screen.getByText("Unsaved local changes")).toBeTruthy()
-    expect(screen.getByLabelText("template-status-unsaved")).toBeTruthy()
-  })
 
-  it("disables Save in the status popover while transformation config has unapplied edits", () => {
-    useEditorStore.setState({
-      isPristine: true,
-      syncStatus: "saved",
-      localChangeVersion: 1,
-      lastSyncedVersion: 1,
-      transformationConfigFormDirty: true,
-      lastSavedAt: Date.now(),
-    } as unknown as Parameters<typeof useEditorStore.setState>[0])
-
-    renderWithProvider()
-    act(() => {
-      vi.advanceTimersByTime(3500)
-    })
-    fireEvent.click(screen.getByLabelText("template-status-unsaved"))
+    // The apply-first hint takes precedence over the generic unsaved label
+    // because it tells the user the actionable next step (Apply, then Save).
     expect(screen.getByText(APPLY_CHANGES_BEFORE_SAVE_MESSAGE)).toBeTruthy()
-    expect(
-      screen.getByRole("button", { name: /^save$/i }).hasAttribute("disabled"),
-    ).toBe(true)
+    expect(screen.queryByText("Unsaved local changes")).toBeNull()
+
+    const saveBtn = screen.getByLabelText(
+      "template-status-unsaved",
+    ) as HTMLButtonElement
+    expect(saveBtn.hasAttribute("disabled")).toBe(true)
   })
 
-  it("does not show the saved text while unsynced changes exist", () => {
+  it("error state (permission denied): shows 'Access required' and keeps Save disabled", () => {
     useEditorStore.setState({
+      isPristine: false,
+      syncStatus: "saved",
+      localChangeVersion: 1,
+      lastSyncedVersion: 1,
+      lastSavedAt: Date.now(),
+    } as unknown as Parameters<typeof useEditorStore.setState>[0])
+    renderWithProvider()
+
+    act(() => {
+      useEditorStore.setState({
+        templateStorageWriteBlocked: true,
+        storageError: "You no longer have access to this template.",
+      } as unknown as Parameters<typeof useEditorStore.setState>[0])
+      useEditorStore
+        .getState()
+        .setSyncStatus("error", "You no longer have access to this template.")
+    })
+
+    expect(screen.getByText("Access required")).toBeTruthy()
+    // The permission-denied case must NOT use the generic wording.
+    expect(screen.queryByText("Save failed")).toBeNull()
+
+    const saveBtn = screen.getByLabelText(
+      "template-status-error",
+    ) as HTMLButtonElement
+    expect(saveBtn.hasAttribute("disabled")).toBe(true)
+
+    // The label is persistent (no auto-fade): it must remain after a long
+    // delay that would have expired the previous popover-era 3s notification.
+    act(() => {
+      vi.advanceTimersByTime(10_000)
+    })
+    expect(screen.getByText("Access required")).toBeTruthy()
+  })
+
+  it("error state (generic): shows 'Save failed' and leaves Save enabled so the user can retry", () => {
+    useEditorStore.setState({
+      isPristine: false,
+      syncStatus: "saved",
+      localChangeVersion: 1,
+      lastSyncedVersion: 1,
+      lastSavedAt: Date.now(),
+    } as unknown as Parameters<typeof useEditorStore.setState>[0])
+    renderWithProvider()
+
+    act(() => {
+      useEditorStore.getState().setSyncStatus("error", "network blew up")
+    })
+
+    expect(screen.getByText("Save failed")).toBeTruthy()
+    expect(screen.queryByText("Access required")).toBeNull()
+
+    const saveBtn = screen.getByLabelText(
+      "template-status-error",
+    ) as HTMLButtonElement
+    // No write block + no in-flight save + error state ⇒ retry is allowed.
+    expect(saveBtn.hasAttribute("disabled")).toBe(false)
+  })
+
+  it("saving state: button shows the loading indicator and is disabled", () => {
+    useEditorStore.setState({
+      isPristine: false,
+      syncStatus: "saving",
+      localChangeVersion: 2,
+      lastSyncedVersion: 1,
+      lastSavedAt: Date.now(),
+    } as unknown as Parameters<typeof useEditorStore.setState>[0])
+
+    renderWithProvider()
+
+    // Chakra renders `loadingText` inside the button while `isLoading` is on.
+    expect(screen.getByText("Saving…")).toBeTruthy()
+    // The button is still queryable via the unsaved aria-label (hasPendingLocalWork
+    // is true because versions diverge); it must be disabled mid-flight to
+    // prevent double-saves.
+    const saveBtn = screen.getByLabelText(
+      "template-status-unsaved",
+    ) as HTMLButtonElement
+    expect(saveBtn.hasAttribute("disabled")).toBe(true)
+  })
+
+  it("clicking Save in the unsaved state invokes the storage provider's saveTemplate", async () => {
+    // biome-ignore lint/suspicious/noExplicitAny: test stub provider signature
+    const saveTemplate = vi.fn(async (r: any) => ({
+      id: "t1",
+      clientNumber: "c1",
+      isPrivate: true,
+      name: r.name ?? "n",
+      transformations: r.transformations ?? [],
+      isPinned: false,
+      createdBy: { userId: "u1", name: "U", email: "u@example.com" },
+      updatedBy: { userId: "u1", name: "U", email: "u@example.com" },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }))
+
+    useEditorStore.setState({
+      templateId: "t1",
       isPristine: false,
       syncStatus: "saved",
       localChangeVersion: 2,
@@ -149,10 +280,19 @@ describe("TemplateStatus", () => {
       lastSavedAt: Date.now(),
     } as unknown as Parameters<typeof useEditorStore.setState>[0])
 
-    renderWithProvider()
-    expect(screen.queryByText(/Saved to library/i)).toBeNull()
-    expect(screen.queryByLabelText("template-status-saved")).toBeNull()
-    expect(screen.getByLabelText("template-status-unsaved")).toBeTruthy()
+    renderWithProvider({ saveTemplate })
+
+    const saveBtn = screen.getByLabelText(
+      "template-status-unsaved",
+    ) as HTMLButtonElement
+    expect(saveBtn.hasAttribute("disabled")).toBe(false)
+
+    await act(async () => {
+      fireEvent.click(saveBtn)
+      await Promise.resolve()
+    })
+
+    expect(saveTemplate).toHaveBeenCalledTimes(1)
   })
 
   it("after Apply, stays unsynced until manual save or INTERVAL_SAVE_MS elapses", async () => {
@@ -197,15 +337,13 @@ describe("TemplateStatus", () => {
       } as any)
     })
 
-    // After the 3s notification fades, it must STILL be unsynced (not green).
-    act(() => {
-      vi.advanceTimersByTime(3500)
-    })
+    // Status label is persistent in the inline UI; it must stay unsynced over
+    // time (no transient toast that would have hidden it).
     expect(screen.getByLabelText("template-status-unsaved")).toBeTruthy()
     expect(screen.queryByLabelText("template-status-saved")).toBeNull()
 
     // No save should happen before the interval.
-    const remainingBeforeInterval = Math.max(0, INTERVAL_SAVE_MS - 3500 - 1)
+    const remainingBeforeInterval = Math.max(0, INTERVAL_SAVE_MS - 1)
     act(() => {
       vi.advanceTimersByTime(remainingBeforeInterval)
     })
@@ -320,10 +458,6 @@ describe("TemplateStatus", () => {
       </ChakraProvider>,
     )
 
-    // Let the initial "saved" notification settle.
-    act(() => {
-      vi.advanceTimersByTime(3500)
-    })
     expect(screen.getByLabelText("template-status-saved")).toBeTruthy()
 
     // Toggle the existing transformation switch (should dirty the RHF form).
@@ -397,10 +531,6 @@ describe("TemplateStatus", () => {
       </ChakraProvider>,
     )
 
-    // Let the initial "saved" notification settle.
-    act(() => {
-      vi.advanceTimersByTime(3500)
-    })
     expect(screen.getByLabelText("template-status-saved")).toBeTruthy()
 
     const opacityInput = document.getElementById(
@@ -478,9 +608,6 @@ describe("TemplateStatus", () => {
       </ChakraProvider>,
     )
 
-    act(() => {
-      vi.advanceTimersByTime(3500)
-    })
     expect(screen.getByLabelText("template-status-saved")).toBeTruthy()
 
     const colorInput = screen.getByPlaceholderText(
@@ -523,7 +650,7 @@ describe("TemplateStatus", () => {
     })
 
     expect(screen.getByLabelText("template-status-unsaved")).toBeTruthy()
-    // It must stay unsaved after the toast fades and over time (before auto-interval save).
+    // It must stay unsaved over time (before auto-interval save).
     expectStaysUnsavedAfterDelay(3500)
     expectStaysUnsavedAfterDelay(10_000)
   })
@@ -661,70 +788,5 @@ describe("TemplateStatus", () => {
     expect(screen.getByLabelText("template-status-unsaved")).toBeTruthy()
     expectStaysUnsavedAfterDelay(3500)
     expectStaysUnsavedAfterDelay(10_000)
-  })
-
-  it("shows a permission-specific error label when writes are blocked (401/403)", async () => {
-    useEditorStore.setState({
-      isPristine: false,
-      syncStatus: "saved",
-      localChangeVersion: 1,
-      lastSyncedVersion: 1,
-      lastSavedAt: Date.now(),
-    } as unknown as Parameters<typeof useEditorStore.setState>[0])
-
-    renderWithProvider()
-
-    act(() => {
-      useEditorStore.setState({
-        templateStorageWriteBlocked: true,
-        storageError: "You no longer have access to this template.",
-      } as unknown as Parameters<typeof useEditorStore.setState>[0])
-      useEditorStore
-        .getState()
-        .setSyncStatus("error", "You no longer have access to this template.")
-    })
-
-    expect(screen.getByText("Save failed")).toBeTruthy()
-    expect(screen.getByLabelText("template-status-error")).toBeTruthy()
-
-    // After the transient notification text disappears, the icon becomes interactive
-    // and hovering it should show the detailed popover contents.
-    act(() => {
-      vi.advanceTimersByTime(3500)
-    })
-    expect(screen.queryByText("Save failed")).toBeNull()
-
-    const errorIcon = screen.getByLabelText("template-status-error")
-    const popoverTrigger = errorIcon.closest(
-      '[aria-haspopup="dialog"]',
-    ) as HTMLElement | null
-    expect(popoverTrigger).toBeTruthy()
-
-    act(() => {
-      fireEvent.click(popoverTrigger as HTMLElement)
-    })
-
-    expect(await screen.findByText("Access required")).toBeTruthy()
-    expect(
-      screen.getByText(
-        "You don't have permission to save changes to this template.",
-      ),
-    ).toBeTruthy()
-  })
-
-  it("does not flash a saved success state on initial mount when no save has happened yet", () => {
-    // Initial template load paths set syncStatus="saved" even though no save completed in this session.
-    // In that case, we should not show the transient green success notification.
-    useEditorStore.setState({
-      isPristine: false,
-      syncStatus: "saved",
-      localChangeVersion: 1,
-      lastSyncedVersion: 1,
-      lastSavedAt: null,
-    } as unknown as Parameters<typeof useEditorStore.setState>[0])
-
-    renderWithProvider()
-    expect(screen.queryByText(/Saved to library/i)).toBeNull()
-    expect(screen.queryByLabelText("template-status-saved")).toBeNull()
   })
 })
